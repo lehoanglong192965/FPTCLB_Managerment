@@ -158,41 +158,41 @@ Hệ thống tích hợp **RAG Chatbot** sử dụng:
 
 ## 📅 Event Management
 
-* Tạo & quản lý sự kiện
-* Workflow phê duyệt:
+- Tạo & quản lý sự kiện
+- Workflow phê duyệt bởi ICPDP/Admin:
 
 ```text
 Draft → Pending → Approved → Reported → Closed
 ```
 
-* Upload báo cáo
-* Phân vai EventRole
+- Upload báo cáo sự kiện
+- Phân vai EventRole chuẩn hóa từ danh mục EventRole
 
 ---
 
 ## 📈 KPI & Leaderboard
 
-* Dashboard KPI
-* Member Performance
-* Club Ranking
-* Realtime Leaderboard
+- Dashboard KPI
+- Member Performance
+- Club Ranking
+- Realtime Leaderboard
 
 ---
 
 ## 🔔 Notification System
 
-* Push Notification realtime
-* WebSocket communication
-* Event Approval Notification
-* Recruitment Status Notification
+- Push Notification realtime
+- WebSocket communication
+- Event Approval Notification
+- Recruitment Status Notification
 
 ---
 
 ## 📚 Knowledge Archive
 
-* Lưu trữ tài liệu CLB
-* Quản lý bàn giao
-* Tra cứu thông minh
+- Lưu trữ tài liệu CLB
+- Quản lý bàn giao
+- Tra cứu thông minh
 
 ---
 
@@ -234,11 +234,11 @@ fcms-frontend/
 
 ## Thông tin Database
 
-* Microsoft SQL Server
-* Chuẩn hóa 3NF
-* 16 bảng dữ liệu
-* Hỗ trợ ACID Transaction
-* Hơn 50 Business Rules
+- Microsoft SQL Server
+- Chuẩn hóa 3NF
+- 23 bảng dữ liệu
+- Hỗ trợ ACID Transaction
+- Hơn 50 Business Rules
 
 ---
 
@@ -246,7 +246,7 @@ fcms-frontend/
 
 | MSSV     | Họ và Tên         | Vai trò                     |
 | -------- | ----------------- | --------------------------- |
-| SE192965 | Lê Hoàng Long     | Project Leader / Full-stack |
+| SE192965 | Lê Hoàng Long     | Project Leader / Back-end Developer |
 | SE190688 | Trần Văn An       | Back-end Developer          |
 | SE192984 | Phan Bảo Duy      | Back-end Developer          |
 | SE192612 | Nguyễn Văn Linh   | Front-end Developer         |
@@ -258,45 +258,45 @@ fcms-frontend/
 
 ## 🔹 Lê Hoàng Long
 
-* Thiết lập kiến trúc hệ thống
-* Google OAuth2 + JWT Security
-* Dynamic RBAC
-* Code Review & Git Management
+- Thiết lập kiến trúc hệ thống
+- Google OAuth2 + JWT Security
+- Dynamic RBAC
+- Code Review & Git Management
 
 ---
 
 ## 🔹 Trần Văn An
 
-* Thiết kế Database
-* Event Workflow APIs
-* KPI & Excel Export
+- Thiết kế Database
+- Event Workflow APIs
+- KPI & Excel Export
 
 ---
 
 ## 🔹 Phan Bảo Duy
 
-* Recruitment APIs
-* Member Control
-* Audit Log
-* SRS & Test Case
+- Recruitment APIs
+- Member Control
+- Audit Log
+- SRS & Test Case
 
 ---
 
 ## 🔹 Nguyễn Văn Linh
 
-* ReactJS Project Structure
-* Public Club Directory
-* Recruitment UI
-* Notification Dashboard
+- ReactJS Project Structure
+- Public Club Directory
+- Recruitment UI
+- Notification Dashboard
 
 ---
 
 ## 🔹 Đặng Minh Bình An
 
-* Event Management UI
-* AI Chatbot UI
-* KPI Dashboard
-* System Config UI
+- Event Management UI
+- AI Chatbot UI
+- KPI Dashboard
+- System Config UI
 
 ---
 
@@ -304,11 +304,11 @@ fcms-frontend/
 
 ## Ví dụ nghiệp vụ
 
-* Một sinh viên chỉ được ứng tuyển tối đa 4 CLB
-* Event phải được duyệt trước khi triển khai
-* Chỉ Leader/Admin mới được phê duyệt Event
-* RBAC thay đổi theo từng học kỳ
-* Blacklist member theo phạm vi CLB
+- Một sinh viên chỉ được ứng tuyển tối đa 4 CLB
+- Event phải được duyệt trước khi triển khai
+- Chỉ Admin/ICPDP mới được phê duyệt đề xuất Event từ Club Leader
+- RBAC phân quyền trong CLB (ClubRole) thay đổi theo từng học kỳ của sinh viên
+- Blacklist member theo phạm vi CLB (sinh viên bị blacklist không được nộp đơn vào CLB đó)
 
 ---
 
@@ -316,10 +316,10 @@ fcms-frontend/
 
 ## WebSocket Features
 
-* Event Approval Notification
-* Recruitment Updates
-* Leaderboard Updates
-* System Broadcast Notification
+- Event Approval Notification
+- Recruitment Updates
+- Leaderboard Updates
+- System Broadcast Notification
 
 ---
 
@@ -349,11 +349,11 @@ main
 
 # 🎯 Mục tiêu dự án
 
-* Chuẩn hóa quản lý CLB sinh viên
-* Tăng tính minh bạch quy trình vận hành
-* Hỗ trợ chuyển giao tri thức
-* Tích hợp AI hỗ trợ tra cứu thông minh
-* Xây dựng hệ thống realtime hiện đại
+- Chuẩn hóa quản lý CLB sinh viên
+- Tăng tính minh bạch quy trình vận hành
+- Hỗ trợ chuyển giao tri thức
+- Tích hợp AI hỗ trợ tra cứu thông minh
+- Xây dựng hệ thống realtime hiện đại
 
 ---
 
