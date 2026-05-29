@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Custom Ignored Files ###
+*.docx
+*.sql
+.agent/
+plan.zip
+temp_docx/
+read_docx.py

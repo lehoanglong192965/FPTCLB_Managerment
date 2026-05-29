@@ -4,19 +4,15 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "users")
+@Table(name = "ClubRole")
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class User {
+public class ClubRole {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long userId;
+    private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String email;
-
-    private String fullName;
+    // TODO: Add fields mapping to SQLQuery2.sql
 }

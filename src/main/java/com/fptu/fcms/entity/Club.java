@@ -4,19 +4,15 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "clubs")
+@Table(name = "Club")
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class Club {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long clubId;
+    private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String clubName;
-
-    private String description;
+    // TODO: Add fields mapping to SQLQuery2.sql
 }

@@ -4,11 +4,11 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "ClubMembership")
+@Table(name = "Event")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ClubMembership {
+public class Event {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

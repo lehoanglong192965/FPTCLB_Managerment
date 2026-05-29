@@ -4,17 +4,15 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "semesters")
+@Table(name = "Semester")
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class Semester {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long semesterId;
+    private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String semesterName;
+    // TODO: Add fields mapping to SQLQuery2.sql
 }

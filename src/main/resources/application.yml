@@ -1,42 +1,19 @@
 spring:
-  profiles:
-    active: dev
-
+  application:
+    name: fcms
   datasource:
-    url: jdbc:sqlserver://localhost:1433;databaseName=FCMS_DB;encrypt=true;trustServerCertificate=true
-    username: ${DB_USERNAME:sa}
-    password: ${DB_PASSWORD:[PASSWORD]}
+    url: jdbc:sqlserver://localhost:1433;databaseName=FPTUCLUB;encrypt=true;trustServerCertificate=true
+    username: sa
+    password: password
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-
   jpa:
     hibernate:
-      ddl-auto: update # Ở môi trường dev dùng update, production dùng none/validate kết hợp Flyway
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.SQLServerDialect
 
-  security:
-    oauth2:
-      client:
-        registration:
-          google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
-            scope:
-              - email
-              - profile
-
-# Cấu hình nghiệp vụ tùy chỉnh (SystemConfig)
-app:
-  security:
-    allowed-domain: "" # Removed restriction to allow any Google email (as requested)
-  recruitment:
-    max-active-applications: 4 # BR-R01
-  event:
-    proposal-lead-days: 14 # BR-E02
-    max-base-points: 100 # BR-D07
-  gemini:
-    api-key: ${GEMINI_API_KEY:}
-    confidence-threshold: 0.70 # BR-AI03
+server:
+  port: 8080
