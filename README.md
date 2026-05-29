@@ -11,11 +11,11 @@
 
 Hệ thống được xây dựng nhằm giải quyết các vấn đề thực tế:
 
-- Dữ liệu CLB phân tán trên nhiều nền tảng (Facebook, Messenger, Discord, file rời)
-- Thiếu cơ chế quản lý vòng đời thành viên theo học kỳ
-- Quy trình đề xuất & phê duyệt sự kiện thủ công, thiếu minh bạch
-- Thất thoát tri thức giữa các thế hệ Ban Điều Hành
-- Thiếu hệ thống hỗ trợ tra cứu thông minh và Dashboard quản trị
+* Dữ liệu CLB phân tán trên nhiều nền tảng (Facebook, Messenger, Discord, file rời)
+* Thiếu cơ chế quản lý vòng đời thành viên theo học kỳ
+* Quy trình đề xuất & phê duyệt sự kiện thủ công, thiếu minh bạch
+* Thất thoát tri thức giữa các thế hệ Ban Điều Hành
+* Thiếu hệ thống hỗ trợ tra cứu thông minh và Dashboard quản trị
 
 ---
 
@@ -23,9 +23,9 @@ Hệ thống được xây dựng nhằm giải quyết các vấn đề thực 
 
 ## 🔹 Mô hình kiến trúc
 
-- **Decoupled Architecture**
-- Front-end và Back-end phát triển độc lập
-- Giao tiếp thông qua RESTful API
+* **Decoupled Architecture**
+* Front-end và Back-end phát triển độc lập
+* Giao tiếp thông qua RESTful API
 
 ---
 
@@ -39,27 +39,27 @@ Service
 Repository / DAO
 ```
 
-- Multi-layer Architecture
-- Xử lý Business Logic tập trung
-- Bảo mật bằng Spring Security + JWT
+* Multi-layer Architecture
+* Xử lý Business Logic tập trung
+* Bảo mật bằng Spring Security + JWT
 
 ---
 
 ## 🔹 Kiến trúc Front-end
 
-- Component-Based Architecture
-- React Hooks
-- Context API / Redux
-- React Router
+* Component-Based Architecture
+* React Hooks
+* Context API / Redux
+* React Router
 
 ---
 
 ## 🔹 Cơ chế hoạt động
 
-- Client-Side Rendering (CSR)
-- Axios gọi REST APIs
-- WebSocket xử lý dữ liệu Realtime
-- Không reload trang khi thao tác dữ liệu
+* Client-Side Rendering (CSR)
+* Axios gọi REST APIs
+* WebSocket xử lý dữ liệu Realtime
+* Không reload trang khi thao tác dữ liệu
 
 ---
 
@@ -67,10 +67,10 @@ Repository / DAO
 
 ## Công nghệ sử dụng
 
-- Google OAuth2
-- JWT Token
-- Spring Security Resource Server
-- RBAC động theo:
+* Google OAuth2
+* JWT Token
+* Spring Security Resource Server
+* RBAC động theo:
 
 ```text
 (User × Semester × Role)
@@ -80,15 +80,15 @@ Repository / DAO
 
 ### Front-end
 
-- Route Guard
-- Protected Routes
-- Token Validation
+* Route Guard
+* Protected Routes
+* Token Validation
 
 ### Back-end
 
-- Method Security
-- JWT Verification
-- Dynamic RBAC Authorization
+* Method Security
+* JWT Verification
+* Dynamic RBAC Authorization
 
 ---
 
@@ -116,16 +116,16 @@ Repository / DAO
 
 Hệ thống tích hợp **RAG Chatbot** sử dụng:
 
-- Google Gemini API
-- SQL Server Full-Text Search
+* Google Gemini API
+* SQL Server Full-Text Search
 
 ## Tính năng AI
 
-- Tra cứu tài liệu CLB
-- Hỏi đáp quy chế
-- Tìm kiếm tài liệu bàn giao
-- Render Markdown Response
-- Guardrail fallback khi confidence < 70%
+* Tra cứu tài liệu CLB
+* Hỏi đáp quy chế
+* Tìm kiếm tài liệu bàn giao
+* Render Markdown Response
+* Guardrail fallback khi confidence < 70%
 
 ---
 
@@ -133,26 +133,26 @@ Hệ thống tích hợp **RAG Chatbot** sử dụng:
 
 ## 👤 User & Authentication
 
-- Đăng nhập Google SSO
-- JWT Authentication
-- RBAC động theo học kỳ
+* Đăng nhập Google SSO
+* JWT Authentication
+* RBAC động theo học kỳ
 
 ---
 
 ## 🏛️ Club Management
 
-- Quản lý CLB
-- Quản lý thành viên
-- Lifecycle thành viên (bao gồm Blacklist cấp CLB)
+* Quản lý CLB
+* Quản lý thành viên
+* Lifecycle thành viên
 
 ---
 
 ## 🎯 Recruitment System
 
-- Form tuyển dụng động
-- Giới hạn tối đa 4 CLB ứng tuyển
-- Theo dõi trạng thái tuyển dụng
-- Quản lý phỏng vấn (Lịch phỏng vấn & Phân công người phỏng vấn)
+* Form tuyển dụng động
+* Giới hạn tối đa 4 CLB ứng tuyển
+* Theo dõi trạng thái tuyển dụng
+* Quản lý phỏng vấn
 
 ---
 
@@ -246,7 +246,7 @@ fcms-frontend/
 
 | MSSV     | Họ và Tên         | Vai trò                     |
 | -------- | ----------------- | --------------------------- |
-| SE192965 | Lê Hoàng Long     | Project Leader / Full-stack |
+| SE192965 | Lê Hoàng Long     | Project Leader / Back-end Developer |
 | SE190688 | Trần Văn An       | Back-end Developer          |
 | SE192984 | Phan Bảo Duy      | Back-end Developer          |
 | SE192612 | Nguyễn Văn Linh   | Front-end Developer         |
