@@ -236,9 +236,9 @@ fcms-frontend/
 
 * Microsoft SQL Server
 * Chuẩn hóa 3NF
-* 16 bảng dữ liệu
+* 19 bảng dữ liệu
 * Hỗ trợ ACID Transaction
-* Hơn 50 Business Rules
+* 50 Business Rules
 
 ---
 
@@ -246,7 +246,7 @@ fcms-frontend/
 
 | MSSV     | Họ và Tên         | Vai trò                     |
 | -------- | ----------------- | --------------------------- |
-| SE192965 | Lê Hoàng Long     | Project Leader / Full-stack |
+| SE192965 | Lê Hoàng Long     | Project Leader / Back-end Developer |
 | SE190688 | Trần Văn An       | Back-end Developer          |
 | SE192984 | Phan Bảo Duy      | Back-end Developer          |
 | SE192612 | Nguyễn Văn Linh   | Front-end Developer         |
