@@ -1,18 +1,32 @@
 package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Data;
+import java.time.LocalDate;
 
+@Data
 @Entity
 @Table(name = "ClubMembership")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class ClubMembership {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Integer membershipID;
 
-    // TODO: Add fields mapping to SQLQuery2.sql
+    @Column(nullable = false)
+    private Integer clubID;
+
+    @Column(nullable = false)
+    private Integer userID;
+
+    @Column(nullable = false)
+    private Integer semesterID;
+
+    @Column(nullable = false)
+    private Integer clubRoleID; // 1: Leader, 2: ViceLeader, 3: Member
+
+    @Column(nullable = false)
+    private LocalDate joinedDate = LocalDate.now();
+
+    @Column(nullable = false)
+    private Boolean isDeleted = false; // Phục vụ Soft Delete (BR-G04)
 }

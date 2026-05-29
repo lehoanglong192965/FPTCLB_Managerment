@@ -4,16 +4,21 @@ spring:
   datasource:
     url: jdbc:sqlserver://localhost:1433;databaseName=FPTUCLUB;encrypt=true;trustServerCertificate=true
     username: sa
-    password: password
+    password: 123456
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
+      naming:
+        # Ép Hibernate giữ nguyên cấu trúc chữ Hoa/Thường của Class/Thuộc tính khi map với DB
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
     show-sql: true
+    open-in-view: false
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.SQLServerDialect
+        # Chỉ định rõ schema mặc định của SQL Server để Hibernate quét metadata chính xác hơn
+        default_schema: dbo
 
 server:
   port: 8080
