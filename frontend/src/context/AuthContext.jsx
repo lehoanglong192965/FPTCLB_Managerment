@@ -1,36 +1,73 @@
-import { createContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
+// 1. Create shared context
 export const AuthContext = createContext();
 
+// ==========================================
+// Các hàm hỗ trợ
+// ==========================================
+
+// Lấy user từ localStorage 1 cách an toàn
+const getUserFromStorage = () => {
+  try {
+    const userString = localStorage.getItem("user");
+
+    if (userString) {
+      return JSON.parse(userString);
+    }
+    // Ở dòng trả về lỗi sẽ sửa thành tiếng việt nếu hệ thống đồng bộ tiếng việt
+  } catch (error) {
+    console.error("Error reading storage:", error);
+  }
+
+  return null;
+};
+
+// Lưu user vào localStorage
+const saveUserToStorage = (userData) => {
+  const userString = JSON.stringify(userData);
+
+  localStorage.setItem("user", userString);
+};
+
+// Xoá user khỏi localStorage
+const removeUserFromStorage = () => {
+  localStorage.removeItem("user");
+};
+
+// ==========================================
+// Component chính quản lí auth
+// ==========================================
+
 export const AuthProvider = ({ children }) => {
+
+  // Lưu thông tin người dùng hiện tại (null nếu chưa đăng nhập)
   const [user, setUser] = useState(null);
 
-  // load user từ localStorage khi reload trang
+  // Khi load app, kiểm tra xem đã có user nào lưu trong localStorage chưa
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
+    const savedUser = getUserFromStorage();
 
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      setUser(savedUser);
     }
   }, []);
 
-  // login
+  // Xử lý đăng nhập: nhận dữ liệu người dùng, lưu vào state và localStorage
   const login = (userData) => {
     setUser(userData);
 
-    localStorage.setItem(
-      "user",
-      JSON.stringify(userData)
-    );
+    saveUserToStorage(userData);
   };
 
-  // logout
+  // Xử lý đăng xuất: xoá thông tin người dùng khỏi state và localStorage
   const logout = () => {
     setUser(null);
 
-    localStorage.removeItem("user");
+    removeUserFromStorage();
   };
 
+  // Chia sẻ thông tin người dùng và các hàm login/logout cho toàn bộ component con thông qua context
   return (
     <AuthContext.Provider
       value={{
@@ -42,4 +79,12 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
+};
+
+// ==========================================
+// CUSTOM HOOK để dễ dàng sử dụng context ở các component con
+// ==========================================
+
+export const useAuth = () => {
+  return useContext(AuthContext);
 };
