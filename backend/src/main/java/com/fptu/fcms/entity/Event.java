@@ -2,17 +2,64 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "Event")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class Event {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "eventID")
+    private Integer eventID;
 
-    // TODO: Add fields mapping to SQLQuery2.sql
+    @Column(name = "clubID")
+    private Integer clubID;
+
+    @Column(name = "semesterID")
+    private Integer semesterID;
+
+    @Column(name = "eventCode")
+    private String eventCode;
+
+    @Column(name = "eventName")
+    private String eventName;
+
+    @Column(name = "description")
+    private String description;
+
+    @Column(name = "location")
+    private String location;
+
+    @Column(name = "budget")
+    private BigDecimal budget;
+
+    @Column(name = "startDate")
+    private LocalDateTime startDate;
+
+    @Column(name = "endDate")
+    private LocalDateTime endDate;
+
+    @Column(name = "eventStatus")
+    private String eventStatus;
+
+    @Column(name = "isResubmitted")
+    private Boolean isResubmitted;
+
+    @Column(name = "isScoreLocked")
+    private Boolean isScoreLocked;
+
+    @Column(name = "createdAt")
+    private LocalDateTime createdAt;
+
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
 }
+
+

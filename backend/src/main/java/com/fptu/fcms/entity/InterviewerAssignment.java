@@ -2,17 +2,33 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "InterviewerAssignment")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class InterviewerAssignment {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "assignmentID")
+    private Integer assignmentID;
 
-    // TODO: Add fields mapping to SQLQuery2.sql
+    @Column(name = "interviewID")
+    private Integer interviewID;
+
+    @Column(name = "interviewerID")
+    private Integer interviewerID;
+
+    @Column(name = "evaluation")
+    private String evaluation;
+
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
 }
+

@@ -1,18 +1,48 @@
 package com.fptu.fcms.entity;
 
+import io.swagger.v3.oas.annotations.info.Contact;
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.*;
 
 @Entity
 @Table(name = "UserAccount")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class UserAccount {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "userID")
+    private Integer userID;
 
-    // TODO: Add fields mapping to SQLQuery2.sql
+    @Column(name = "roleID")
+    private Integer roleID;
+
+    @Column(name = "email")
+    private String email;
+
+    // Bắt buộc phải có để đối chiếu mật khẩu lúc Login
+    @Column(name = "password")
+    private String password;
+
+    @Column(name = "fullName")
+    private String fullName;
+
+    @Column(name = "major")
+    private String major;
+
+    @Column(name = "accountStatus")
+    private String accountStatus;
+
+    @Column(name = "createdAt")
+    private LocalDateTime createdAt;
+
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
+
+
 }
