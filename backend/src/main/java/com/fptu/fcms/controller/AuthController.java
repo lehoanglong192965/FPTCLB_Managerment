@@ -32,6 +32,12 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
 
+        String email = request.getEmail();
+
+        if (!email.endsWith("@fpt.edu.vn") && !email.endsWith("@fe.edu.vn")){
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error","Hệ thống chỉ chấp nhận email nội bộ (@fpt.edu.vn hoặc @fe.edu.vn"));
+        }
         // 1. Tìm user trong Database dựa vào email
         Optional<UserAccount> userOptional = userRepository.findByEmailAndIsDeletedFalse(request.getEmail());
 
