@@ -1,4 +1,6 @@
 package com.fptu.fcms.enums;
 
-public class AccountStatusEnum {
+public enum AccountStatusEnum {
+    Active,
+    Suspended
 }

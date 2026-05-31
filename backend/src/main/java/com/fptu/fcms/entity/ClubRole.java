@@ -8,11 +8,21 @@ import lombok.*;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class ClubRole {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "clubRoleID")
+    private Integer clubRoleID;
 
-    // TODO: Add fields mapping to SQLQuery2.sql
+    /** Leader (1) | ViceLeader (2) | Member (3) */
+    @Column(name = "roleName", nullable = false, unique = true, length = 30)
+    private String roleName;
+
+    @Column(name = "description", length = 200)
+    private String description;
+
+    @Column(name = "isDeleted", nullable = false)
+    private Boolean isDeleted = false;
 }
