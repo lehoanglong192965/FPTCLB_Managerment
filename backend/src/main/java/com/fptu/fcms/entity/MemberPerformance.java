@@ -2,33 +2,47 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "MemberPerformance")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class MemberPerformance {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "performanceID")
     private Integer performanceID;
 
-    @Column(name = "eventID", nullable = false) private Integer eventID;
-    @Column(name = "userID",  nullable = false) private Integer userID;
-    @Column(name = "clubID",  nullable = false) private Integer clubID;
+    @Column(name = "eventID")
+    private Integer eventID;
 
-    @Column(name = "basePoints",    nullable = false) @Builder.Default private Integer basePoints    = 0;
-    @Column(name = "bonusPoints",   nullable = false) @Builder.Default private Integer bonusPoints   = 0;
-    @Column(name = "penaltyPoints", nullable = false) @Builder.Default private Integer penaltyPoints = 0;
+    @Column(name = "userID")
+    private Integer userID;
 
-    // finalPoints là computed column trong DB (PERSISTED) — chỉ đọc, không ghi
-    @Column(name = "finalPoints", insertable = false, updatable = false)
+    @Column(name = "clubID")
+    private Integer clubID;
+
+    @Column(name = "basePoints")
+    private Integer basePoints;
+
+    @Column(name = "bonusPoints")
+    private Integer bonusPoints;
+
+    @Column(name = "penaltyPoints")
+    private Integer penaltyPoints;
+
+    @Column(name = "finalPoints")
     private Integer finalPoints;
 
-    @Column(name = "leaderEvaluation", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "leaderEvaluation")
     private String leaderEvaluation;
 
-    @Column(name = "updatedAt", nullable = false)
-    @Builder.Default private LocalDateTime updatedAt = LocalDateTime.now();
+    @Column(name = "updatedAt")
+    private LocalDateTime updatedAt;
+
 }

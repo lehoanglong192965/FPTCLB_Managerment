@@ -2,23 +2,33 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "InterviewerAssignment")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class InterviewerAssignment {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "assignmentID")
     private Integer assignmentID;
 
-    @Column(name = "interviewID",   nullable = false) private Integer interviewID;
-    @Column(name = "interviewerID", nullable = false) private Integer interviewerID;
+    @Column(name = "interviewID")
+    private Integer interviewID;
 
-    @Column(name = "evaluation", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "interviewerID")
+    private Integer interviewerID;
+
+    @Column(name = "evaluation")
     private String evaluation;
 
-    @Column(name = "isDeleted", nullable = false)
-    @Builder.Default private Boolean isDeleted = false;
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
 }
+

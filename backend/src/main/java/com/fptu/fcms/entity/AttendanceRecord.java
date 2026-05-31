@@ -2,34 +2,42 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "AttendanceRecord")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class AttendanceRecord {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "recordID")
     private Integer recordID;
 
-    @Column(name = "sessionID", nullable = false) private Integer sessionID;
-    @Column(name = "userID",    nullable = false) private Integer userID;
+    @Column(name = "sessionID")
+    private Integer sessionID;
 
-    /** Present | Absent | Late */
-    @Column(name = "attendanceStatus", nullable = false, length = 20)
-    @Builder.Default private String attendanceStatus = "Absent";
+    @Column(name = "userID")
+    private Integer userID;
 
-    @Column(name = "capturedImgUrl",    length = 500) private String capturedImgUrl;
+    @Column(name = "attendanceStatus")
+    private String attendanceStatus;
 
-    @Column(name = "aiMatchConfidence", precision = 5, scale = 2)
+    @Column(name = "capturedImgUrl")
+    private String capturedImgUrl;
+
+    @Column(name = "aiMatchConfidence")
     private BigDecimal aiMatchConfidence;
 
-    @Column(name = "isVerifiedByAI", nullable = false)
-    @Builder.Default private Boolean isVerifiedByAI = false;
+    @Column(name = "isVerifiedByAI")
+    private Boolean isVerifiedByAI;
 
-    @Column(name = "markedAt", nullable = false, updatable = false)
-    @Builder.Default private LocalDateTime markedAt = LocalDateTime.now();
+    @Column(name = "markedAt")
+    private LocalDateTime markedAt;
+
 }
+

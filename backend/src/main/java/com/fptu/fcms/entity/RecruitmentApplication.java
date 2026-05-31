@@ -1,51 +1,60 @@
 package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import lombok.*;
+import java.time.*;
+import java.math.*;
 
-@Data
+
 @Entity
 @Table(name = "RecruitmentApplication")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class RecruitmentApplication {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "applicationID")
     private Integer applicationID;
 
-    @Column(nullable = false)
+    @Column(name = "clubID")
     private Integer clubID;
 
-    @Column(nullable = false)
+    @Column(name = "userID")
     private Integer userID;
 
-    @Column(nullable = false)
+    @Column(name = "semesterID")
     private Integer semesterID;
 
-    @Column(length = 500)
+    @Column(name = "cvUrl")
     private String cvUrl;
 
-    @Column(columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "introduction")
     private String introduction;
 
-    @Column(columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "answersJson")
     private String answersJson;
 
-    @Column(nullable = false, length = 20)
-    private String status = "Draft";
+    @Column(name = "status")
+    private String status;
 
-    @Column(precision = 5, scale = 2)
+    @Column(name = "aiScore")
     private BigDecimal aiScore;
 
-    @Column(columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "aiFeedback")
     private String aiFeedback;
 
+    @Column(name = "submittedAt")
     private LocalDateTime submittedAt;
 
-    @Column(nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(name = "createdAt")
+    private LocalDateTime createdAt;
 
-    @Column(nullable = false)
-    private Boolean isDeleted = false;
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
 }
+
+
+

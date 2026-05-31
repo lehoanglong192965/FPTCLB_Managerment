@@ -1,42 +1,48 @@
 package com.fptu.fcms.entity;
 
+import io.swagger.v3.oas.annotations.info.Contact;
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
+import java.time.*;
 
 @Entity
 @Table(name = "UserAccount")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class UserAccount {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "userID")
     private Integer userID;
 
-    /** FK → SystemRole.roleID  (1=Admin, 2=ICPDP, 3=Student) */
-    @Column(name = "roleID", nullable = false)
+    @Column(name = "roleID")
     private Integer roleID;
 
-    @Column(name = "email", nullable = false, unique = true, length = 100)
+    @Column(name = "email")
     private String email;
 
-    @Column(name = "fullName", nullable = false, length = 100)
+    // Bắt buộc phải có để đối chiếu mật khẩu lúc Login
+    @Column(name = "password")
+    private String password;
+
+    @Column(name = "fullName")
     private String fullName;
 
-    @Column(name = "major", length = 100)
+    @Column(name = "major")
     private String major;
 
-    /** Active | Suspended */
-    @Column(name = "accountStatus", nullable = false, length = 20)
-    private String accountStatus = "Active";
+    @Column(name = "accountStatus")
+    private String accountStatus;
 
-    @Column(name = "createdAt", nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(name = "createdAt")
+    private LocalDateTime createdAt;
 
-    @Column(name = "isDeleted", nullable = false)
-    private Boolean isDeleted = false;
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
+
+
 }

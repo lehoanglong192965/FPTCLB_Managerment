@@ -2,33 +2,41 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "KnowledgeArchive")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class KnowledgeArchive {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "archiveID")
     private Integer archiveID;
 
-    @Column(name = "clubID",     nullable = false) private Integer clubID;
-    @Column(name = "uploadedBy", nullable = false) private Integer uploadedBy;
+    @Column(name = "clubID")
+    private Integer clubID;
 
-    @Column(name = "title", nullable = false, length = 200)
+    @Column(name = "title")
     private String title;
 
-    @Column(name = "content",  nullable = false, columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "content")
     private String content;
 
-    @Column(name = "fileUrl",  length = 500)
+    @Column(name = "fileUrl")
     private String fileUrl;
 
-    @Column(name = "createdAt", nullable = false, updatable = false)
-    @Builder.Default private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(name = "uploadedBy")
+    private Integer uploadedBy;
 
-    @Column(name = "isDeleted", nullable = false)
-    @Builder.Default private Boolean isDeleted = false;
+    @Column(name = "createdAt")
+    private LocalDateTime createdAt;
+
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
 }

@@ -2,29 +2,36 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "AttendanceSession")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class AttendanceSession {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "sessionID")
     private Integer sessionID;
 
-    @Column(name = "eventID",     nullable = false) private Integer eventID;
+    @Column(name = "eventID")
+    private Integer eventID;
 
-    @Column(name = "sessionName", nullable = false, length = 100)
+    @Column(name = "sessionName")
     private String sessionName;
 
-    @Column(name = "checkInTime", nullable = false)
+    @Column(name = "checkInTime")
     private LocalDateTime checkInTime;
 
-    @Column(name = "evidenceProofUrl", length = 500)
+    @Column(name = "evidenceProofUrl")
     private String evidenceProofUrl;
 
-    @Column(name = "isDeleted", nullable = false)
-    @Builder.Default private Boolean isDeleted = false;
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
 }
+

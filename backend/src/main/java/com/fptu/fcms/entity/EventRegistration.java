@@ -2,25 +2,32 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "EventRegistration")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class EventRegistration {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "registrationID")
     private Integer registrationID;
 
-    @Column(name = "eventID", nullable = false) private Integer eventID;
-    @Column(name = "userID",  nullable = false) private Integer userID;
+    @Column(name = "eventID")
+    private Integer eventID;
 
-    @Column(name = "registeredAt", nullable = false, updatable = false)
-    @Builder.Default private LocalDateTime registeredAt = LocalDateTime.now();
+    @Column(name = "userID")
+    private Integer userID;
 
-    /** Registered | Cancelled */
-    @Column(name = "status", nullable = false, length = 20)
-    @Builder.Default private String status = "Registered";
+    @Column(name = "registeredAt")
+    private LocalDateTime registeredAt;
+
+    @Column(name = "status")
+    private String status;
+
 }

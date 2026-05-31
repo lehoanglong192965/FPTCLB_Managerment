@@ -2,30 +2,43 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "ClubKPI")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class ClubKPI {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "kpiID")
     private Integer kpiID;
 
-    @Column(name = "clubID",     nullable = false) private Integer clubID;
-    @Column(name = "semesterID", nullable = false) private Integer semesterID;
+    @Column(name = "clubID")
+    private Integer clubID;
 
-    @Column(name = "totalEventsHeld", nullable = false) @Builder.Default private Integer totalEventsHeld = 0;
-    @Column(name = "totalMembers",    nullable = false) @Builder.Default private Integer totalMembers    = 0;
+    @Column(name = "semesterID")
+    private Integer semesterID;
 
-    @Column(name = "kpiScore", nullable = false, precision = 5, scale = 2)
-    @Builder.Default private BigDecimal kpiScore = BigDecimal.ZERO;
+    @Column(name = "totalEventsHeld")
+    private Integer totalEventsHeld;
 
-    @Column(name = "rankingTier", length = 5) private String rankingTier;
+    @Column(name = "totalMembers")
+    private Integer totalMembers;
 
-    @Column(name = "updatedAt", nullable = false)
-    @Builder.Default private LocalDateTime updatedAt = LocalDateTime.now();
+    @Column(name = "kpiScore")
+    private BigDecimal kpiScore;
+
+    @Column(name = "rankingTier")
+    private String rankingTier;
+
+    @Column(name = "updatedAt")
+    private LocalDateTime updatedAt;
+
 }
+
+

@@ -2,53 +2,64 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "Event")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Event {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "eventID")
     private Integer eventID;
 
-    @Column(name = "clubID",     nullable = false) private Integer clubID;
-    @Column(name = "semesterID", nullable = false) private Integer semesterID;
+    @Column(name = "clubID")
+    private Integer clubID;
 
-    @Column(name = "eventCode",  nullable = false, unique = true, length = 30)
+    @Column(name = "semesterID")
+    private Integer semesterID;
+
+    @Column(name = "eventCode")
     private String eventCode;
 
-    @Column(name = "eventName",  nullable = false, length = 150)
+    @Column(name = "eventName")
     private String eventName;
 
-    @Column(name = "description", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "description")
     private String description;
 
-    @Column(name = "location", nullable = false, length = 200)
-    @Builder.Default private String location = "FPTU Campus";
+    @Column(name = "location")
+    private String location;
 
-    @Column(name = "budget", nullable = false, precision = 18, scale = 2)
-    @Builder.Default private BigDecimal budget = BigDecimal.ZERO;
+    @Column(name = "budget")
+    private BigDecimal budget;
 
-    @Column(name = "startDate", nullable = false)  private LocalDateTime startDate;
-    @Column(name = "endDate",   nullable = false)  private LocalDateTime endDate;
+    @Column(name = "startDate")
+    private LocalDateTime startDate;
 
-    /** Draft | Pending | Approved | Reported | Closed */
-    @Column(name = "eventStatus", nullable = false, length = 20)
-    @Builder.Default private String eventStatus = "Draft";
+    @Column(name = "endDate")
+    private LocalDateTime endDate;
 
-    @Column(name = "isResubmitted", nullable = false)
-    @Builder.Default private Boolean isResubmitted = false;
+    @Column(name = "eventStatus")
+    private String eventStatus;
 
-    @Column(name = "isScoreLocked", nullable = false)
-    @Builder.Default private Boolean isScoreLocked = false;
+    @Column(name = "isResubmitted")
+    private Boolean isResubmitted;
 
-    @Column(name = "createdAt", nullable = false, updatable = false)
-    @Builder.Default private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(name = "isScoreLocked")
+    private Boolean isScoreLocked;
 
-    @Column(name = "isDeleted", nullable = false)
-    @Builder.Default private Boolean isDeleted = false;
+    @Column(name = "createdAt")
+    private LocalDateTime createdAt;
+
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
 }
+
+

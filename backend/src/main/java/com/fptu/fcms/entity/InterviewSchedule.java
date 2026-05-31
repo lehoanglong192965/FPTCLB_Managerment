@@ -2,39 +2,45 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "InterviewSchedule")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class InterviewSchedule {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "interviewID")
     private Integer interviewID;
 
-    @Column(name = "applicationID", nullable = false) private Integer applicationID;
+    @Column(name = "applicationID")
+    private Integer applicationID;
 
-    @Column(name = "scheduledTime", nullable = false) private LocalDateTime scheduledTime;
+    @Column(name = "scheduledTime")
+    private LocalDateTime scheduledTime;
 
-    @Column(name = "location", nullable = false, length = 200)
+    @Column(name = "location")
     private String location;
 
-    /** Scheduled | Completed | Cancelled */
-    @Column(name = "status", nullable = false, length = 20)
-    @Builder.Default private String status = "Scheduled";
+    @Column(name = "status")
+    private String status;
 
-    /** Passed | Failed */
-    @Column(name = "result", length = 20)
+    @Column(name = "result")
     private String result;
 
-    @Column(name = "notes", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "notes")
     private String notes;
 
-    @Column(name = "createdAt", nullable = false, updatable = false)
-    @Builder.Default private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(name = "createdAt")
+    private LocalDateTime createdAt;
 
-    @Column(name = "isDeleted", nullable = false)
-    @Builder.Default private Boolean isDeleted = false;
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
 }
+

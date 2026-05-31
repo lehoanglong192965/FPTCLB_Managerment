@@ -2,25 +2,35 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "EventAssignment")
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class EventAssignment {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "assignmentID")
     private Integer assignmentID;
 
-    @Column(name = "eventID",      nullable = false) private Integer eventID;
-    @Column(name = "userID",       nullable = false) private Integer userID;
-    @Column(name = "eventRoleID",  nullable = false) private Integer eventRoleID;
+    @Column(name = "eventID")
+    private Integer eventID;
 
-    @Column(name = "assignedAt", nullable = false, updatable = false)
-    @Builder.Default private LocalDateTime assignedAt = LocalDateTime.now();
+    @Column(name = "userID")
+    private Integer userID;
 
-    @Column(name = "isDeleted", nullable = false)
-    @Builder.Default private Boolean isDeleted = false;
+    @Column(name = "eventRoleID")
+    private Integer eventRoleID;
+
+    @Column(name = "assignedAt")
+    private LocalDateTime assignedAt;
+
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
 }

@@ -2,38 +2,38 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "Club")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class Club {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "clubID")
     private Integer clubID;
 
-    /** Ví dụ: F-Code, JS, EVILA */
-    @Column(name = "clubCode", nullable = false, unique = true, length = 20)
+    @Column(name = "clubCode")
     private String clubCode;
 
-    @Column(name = "clubName", nullable = false, length = 100)
+    @Column(name = "clubName")
     private String clubName;
 
-    @Column(name = "description", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "description")
     private String description;
 
-    /** Cấu trúc câu hỏi động dạng JSON cho form tuyển dụng */
-    @Column(name = "applicationFormQuestions", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "applicationFormQuestions")
     private String applicationFormQuestions;
 
-    @Column(name = "createdAt", nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(name = "createdAt")
+    private LocalDateTime createdAt;
 
-    @Column(name = "isDeleted", nullable = false)
-    private Boolean isDeleted = false;
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
 }
