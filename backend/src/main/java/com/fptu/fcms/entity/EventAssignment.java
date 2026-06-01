@@ -2,17 +2,35 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "EventAssignment")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class EventAssignment {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "assignmentID")
+    private Integer assignmentID;
 
-    // TODO: Add fields mapping to SQLQuery2.sql
+    @Column(name = "eventID")
+    private Integer eventID;
+
+    @Column(name = "userID")
+    private Integer userID;
+
+    @Column(name = "eventRoleID")
+    private Integer eventRoleID;
+
+    @Column(name = "assignedAt")
+    private LocalDateTime assignedAt;
+
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
 }

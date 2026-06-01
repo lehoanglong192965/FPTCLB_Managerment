@@ -2,17 +2,45 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.*;
+import java.math.*;
+
 
 @Entity
 @Table(name = "InterviewSchedule")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class InterviewSchedule {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "interviewID")
+    private Integer interviewID;
 
-    // TODO: Add fields mapping to SQLQuery2.sql
+    @Column(name = "applicationID")
+    private Integer applicationID;
+
+    @Column(name = "scheduledTime")
+    private LocalDateTime scheduledTime;
+
+    @Column(name = "location")
+    private String location;
+
+    @Column(name = "status")
+    private String status;
+
+    @Column(name = "result")
+    private String result;
+
+    @Column(name = "notes")
+    private String notes;
+
+    @Column(name = "createdAt")
+    private LocalDateTime createdAt;
+
+    @Column(name = "isDeleted")
+    private Boolean isDeleted;
+
 }
+

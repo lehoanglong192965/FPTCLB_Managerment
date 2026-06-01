@@ -1,0 +1,169 @@
+/* ───────────────────────────────────────────
+   src/components/EventCard.css
+─────────────────────────────────────────── */
+
+/* ── Section wrapper ── */
+.events-section {
+  padding: 96px 5%;
+  background: var(--navy);
+}
+
+.events-section .section__header {
+  text-align: center;
+  margin-bottom: 56px;
+}
+
+.events-section .section__title    { color: #fff; }
+.events-section .section__desc     { color: rgba(255, 255, 255, 0.5); }
+.events-section .section__eyebrow  { color: var(--orange-light); }
+
+.events__list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.events__cta-wrap {
+  text-align: center;
+  margin-top: 44px;
+}
+
+/* ── Card ── */
+.event-card {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    border-color var(--transition),
+    transform var(--transition);
+}
+
+.event-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 107, 0, 0.4);
+  transform: translateX(6px);
+}
+
+/* Date box */
+.event-card__date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, var(--orange), var(--orange-light));
+  border-radius: var(--radius-md);
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(255, 107, 0, 0.35);
+}
+
+.event-card__date-day {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.event-card__date-month {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.85;
+}
+
+/* Body */
+.event-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.event-card__title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 6px;
+  letter-spacing: -0.3px;
+}
+
+.event-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.event-card__meta-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.event-card__desc {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.6;
+}
+
+/* Badge */
+.event-card__badge {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.event-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 100px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.event-badge--upcoming {
+  background: rgba(255, 107, 0, 0.15);
+  color: var(--orange-light);
+  border: 1px solid rgba(255, 107, 0, 0.3);
+}
+
+.event-badge--open {
+  background: rgba(52, 211, 153, 0.12);
+  color: #34D399;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+.event-badge--full {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .events-section {
+    padding: 64px 5%;
+  }
+
+  .event-card {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .event-card__badge {
+    align-self: flex-start;
+  }
+}

@@ -3,27 +3,28 @@ spring:
     active: dev
   application:
     name: fcms
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:sqlserver://localhost:1433;databaseName=FPTUCLUB;encrypt=true;trustServerCertificate=true}
     username: ${SPRING_DATASOURCE_USERNAME:sa}
     password: ${SPRING_DATASOURCE_PASSWORD:123456}
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+
   jpa:
     hibernate:
       ddl-auto: validate
       naming:
-        # Ép Hibernate giữ nguyên cấu trúc chữ Hoa/Thường của Class/Thuộc tính khi map với DB
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+
     show-sql: true
     open-in-view: false
+
     properties:
       hibernate:
         format_sql: true
-        # Chỉ định rõ schema mặc định của SQL Server để Hibernate quét metadata chính xác hơn
         default_schema: dbo
         dialect: org.hibernate.dialect.SQLServerDialect
 
-  # Cấu hình Spring Security & OAuth2 Client (Đăng nhập Google SSO - Tuần 2)
   security:
     oauth2:
       client:
@@ -35,7 +36,10 @@ spring:
               - email
               - profile
 
-# Cấu hình máy chủ
+jwt:
+  secret: day-la-mot-chuoi-bi-mat-rat-dai-de-ky-jwt-token-fptu-2026
+  expiration: 86400000
+
 server:
   port: 8080
 
