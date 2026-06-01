@@ -334,7 +334,7 @@ public class ClubBoardService {
 
         // Lấy danh sách membership active của CLB trong học kỳ này
         List<ClubMembership> memberships = membershipRepo
-                .findByClubIDAndSemesterIDAndIsDeletedFalse(
+                .findBoardMembers(
                         clubID, activeSemester.getSemesterID()
                 );
 

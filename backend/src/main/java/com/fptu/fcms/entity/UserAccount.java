@@ -25,7 +25,8 @@ public class UserAccount {
     private String email;
 
     // Bắt buộc phải có để đối chiếu mật khẩu lúc Login
-    @Transient//@Transient = chỉ tồn tại trong Java, Hibernate hoàn toàn bỏ qua
+//    @Transient//@Transient = chỉ tồn tại trong Java, Hibernate hoàn toàn bỏ qua
+    @Column(name = "password")
     private String password;
 
     @Column(name = "fullName")

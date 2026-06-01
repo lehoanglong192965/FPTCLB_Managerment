@@ -57,15 +57,21 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
     // =====================================================================
 
     /**
-     * Lấy danh sách tất cả thành viên đang active trong một CLB tại một học kỳ.
+     * Lấy danh sách Ban điều hành (Leader = 1, ViceLeader = 2) đang active.
      * Dùng cho endpoint GET danh sách ban điều hành.
      *
      * @param clubID     ID của CLB
      * @param semesterID ID học kỳ
-     * @return List<ClubMembership> — danh sách thành viên active
+     * @return List<ClubMembership> — danh sách Ban điều hành active
      */
-    List<ClubMembership> findByClubIDAndSemesterIDAndIsDeletedFalse(
-            Integer clubID, Integer semesterID
+    @Query("SELECT m FROM ClubMembership m " +
+            "WHERE m.clubID = :clubID " +
+            "AND m.semesterID = :semesterID " +
+            "AND m.clubRoleID IN (1, 2) " +
+            "AND m.isDeleted = false")
+    List<ClubMembership> findBoardMembers(
+            @Param("clubID") Integer clubID,
+            @Param("semesterID") Integer semesterID
     );
 
     // =====================================================================

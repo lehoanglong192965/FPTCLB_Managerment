@@ -100,7 +100,7 @@ public class AuthController {
 
         // Nếu database của bạn thiết lập các cột dưới đây là NOT NULL, hãy mở comment ra:
          newUser.setFullName("Chưa cập nhật");
-         newUser.setRoleID(2);
+         newUser.setRoleID(3);
          newUser.setMajor("Chưa cập nhật");
 
         try {
