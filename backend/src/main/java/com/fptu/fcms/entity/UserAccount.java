@@ -25,7 +25,7 @@ public class UserAccount {
     private String email;
 
     // Bắt buộc phải có để đối chiếu mật khẩu lúc Login
-    @Column(name = "password")
+    @Transient//@Transient = chỉ tồn tại trong Java, Hibernate hoàn toàn bỏ qua
     private String password;
 
     @Column(name = "fullName")
