@@ -1,5 +1,7 @@
 package com.fptu.fcms.entity;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.*;
@@ -7,7 +9,8 @@ import java.math.*;
 
 
 @Entity
-@Table(name = "ClubMembership")
+@SQLRestriction("isDeleted = false")
+@Table(name = "ClubMembership", uniqueConstraints = {@UniqueConstraint(columnNames = {"userID", "clubID", "semesterID"})})
 @Getter
 @Setter
 @NoArgsConstructor
