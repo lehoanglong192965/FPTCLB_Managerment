@@ -5,7 +5,7 @@ import org.hibernate.annotations.SQLRestriction;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.*;
-import java.math.*;
+
 
 
 @Entity
@@ -27,7 +27,7 @@ public class DisciplineLog {
     @Column(name = "semesterID")
     private Integer semesterID;
 
-    @Column(name = "reason")
+    @Column(name = "reason", length = 500)
     private String reason;
 
     @Column(name = "disciplineStatus")
@@ -35,5 +35,8 @@ public class DisciplineLog {
 
     @Column(name = "createdAt")
     private LocalDateTime createdAt;
+
+    @Column(name = "isDeleted")
+    private Boolean isDeleted = false;
 
 }
