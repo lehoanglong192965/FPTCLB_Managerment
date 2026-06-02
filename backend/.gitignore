@@ -39,3 +39,10 @@ build/
 plan.zip
 temp_docx/
 read_docx.py
+
+node_modules/
+target/
+dist/
+build/
+.idea/
+src/main/resources/application-local.yml

@@ -62,12 +62,13 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             userEntity.setEmail(email);
             userEntity.setFullName(name != null ? name : "Unknown");
 
-            // LƯU Ý Ở ĐÂY: Vì bạn dùng Integer roleID, bạn lấy roleId từ object studentRole gán vào
+
             userEntity.setRoleID(studentRole.getRoleID());
 
             userEntity.setAccountStatus("Active");
             userEntity.setIsDeleted(false);
 
+            userEntity.setCreatedAt(java.time.LocalDateTime.now());
             userEntity = userRepository.save(userEntity);
         }
 
