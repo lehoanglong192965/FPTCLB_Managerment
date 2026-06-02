@@ -126,7 +126,7 @@ a { text-decoration: none; color: inherit; }
 .section__header { text-align: center; margin-bottom: 56px; }
 
 .section__eyebrow {
-  display: inline-block; font-size: 11px; font-weight: 800;
+  display: inline-block; font-size: 25px; font-weight: 800;
   letter-spacing: 2.5px; text-transform: uppercase;
   color: var(--orange); margin-bottom: 12px;
 }

@@ -16,7 +16,7 @@ export default function EventsSection() {
         </p>
       </div>
 
-      <div className="events__list">
+      <div className="events__grid">
         {EVENTS.map((event) => (
           <EventCard key={event.title} event={event} />
         ))}

@@ -22,6 +22,7 @@ export default function Header({ activeSection }) {
   const handleNav = (href) => {
     if (href === "home") {
       navigate("/");
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     navigate("/");
