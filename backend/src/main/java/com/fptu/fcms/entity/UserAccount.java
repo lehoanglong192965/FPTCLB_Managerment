@@ -1,11 +1,14 @@
 package com.fptu.fcms.entity;
 
+import org.hibernate.annotations.SQLRestriction;
+
 import io.swagger.v3.oas.annotations.info.Contact;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.*;
 
 @Entity
+@SQLRestriction("isDeleted = false")
 @Table(name = "UserAccount")
 @Getter
 @Setter

@@ -45,3 +45,4 @@ target/
 dist/
 build/
 .idea/
+src/main/resources/application-local.yml

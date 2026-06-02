@@ -74,6 +74,14 @@ public class GlobalExceptionHandler {
     // XỬ LÝ LỖI KHÔNG MONG ĐỢI (fallback)
     // =====================================================================
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        return buildErrorResponse(
+                HttpStatus.FORBIDDEN,
+                "Bạn không có quyền truy cập tài nguyên này!"
+        );
+    }
+
     /**
      * Bắt mọi exception không được handle ở trên.
      * Không expose stack trace ra ngoài — chỉ trả về thông điệp chung.

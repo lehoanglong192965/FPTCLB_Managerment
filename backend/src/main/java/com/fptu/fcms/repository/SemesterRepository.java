@@ -4,6 +4,11 @@ import com.fptu.fcms.entity.Semester;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -27,4 +32,14 @@ public interface SemesterRepository extends JpaRepository<Semester, Integer> {
      * @return Optional<Semester> — rỗng nếu hệ thống chưa có kỳ Active nào
      */
     Optional<Semester> findByIsActiveTrueAndIsDeletedFalse();
+
+    List<Semester> findByIsActiveTrue();
+
+    @Query("SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END FROM Semester s " +
+           "WHERE s.startDate <= :endDate AND s.endDate >= :startDate " +
+           "AND (:excludeId IS NULL OR s.semesterID <> :excludeId) " +
+           "AND s.isDeleted = false")
+    boolean existsOverlappingSemester(@Param("startDate") LocalDate startDate, 
+                                      @Param("endDate") LocalDate endDate, 
+                                      @Param("excludeId") Integer excludeId);
 }
