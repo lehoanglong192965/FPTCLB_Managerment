@@ -15,12 +15,19 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
+import com.fptu.fcms.repository.SystemRoleRepository;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
     private JwtTokenProvider tokenProvider;
+
+    @Autowired
+    private SystemRoleRepository systemRoleRepository;
 
     @Override
     protected void doFilterInternal(
@@ -41,13 +48,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Integer userId = tokenProvider.getUserIdFromJwt(jwt); // Bổ sung lấy userID
                 Integer roleId = tokenProvider.getRoleIdFromJwt(jwt); // Bổ sung lấy roleID
 
-                // 4. Đóng gói vào UserPrincipal
-                // (Hiện tại để authorities là ArrayList rỗng, có thể map Role vào sau)
+                // 4. Lấy Role từ DB để cấp quyền
+                List<GrantedAuthority> authorities = new ArrayList<>();
+                if (roleId != null) {
+                    systemRoleRepository.findById(roleId).ifPresent(role -> {
+                        authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getRoleName()));
+                    });
+                }
+
+                // 5. Đóng gói vào UserPrincipal
                 UserPrincipal userPrincipal = new UserPrincipal(
                         userId,
                         email,
                         roleId,
-                        new ArrayList<>()
+                        authorities
                 );
 
                 // 5. Cấp thẻ xác thực với thông tin là đối tượng UserPrincipal

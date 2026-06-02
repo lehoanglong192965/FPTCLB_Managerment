@@ -3,6 +3,7 @@ package com.fptu.fcms.service;
 import com.fptu.fcms.dto.SemesterDTO;
 import com.fptu.fcms.entity.Semester;
 import com.fptu.fcms.repository.SemesterRepository;
+import com.fptu.fcms.exception.BusinessRuleException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +24,7 @@ public class SemesterService {
 
     public SemesterDTO getSemesterById(Integer id) {
         Semester semester = semesterRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Semester not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Semester not found"));
         return mapToDTO(semester);
     }
 
@@ -32,7 +33,7 @@ public class SemesterService {
         validateDates(dto.getStartDate(), dto.getEndDate());
         
         if (semesterRepository.existsOverlappingSemester(dto.getStartDate(), dto.getEndDate(), null)) {
-            throw new RuntimeException("New semester dates overlap with an existing semester");
+            throw new BusinessRuleException("New semester dates overlap with an existing semester");
         }
 
         Semester semester = new Semester();
@@ -55,17 +56,17 @@ public class SemesterService {
     @Transactional
     public SemesterDTO updateSemester(Integer id, SemesterDTO dto) {
         Semester semester = semesterRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Semester not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Semester not found"));
 
         if (semester.getEndDate().isBefore(LocalDate.now()) && 
             (!semester.getStartDate().equals(dto.getStartDate()) || !semester.getEndDate().equals(dto.getEndDate()))) {
-            throw new RuntimeException("Cannot update dates of a semester that has already ended");
+            throw new BusinessRuleException("Cannot update dates of a semester that has already ended");
         }
 
         validateDates(dto.getStartDate(), dto.getEndDate());
         
         if (semesterRepository.existsOverlappingSemester(dto.getStartDate(), dto.getEndDate(), id)) {
-            throw new RuntimeException("Updated dates overlap with another existing semester");
+            throw new BusinessRuleException("Updated dates overlap with another existing semester");
         }
 
         semester.setSemesterCode(dto.getSemesterCode());
@@ -85,7 +86,7 @@ public class SemesterService {
     @Transactional
     public void deleteSemester(Integer id) {
         Semester semester = semesterRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Semester not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Semester not found"));
         semester.setIsDeleted(true);
         semester.setIsActive(false);
         semesterRepository.save(semester);
@@ -101,7 +102,7 @@ public class SemesterService {
 
     private void validateDates(LocalDate startDate, LocalDate endDate) {
         if (startDate.isAfter(endDate)) {
-            throw new RuntimeException("Start date must be before end date");
+            throw new IllegalArgumentException("Start date must be before end date");
         }
     }
 

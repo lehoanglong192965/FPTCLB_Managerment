@@ -37,7 +37,8 @@ public interface SemesterRepository extends JpaRepository<Semester, Integer> {
 
     @Query("SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END FROM Semester s " +
            "WHERE s.startDate <= :endDate AND s.endDate >= :startDate " +
-           "AND (:excludeId IS NULL OR s.semesterID <> :excludeId)")
+           "AND (:excludeId IS NULL OR s.semesterID <> :excludeId) " +
+           "AND s.isDeleted = false")
     boolean existsOverlappingSemester(@Param("startDate") LocalDate startDate, 
                                       @Param("endDate") LocalDate endDate, 
                                       @Param("excludeId") Integer excludeId);
