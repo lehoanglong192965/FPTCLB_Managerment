@@ -83,4 +83,29 @@ public class SemesterControllerIntegrationTest {
         // Verify it was soft-deleted (Active should be false, isDeleted should be true, but GET might still return it if not filtered)
         // We just ensure delete returns 204 No Content.
     }
+
+    @Test
+    @WithMockUser(roles = {"Admin"})
+    void testDeleteActiveSemesterThrowsException() throws Exception {
+        // Create an active semester
+        SemesterDTO activeSemester = new SemesterDTO();
+        activeSemester.setSemesterCode("ACT99");
+        activeSemester.setStartDate(LocalDate.of(2098, 1, 1));
+        activeSemester.setEndDate(LocalDate.of(2098, 4, 30));
+        activeSemester.setIsActive(true);
+
+        MvcResult postResult = mockMvc.perform(post("/api/semesters")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(activeSemester)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        SemesterDTO createdSemester = objectMapper.readValue(postResult.getResponse().getContentAsString(), SemesterDTO.class);
+        Integer id = createdSemester.getSemesterID();
+
+        // Try to DELETE this active semester -> should return 422 Unprocessable Entity due to BusinessRuleException
+        mockMvc.perform(delete("/api/semesters/" + id))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.message", is("Cannot delete a semester that is currently active")));
+    }
 }

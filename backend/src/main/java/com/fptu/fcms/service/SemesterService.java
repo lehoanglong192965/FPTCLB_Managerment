@@ -47,6 +47,7 @@ public class SemesterService {
         
         if (isActivating) {
             deactivateOtherSemesters();
+            semesterRepository.flush();
         }
 
         semester = semesterRepository.save(semester);
@@ -76,6 +77,7 @@ public class SemesterService {
         boolean isActivating = dto.getIsActive() != null && dto.getIsActive();
         if (isActivating && !Boolean.TRUE.equals(semester.getIsActive())) {
             deactivateOtherSemesters();
+            semesterRepository.flush();
         }
         semester.setIsActive(isActivating);
 
@@ -87,6 +89,11 @@ public class SemesterService {
     public void deleteSemester(Integer id) {
         Semester semester = semesterRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Semester not found"));
+        
+        if (Boolean.TRUE.equals(semester.getIsActive())) {
+            throw new BusinessRuleException("Cannot delete a semester that is currently active");
+        }
+
         semester.setIsDeleted(true);
         semester.setIsActive(false);
         semesterRepository.save(semester);
