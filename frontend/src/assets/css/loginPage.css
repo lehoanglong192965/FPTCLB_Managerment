@@ -1,0 +1,287 @@
+/* ══════════════════════════════════════════════
+   loginPage.css — Centered Card Login
+   ══════════════════════════════════════════════ */
+
+/* ── Variables ───────────────────────────────── */
+:root {
+  --lp-bg:          #F2F2F2;
+  --lp-card-bg:     #FFFFFF;
+  --lp-border:      #E4E4E4;
+  --lp-border-focus:#4A90D9;
+  --lp-ink:         #1A1A1A;
+  --lp-muted:       #6B6B6B;
+  --lp-placeholder: #ABABAB;
+  --lp-primary:     #4A90D9;
+  --lp-primary-dk:  #3578C4;
+  --lp-error:       #D0453A;
+  --lp-link:        #4A90D9;
+
+  --lp-logo-outer:  #BCD4EE;
+  --lp-logo-inner:  #7AAED9;
+  --lp-logo-core:   #4A90D9;
+
+  --lp-radius:      12px;
+  --lp-font:        'Inter', 'Segoe UI', sans-serif;
+}
+
+/* ── Page wrapper ────────────────────────────── */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--lp-bg);
+  font-family: var(--lp-font);
+  padding: 2rem 1rem;
+}
+
+/* ── Card ────────────────────────────────────── */
+.login-card {
+  background: var(--lp-card-bg);
+  border-radius: var(--lp-radius);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Logo ────────────────────────────────────── */
+.logo-text {
+  font-size: 20px;
+  font-weight: 800;
+  color: #F37021;
+  letter-spacing: -0.3px
+}
+
+
+/* ── Heading ─────────────────────────────────── */
+.login-card__head {
+  text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.login-card__title {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--lp-ink);
+  margin: 0 0 4px;
+  letter-spacing: -0.02em;
+}
+
+.login-card__sub {
+  font-size: 13px;
+  color: var(--lp-muted);
+  margin: 0;
+}
+
+/* ── Form ────────────────────────────────────── */
+.login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Field ───────────────────────────────────── */
+.login-field {
+  position: relative;
+}
+
+.login-field__input {
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  border-bottom: 1.5px solid var(--lp-border);
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--lp-font);
+  font-size: 14px;
+  color: var(--lp-ink);
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.login-field__input::placeholder {
+  color: var(--lp-placeholder);
+}
+
+.login-field__input:focus {
+  border-bottom-color: var(--lp-border-focus);
+}
+
+.login-field__input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Password eye toggle */
+.login-field--password .login-field__input {
+  padding-right: 42px;
+}
+
+.login-field__eye {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--lp-placeholder);
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  transition: color 0.15s;
+}
+
+.login-field__eye:hover {
+  color: var(--lp-muted);
+}
+
+/* ── Options row ─────────────────────────────── */
+.login-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2px;
+}
+
+.login-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--lp-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.login-checkbox input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: #F37022;
+  cursor: pointer;
+}
+
+.login-forgot {
+  font-size: 12px;
+  font-weight: 600;
+  color: #F37022;
+  text-decoration: none;
+  letter-spacing: 0.03em;
+}
+
+.login-forgot:hover {
+  text-decoration: underline;
+}
+
+/* ── Error message ───────────────────────────── */
+.login-error {
+  font-size: 13px;
+  color: var(--lp-error);
+  margin: 0;
+  padding: 8px 12px;
+  background: #FDF2F2;
+  border-radius: 6px;
+  border-left: 3px solid var(--lp-error);
+}
+
+/* ── Submit button ───────────────────────────── */
+.login-submit {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: #F37022;
+  color: #fff;
+  font-family: var(--lp-font);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  margin-top: 4px;
+}
+
+.login-submit:hover:not(:disabled) {
+  background: var(--lp-primary-dk);
+}
+
+.login-submit:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.login-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ── Divider ─────────────────────────────────── */
+.login-divider {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 1.25rem 0 1rem;
+  font-size: 13px;
+  color: var(--lp-placeholder);
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--lp-border);
+}
+
+/* ── SSO buttons ─────────────────────────────── */
+.login-sso-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 11px 16px;
+  border: 1px solid var(--lp-border);
+  border-radius: 8px;
+  background: #fff;
+  font-family: var(--lp-font);
+  font-size: 14px;
+  color: var(--lp-ink);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  margin-bottom: 10px;
+}
+
+.login-sso-btn:hover:not(:disabled) {
+  background: #FAFAFA;
+  border-color: #C8C8C8;
+}
+
+.login-sso-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Footer ──────────────────────────────────── */
+.login-footer {
+  margin-top: 1.25rem;
+  font-size: 13px;
+  color: var(--lp-muted);
+  text-align: center;
+}
+
+.login-footer a {
+  color: #F37022;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.login-footer a:hover {
+  text-decoration: underline;
+}

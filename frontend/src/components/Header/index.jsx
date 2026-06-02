@@ -1,15 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "../assets/css/header.css";
+import "../../assets/css/header.css";
 
-const NAV_ITEMS = [
+export const NAV_ITEMS = [
   { label: "Trang Chủ",  href: "home"   },
   { label: "Câu Lạc Bộ", href: "clubs"  },
   { label: "Sự Kiện",    href: "events" },
   { label: "About",      href: "about"  },
 ];
-
-export { NAV_ITEMS };
 
 export default function Header({ activeSection }) {
   const [scrolled, setScrolled] = useState(false);
@@ -26,7 +24,6 @@ export default function Header({ activeSection }) {
       navigate("/");
       return;
     }
-    // Nếu đang ở trang khác thì về home rồi scroll
     navigate("/");
     setTimeout(() => {
       document.getElementById(href)?.scrollIntoView({ behavior: "smooth" });
@@ -55,8 +52,8 @@ export default function Header({ activeSection }) {
       </nav>
 
       <div className="header__actions">
-        <button className="btn-ghost">Đăng Nhập</button>
-        <button className="btn-primary">Đăng Ký</button>
+        <button className="btn-ghost" onClick={() => navigate("/login")}>Đăng Nhập</button>
+        <button className="btn-primary" onClick={() => navigate("/register")}>Đăng Ký</button>
       </div>
     </header>
   );

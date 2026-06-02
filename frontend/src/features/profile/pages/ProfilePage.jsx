@@ -1,7 +1,6 @@
-// src/pages/ProfilePage.jsx
-import React, { useState, useEffect } from 'react';
-import { Mail, Phone, Monitor, ChevronRight, Edit3, Users } from 'lucide-react';
-import '../assets/css/ProfilePage.css';
+import { useState, useEffect } from "react";
+import { Mail, Phone, Monitor, ChevronRight, Edit3, Users } from "lucide-react";
+import "../../../assets/css/ProfilePage.css";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState(null);
@@ -9,19 +8,19 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const mockProfile = {
-      name: 'Nguyễn Văn An',
-      studentId: 'SE123456',
-      faculty: 'Kỹ thuật phần mềm',
-      email: 'an@gmail.com',
-      phone: '0987 654 321',
-      major: 'Kỹ thuật phần mềm',
+      name: "Nguyễn Văn An",
+      studentId: "SE123456",
+      faculty: "Kỹ thuật phần mềm",
+      email: "an@gmail.com",
+      phone: "0987 654 321",
+      major: "Kỹ thuật phần mềm",
       clubs: [
-        { id: 1, name: 'FPTU IT Club', tag: 'IT' },
+        { id: 1, name: "FPTU IT Club", tag: "IT" },
       ],
       timeline: [
-        { id: 1, status: 'active', period: 'Hôm nay', event: 'Đăng nhập hệ thống', sub: 'Xem thông tin CLB' },
-        { id: 2, status: 'past', period: 'Tháng 5, 2026', event: 'Tham gia sự kiện "Tech Talk: AI & LLM"', sub: 'Đã check-in' },
-        { id: 3, status: 'past', period: 'Tháng 9, 2022', event: 'Gia nhập IT Club', sub: 'Vai trò: Thành viên' },
+        { id: 1, status: "active", period: "Hôm nay",       event: "Đăng nhập hệ thống",                      sub: "Xem thông tin CLB"   },
+        { id: 2, status: "past",   period: "Tháng 5, 2026", event: 'Tham gia sự kiện "Tech Talk: AI & LLM"',   sub: "Đã check-in"         },
+        { id: 3, status: "past",   period: "Tháng 9, 2022", event: "Gia nhập IT Club",                         sub: "Vai trò: Thành viên" },
       ],
     };
     setProfile(mockProfile);
@@ -30,7 +29,7 @@ export default function ProfilePage() {
 
   if (loading) return <div className="loading">Đang tải...</div>;
 
-  const initial = profile.name.split(' ').pop()[0].toUpperCase();
+  const initial = profile.name.split(" ").pop()[0].toUpperCase();
 
   return (
     <div className="profile-page">
@@ -38,13 +37,12 @@ export default function ProfilePage() {
 
         {/* ── LEFT COLUMN ── */}
         <div className="profile-left">
-          {/* Card: Thông tin Profile chính */}
           <div className="side-card">
             <div className="side-body">
               <div className="side-avatar">{initial}</div>
               <div className="side-name">{profile.name}</div>
               <div className="side-sub">{profile.studentId} · {profile.faculty}</div>
-              
+
               <div className="profile-badge-blue">
                 <Users size={12} /> {profile.clubs[0]?.name}
               </div>
@@ -53,11 +51,10 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Card: CLB đang tham gia (Tách biệt) */}
           <div className="clubs-section">
             <h3 className="section-title">CLB đang tham gia</h3>
             <div className="r-card">
-              {profile.clubs.map(club => (
+              {profile.clubs.map((club) => (
                 <div key={club.id} className="club-item">
                   <div className="club-thumb">
                     <Monitor size={18} color="#fff" />
@@ -75,8 +72,6 @@ export default function ProfilePage() {
 
         {/* ── RIGHT COLUMN ── */}
         <div className="profile-right">
-
-          {/* Card: Thông tin cá nhân */}
           <div className="info-card">
             <div className="info-card-header">
               <div className="title-with-icon">
@@ -85,7 +80,7 @@ export default function ProfilePage() {
               </div>
               <button className="info-card-edit">Sửa</button>
             </div>
-            
+
             <div className="info-grid">
               <div className="info-item">
                 <label>Chuyên ngành</label>
@@ -106,7 +101,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Card: Lịch sử hoạt động */}
           <div className="r-card history-card">
             <h3 className="r-card-title">Lịch sử hoạt động</h3>
             <div className="timeline">
@@ -125,8 +119,8 @@ export default function ProfilePage() {
               ))}
             </div>
           </div>
-
         </div>
+
       </div>
     </div>
   );

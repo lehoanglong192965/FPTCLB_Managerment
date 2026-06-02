@@ -1,26 +1,26 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { EVENTS } from "../constant/data";
-import { EventCard } from "../components/eventList";
-import "../assets/css/eventListPage.css";
+import { EVENTS } from "../../../constants/mockData";
+import EventCard from "../components/EventCard";
+import "../../../assets/css/eventListPage.css";
 
 const BADGE_FILTERS = ["Tất cả", "Đăng ký mở", "Sắp diễn ra", "Hết chỗ"];
 
 export default function EventListPage() {
   const navigate = useNavigate();
-  const [search, setSearch]       = useState("");
+  const [search, setSearch]             = useState("");
   const [activeFilter, setActiveFilter] = useState("Tất cả");
 
   const filtered = EVENTS.filter((event) => {
     const matchFilter = activeFilter === "Tất cả" || event.badge === activeFilter;
-    const matchSearch = event.title.toLowerCase().includes(search.toLowerCase())
-      || event.club.toLowerCase().includes(search.toLowerCase());
+    const matchSearch =
+      event.title.toLowerCase().includes(search.toLowerCase()) ||
+      event.club.toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
 
   return (
     <div className="event-list-page">
-      {/* Back */}
       <button className="event-list-page__back" onClick={() => navigate("/")}>
         ← Trang Chủ
       </button>
@@ -32,7 +32,6 @@ export default function EventListPage() {
         </p>
       </div>
 
-      {/* Controls */}
       <div className="event-list-page__controls">
         <div className="search-bar">
           <span className="search-bar__icon">🔍</span>
@@ -57,7 +56,6 @@ export default function EventListPage() {
         </div>
       </div>
 
-      {/* List */}
       <div className="event-list-page__list">
         {filtered.length > 0
           ? filtered.map((event) => <EventCard key={event.title} event={event} />)

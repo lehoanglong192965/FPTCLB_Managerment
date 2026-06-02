@@ -1,8 +1,5 @@
-import { CLUBS } from "../constant/data";
-import "../assets/css/clubList.css";
-import { useNavigate } from "react-router-dom";
+import "../../../assets/css/clubList.css";
 
-/* ── Map tag → CSS class ── */
 const TAG_CLASS = {
   "Công nghệ": "club-card__tag--tech",
   "Thiết kế":  "club-card__tag--design",
@@ -30,8 +27,7 @@ function abbrStyle(color) {
   };
 }
 
-/* ── Card đơn lẻ ── */
-export function ClubCard({ club }) {
+export default function ClubCard({ club }) {
   const variant  = getCardVariant(club.color);
   const tagClass = TAG_CLASS[club.tag] ?? "club-card__tag--default";
 
@@ -61,35 +57,3 @@ export function ClubCard({ club }) {
     </div>
   );
 }
-
-/* ── Section dùng trong LandingPage ── */
-export function ClubsSection() {
-  const navigate = useNavigate();
-
-  return (
-    <section id="clubs" className="clubs-section">
-      <div className="section__header">
-        <span className="section__eyebrow">Cộng Đồng</span>
-        <h2 className="section__title">Các Câu Lạc Bộ Nổi Bật</h2>
-        <p className="section__desc">
-          Khám phá hơn 40 câu lạc bộ đa dạng — từ công nghệ, nghệ thuật đến
-          thể thao và kinh doanh.
-        </p>
-      </div>
-
-      <div className="clubs__grid">
-        {CLUBS.map((club) => (
-          <ClubCard key={club.abbr} club={club} />
-        ))}
-      </div>
-
-      <div className="clubs__cta-wrap">
-        <button className="btn-outline" onClick={() => navigate("/clubs")}>
-          Xem Tất Cả Câu Lạc Bộ →
-        </button>
-      </div>
-    </section>
-  );
-}
-
-export default ClubCard;

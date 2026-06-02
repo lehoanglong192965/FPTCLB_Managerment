@@ -1,25 +1,27 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CLUBS } from "../constant/data";
-import { ClubCard } from "../components/clubList";
-import "../assets/css/clubListPage.css";
+import { CLUBS } from "../../../constants/mockData";
+import ClubCard from "../components/ClubCard";
+import "../../../assets/css/clubListPage.css";
 
-const CATEGORIES = ["Tất cả", "Công nghệ", "Thiết kế", "Kỹ năng", "AI & Data", "Business", "Ngôn ngữ", "Nghệ thuật", "Thể thao"];
+const CATEGORIES = [
+  "Tất cả", "Công nghệ", "Thiết kế", "Kỹ năng",
+  "AI & Data", "Business", "Ngôn ngữ", "Nghệ thuật", "Thể thao",
+];
 
 export default function ClubListPage() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState("");
+  const [search, setSearch]     = useState("");
   const [activeTag, setActiveTag] = useState("Tất cả");
 
   const filtered = CLUBS.filter((club) => {
-    const matchTag = activeTag === "Tất cả" || club.tag === activeTag;
+    const matchTag    = activeTag === "Tất cả" || club.tag === activeTag;
     const matchSearch = club.name.toLowerCase().includes(search.toLowerCase());
     return matchTag && matchSearch;
   });
 
   return (
     <div className="club-list-page">
-      {/* Nút back */}
       <button className="club-list-page__back" onClick={() => navigate("/")}>
         ← Trở về
       </button>

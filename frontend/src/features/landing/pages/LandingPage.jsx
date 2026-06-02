@@ -1,13 +1,7 @@
-import { ClubsSection } from "../components/clubList";
-import { EventsSection } from "../components/eventList";
-import { STATS } from "../constant/data";
-import "../assets/css/landingPage.css";
-
-
-// Xóa: import Header, { NAV_ITEMS }
-// Xóa: import { useState, useEffect }
-// Xóa: const SECTION_IDS
-// Xóa: const activeSection = useScrollSpy(...)
+import { STATS } from "../../../constants/mockData";
+import ClubsSection from "../../clubs/components/ClubsSection";
+import EventsSection from "../../events/components/EventsSection";
+import "../../../assets/css/landingPage.css";
 
 function Hero() {
   const scrollTo = (id) =>

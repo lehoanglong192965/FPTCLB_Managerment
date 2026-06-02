@@ -1,9 +1,3 @@
-/* ══════════════════════════════════════════
-   src/constants/data.js
-   Dữ liệu dùng chung cho toàn bộ ứng dụng.
-   Import ở bất kỳ page/component nào cần.
-══════════════════════════════════════════ */
-
 export const STATS = [
   { value: "40+",  label: "Câu lạc bộ"    },
   { value: "5K+",  label: "Thành viên"     },
