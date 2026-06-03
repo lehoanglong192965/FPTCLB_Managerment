@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { STATS } from "../../../constants/mockData";
 import ClubsSection from "../../clubs/components/ClubsSection";
 import EventsSection from "../../events/components/EventsSection";
@@ -48,6 +49,7 @@ function Hero() {
 }
 
 function CTABanner() {
+  const navigate = useNavigate();
   return (
     <section id="about" className="cta-banner">
       <div className="cta-banner__inner">
@@ -62,7 +64,9 @@ function CTABanner() {
             phát triển kỹ năng và tạo ra những kỷ niệm đáng nhớ.
           </p>
           <div className="cta-banner__actions">
-            <button className="btn-primary-lg">Đăng Ký Miễn Phí</button>
+            <button className="btn-primary-lg" onClick={() => navigate("/register")}>
+              Đăng Ký Miễn Phí
+            </button>
           </div>
         </div>
       </div>

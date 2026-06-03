@@ -152,7 +152,7 @@ export default function LoginPage() {
 
         <p className="login-footer">
           Chưa có tài khoản?{" "}
-          <a href="#" onClick={(e) => e.preventDefault()}>Tạo tài khoản</a>
+          <a href="#" onClick={(e) => { e.preventDefault(); navigate("/register"); }}>Tạo tài khoản</a>
         </p>
 
       </div>

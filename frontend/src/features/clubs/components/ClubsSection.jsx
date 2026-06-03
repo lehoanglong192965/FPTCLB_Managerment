@@ -11,7 +11,7 @@ export default function ClubsSection() {
         <span className="section__eyebrow">Cộng Đồng</span>
         <h2 className="section__title">Các Câu Lạc Bộ Nổi Bật</h2>
         <p className="section__desc">
-          Khám phá hơn 40 câu lạc bộ đa dạng — từ công nghệ, nghệ thuật đến
+          Khám phá các câu lạc bộ đa dạng — từ công nghệ, nghệ thuật đến
           thể thao và kinh doanh.
         </p>
       </div>
