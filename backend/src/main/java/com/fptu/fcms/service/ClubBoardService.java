@@ -148,10 +148,10 @@ public class ClubBoardService {
             );
         }
 
-        // ─── BƯỚC 3: BR-02 — Chặn cán bộ ICPDP (và Admin) ────────────────
-        // Cán bộ phòng ICPDP không được phép là thành viên hay Leader của CLB
-        // Admin cũng không được có membership CLB (vai trò quản trị, không phải thành viên)
-        validateNotStaffAccount(targetUser, request.getAction());
+        // ─── BƯỚC 3: BR-A05 — Chặn cán bộ ICPDP (và Admin) ──────────────
+        // IC-PDP staff are not allowed to join clubs as Member or Leader.
+        // Validation chạy TRƯỚC khi lưu ClubMembership — áp dụng cho mọi action.
+        validateUserCanJoinClub(targetUser);
 
         // ─── BƯỚC 4: Phân nhánh theo action ───────────────────────────────
         if ("APPOINT".equals(request.getAction())) {
@@ -198,8 +198,9 @@ public class ClubBoardService {
             // BR-01: Chặn gán Leader nếu có án kỷ luật Active trong học kỳ hiện tại
             validateNoDiscipline(targetUser, activeSemester);
 
-            // BR-03: Chặn gán Leader nếu đã là Leader ở CLB KHÁC trong kỳ này
-            validateNoLeaderInOtherClub(targetUser.getUserID(), activeSemester.getSemesterID(), clubID);
+            // BR-A02: Chặn gán Leader nếu đã là Leader ở CLB KHÁC trong kỳ này
+            // Message: "Student [studentID] is already Leader of another club." / HTTP 400
+            validateLeaderExclusive(targetUser.getUserID(), activeSemester.getSemesterID(), clubID);
 
             // BR-04: Bãi nhiệm Leader cũ (nếu có) trước khi bổ nhiệm Leader mới
             // Đây là thao tác ATOMIC — cả hai phải cùng commit hoặc cùng rollback
@@ -355,46 +356,54 @@ public class ClubBoardService {
     // =====================================================================
 
     /**
-     * BR-02: Kiểm tra tài khoản KHÔNG phải cán bộ ICPDP hoặc Admin.
+     * BR-A05 — Kiểm tra user CÓ được phép tham gia CLB không.
      *
-     * Cán bộ phòng ICPDP (SystemRole.roleName = 'ICPDP') không được phép
-     * được gán vai trò Leader hoặc Member trong bất kỳ CLB nào.
-     * Admin cũng không được có membership CLB.
+     * Rule: User có SystemRole.roleName = 'ICPDP' KHÔNG được phép:
+     *   - Join Club (tự gia nhập)
+     *   - Add Member (được thêm vào)
+     *   - Assign Leader
+     *   - Assign ViceLeader
      *
-     * @param user   UserAccount cần kiểm tra
-     * @param action hành động đang thực hiện (để đưa vào message lỗi)
-     * @throws BusinessRuleException nếu user là cán bộ ICPDP hoặc Admin
+     * Validation chạy TRƯỚC mọi thao tác lưu ClubMembership.
+     * HTTP 403 Forbidden — không phải lỗi dữ liệu mà là lỗi quyền nghiệp vụ.
+     *
+     * @param user UserAccount của người được thêm vào CLB
+     * @throws BusinessRuleException (HTTP 403) nếu user là cán bộ ICPDP
+     * @throws BusinessRuleException (HTTP 500) nếu roleID không tồn tại trong SystemRole
      */
-    private void validateNotStaffAccount(UserAccount user, String action) {
-        // Lấy SystemRole của user theo roleID
+    void validateUserCanJoinClub(UserAccount user) {
         SystemRole systemRole = systemRoleRepo.findById(user.getRoleID())
-                .orElse(null);
+                .orElseThrow(() -> new BusinessRuleException(
+                        "Tài khoản [" + user.getFullName() + "] (userID=" + user.getUserID() +
+                                ") không có System Role hợp lệ trong hệ thống. " +
+                                "Vui lòng kiểm tra dữ liệu tài khoản.",
+                        HttpStatus.INTERNAL_SERVER_ERROR
+                ));
 
-        if (systemRole == null) {
-            // Tài khoản không có system role hợp lệ — đây là lỗi dữ liệu
-            throw new BusinessRuleException(
-                    "Tài khoản [" + user.getFullName() + "] không có System Role hợp lệ.",
-                    HttpStatus.INTERNAL_SERVER_ERROR
-            );
-        }
-
-        // Chặn cán bộ ICPDP
+        // BR-A05: ICPDP không được tham gia CLB dưới bất kỳ hình thức nào
         if (SYSTEM_ROLE_ICPDP.equals(systemRole.getRoleName())) {
             throw new BusinessRuleException(
-                    "[BR-02] Không thể thực hiện '" + action + "' cho tài khoản [" +
-                            user.getFullName() + "] vì đây là cán bộ phòng IC-PDP. " +
-                            "Cán bộ phòng ICPDP không được phép có vai trò Leader/Member trong CLB."
+                    "IC-PDP staff are not allowed to join clubs as Member or Leader.",
+                    HttpStatus.FORBIDDEN
             );
         }
 
-        // Chặn Admin (Admin quản trị hệ thống, không tham gia CLB với tư cách thành viên)
+        // Admin hệ thống cũng không được có membership CLB
         if ("Admin".equals(systemRole.getRoleName())) {
             throw new BusinessRuleException(
-                    "[BR-02] Không thể thực hiện '" + action + "' cho tài khoản [" +
-                            user.getFullName() + "] vì đây là tài khoản Admin hệ thống. " +
-                            "Tài khoản Admin không được phép có vai trò trong CLB."
+                    "[BR-A05] Admin system account is not allowed to join clubs as Member or Leader.",
+                    HttpStatus.FORBIDDEN
             );
         }
+    }
+
+    /**
+     * @deprecated Thay bằng {@link #validateUserCanJoinClub(UserAccount)}.
+     *             Giữ lại để không break nếu còn caller khác — xóa sau sprint này.
+     */
+    @Deprecated
+    private void validateNotStaffAccount(UserAccount user, String action) {
+        validateUserCanJoinClub(user);
     }
 
     /**
@@ -431,29 +440,44 @@ public class ClubBoardService {
     }
 
     /**
-     * BR-03: Kiểm tra sinh viên chưa làm Leader ở CLB KHÁC trong học kỳ này.
+     * BR-A02 — Kiểm tra một student chỉ giữ role Leader tại tối đa 1 CLB trong cùng 1 học kỳ.
      *
-     * DB constraint UX_Membership_LeaderExclusive cũng enforce điều này ở tầng DB,
-     * nhưng kiểm tra ở service layer cho phép throw lỗi rõ ràng bằng tiếng Việt
-     * thay vì để DB throw ConstraintViolationException chung chung.
+     * Áp dụng cho cả hai trường hợp:
+     *   (a) Thêm mới ClubMembership với role = Leader
+     *   (b) Update role của membership hiện tại thành Leader
      *
-     * @param userID        ID user cần kiểm tra
-     * @param semesterID    ID học kỳ
-     * @param currentClubID CLB đang xử lý — loại trừ khỏi kiểm tra
-     * @throws BusinessRuleException nếu user đã là Leader ở CLB khác
+     * Logic sử dụng countLeaderMembershipByUserAndSemesterExcludingClub() để:
+     *   - Đếm số Leader membership trong tất cả CLB KHÁC với currentClubID
+     *   - Tránh false-positive khi re-assign Leader trong cùng CLB (vì record đó đã tồn tại)
+     *
+     * Nếu count > 0 → user đã là Leader CLB khác → REJECT.
+     * DB index UX_Membership_LeaderExclusive là lớp bảo vệ thứ hai chống race condition.
+     *
+     * @param userID        ID của student cần kiểm tra
+     * @param semesterID    ID học kỳ hiện tại (Active semester)
+     * @param currentClubID CLB đang xử lý (loại trừ khỏi count để tránh self-count)
+     * @throws BusinessRuleException (HTTP 400) nếu student đã là Leader ở CLB khác trong kỳ
      */
-    private void validateNoLeaderInOtherClub(Integer userID, Integer semesterID, Integer currentClubID) {
-        boolean isLeaderElsewhere = membershipRepo.existsLeaderInOtherClub(
+    void validateLeaderExclusive(Integer userID, Integer semesterID, Integer currentClubID) {
+        long leaderCountElsewhere = membershipRepo.countLeaderMembershipByUserAndSemesterExcludingClub(
                 userID, semesterID, CLUB_ROLE_ID_LEADER, currentClubID
         );
 
-        if (isLeaderElsewhere) {
+        if (leaderCountElsewhere > 0) {
             throw new BusinessRuleException(
-                    "[BR-03] Không thể bổ nhiệm Leader: sinh viên này đã đang giữ chức Leader " +
-                            "tại một CLB khác trong học kỳ hiện tại. " +
-                            "Một sinh viên chỉ được làm Leader của tối đa 1 CLB trong 1 học kỳ."
+                    "Student " + userID + " is already Leader of another club.",
+                    HttpStatus.BAD_REQUEST
             );
         }
+    }
+
+    /**
+     * @deprecated Thay bằng {@link #validateLeaderExclusive(Integer, Integer, Integer)}.
+     *             Giữ để backward-compat — xóa sau sprint này.
+     */
+    @Deprecated
+    private void validateNoLeaderInOtherClub(Integer userID, Integer semesterID, Integer currentClubID) {
+        validateLeaderExclusive(userID, semesterID, currentClubID);
     }
 
     /**
