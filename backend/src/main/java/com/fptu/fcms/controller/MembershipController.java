@@ -124,8 +124,8 @@ public class MembershipController {
                     
                     **Các Business Rule được kiểm tra:**
                     - BR-01: Chặn bổ nhiệm Leader nếu sinh viên có án kỷ luật Active trong bảng DisciplineLog
-                    - BR-02: Chặn gán quyền Leader/Member cho tài khoản là cán bộ phòng ICPDP hoặc Admin
-                    - BR-03: Một sinh viên chỉ được làm Leader của 1 CLB trong 1 học kỳ
+                    - BR-A02: Một sinh viên chỉ được làm Leader của 1 CLB trong 1 học kỳ → HTTP 400
+                    - BR-A05: IC-PDP staff không được tham gia CLB (Member / Leader / ViceLeader) → HTTP 403
                     - BR-04: Khi bổ nhiệm Leader mới → Leader cũ sẽ tự động bị bãi nhiệm (atomic)
                     
                     **@Transactional:** Toàn bộ thao tác là atomic — nếu có lỗi, mọi thay đổi sẽ bị rollback.
@@ -133,15 +133,23 @@ public class MembershipController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Thao tác thành công"),
-            @ApiResponse(responseCode = "400", description = "Request không hợp lệ (validation lỗi)",
+            @ApiResponse(responseCode = "400",
+                    description = """
+                            Request không hợp lệ HOẶC vi phạm BR-A02.
+                            BR-A02: "Student [studentID] is already Leader of another club."
+                            """,
                     content = @Content(schema = @Schema(implementation = Object.class))),
-            @ApiResponse(responseCode = "403", description = "Không có quyền thực hiện hoặc vi phạm BR-02",
+            @ApiResponse(responseCode = "403",
+                    description = """
+                            Không có quyền thực hiện HOẶC vi phạm BR-A05.
+                            BR-A05: "IC-PDP staff are not allowed to join clubs as Member or Leader."
+                            """,
                     content = @Content(schema = @Schema(implementation = Object.class))),
             @ApiResponse(responseCode = "404", description = "User hoặc CLB không tồn tại",
                     content = @Content(schema = @Schema(implementation = Object.class))),
             @ApiResponse(responseCode = "409", description = "Không có học kỳ Active",
                     content = @Content(schema = @Schema(implementation = Object.class))),
-            @ApiResponse(responseCode = "422", description = "Vi phạm Business Rule (BR-01, BR-03)",
+            @ApiResponse(responseCode = "422", description = "Vi phạm Business Rule khác (BR-01)",
                     content = @Content(schema = @Schema(implementation = Object.class)))
     })
     public ResponseEntity<ClubBoardMemberResponse> changeBoardMember(
