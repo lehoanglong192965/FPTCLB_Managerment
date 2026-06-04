@@ -100,9 +100,9 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
      * Kiểm tra user đã làm Leader ở CLB KHÁC (không phải clubID hiện tại) trong học kỳ.
      * Cho phép re-assign Leader trong cùng CLB mà không bị chặn bởi rule trên.
      *
-     * @param userID       ID user cần kiểm tra
-     * @param semesterID   ID học kỳ
-     * @param clubRoleID   ID vai trò (1 = Leader)
+     * @param userID        ID user cần kiểm tra
+     * @param semesterID    ID học kỳ
+     * @param clubRoleID    ID vai trò (1 = Leader)
      * @param excludeClubID CLB đang xử lý — loại trừ khỏi kiểm tra
      * @return true nếu user đã là Leader ở CLB khác trong kỳ này
      */
@@ -113,6 +113,71 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
             "AND m.clubID != :excludeClubID " +
             "AND m.isDeleted = false")
     boolean existsLeaderInOtherClub(
+            @Param("userID") Integer userID,
+            @Param("semesterID") Integer semesterID,
+            @Param("clubRoleID") Integer clubRoleID,
+            @Param("excludeClubID") Integer excludeClubID
+    );
+
+    // =====================================================================
+    // BR-A02: ĐẾM SỐ LEADER MEMBERSHIP CỦA USER TRONG HỌC KỲ
+    // =====================================================================
+
+    /**
+     * BR-A02 — Đếm số lượng membership với vai trò Leader đang active của một user
+     * trong một học kỳ cụ thể, trên TẤT CẢ các CLB.
+     *
+     * Dùng trong validateLeaderExclusive() để kiểm tra trước khi thêm mới hoặc
+     * update role thành Leader. Nếu count > 0 → reject request.
+     *
+     * JPQL chú thích:
+     *   - "m.isDeleted = false" tương đương WHERE isDeleted = 0
+     *   - @SQLRestriction("isDeleted = false") trên entity cũng filter,
+     *     nhưng viết tường minh để rõ intent và tránh bug nếu annotation bị bỏ
+     *
+     * SQL tương đương:
+     *   SELECT COUNT(*) FROM ClubMembership
+     *   WHERE userID = :userID AND semesterID = :semesterID
+     *   AND clubRoleID = 1 AND isDeleted = 0
+     *
+     * @param userID     ID user cần kiểm tra
+     * @param semesterID ID học kỳ cần kiểm tra
+     * @param clubRoleID ID vai trò Leader (= 1 theo Seed Data)
+     * @return số lượng membership Leader đang active (0 = chưa làm Leader ở đâu)
+     */
+    @Query("SELECT COUNT(m) FROM ClubMembership m " +
+            "WHERE m.userID = :userID " +
+            "AND m.semesterID = :semesterID " +
+            "AND m.clubRoleID = :clubRoleID " +
+            "AND m.isDeleted = false")
+    long countLeaderMembershipByUserAndSemester(
+            @Param("userID") Integer userID,
+            @Param("semesterID") Integer semesterID,
+            @Param("clubRoleID") Integer clubRoleID
+    );
+
+    /**
+     * BR-A02 (variant) — Đếm Leader membership loại trừ CLB hiện tại.
+     * Dùng khi UPDATE role trong CLB đang xử lý (tránh tự count chính mình).
+     *
+     * SQL tương đương:
+     *   SELECT COUNT(*) FROM ClubMembership
+     *   WHERE userID = :userID AND semesterID = :semesterID
+     *   AND clubRoleID = 1 AND clubID != :excludeClubID AND isDeleted = 0
+     *
+     * @param userID        ID user cần kiểm tra
+     * @param semesterID    ID học kỳ
+     * @param clubRoleID    ID vai trò Leader (= 1)
+     * @param excludeClubID CLB đang xử lý — không tính vào kết quả
+     * @return số lượng Leader membership ở các CLB KHÁC
+     */
+    @Query("SELECT COUNT(m) FROM ClubMembership m " +
+            "WHERE m.userID = :userID " +
+            "AND m.semesterID = :semesterID " +
+            "AND m.clubRoleID = :clubRoleID " +
+            "AND m.clubID != :excludeClubID " +
+            "AND m.isDeleted = false")
+    long countLeaderMembershipByUserAndSemesterExcludingClub(
             @Param("userID") Integer userID,
             @Param("semesterID") Integer semesterID,
             @Param("clubRoleID") Integer clubRoleID,
