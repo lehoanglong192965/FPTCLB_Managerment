@@ -3,7 +3,7 @@ package com.fptu.fcms.controller;
 import com.fptu.fcms.dto.SemesterDTO;
 import com.fptu.fcms.service.SemesterService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,10 +18,10 @@ import java.util.List;
 @RequestMapping("/api/semesters")
 @Tag(name = "Semester Management", description = "API quản lý cấu hình Học kỳ (Semester)")
 @SecurityRequirement(name = "bearerAuth")
+@RequiredArgsConstructor
 public class SemesterController {
 
-    @Autowired
-    private SemesterService semesterService;
+    private final SemesterService semesterService;
 
     @GetMapping
     @Operation(summary = "Lấy danh sách tất cả học kỳ")

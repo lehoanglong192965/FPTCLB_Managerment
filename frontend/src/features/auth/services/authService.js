@@ -1,41 +1,54 @@
-import axiosClient from "../../../services/api/axiosClient";
+import authApi from "../api/authApi";
 import { TokenService } from "../../../services/api/axiosClient";
+import { decodeJwtPayload } from "../utils/tokenGuard";
 
+const ROLE_MAP = {
+  1: "ADMIN",
+  2: "ICPDP",
+  3: "MEMBER",
+};
+
+/**
+ * authService — xử lý business logic (lưu token, map role, redirect...).
+ * Dùng authApi cho các HTTP call thuần.
+ */
 const authService = {
   login: async (email, password) => {
-    const data = await axiosClient.post("/auth/login", { email, password });
-    TokenService.save(data);
-    return data;
+    const data = await authApi.login(email, password);
+    // data = { type: "Bearer", token: "eyJ..." }
+
+    const payload = decodeJwtPayload(data.token);
+    const role = ROLE_MAP[payload?.roleID] ?? "MEMBER";
+
+    TokenService.save({ access_token: data.token, refresh_token: null, role });
+
+    return { token: data.token, role, email: payload?.sub };
   },
 
-  register: async ({ fullName, email, password, studentId }) => {
-    const data = await axiosClient.post("/auth/register", { fullName, email, password, studentId });
-    TokenService.save(data);
+  register: async (params) => {
+    const data = await authApi.register(params);
     return data;
   },
 
   logout: async () => {
     try {
       const refreshToken = TokenService.getRefresh();
-      if (refreshToken) {
-        await axiosClient.post("/auth/logout", { refreshToken });
-      }
+      if (refreshToken) await authApi.logout(refreshToken);
     } finally {
       TokenService.clear();
       window.location.href = "/login";
     }
   },
 
-  getProfile: () => axiosClient.get("/auth/me"),
+  getProfile: () => authApi.getProfile(),
 
-  changePassword: ({ currentPassword, newPassword }) =>
-    axiosClient.put("/auth/change-password", { currentPassword, newPassword }),
+  changePassword: (params) => authApi.changePassword(params),
 
-  forgotPassword: (email) =>
-    axiosClient.post("/auth/forgot-password", { email }),
+  forgotPassword: (email) => authApi.forgotPassword(email),
 
-  resetPassword: ({ token, newPassword }) =>
-    axiosClient.post("/auth/reset-password", { token, newPassword }),
+  resetPassword: (params) => authApi.resetPassword(params),
+
+  checkEmailExists: (email) => authApi.checkEmailExists(email),
 };
 
 export default authService;
