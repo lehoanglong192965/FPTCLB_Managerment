@@ -3,7 +3,7 @@ package com.fptu.fcms.controller;
 import com.fptu.fcms.dto.DisciplineLogDTO;
 import com.fptu.fcms.service.DisciplineLogService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -32,10 +32,10 @@ import java.util.List;
 @Tag(name = "Discipline Log Management", description = "API quản lý án kỷ luật (dành cho Admin/ICPDP)")
 @SecurityRequirement(name = "bearerAuth")
 @PreAuthorize("hasAnyRole('Admin', 'ICPDP')")
+@RequiredArgsConstructor
 public class DisciplineLogController {
 
-    @Autowired
-    private DisciplineLogService disciplineLogService;
+    private final DisciplineLogService disciplineLogService;
 
     @GetMapping
     @Operation(summary = "Lấy danh sách tất cả án kỷ luật")

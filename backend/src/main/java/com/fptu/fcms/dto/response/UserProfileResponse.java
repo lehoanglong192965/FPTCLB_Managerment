@@ -1,4 +1,4 @@
-package com.fptu.fcms.dto.request;
+package com.fptu.fcms.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,9 +9,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UpdateProfileRequest {
-
+public class UserProfileResponse {
+    private Integer userId;
+    private String email;
     private String fullName;
-
     private String major;
+    private Integer roleId;
 }
