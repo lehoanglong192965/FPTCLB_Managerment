@@ -7,10 +7,13 @@ import AppRoutes from "../routes";
 
 const HIDDEN_CHROME = [];
 
+const DASHBOARD_PREFIXES = ["/admin", "/club-leader", "/manager", "/vice-leader", "/core-team", "/member"];
+
 export default function MainLayout() {
   const location = useLocation();
   const isHome = location.pathname === "/";
-  const showChrome = !HIDDEN_CHROME.includes(location.pathname);
+  const isDashboard = DASHBOARD_PREFIXES.some((p) => location.pathname === p || location.pathname.startsWith(p + "/"));
+  const showChrome = !isDashboard && !HIDDEN_CHROME.includes(location.pathname);
   const activeSection = useScrollSpy(isHome ? NAV_ITEMS.map((n) => n.href) : []);
 
   return (
