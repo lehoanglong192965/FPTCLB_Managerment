@@ -1,12 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../../../assets/css/loginPage.css";
-import { TokenStorage } from "../utils/tokenGuard";
-
-const FAKE_JWT =
-  "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9" +
-  ".eyJzdWIiOiJ1c2VyXzEyMyIsImVtYWlsIjoiYWRtaW5AZXhhbXBsZS5jb20iLCJuYW1lIjoiTmd1eWVuIFZhbiBBIiwicm9sZXMiOlsiYWRtaW4iLCJ1c2VyIl0sInByb3ZpZGVyIjoiZ29vZ2xlIiwiaWF0IjoxNzE1MDAwMDAwLCJleHAiOjk5OTk5OTk5OTl9" +
-  ".RSASIG_placeholder";
+import authService from "../services/authService";
+import { useAuth } from "../context/AuthContext";
 
 function GoogleIcon() {
   return (
@@ -42,25 +38,30 @@ function Logo() {
   );
 }
 
+const ROLE_REDIRECT = {
+  ADMIN:  "/admin",
+  ICPDP:  "/icpdp",
+  MEMBER: "/member",
+};
+
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail]         = useState("");
-  const [password, setPassword]   = useState("");
-  const [showPass, setShowPass]   = useState(false);
+  const { login } = useAuth();
+  const [email, setEmail]           = useState("");
+  const [password, setPassword]     = useState("");
+  const [showPass, setShowPass]     = useState(false);
   const [keepSigned, setKeepSigned] = useState(false);
-  const [loading, setLoading]     = useState(null);
-  const [error, setError]         = useState("");
+  const [loading, setLoading]       = useState(null);
+  const [error, setError]           = useState("");
 
   const handleSSO = (provider) => {
     setError("");
     setLoading(provider);
-    setTimeout(() => {
-      TokenStorage.set(FAKE_JWT);
-      navigate("/");
-    }, 1400);
+    // TODO: tích hợp OAuth khi backend hỗ trợ
+    setTimeout(() => setLoading(null), 1400);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     if (!email || !password) {
@@ -68,10 +69,20 @@ export default function LoginPage() {
       return;
     }
     setLoading("email");
-    setTimeout(() => {
-      TokenStorage.set(FAKE_JWT);
-      navigate("/");
-    }, 1100);
+    try {
+      const { role, email: userEmail } = await authService.login(email, password);
+
+      // Lưu vào AuthContext để dùng toàn app
+      login({ email: userEmail, role });
+
+      // Redirect đến dashboard theo role
+      navigate(ROLE_REDIRECT[role] ?? "/member");
+    } catch (err) {
+      const msg = err?.response?.data?.error ?? "Email hoặc mật khẩu không đúng.";
+      setError(msg);
+    } finally {
+      setLoading(null);
+    }
   };
 
   return (
