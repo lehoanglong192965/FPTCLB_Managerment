@@ -1,0 +1,395 @@
+/* ══════════════════════════════════════════════
+   registerPage.css
+   ══════════════════════════════════════════════ */
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Page ────────────────────────────────────── */
+.register-page {
+  min-height: 100vh;
+  padding-top: 68px; /* fixed header height */
+  background: #F2F2F2;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+
+.register-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px 48px;
+}
+
+/* ── Card ────────────────────────────────────── */
+.register-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  padding: 2.25rem 2rem;
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: fadeSlideIn 0.35s ease-out both;
+}
+
+/* ── Logo ────────────────────────────────────── */
+.register-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.register-logo__circle {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #FEE9D1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.register-logo__letter {
+  font-size: 22px;
+  font-weight: 800;
+  color: #F37021;
+}
+
+/* ── Heading ─────────────────────────────────── */
+.register-head {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.register-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1A1A1A;
+  margin: 0 0 4px;
+  letter-spacing: -0.02em;
+}
+
+.register-sub {
+  font-size: 13px;
+  color: #6B6B6B;
+  margin: 0;
+}
+
+/* ── Form ────────────────────────────────────── */
+.register-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Field ───────────────────────────────────── */
+.rg-field {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 8px;
+}
+
+.rg-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B6B6B;
+  margin-bottom: 2px;
+  letter-spacing: 0.01em;
+}
+
+.rg-label span {
+  color: #F37021;
+}
+
+/* ── Input — underline style like login ──────── */
+.rg-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-bottom: 1.5px solid #E4E4E4;
+  border-radius: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  color: #1A1A1A;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.rg-input::placeholder {
+  color: #ABABAB;
+}
+
+.rg-input:focus {
+  border-bottom-color: #F37021;
+}
+
+.rg-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Select — same underline style as input ──── */
+.rg-select {
+  width: 100%;
+  padding: 9px 28px 9px 12px;
+  border: none;
+  border-bottom: 1.5px solid #E4E4E4;
+  border-radius: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  color: #1A1A1A;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23ABABAB' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.rg-select:focus {
+  border-bottom-color: #F37021;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23F37021' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.rg-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rg-select option[value=""] {
+  color: #ABABAB;
+}
+
+/* ── Password wrapper ────────────────────────── */
+.rg-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.rg-input-wrap .rg-input {
+  padding-right: 38px;
+}
+
+.rg-eye {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #ABABAB;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  transition: color 0.15s;
+}
+
+.rg-eye:hover { color: #6B6B6B; }
+
+/* ── Error ───────────────────────────────────── */
+.rg-error {
+  font-size: 12px;
+  color: #D0453A;
+  margin: 3px 0 0;
+  padding: 6px 10px;
+  background: #FDF2F2;
+  border-radius: 5px;
+  border-left: 3px solid #D0453A;
+}
+
+/* ── Upload zone ─────────────────────────────── */
+.rg-label-hint {
+  font-weight: 400;
+  color: #F37021;
+  font-size: 11px;
+}
+
+.rg-upload-zone {
+  width: 100%;
+  min-height: 120px;
+  border: 1.5px dashed #D0D0D0;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: #FAFAFA;
+  transition: border-color 0.15s, background 0.15s;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+}
+
+.rg-upload-zone:hover {
+  border-color: #F37021;
+  background: #FFF8F4;
+}
+
+.rg-upload-zone--has-img {
+  border-style: solid;
+  border-color: #F37021;
+  min-height: 160px;
+}
+
+.rg-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 20px;
+  text-align: center;
+}
+
+.rg-upload-placeholder p {
+  margin: 0;
+  font-size: 13px;
+  color: #6B6B6B;
+}
+
+.rg-upload-placeholder p span {
+  color: #F37021;
+  font-weight: 600;
+}
+
+.rg-upload-hint {
+  font-size: 11px !important;
+  color: #ABABAB !important;
+}
+
+.rg-upload-preview {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  display: block;
+}
+
+.rg-upload-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+
+.rg-upload-remove:hover { background: rgba(0,0,0,0.75); }
+
+/* ── Student ID + Major row ──────────────────── */
+.register-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 20px;
+}
+
+/* ── Submit ──────────────────────────────────── */
+.register-submit {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  border: none;
+  border-radius: 8px;
+  background: #F37021;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.register-submit:hover:not(:disabled) { background: #e05c0a; }
+.register-submit:active:not(:disabled) { transform: scale(0.99); }
+.register-submit:disabled { opacity: 0.65; cursor: not-allowed; }
+
+/* ── Divider ─────────────────────────────────── */
+.rg-divider {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 1.25rem 0 1rem;
+  font-size: 13px;
+  color: #ABABAB;
+}
+
+.rg-divider::before,
+.rg-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #E4E4E4;
+}
+
+/* ── Google SSO button ───────────────────────── */
+.rg-sso-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 11px 16px;
+  border: 1px solid #E4E4E4;
+  border-radius: 8px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  color: #1A1A1A;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  margin-bottom: 4px;
+}
+
+.rg-sso-btn:hover:not(:disabled) {
+  background: #FAFAFA;
+  border-color: #C8C8C8;
+}
+
+.rg-sso-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Footer ──────────────────────────────────── */
+.register-footer {
+  margin-top: 1.25rem;
+  font-size: 13px;
+  color: #6B6B6B;
+  text-align: center;
+}
+
+.register-footer__link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #F37021;
+  font-weight: 500;
+  font-size: 13px;
+  padding: 0;
+}
+
+.register-footer__link:hover { text-decoration: underline; }
+
+/* ── Responsive ──────────────────────────────── */
+@media (max-width: 480px) {
+  .register-card { padding: 1.75rem 1.25rem; }
+  .register-row  { grid-template-columns: 1fr; }
+}

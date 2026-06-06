@@ -1,0 +1,468 @@
+/* ===== WRAPPER ===== */
+.ap-wrapper {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 32px 24px 48px;
+}
+
+.ap-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #64748b;
+  font-size: 15px;
+}
+
+/* ===== HEADER ===== */
+.ap-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.ap-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.5px;
+}
+
+.ap-subtitle {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.ap-btn-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #ea580c;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ap-btn-edit:hover { background: #c2410c; }
+
+.ap-edit-actions { display: flex; gap: 8px; }
+
+.ap-btn-save {
+  background: #ea580c;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ap-btn-cancel {
+  background: #fff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ===== BODY GRID ===== */
+.ap-body {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* ===== CARDS ===== */
+.ap-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 22px;
+}
+
+/* ===== LEFT COLUMN ===== */
+.ap-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ap-avatar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.ap-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #d1fae5;
+  color: #065f46;
+  font-size: 24px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ap-name {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ap-intake {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.ap-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.ap-skill-tag {
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tag-blue { background: #dbeafe; color: #1d4ed8; }
+.tag-dark { background: #dbeafe; color: #1d4ed8; }
+
+/* ===== MENTORSHIP CARD ===== */
+.ap-mentorship-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.ap-mentorship-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.ap-mentorship-sub {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+/* Toggle — display only, no pointer */
+.ap-toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  border: none;
+  flex-shrink: 0;
+}
+
+.ap-toggle-readonly {
+  cursor: default;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.ap-toggle.on  { background: #f97316; }
+.ap-toggle.off { background: #d1d5db; }
+
+.ap-toggle-knob {
+  position: absolute;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: left 0.2s;
+}
+.ap-toggle.on  .ap-toggle-knob { left: 23px; }
+.ap-toggle.off .ap-toggle-knob { left: 3px; }
+
+/* ===== RIGHT COLUMN ===== */
+.ap-right {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ap-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.ap-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ap-card-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ap-card-icon        { color: #ea580c; }
+.ap-card-icon-purple { color: #7c3aed; }
+
+.ap-editing-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9a3412;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+/* Info grid */
+.ap-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+}
+
+.ap-info-full { grid-column: 1 / -1; }
+
+.ap-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ap-info-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.ap-info-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.ap-input {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.ap-input:focus { border-color: #f97316; }
+
+/* ===== HISTORY CARD ===== */
+.ap-history-badges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ap-badge-br04 {
+  background: #f3e8ff;
+  color: #6d28d9;
+  border: 1px solid #e9d5ff;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 10px;
+}
+
+.ap-badge-readonly {
+  background: #f9fafb;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+}
+
+/* Notice box */
+.ap-readonly-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #6d28d9;
+  margin-bottom: 14px;
+  line-height: 1.55;
+}
+
+.ap-notice-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #7c3aed;
+}
+
+/* History list */
+.ap-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ap-history-item {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+/* Row: clock + meta | FROZEN */
+.ap-history-top {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.ap-history-left {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex: 1;
+}
+
+/* FROZEN badge — inline right */
+.ap-frozen-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f3e8ff;
+  color: #7c3aed;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 9px;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+/* Clock icon với vòng tròn nền tím nhạt */
+.ap-clock-wrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #f3e8ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ap-clock-icon { color: #a78bfa; }
+
+.ap-history-meta { flex: 1; }
+
+/* Club name + tags cùng hàng */
+.ap-history-club {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.ap-club-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Role badges (Leader / Vice Leader) */
+.ap-role-tag.role-white {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Semester badges (SP25 / FA24) */
+.ap-sem-tag.sem-gray {
+  background: #f9fafb;
+  border: 1px solid #d1d5db;
+  color: #6b7280;
+  font-weight: 500;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+/* Contribution list */
+.ap-contrib-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ap-contrib-list li {
+  font-size: 13px;
+  color: #475569;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.ap-contrib-list li::before {
+  content: '•';
+  color: #94a3b8;
+  flex-shrink: 0;
+  line-height: 1.5;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .ap-body { grid-template-columns: 1fr; }
+  .ap-info-grid { grid-template-columns: 1fr; }
+  .ap-info-full { grid-column: 1; }
+}
