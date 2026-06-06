@@ -22,14 +22,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-### Root Ignores ###
-.agent/
-.vscode/
-.gemini/
-*.docx
-*.zip
-*.sql
-.py
-temp_docx/
-.idea

@@ -1,0 +1,246 @@
+/* ─────────────────────────────────────────────
+   eventDetail.css
+───────────────────────────────────────────── */
+
+.ed-page {
+  min-height: 100vh;
+  background: #F2F4F7;
+  padding: calc(68px + 28px) 5% 60px;
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
+}
+
+.ed-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ── Hero banner ── */
+.ed-hero {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ed-hero__emoji {
+  font-size: 120px;
+  opacity: 0.18;
+  user-select: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  line-height: 1;
+}
+
+/* Dark gradient overlay at bottom */
+.ed-hero__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 55%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 32px 36px;
+}
+
+/* Badge */
+.ed-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 100px;
+  margin-bottom: 10px;
+  width: fit-content;
+}
+
+.ed-badge--open     { background: #F37021; color: #fff; }
+.ed-badge--upcoming { background: #F37021; color: #fff; }
+.ed-badge--full     { background: #6B7280; color: #fff; }
+
+.ed-hero__title {
+  font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+  line-height: 1.15;
+}
+
+.ed-hero__organizer {
+  font-size: 14px;
+  color: rgba(255,255,255,0.80);
+}
+
+.ed-hero__organizer strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+/* ── Two-column body ── */
+.ed-body {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 24px;
+  align-items: start;
+}
+
+/* ── Main section ── */
+.ed-section {
+  background: #fff;
+  border-radius: 14px;
+  border: 1.5px solid #EBEBEB;
+  padding: 28px 32px;
+}
+
+.ed-section__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 16px;
+}
+
+.ed-section__text {
+  font-size: 14px;
+  color: #4B5563;
+  line-height: 1.75;
+  margin-bottom: 12px;
+}
+
+.ed-section__text:last-child { margin-bottom: 0; }
+
+/* ── Info card (sidebar) ── */
+.ed-info-card {
+  background: #fff;
+  border-radius: 14px;
+  border: 1.5px solid #EBEBEB;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Info row */
+.ed-info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.ed-info-row__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #FEF0E6;
+  color: #F37021;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ed-info-row__full { flex: 1; }
+
+.ed-info-row__label {
+  font-size: 12px;
+  color: #9CA3AF;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.ed-info-row__value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 1px;
+}
+
+.ed-info-row__sub {
+  font-size: 12px;
+  color: #6B7280;
+}
+
+/* Progress bar */
+.ed-progress {
+  height: 8px;
+  border-radius: 100px;
+  overflow: hidden;
+  margin-top: 8px;
+  background: transparent;
+  border: 1.5px solid #E5E7EB;
+}
+
+.ed-progress__fill {
+  height: 100%;
+  background: #F37021;
+  border-radius: 100px;
+  transition: width 0.3s ease;
+}
+
+.ed-progress__remain { display: none; }
+
+/* Register button */
+.ed-register-btn {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 10px;
+  background: #F37021;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  margin-top: 4px;
+}
+
+.ed-register-btn:hover:not(.ed-register-btn--disabled) {
+  background: #e05c0a;
+  transform: translateY(-1px);
+}
+
+.ed-register-btn--disabled {
+  background: #D1D5DB;
+  color: #9CA3AF;
+  cursor: not-allowed;
+}
+
+/* ── Not found ── */
+.ed-not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+  font-size: 16px;
+  color: #6B7280;
+}
+
+.ed-not-found button {
+  padding: 10px 20px;
+  background: #F37021;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* ── Responsive ── */
+@media (max-width: 860px) {
+  .ed-hero { height: 240px; }
+  .ed-body { grid-template-columns: 1fr; }
+}
