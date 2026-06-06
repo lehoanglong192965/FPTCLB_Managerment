@@ -19,7 +19,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ClubBoardServiceImpl implements ClubBoardService {
 
+    // NOTE BR-A02: Trong seed data hiện tại, clubRoleID = 1 tương ứng với vai trò Leader.
+    // Khi bổ nhiệm Leader, hệ thống dùng ID này để kiểm tra sinh viên có đang làm Leader ở CLB khác không.
     private static final int CLUB_ROLE_ID_LEADER = 1;
+
+    // NOTE BR-A05: SystemRole ICPDP là cán bộ quản lý/phòng IC-PDP.
+    // Nhóm user này chỉ được quản lý hệ thống, không được tham gia CLB với role Member/Leader.
     private static final String SYSTEM_ROLE_ICPDP = "ICPDP";
     private static final String DISCIPLINE_ACTIVE = "Active";
     private static final String AUDIT_TABLE = "ClubMembership";
@@ -66,6 +71,9 @@ public class ClubBoardServiceImpl implements ClubBoardService {
             );
         }
 
+        // NOTE BR-A05:
+        // Chặn ngay từ đầu nếu người được thêm/cập nhật là ICPDP hoặc Admin.
+        // Lý do đặt ở đây: áp dụng cho cả trường hợp thêm mới membership và cập nhật role.
         validateNotStaffAccount(targetUser, request.getAction());
 
         if ("APPOINT".equals(request.getAction())) {
@@ -95,11 +103,21 @@ public class ClubBoardServiceImpl implements ClubBoardService {
                         HttpStatus.BAD_REQUEST
                 ));
 
+        // NOTE: Xác định thao tác hiện tại có phải đang bổ nhiệm/cập nhật user lên Leader hay không.
         boolean isAppointingLeader = (targetRole.getClubRoleID() == CLUB_ROLE_ID_LEADER);
 
         if (isAppointingLeader) {
+            // NOTE: Rule phụ đang có sẵn trong project: sinh viên có kỷ luật Active thì không được làm Leader.
             validateNoDiscipline(targetUser, activeSemester);
+
+            // NOTE BR-A02:
+            // Đây là điểm chặn chính: trước khi save DB, kiểm tra user có đang là Leader
+            // ở CLB khác trong cùng học kỳ active hay không. Nếu có -> throw lỗi 422.
             validateNoLeaderInOtherClub(targetUser.getUserID(), activeSemester.getSemesterID(), clubID);
+
+            // NOTE:
+            // Sau khi chắc chắn user KHÔNG làm Leader ở CLB khác, hệ thống mới bãi nhiệm Leader cũ
+            // của chính CLB hiện tại để đảm bảo mỗi CLB chỉ còn 1 Leader active.
             dismissCurrentLeader(clubID, activeSemester.getSemesterID(), actorID);
         }
 
@@ -110,6 +128,9 @@ public class ClubBoardServiceImpl implements ClubBoardService {
                 .orElse(null);
 
         if (membership != null) {
+            // NOTE CASE CẬP NHẬT CHỨC VỤ:
+            // User đã có membership trong CLB này rồi -> chỉ update clubRoleID.
+            // BR-A05 và BR-A02 đã được validate ở phía trên trước khi vào đoạn save này.
             String oldRoleInfo = "clubRoleID=" + membership.getClubRoleID();
             membership.setClubRoleID(targetRole.getClubRoleID());
             membershipRepo.save(membership);
@@ -123,6 +144,10 @@ public class ClubBoardServiceImpl implements ClubBoardService {
                     buildAuditReason(request, "Cập nhật vai trò CLB")
             );
         } else {
+            // NOTE CASE THÊM MỚI THÀNH VIÊN:
+            // User chưa có membership trong CLB/học kỳ hiện tại -> tạo mới bản ghi ClubMembership.
+            // Nếu role là Leader, BR-A02 đã kiểm tra user chưa làm Leader ở CLB khác.
+            // Nếu user là ICPDP/Admin, BR-A05 đã chặn trước đó.
             ClubMembership newMembership = new ClubMembership();
             newMembership.setClubID(clubID);
             newMembership.setUserID(targetUser.getUserID());
@@ -209,6 +234,15 @@ public class ClubBoardServiceImpl implements ClubBoardService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * NOTE BR-A05 - Chặn cán bộ IC-PDP/Admin tham gia CLB.
+     *
+     * Áp dụng cho:
+     * - Thêm mới membership với role Member/Leader/ViceLeader.
+     * - Cập nhật chức vụ của một membership đã tồn tại.
+     *
+     * Vì đây là rule về tư cách tham gia CLB, nên kiểm tra bằng SystemRole của UserAccount.
+     */
     private void validateNotStaffAccount(UserAccount user, String action) {
         SystemRole systemRole = systemRoleRepo.findById(user.getRoleID())
                 .orElse(null);
@@ -220,6 +254,9 @@ public class ClubBoardServiceImpl implements ClubBoardService {
             );
         }
 
+        // NOTE BR-A05:
+        // Nếu user thuộc phòng IC-PDP thì không cho có bất kỳ vai trò CLB nào.
+        // Message này sẽ trả về Swagger để FE hiển thị rõ lý do bị chặn.
         if (SYSTEM_ROLE_ICPDP.equals(systemRole.getRoleName())) {
             throw new BusinessRuleException(
                     "[BR-02] Không thể thực hiện '" + action + "' cho tài khoản [" +
@@ -228,6 +265,8 @@ public class ClubBoardServiceImpl implements ClubBoardService {
             );
         }
 
+        // NOTE: Admin cũng là tài khoản quản trị hệ thống, không phải sinh viên tham gia CLB.
+        // Nếu project của bạn cho Admin tham gia CLB thì có thể bỏ block này.
         if ("Admin".equals(systemRole.getRoleName())) {
             throw new BusinessRuleException(
                     "[BR-02] Không thể thực hiện '" + action + "' cho tài khoản [" +
@@ -254,12 +293,26 @@ public class ClubBoardServiceImpl implements ClubBoardService {
         }
     }
 
+    /**
+     * NOTE BR-A02 - Chặn 1 sinh viên làm Leader ở 2 CLB cùng lúc/cùng học kỳ.
+     *
+     * Logic:
+     * 1. Nhận userID, semesterID active, clubID hiện tại.
+     * 2. Query bảng ClubMembership để tìm bản ghi active có:
+     *    - cùng userID
+     *    - cùng semesterID
+     *    - clubRoleID = Leader
+     *    - clubID khác CLB đang xử lý
+     *    - isDeleted = false
+     * 3. Nếu tồn tại -> ném BusinessRuleException để rollback transaction.
+     */
     private void validateNoLeaderInOtherClub(Integer userID, Integer semesterID, Integer currentClubID) {
         boolean isLeaderElsewhere = membershipRepo.existsLeaderInOtherClub(
                 userID, semesterID, CLUB_ROLE_ID_LEADER, currentClubID
         );
 
         if (isLeaderElsewhere) {
+            // NOTE BR-A02: Đây là thông báo lỗi chính khi vi phạm rule Leader 2 CLB.
             throw new BusinessRuleException(
                     "[BR-03] Không thể bổ nhiệm Leader: sinh viên này đã đang giữ chức Leader " +
                             "tại một CLB khác trong học kỳ hiện tại. " +
@@ -268,6 +321,12 @@ public class ClubBoardServiceImpl implements ClubBoardService {
         }
     }
 
+    /**
+     * NOTE: Tự động bãi nhiệm Leader cũ của CLB hiện tại.
+     *
+     * Hàm này KHÔNG dùng để xử lý BR-A02. BR-A02 đã được kiểm tra trước đó.
+     * Hàm này chỉ đảm bảo trong cùng một CLB không có 2 Leader active sau khi bổ nhiệm Leader mới.
+     */
     private void dismissCurrentLeader(Integer clubID, Integer semesterID, Integer actorID) {
         membershipRepo.findByClubIDAndSemesterIDAndClubRoleIDAndIsDeletedFalse(
                 clubID, semesterID, CLUB_ROLE_ID_LEADER

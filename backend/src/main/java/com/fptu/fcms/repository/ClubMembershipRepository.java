@@ -75,7 +75,9 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
     );
 
     // =====================================================================
-    // KIỂM TRA LEADER TRONG NHIỀU CLB (Business Rule: 1 người chỉ làm Leader 1 CLB/kỳ)
+    // NOTE BR-A02:
+    // KIỂM TRA LEADER TRONG NHIỀU CLB
+    // Business Rule: 1 sinh viên chỉ được làm Leader tối đa 1 CLB trong cùng học kỳ.
     // =====================================================================
 
     /**
@@ -97,7 +99,14 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
     // =====================================================================
 
     /**
+     * NOTE BR-A02:
      * Kiểm tra user đã làm Leader ở CLB KHÁC (không phải clubID hiện tại) trong học kỳ.
+     *
+     * Vì sao phải loại trừ excludeClubID?
+     * - Nếu user đang là Leader của chính CLB hiện tại và ta cập nhật lại role Leader,
+     *   hệ thống không nên hiểu nhầm là vi phạm.
+     * - Chỉ chặn khi user là Leader ở CLB khác.
+     *
      * Cho phép re-assign Leader trong cùng CLB mà không bị chặn bởi rule trên.
      *
      * @param userID       ID user cần kiểm tra
@@ -106,6 +115,9 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
      * @param excludeClubID CLB đang xử lý — loại trừ khỏi kiểm tra
      * @return true nếu user đã là Leader ở CLB khác trong kỳ này
      */
+    // NOTE BR-A02:
+    // Query trả về true nếu tồn tại ít nhất 1 membership Leader active ở CLB khác.
+    // isDeleted = false nghĩa là chỉ tính membership còn hiệu lực, không tính bản ghi đã xóa mềm.
     @Query("SELECT COUNT(m) > 0 FROM ClubMembership m " +
             "WHERE m.userID = :userID " +
             "AND m.semesterID = :semesterID " +
