@@ -31,6 +31,14 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
             throw new BusinessRuleException("Bạn nằm trong danh sách đen của CLB này, không thể nộp đơn.");
         }
 
+        // 1.2 Kiểm tra rút đơn cũ trong học kỳ hiện tại (BR-R08)
+        boolean hasWithdrawn = recruitmentRepository.existsByUserIDAndClubIDAndSemesterIDAndStatusAndIsDeletedFalse(
+                currentUserID, request.getClubID(), currentSemesterID, "Withdrawn"
+        );
+        if (hasWithdrawn) {
+            throw new BusinessRuleException("Bạn đã tự rút đơn ứng tuyển khỏi CLB này trong học kỳ hiện tại, không thể nộp lại (BR-R08).");
+        }
+
         // 2. Đếm số lượng đơn Pending và CLB đang tham gia (BR-R01/Validate 1)
         int pendingApplications = recruitmentRepository.countPendingApplications(currentUserID, currentSemesterID);
         int activeClubs = membershipRepository.countByUserIDAndSemesterIDAndIsDeletedFalse(currentUserID, currentSemesterID);

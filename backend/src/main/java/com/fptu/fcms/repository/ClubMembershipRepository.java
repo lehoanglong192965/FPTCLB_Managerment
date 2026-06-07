@@ -130,4 +130,7 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
             @Param("clubRoleID") Integer clubRoleID,
             @Param("excludeClubID") Integer excludeClubID
     );
+
+    // Đếm số lượng CLB mà 1 User đang tham gia hoạt động trong 1 Kỳ (phục vụ BR-R01)
+    int countByUserIDAndSemesterIDAndIsDeletedFalse(Integer userID, Integer semesterID);
 }
