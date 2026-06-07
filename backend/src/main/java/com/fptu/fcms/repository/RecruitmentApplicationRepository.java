@@ -17,6 +17,13 @@ public interface RecruitmentApplicationRepository extends JpaRepository<Recruitm
     long countByUserIDAndSemesterIDAndStatusInAndIsDeletedFalse(
             Integer userID, Integer semesterID, List<String> statuses);
 
+    // Đếm số lượng đơn Pending và Interviewing của 1 User trong 1 Kỳ (phục vụ BR-R01)
+    default int countPendingApplications(Integer userID, Integer semesterID) {
+        return (int) countByUserIDAndSemesterIDAndStatusInAndIsDeletedFalse(
+                userID, semesterID, java.util.List.of("Pending", "Interviewing")
+        );
+    }
+
     // Tìm các đơn bị bỏ nháp quá hạn để Auto-Cleanup (BR-R07)
     List<RecruitmentApplication> findByStatusAndIsDeletedFalseAndCreatedAtBefore(
             String status, java.time.LocalDateTime date);

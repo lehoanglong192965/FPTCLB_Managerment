@@ -39,7 +39,7 @@ public class MemberPerformance {
     @Column(name = "penaltyPoints")
     private Integer penaltyPoints;
 
-    @Column(name = "finalPoints")
+    @Column(name = "finalPoints", insertable = false, updatable = false)
     private Integer finalPoints;
 
     @Column(name = "leaderEvaluation")
@@ -47,5 +47,8 @@ public class MemberPerformance {
 
     @Column(name = "updatedAt")
     private LocalDateTime updatedAt;
+
+    @Column(name = "isDeleted")
+    private Boolean isDeleted = false;
 
 }

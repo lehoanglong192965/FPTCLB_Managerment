@@ -9,7 +9,6 @@ import java.math.*;
 
 
 @Entity
-@SQLRestriction("isDeleted = false")
 @Table(name = "SystemConfig")
 @Getter
 @Setter

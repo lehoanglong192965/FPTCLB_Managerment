@@ -42,5 +42,8 @@ public class AttendanceRecord {
     @Column(name = "markedAt")
     private LocalDateTime markedAt;
 
+    @Column(name = "isDeleted")
+    private Boolean isDeleted = false;
+
 }
 
