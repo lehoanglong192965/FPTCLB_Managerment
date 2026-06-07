@@ -1,4 +1,4 @@
-import authApi from "../api/authApi";
+import authApi from "../api/authAPI";
 import { TokenService } from "../../../services/api/axiosClient";
 import { decodeJwtPayload } from "../utils/tokenGuard";
 
