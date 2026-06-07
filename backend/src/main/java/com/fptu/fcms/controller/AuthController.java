@@ -46,4 +46,9 @@ public class AuthController {
                     .body(Map.of("error", "Lỗi lưu Database: " + e.getMessage()));
         }
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout() {
+        return ResponseEntity.ok(Map.of("message", "Đăng xuất thành công!"));
+    }
 }
