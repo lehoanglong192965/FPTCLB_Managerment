@@ -70,10 +70,7 @@ export default function LoginPage() {
       return;
     }
     setLoading("email");
-    setTimeout(() => {
-      TokenStorage.set(FAKE_JWT);
-      navigate("/");
-    }, 1100); try {
+    try {
       const { role, email: userEmail } = await authService.login(email, password);
 
       // Lưu vào AuthContext để dùng toàn app
