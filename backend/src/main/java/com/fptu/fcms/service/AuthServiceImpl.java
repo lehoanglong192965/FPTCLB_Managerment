@@ -37,6 +37,10 @@ public class AuthServiceImpl implements AuthService {
 
         UserAccount userEntity = userOptional.get();
 
+        if (!"Active".equalsIgnoreCase(userEntity.getAccountStatus())) {
+            throw new IllegalArgumentException("Tài khoản của bạn đã bị khóa (Suspended). Vui lòng liên hệ Admin.");
+        }
+
         if (!passwordEncoder.matches(request.getPassword(), userEntity.getPassword())) {
             throw new IllegalArgumentException("Sai mật khẩu!");
         }

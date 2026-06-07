@@ -53,7 +53,7 @@ const authApi = {
    * @returns {{ userID, email, fullName, roleID, major, accountStatus, ... }}
    */
   getProfile: () =>
-    axiosClient.get("/auth/me"),
+    axiosClient.get("/user/profile"),
 
   /**
    * Đổi mật khẩu (cần token).
