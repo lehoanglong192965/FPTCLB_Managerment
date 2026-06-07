@@ -1,11 +1,13 @@
 spring:
+  profiles:
+    active: dev
   application:
     name: fcms
 
   datasource:
-    url: jdbc:sqlserver://localhost:1433;databaseName=FPTUCLUB;encrypt=true;trustServerCertificate=true
-    username: sa
-    password: 123456
+    url: ${SPRING_DATASOURCE_URL:jdbc:sqlserver://localhost:1433;databaseName=FPTUCLUB;encrypt=true;trustServerCertificate=true}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:123456}
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
 
   jpa:
@@ -21,6 +23,7 @@ spring:
       hibernate:
         format_sql: true
         default_schema: dbo
+        dialect: org.hibernate.dialect.SQLServerDialect
 
   security:
     oauth2:
@@ -39,3 +42,41 @@ jwt:
 
 server:
   port: 8080
+
+# Cấu hình nghiệp vụ tùy chỉnh (SystemConfig & Business Rules theo các Tuần)
+app:
+  # Cấu hình bảo mật & phân quyền (Tuần 2)
+  security:
+    allowed-domains:
+      - fpt.edu.vn
+      - fe.edu.vn
+    jwt:
+      secret: ${JWT_SECRET:9a4f2c8d3b7a1e5f8g9h0i1j2k3l4m5n6o7p8q9r0s1t2u3v4w5x6y7z8a9b0c1d2e3f4g5h6i7j8k9l0m1n2o3p4q5r6s7t8u9v0w1x2y3z4a5b6c7d8e9f0}
+      expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 giờ
+
+  # Tích hợp AI Chatbot Google Gemini (Tuần 4 & Tuần 5)
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    confidence-threshold: ${GEMINI_CONFIDENCE_THRESHOLD:0.70} # BR-AI03: Guardrail fallback khi độ tin cậy < 70%
+    guest-chat-limit: ${GEMINI_GUEST_CHAT_LIMIT:5} # Giới hạn 5 lần chat/ngày đối với khách
+
+  # Quy định quy trình tuyển dụng thành viên mới (Tuần 3 & Tuần 4)
+  recruitment:
+    max-active-applications: ${MAX_CLUBS_PER_STUDENT:4} # BR-R01: Sinh viên chỉ được ứng tuyển tối đa 4 CLB
+    max-withdrawal-limit: 5 # Khóa đơn nếu rút quá 5 lần
+    draft-cleanup-days: 7 # Scheduler tự động quét xóa mềm đơn nháp (Draft) quá 7 ngày
+
+  # Quy định quản lý sự kiện & đặt lịch (Tuần 5)
+  event:
+    proposal-lead-days-min: 7 # Sự kiện phải được đề xuất trước ít nhất 7 ngày
+    proposal-lead-days-max: 14 # Sự kiện đề xuất trước tối đa 14 ngày
+    budget-highlight-threshold: 5000000 # Cảnh báo đỏ nổi bật nếu ngân sách sự kiện > 5,000,000 VND
+
+  # Quy định tính điểm thi đua & đánh giá hiệu suất (Tuần 6)
+  performance:
+    base-points-organizer: 50 # Điểm cơ bản cho thành viên BTC sự kiện (BASE_POINTS_ORGANIZER)
+    base-points-attendee: 20 # Điểm cơ bản cho người tham gia sự kiện (BASE_POINTS_ATTENDEE)
+    max-bonus-points-limit: 30 # Điểm cộng tối đa (MAX_BONUS_POINTS_LIMIT)
+
+  # Chế độ bảo trì hệ thống (Tuần 6)
+  maintenance-mode: ${MAINTENANCE_MODE:false}
