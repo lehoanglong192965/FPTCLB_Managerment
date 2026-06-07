@@ -27,8 +27,8 @@ public class WithdrawLog {
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "withdrawLogID")
-    private Integer withdrawLogID;
+    @Column(name = "withdrawID")
+    private Integer withdrawID;
 
     /**
      * ID của đơn ứng tuyển đã bị rút.
@@ -40,8 +40,8 @@ public class WithdrawLog {
     /**
      * ID sinh viên thực hiện rút đơn.
      */
-    @Column(name = "studentID", nullable = false)
-    private Integer studentID;
+    @Column(name = "userID", nullable = false)
+    private Integer userID;
 
     /**
      * ID CLB mà sinh viên đã rút đơn.

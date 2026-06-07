@@ -22,11 +22,11 @@ public interface WithdrawLogRepository extends JpaRepository<WithdrawLog, Intege
      * Dùng trong API withdraw:
      * - Nếu count >= 5 thì chặn rút đơn.
      *
-     * @param studentID ID sinh viên
+     * @param userID ID sinh viên
      * @param semesterID ID học kỳ
      * @return số lần sinh viên đã rút đơn trong học kỳ
      */
-    long countByStudentIDAndSemesterID(Integer studentID, Integer semesterID);
+    long countByUserIDAndSemesterID(Integer userID, Integer semesterID);
 
     /**
      * Lấy lần rút đơn gần nhất của sinh viên tại đúng CLB.
@@ -38,7 +38,7 @@ public interface WithdrawLogRepository extends JpaRepository<WithdrawLog, Intege
      * @param clubID ID CLB
      * @return log rút đơn gần nhất nếu có
      */
-    Optional<WithdrawLog> findTopByStudentIDAndClubIDOrderByWithdrawnAtDesc(
+    Optional<WithdrawLog> findTopByUserIDAndClubIDOrderByWithdrawnAtDesc(
             Integer studentID,
             Integer clubID
     );
