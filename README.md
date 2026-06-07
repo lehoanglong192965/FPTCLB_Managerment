@@ -47,10 +47,11 @@ Repository / DAO
 
 ## 🔹 Kiến trúc Front-end
 
-* Component-Based Architecture
-* React Hooks
-* Context API / Redux
-* React Router
+* Kiến trúc: Feature-Based Architecture
+* Framework: React (JSX + Hooks)
+* Routing: React Router DOM
+* Styling: Plain CSS
+*   
 
 ---
 
