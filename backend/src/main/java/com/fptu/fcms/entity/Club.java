@@ -33,6 +33,9 @@ public class Club {
     @Column(name = "applicationFormQuestions")
     private String applicationFormQuestions;
 
+    @Column(name = "clubStatus")
+    private String clubStatus;
+
     @Column(name = "createdAt")
     private LocalDateTime createdAt;
 

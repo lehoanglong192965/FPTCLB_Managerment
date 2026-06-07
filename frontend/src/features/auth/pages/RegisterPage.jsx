@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
+import authService from "../services/authService";
 import "../../../assets/css/loginPage.css";
 import "../../../assets/css/registerPage.css";
 
@@ -30,6 +31,34 @@ export default function RegisterPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [errors, setErrors]           = useState({});
   const [loading, setLoading]         = useState(null);
+  const [success, setSuccess]         = useState(false);
+  const [studentCard, setStudentCard] = useState(null);
+  const [cardPreview, setCardPreview] = useState(null);
+
+  const isNonEduEmail = (() => {
+    const lower = form.email.toLowerCase();
+    return (
+      lower.includes("@") &&
+      !lower.endsWith("@fpt.edu.vn") &&
+      !lower.endsWith("@fe.edu.vn")
+    );
+  })();
+
+  const handleCardChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setStudentCard(file);
+    setCardPreview(URL.createObjectURL(file));
+    if (errors.studentCard) setErrors((prev) => ({ ...prev, studentCard: "" }));
+  };
+
+  const handleCardDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    setStudentCard(file);
+    setCardPreview(URL.createObjectURL(file));
+  };
 
   const handleSSO = () => {
     setLoading("google");
@@ -58,15 +87,37 @@ export default function RegisterPage() {
       errs.email = "Vui lòng nhập email.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errs.email = "Email không đúng định dạng.";
+    if (isNonEduEmail && !studentCard)
+      errs.studentCard = "Vui lòng tải ảnh thẻ sinh viên để xác minh.";
     return errs;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+
     setLoading("form");
-    setTimeout(() => { setLoading(null); navigate("/login"); }, 1200);
+    try {
+      await authService.register({
+        fullName: form.username,
+        email:    form.email,
+        password: form.password,
+        studentId: form.studentId,
+        major:    form.major,
+      });
+      setSuccess(true);
+      setTimeout(() => navigate("/login"), 2000);
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 409) {
+        setErrors({ email: "Email này đã được sử dụng." });
+      } else {
+        setErrors({ form: err?.response?.data?.error ?? "Đăng ký thất bại. Vui lòng thử lại." });
+      }
+    } finally {
+      setLoading(null);
+    }
   };
 
   return (
@@ -166,6 +217,53 @@ export default function RegisterPage() {
               {errors.email && <p className="rg-error">{errors.email}</p>}
             </div>
 
+            {/* Upload ảnh thẻ sinh viên — chỉ hiện khi email không phải .edu */}
+            {isNonEduEmail && (
+              <div className="rg-field">
+                <label className="rg-label">
+                  Ảnh thẻ sinh viên <span>*</span>
+                  <span className="rg-label-hint"> (Email không thuộc domain @fpt.edu.vn — cần xác minh)</span>
+                </label>
+                <div
+                  className={`rg-upload-zone${cardPreview ? " rg-upload-zone--has-img" : ""}`}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleCardDrop}
+                  onClick={() => document.getElementById("studentCardInput").click()}
+                >
+                  {cardPreview ? (
+                    <>
+                      <img src={cardPreview} alt="Xem trước thẻ SV" className="rg-upload-preview" />
+                      <button
+                        type="button"
+                        className="rg-upload-remove"
+                        onClick={(e) => { e.stopPropagation(); setStudentCard(null); setCardPreview(null); }}
+                      >
+                        Xoá
+                      </button>
+                    </>
+                  ) : (
+                    <div className="rg-upload-placeholder">
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ABABAB" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="3"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <path d="M21 15l-5-5L5 21"/>
+                      </svg>
+                      <p>Kéo thả hoặc <span>chọn ảnh</span></p>
+                      <p className="rg-upload-hint">JPG, PNG — tối đa 5MB</p>
+                    </div>
+                  )}
+                </div>
+                <input
+                  id="studentCardInput"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  style={{ display: "none" }}
+                  onChange={handleCardChange}
+                />
+                {errors.studentCard && <p className="rg-error">{errors.studentCard}</p>}
+              </div>
+            )}
+
             {/* Student ID + Major */}
             <div className="register-row">
               <div className="rg-field">
@@ -182,19 +280,59 @@ export default function RegisterPage() {
               </div>
               <div className="rg-field">
                 <label className="rg-label">Chuyên ngành</label>
-                <input
-                  className="rg-input"
-                  type="text"
+                <select
+                  className="rg-select"
                   name="major"
-                  placeholder="SE / AI / IA..."
                   value={form.major}
                   onChange={handleChange}
                   disabled={loading}
-                />
+                >
+                  <option value="">-- Chọn chuyên ngành --</option>
+                  <optgroup label="Công nghệ thông tin">
+                    <option value="SE">Kỹ thuật phần mềm (SE)</option>
+                    <option value="AI">Trí tuệ nhân tạo (AI)</option>
+                    <option value="IS">An toàn thông tin (IS)</option>
+                    <option value="IoT">Internet of Things (IoT)</option>
+                    <option value="CS">Khoa học máy tính (CS)</option>
+                  </optgroup>
+                  <optgroup label="Kinh tế">
+                    <option value="BA">Quản trị kinh doanh (BA)</option>
+                    <option value="IB">Kinh doanh quốc tế (IB)</option>
+                    <option value="FIN">Tài chính (FIN)</option>
+                    <option value="ACC">Kế toán (ACC)</option>
+                    <option value="MKT">Marketing số (MKT)</option>
+                    <option value="LOG">Logistics & Chuỗi cung ứng (LOG)</option>
+                  </optgroup>
+                  <optgroup label="Thiết kế">
+                    <option value="GD">Thiết kế mỹ thuật số (GD)</option>
+                    <option value="ID">Thiết kế nội thất (ID)</option>
+                  </optgroup>
+                  <optgroup label="Ngôn ngữ">
+                    <option value="EN">Ngôn ngữ Anh (EN)</option>
+                    <option value="JA">Ngôn ngữ Nhật (JA)</option>
+                    <option value="KO">Ngôn ngữ Hàn (KO)</option>
+                    <option value="CN">Ngôn ngữ Trung (CN)</option>
+                  </optgroup>
+                  <optgroup label="Khác">
+                    <option value="HM">Quản trị khách sạn (HM)</option>
+                    <option value="MC">Truyền thông đa phương tiện (MC)</option>
+                    <option value="LAW">Luật (LAW)</option>
+                    <option value="AR">Kiến trúc (AR)</option>
+                  </optgroup>
+                </select>
               </div>
             </div>
 
-            <button type="submit" className="register-submit" disabled={!!loading}>
+            {success && (
+              <p style={{ color: "#10b981", fontSize: 14, textAlign: "center", marginBottom: 8 }}>
+                Đăng ký thành công! Đang chuyển sang trang đăng nhập...
+              </p>
+            )}
+            {errors.form && (
+              <p className="rg-error" style={{ textAlign: "center" }}>{errors.form}</p>
+            )}
+
+            <button type="submit" className="register-submit" disabled={!!loading || success}>
               {loading === "form" ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
             </button>
           </form>

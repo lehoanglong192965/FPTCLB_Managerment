@@ -42,6 +42,9 @@ public class ClubKPI {
     @Column(name = "updatedAt")
     private LocalDateTime updatedAt;
 
+    @Column(name = "isDeleted")
+    private Boolean isDeleted = false;
+
 }
 
 

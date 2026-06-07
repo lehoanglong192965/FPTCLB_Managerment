@@ -33,4 +33,7 @@ public class EventRegistration {
     @Column(name = "status")
     private String status;
 
+    @Column(name = "isDeleted")
+    private Boolean isDeleted = false;
+
 }

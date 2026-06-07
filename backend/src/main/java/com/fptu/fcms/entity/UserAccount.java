@@ -35,6 +35,9 @@ public class UserAccount {
     @Column(name = "fullName")
     private String fullName;
 
+    @Column(name = "studentId")
+    private String studentId;
+
     @Column(name = "major")
     private String major;
 
