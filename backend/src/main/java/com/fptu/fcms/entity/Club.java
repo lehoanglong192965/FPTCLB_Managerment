@@ -42,4 +42,19 @@ public class Club {
     @Column(name = "isDeleted")
     private Boolean isDeleted;
 
+    // =========================================================
+    // [NEW]
+    // Trạng thái hoạt động của CLB
+    // =========================================================
+    /*
+     * Active:
+     * - CLB đang hoạt động bình thường.
+     *
+     * Inactive:
+     * - CLB bị vô hiệu hóa/tạm khóa.
+     * - Scheduler có thể tự động chuyển sang trạng thái này.
+     */
+    @Column(name = "clubStatus")
+    private String clubStatus;
+
 }
