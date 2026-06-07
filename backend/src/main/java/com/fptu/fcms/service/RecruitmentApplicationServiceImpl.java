@@ -85,7 +85,7 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
          *   sinh viên phải đợi đủ 3 giờ mới được nộp lại CLB A.
          */
         withdrawLogRepository
-                .findTopByUserIDAndClubIDOrderByWithdrawnAtDesc(currentUserID, request.getClubID())
+                .findTopByStudentIDAndClubIDOrderByWithdrawnAtDesc(currentUserID, request.getClubID())
                 .ifPresent(log -> {
                     long hours = Duration.between(
                             log.getWithdrawnAt(),
@@ -231,7 +231,7 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
 
         // [BR-R08 - MỚI]
         // Đếm số lần rút đơn trong học kỳ hiện tại trên toàn hệ thống
-        long withdrawCount = withdrawLogRepository.countByUserIDAndSemesterID(
+        long withdrawCount = withdrawLogRepository.countByStudentIDAndSemesterID(
                 currentUserID,
                 application.getSemesterID()
         );
@@ -260,7 +260,7 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
         // Ghi log rút đơn để tính quota và cooldown
         WithdrawLog log = WithdrawLog.builder()
                 .applicationID(savedEntity.getApplicationID())
-                .userID(savedEntity.getUserID())
+                .studentID(savedEntity.getUserID())
                 .clubID(savedEntity.getClubID())
                 .semesterID(savedEntity.getSemesterID())
                 .withdrawnAt(now)

@@ -115,22 +115,18 @@ public class MembershipController {
      * @param principal  JWT principal của người gọi API (inject tự động bởi Spring Security)
      * @return 200 OK với thông tin membership sau khi thay đổi
      */
-    @PutMapping
-//    @PreAuthorize("hasAnyRole('Admin', 'ICPDP')")
-    @Operation(
-            summary = "Thay đổi Ban điều hành CLB (Bổ nhiệm / Bãi nhiệm)",
-            description = """
-                    **Yêu cầu quyền:** Admin hoặc ICPDP
-                    
-                    **Các Business Rule được kiểm tra:**
-                    - BR-A05: Chặn tài khoản ICPDP/Admin tham gia CLB với vai trò Member/Leader/ViceLeader
-                    - BR-A02: Một sinh viên chỉ được làm Leader của 1 CLB trong 1 học kỳ
-                    - Rule phụ: Chặn bổ nhiệm Leader nếu sinh viên có án kỷ luật Active trong bảng DisciplineLog
-                    - Rule phụ: Khi bổ nhiệm Leader mới → Leader cũ của chính CLB đó sẽ tự động bị bãi nhiệm (atomic)
-                    
-                    **@Transactional:** Toàn bộ thao tác là atomic — nếu có lỗi, mọi thay đổi sẽ bị rollback.
-                    """
-    )
+     @PutMapping
+ //    @PreAuthorize("hasAnyRole('Admin', 'ICPDP')")
+     @Operation(
+             summary = "Thay đổi Ban điều hành CLB (Bổ nhiệm / Bãi nhiệm)",
+             description = "**Yêu cầu quyền:** Admin hoặc ICPDP\n\n" +
+                     "**Các Business Rule được kiểm tra:**\n" +
+                     "- BR-A05: Chặn tài khoản ICPDP/Admin tham gia CLB với vai trò Member/Leader/ViceLeader\n" +
+                     "- BR-A02: Một sinh viên chỉ được làm Leader của 1 CLB trong 1 học kỳ\n" +
+                     "- Rule phụ: Chặn bổ nhiệm Leader nếu sinh viên có án kỷ luật Active trong bảng DisciplineLog\n" +
+                     "- Rule phụ: Khi bổ nhiệm Leader mới - Leader cũ của chính CLB đó sẽ tự động bị bãi nhiệm (atomic)\n\n" +
+                     "**@Transactional:** Toàn bộ thao tác là atomic - nếu có lỗi, mọi thay đổi sẽ bị rollback."
+     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Thao tác thành công"),
             @ApiResponse(responseCode = "400", description = "Request không hợp lệ (validation lỗi)",

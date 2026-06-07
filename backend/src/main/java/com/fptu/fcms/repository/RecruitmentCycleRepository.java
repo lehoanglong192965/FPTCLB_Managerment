@@ -12,13 +12,10 @@ import java.util.List;
 @Repository
 public interface RecruitmentCycleRepository extends JpaRepository<RecruitmentCycle, Integer> {
 
-    @Query("""
-        SELECT c
-        FROM RecruitmentCycle c
-        WHERE c.status = 'Open'
-        AND c.startDate <= :date
-        AND (c.reminded = false OR c.reminded IS NULL)
-        AND c.isDeleted = false
-    """)
+    @Query("SELECT c FROM RecruitmentCycle c " +
+            "WHERE c.status = 'Open' " +
+            "AND c.startDate <= :date " +
+            "AND (c.reminded = false OR c.reminded IS NULL) " +
+            "AND c.isDeleted = false")
     List<RecruitmentCycle> findOpenCyclesStartedBefore(@Param("date") LocalDate date);
 }
