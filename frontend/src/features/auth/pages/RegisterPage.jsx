@@ -104,7 +104,6 @@ export default function RegisterPage() {
         email:    form.email,
         password: form.password,
         studentId: form.studentId,
-        major:    form.major,
       });
       setSuccess(true);
       setTimeout(() => navigate("/login"), 2000);

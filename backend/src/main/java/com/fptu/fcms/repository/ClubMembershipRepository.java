@@ -130,20 +130,7 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
             @Param("clubRoleID") Integer clubRoleID,
             @Param("excludeClubID") Integer excludeClubID
     );
-    // =========================================================
-// [BR-R01]
-// Đếm số CLB mà sinh viên đang tham gia trong học kỳ
-// =========================================================
-    /*
-     * Dùng để:
-     * - Check giới hạn tối đa số CLB/đơn ứng tuyển.
-     */
-    int countByUserIDAndSemesterIDAndIsDeletedFalse(
-            Integer userID,
-            Integer semesterID
-    );
-    boolean existsByClubIDAndUserIDAndIsDeletedFalse(
-            Integer clubID,
-            Integer userID
-    );
+
+    // Đếm số lượng CLB mà 1 User đang tham gia hoạt động trong 1 Kỳ (phục vụ BR-R01)
+    int countByUserIDAndSemesterIDAndIsDeletedFalse(Integer userID, Integer semesterID);
 }
