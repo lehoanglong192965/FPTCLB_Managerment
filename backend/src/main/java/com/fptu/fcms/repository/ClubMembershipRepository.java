@@ -1,4 +1,5 @@
 package com.fptu.fcms.repository;
+import java.util.List;
 
 import com.fptu.fcms.entity.ClubMembership;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -6,7 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -16,6 +16,10 @@ import java.util.Optional;
  */
 @Repository
 public interface ClubMembershipRepository extends JpaRepository<ClubMembership, Integer> {
+    List<ClubMembership> findByUserIDAndClubRoleIDAndIsDeletedFalse(
+            Integer userID,
+            Integer clubRoleID
+    );
 
     // =====================================================================
     // TRUY VẤN THÀNH VIÊN THEO CLB & HỌC KỲ
@@ -146,4 +150,26 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
             Integer clubID,
             Integer userID
     );
+    // Tìm tất cả membership mà user đang là Leader trong học kỳ
+    // Dùng khi Admin/ICPDP kỷ luật Active để hạ Leader xuống Member
+    @Query("SELECT m FROM ClubMembership m " +
+            "WHERE m.userID = :userID " +
+            "AND m.semesterID = :semesterID " +
+            "AND m.clubRoleID = :clubRoleID " +
+            "AND m.isDeleted = false")
+    List<ClubMembership> findActiveLeaderMembershipsByUserAndSemester(
+            @Param("userID") Integer userID,
+            @Param("semesterID") Integer semesterID,
+            @Param("clubRoleID") Integer clubRoleID
+    );
+
+    // Check user hiện tại có còn là Leader thật trong DB không
+    // Nếu đã bị hạ xuống Member thì quyền Leader sẽ mất ngay
+    boolean existsByClubIDAndUserIDAndSemesterIDAndClubRoleIDAndIsDeletedFalse(
+            Integer clubID,
+            Integer userID,
+            Integer semesterID,
+            Integer clubRoleID
+    );
+
 }

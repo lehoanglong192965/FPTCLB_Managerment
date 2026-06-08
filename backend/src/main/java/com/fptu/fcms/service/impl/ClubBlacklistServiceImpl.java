@@ -11,13 +11,18 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-
+import com.fptu.fcms.entity.ClubRole;
+import com.fptu.fcms.entity.Semester;
+import com.fptu.fcms.repository.ClubRoleRepository;
+import com.fptu.fcms.repository.SemesterRepository;
 import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
 public class ClubBlacklistServiceImpl
         implements ClubBlacklistService {
+    private final SemesterRepository semesterRepository;
+    private final ClubRoleRepository clubRoleRepository;
 
     private final ClubBlacklistRepository
             clubBlacklistRepository;
@@ -45,8 +50,9 @@ public class ClubBlacklistServiceImpl
     public Object addToBlacklist(
             Long clubID,
             ClubBlacklistRequest request
-    ) {
 
+    ) {
+        assertCurrentUserIsActiveLeaderOfClub(clubID);
         // Kiểm tra CLB tồn tại
         clubRepository.findById(
                         clubID.intValue()
@@ -154,6 +160,7 @@ public class ClubBlacklistServiceImpl
             Long blacklistID,
             ClubBlacklistRequest request
     ) {
+        assertCurrentUserIsActiveLeaderOfClub(clubID);
 
         // Tìm blacklist theo ID
         ClubBlacklist blacklist =
@@ -189,6 +196,8 @@ public class ClubBlacklistServiceImpl
             Long clubID,
             Long blacklistID
     ) {
+        // tước quyền Leader ngay lập tức
+        assertCurrentUserIsActiveLeaderOfClub(clubID);
 
         // Tìm blacklist theo ID
         ClubBlacklist blacklist =
@@ -213,5 +222,39 @@ public class ClubBlacklistServiceImpl
         clubBlacklistRepository.save(
                 blacklist
         );
+
+
+    }
+    private void assertCurrentUserIsActiveLeaderOfClub(Long clubID) {
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        Integer currentUserID = userRepository
+                .findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new EntityNotFoundException("Current user not found"))
+                .getUserID();
+
+        Semester activeSemester = semesterRepository
+                .findByIsActiveTrueAndIsDeletedFalse()
+                .orElseThrow(() -> new EntityNotFoundException("No active semester found"));
+
+        ClubRole leaderRole = clubRoleRepository
+                .findByRoleNameAndIsDeletedFalse("Leader")
+                .orElseThrow(() -> new EntityNotFoundException("Leader role not found"));
+
+        boolean isLeader = clubMembershipRepository
+                .existsByClubIDAndUserIDAndSemesterIDAndClubRoleIDAndIsDeletedFalse(
+                        clubID.intValue(),
+                        currentUserID,
+                        activeSemester.getSemesterID(),
+                        leaderRole.getClubRoleID()
+                );
+
+        if (!isLeader) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Access denied: only active Leader can manage blacklist"
+            );        }
     }
 }
