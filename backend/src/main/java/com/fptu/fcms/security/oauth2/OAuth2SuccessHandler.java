@@ -37,7 +37,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         // 4. Chuyển hướng về trang Frontend kèm theo Token trên URL
         // GIẢ SỬ FRONTEND CỦA BẠN ĐANG CHẠY Ở CỔNG 3000 (ReactJS, VueJS...)
         // Nếu Frontend của bạn chạy ở cổng khác, hãy sửa lại đường dẫn này nhé!
-        String targetUrl = "http://localhost:3000/oauth2/redirect?token=" + token;
+        String targetUrl = "http://localhost:5173/oauth2/redirect?token=" + token;
 
         // Xóa các thuộc tính rác trong phiên đăng nhập để tiết kiệm bộ nhớ
         clearAuthenticationAttributes(request);

@@ -14,6 +14,9 @@ import java.util.Map; // <--- Import mới
 // LƯU Ý QUAN TRỌNG: Thêm implements OAuth2User vào đây
 public class UserPrincipal implements OAuth2User, UserDetails {
 
+    // --- Các hàm Getter tùy chỉnh ---
+
+
     private Integer userId;
     private String email;
     private Integer roleId;
@@ -38,13 +41,6 @@ public class UserPrincipal implements OAuth2User, UserDetails {
         this.authorities = authorities;
         this.attributes = attributes;
     }
-
-    // --- Các hàm Getter tùy chỉnh ---
-    // (Vì bạn đã dùng @Getter của Lombok nên thực ra không cần viết lại mấy hàm này,
-    // nhưng mình cứ giữ nguyên theo ý bạn cho chắc ăn)
-    public Integer getUserId() { return userId; }
-    public Integer getRoleId() { return roleId; }
-    public String getEmail() { return email; }
 
     /* ==============================================================
        CÁC HÀM BẮT BUỘC PHẢI CÓ KHI IMPLEMENTS OAuth2User
@@ -74,9 +70,6 @@ public class UserPrincipal implements OAuth2User, UserDetails {
 
     @Override
     public boolean isAccountNonExpired() { return true; }
-
-    @Override
-    public boolean isAccountNonLocked() { return true; }
 
     @Override
     public boolean isCredentialsNonExpired() { return true; }

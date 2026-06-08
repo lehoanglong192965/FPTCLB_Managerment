@@ -39,13 +39,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             throw new OAuth2AuthenticationException(new OAuth2Error("email_not_found"), "Không lấy được email từ Google.");
         }
 
-        // 3. KIỂM TRA ĐUÔI EMAIL (Cốt lõi của bài toán)
-        if (!email.endsWith("@fpt.edu.vn") && !email.endsWith("@fe.edu.vn")) {
-            // Ném lỗi ngay lập tức để chặn đăng nhập
-            throw new OAuth2AuthenticationException(new OAuth2Error("invalid_domain"), "Hệ thống chỉ cho phép tài khoản @fpt.edu.vn hoặc @fe.edu.vn.");
-        }
 
-        // 4. Kiểm tra User đã tồn tại trong Database chưa
+
+
+        // 3. Kiểm tra User đã tồn tại trong Database chưa
         Optional<UserAccount> userOptional = userRepository.findByEmailAndIsDeletedFalse(email);
         UserAccount userEntity;
 
