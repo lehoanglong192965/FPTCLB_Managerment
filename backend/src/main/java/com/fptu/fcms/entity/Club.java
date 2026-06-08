@@ -42,4 +42,6 @@ public class Club {
     @Column(name = "isDeleted")
     private Boolean isDeleted;
 
+    
+
 }

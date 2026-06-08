@@ -58,4 +58,45 @@ public class RecruitmentApplicationController {
         RecruitmentApplicationResponseDTO application = recruitmentService.applyForClub(request, userID, currentSemesterID);
         return ResponseEntity.status(HttpStatus.CREATED).body(application);
     }
+    /**
+     * API rút đơn ứng tuyển CLB.
+     *
+     * Endpoint:
+     * POST /api/applications/{id}/withdraw
+     *
+     * Chỉ sinh viên sở hữu đơn mới được rút.
+     * Logic nghiệp vụ xử lý trong RecruitmentApplicationService.
+     */
+    @PostMapping("/{id}/withdraw")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(
+            summary = "Rút đơn ứng tuyển CLB",
+            description = "Sinh viên rút đơn. Có transaction và lock để chống spam/race condition."
+    )
+    public ResponseEntity<RecruitmentApplicationResponseDTO> withdrawApplication(
+            @PathVariable("id") Integer applicationID,
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        /*
+         * Lấy userID từ JWT token.
+         * Không nhận userID từ request body để tránh giả mạo.
+         */
+        Integer userID = currentUser.getUserId();
+
+        /*
+         * Gọi service xử lý toàn bộ business rule:
+         * - Check owner.
+         * - Check status.
+         * - Check quota.
+         * - Update status Withdrawn.
+         * - Ghi WithdrawLog.
+         */
+        RecruitmentApplicationResponseDTO response =
+                recruitmentService.withdrawApplication(applicationID, userID);
+
+        /*
+         * Trả response 200 OK nếu rút thành công.
+         */
+        return ResponseEntity.ok(response);
+    }
 }

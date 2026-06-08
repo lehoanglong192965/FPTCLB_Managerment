@@ -1,6 +1,7 @@
 package com.fptu.fcms.service;
 
 import com.fptu.fcms.dto.request.LoginRequest;
+import com.fptu.fcms.dto.request.RegisterRequest;
 import com.fptu.fcms.dto.response.AuthResponse;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.repository.UserRepository;
@@ -36,6 +37,10 @@ public class AuthServiceImpl implements AuthService {
 
         UserAccount userEntity = userOptional.get();
 
+        if (!"Active".equalsIgnoreCase(userEntity.getAccountStatus())) {
+            throw new IllegalArgumentException("Tài khoản của bạn đã bị khóa (Suspended). Vui lòng liên hệ Admin.");
+        }
+
         if (!passwordEncoder.matches(request.getPassword(), userEntity.getPassword())) {
             throw new IllegalArgumentException("Sai mật khẩu!");
         }
@@ -52,7 +57,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void register(LoginRequest request) {
+    public void register(RegisterRequest request) {
         String email = request.getEmail();
 
         if (!email.endsWith("@fpt.edu.vn") && !email.endsWith("@fe.edu.vn")){
@@ -73,9 +78,10 @@ public class AuthServiceImpl implements AuthService {
         newUser.setAccountStatus("Active");
         newUser.setIsDeleted(false);
         newUser.setCreatedAt(LocalDateTime.now());
-        newUser.setFullName("Chưa cập nhật");
+        newUser.setFullName(request.getFullName() != null ? request.getFullName() : "Chưa cập nhật");
+        newUser.setStudentId(request.getStudentId()); // Lưu mã sinh viên
         newUser.setRoleID(3);
-        newUser.setMajor("Chưa cập nhật");
+        newUser.setMajor(request.getMajor() != null ? request.getMajor() : "Chưa cập nhật");
 
         userRepository.save(newUser);
     }

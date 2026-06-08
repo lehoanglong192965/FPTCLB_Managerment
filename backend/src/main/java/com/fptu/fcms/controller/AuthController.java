@@ -1,6 +1,7 @@
 package com.fptu.fcms.controller;
 
 import com.fptu.fcms.dto.request.LoginRequest;
+import com.fptu.fcms.dto.request.RegisterRequest;
 import com.fptu.fcms.dto.response.AuthResponse;
 import com.fptu.fcms.service.AuthService;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
             authService.register(request);
             return ResponseEntity.ok(Map.of("message", "Đăng ký tài khoản thành công!"));
@@ -44,5 +45,10 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Lỗi lưu Database: " + e.getMessage()));
         }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout() {
+        return ResponseEntity.ok(Map.of("message", "Đăng xuất thành công!"));
     }
 }
