@@ -35,10 +35,13 @@ public class UserAccount {
     @Column(name = "fullName")
     private String fullName;
 
-    @Column(name = "studentId")
+    @Column(name = "studentId", length = 20)
     private String studentId;
 
-    @Column(name = "major")
+    @Column(name = "phoneNumber", length = 20)
+    private String phoneNumber;
+
+    @Column(name = "major", length = 100)
     private String major;
 
     @Column(name = "accountStatus")

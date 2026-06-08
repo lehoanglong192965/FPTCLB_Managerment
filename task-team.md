@@ -1,0 +1,129 @@
+### TUẦN 1: Thiết Kế Database, Tạo Khung & Khởi Tạo Server
+
+**Lê Hoàng Long (Lead / BE1):** Khởi tạo project Spring Boot 3.3.0, cấu hình Maven dependencies và thiết lập CI/CD đẩy Back-end lên Render/Railway.
+
+\[BỔ SUNG\]: Cập nhật lại kịch bản SQL: Bổ sung cột isDeleted cho các bảng còn thiếu và sửa lại các Unique Index (như UX_Performance_SingleSheet, UX_Attendance_OneEntry) bằng cách thêm mệnh đề WHERE isDeleted = 0 để đáp ứng chuẩn Soft Delete theo quy tắc BR-G04.
+
+**Phan Bảo Duy (BE2):** Hiện thực các Entity lõi (SystemRole, ClubRole, EventRole, UserAccount, Semester) và cấu hình @Where(clause = "isDeleted = false") trên mọi Entity.
+
+\[BỔ SUNG MỚI\]: Cấu hình ràng buộc Unique trong Database cho thực thể ClubMembership (userID, clubID, semesterID) để đảm bảo tính duy nhất của thành viên theo BR-B03.
+
+**Trần Văn An (BE3):** Viết cấu hình tạo dữ liệu mẫu ban đầu (Seed data) khớp 100% với kịch bản SQL.
+
+**Nguyễn Văn Linh (FE1):** Khởi tạo project ReactJS; cài đặt Ant Design, TailwindCSS, Axios, Redux Toolkit và đẩy mã nguồn lên Vercel.
+
+**Đặng Minh Bình An (FE2):** Xây dựng trang chủ (Landing Page) và giao diện xem danh sách các Câu lạc bộ công khai.
+
+### 🔑 TUẦN 2: Đăng Nhập, Quản Lý Học Kỳ & Nhân Sự
+
+**Lê Hoàng Long (Lead / BE1):** Cấu hình Spring Security OAuth2 chặn mail ngoài domain trường FPT và phát hành JWT Token đính kèm Claims động.
+
+\[BỔ SUNG MỚI\]: Viết Security Filter chặn đăng nhập (chặn truy cập hoàn toàn) đối với các tài khoản có accountStatus = 'Suspended' tuân thủ BR-A08.
+
+**Phan Bảo Duy (BE2):** Viết API CRUD Quản lý Học kỳ và xử lý logic nghiệp vụ bảo đảm toàn hệ thống chỉ có duy nhất 1 kỳ Active. \[BỔ SUNG MỚI\]: Bổ sung logic kiểm tra (Validation) chống chồng lấn ngày tháng khi tạo học kỳ mới và chặn cập nhật ngày của học kỳ đã kết thúc theo BR-B05.
+
+👉 **\[BỔ SUNG TỪ GAPS\]:** Viết thêm API CRUD bảng DisciplineLog dành riêng cho vai trò Admin/ICPDP để cung cấp dữ liệu kiểm thử.
+
+**Trần Văn An (BE3):** Viết API thay đổi Ban điều hành CLB sử dụng @Transactional, đồng thời chặn gán Leader nếu sinh viên có án kỷ luật Active trong bảng DisciplineLog.
+
+\[BỔ SUNG MỚI\]: Xây dựng logic chặn 1 sinh viên làm Leader ở 2 CLB cùng lúc (BR-A02) và chặn cán bộ IC-PDP tham gia với vai trò Member/Leader ở bất kỳ CLB nào (BR-A05).
+
+**Nguyễn Văn Linh (FE1):** Làm màn hình Đăng nhập Google SSO, viết bộ lọc Router Guard check Token bảo mật và xây dựng UI Quản lý Học kỳ cho Admin.
+
+\[BỔ SUNG MỚI\]: Thêm chức năng/nút bấm cho Admin để tạm khóa tài khoản (Suspended) vi phạm (BR-A08).
+
+**Đặng Minh Bình An (FE2):** Làm màn hình Hồ sơ cá nhân và quản lý thành viên CLB.
+
+\[BỔ SUNG\]: Viết logic giao diện tự động khóa (disable) các nút Edit/Delete (Read-Only) nếu người dùng đang xem dữ liệu của học kỳ đã kết thúc, tuân thủ quy tắc BR-B01.
+
+\[BỔ SUNG MỚI\]: Cấu hình form Profile thành chế độ Read-Only đối với các trường thành tích lịch sử của Cựu thành viên (Alumni), chỉ cho phép sửa thông tin liên hệ (BR-B02).
+
+👉 **\[BỔ SUNG TỪ GAPS\]:** Bổ sung tab "Quản lý Kỷ luật" trong trang cá nhân/quản trị để Admin nhập lỗi kỷ luật của sinh viên.
+
+### 📝 TUẦN 3: Phân Hệ Tuyển Dụng & Các Tác Vụ Chạy Ngầm (Scheduler)
+
+**Lê Hoàng Long (Lead / BE1):** Thiết kế API lưu trữ cấu trúc câu hỏi form tuyển dụng động dạng JSON.
+
+\[BỔ SUNG\]: Viết Scheduler chạy ngầm đếm ngày: Tự động gửi email/thông báo nhắc nhở BĐH Đóng đơn hoặc Gia hạn khi đợt tuyển dụng mặc định đã diễn ra đủ 15 ngày theo BR-R03.
+
+**Phan Bảo Duy (BE2):** Viết API Nộp đơn ứng tuyển, validate chặn nếu số đơn Pending + số CLB đang tham gia vượt quá 4.
+
+\[BỔ SUNG\]: Viết Scheduler tự động quét kiểm tra quy mô CLB: Đổi trạng thái CLB thành Inactive nếu cuối đợt tuyển dụng đầu kỳ CLB có dưới 5 thành viên Active theo BR-B07.
+
+👉 **\[BỔ SUNG TỪ GAPS\]:** Tích hợp điều kiện kiểm tra Blacklist vào API Nộp đơn ứng tuyển (Nếu sinh viên nằm trong blacklist của CLB, từ chối nộp đơn).
+
+**Trần Văn An (BE3):** Viết API Rút đơn ứng tuyển (chặn nếu > 5 lần) và viết Scheduler quét xóa mềm các đơn Draft quá hạn 7 ngày. \[BỔ SUNG MỚI - BR-R08\]: Bổ sung 2 validation vào API Rút đơn: (1) Chặn INSERT đơn mới nếu sinh viên đã có bản ghi trạng thái Withdrawn vào cùng CLB trong học kỳ hiện tại (Re-apply Cooldown). (2) Đếm tổng số lần Withdraw của sinh viên trong kỳ - nếu >= 5 lần, khóa tính năng Withdraw và ghi cảnh báo vào bảng AuditLog để Admin xem xét. Bổ sung cột withdrawCount vào ClubMembership hoặc truy vấn đếm từ RecruitmentApplication.
+
+👉 **\[BỔ SUNG TỪ GAPS\]:** Viết API CRUD ClubBlacklist (Club Leader thêm/xóa sinh viên khỏi blacklist của CLB). Viết API cập nhật SystemConfig dành cho Admin.
+
+**Nguyễn Văn Linh (FE1):** Phát triển Component tự động đọc và kết xuất (Render) UI biểu mẫu từ JSON.
+
+👉 **\[BỔ SUNG TỪ GAPS\]:** Thiết kế màn hình "Cấu hình Hệ thống" cho Admin và màn hình "Danh sách đen" cho Club Leader.
+
+**Đặng Minh Bình An (FE2):** Làm màn hình danh sách đơn ứng tuyển của Sinh viên và nút bấm 'Rút đơn'.
+
+### 🤖 TUẦN 4: Phỏng Vấn Tuyển Dụng & Cài Đặt AI Chatbot
+
+**Lê Hoàng Long (Lead / BE1):** Xử lý RAG Pipeline, tính Cosine Similarity, chặn gọi Gemini API và trả câu Fallback nếu độ tin cậy < 70%.
+
+\[BỔ SUNG MỚI\]: Viết luồng lưu vết (Audit Logging) vào bảng AIChatAuditLog mọi câu hỏi, phản hồi AI, độ tin cậy và nguồn trích dẫn sau mỗi lượt chat để giám sát theo BR-AI04.
+
+\[BỔ SUNG CHỐT HẠ\]: Thiết lập bộ lọc (sanitize) nội dung đầu vào để khử mã độc và HTML thô, đảm bảo tài liệu được lưu trữ sử dụng định dạng Markdown sạch theo quy tắc BR-AI05.
+
+👉 **\[TỐI ƯU TỪ GAPS\]:** MS SQL Server không hỗ trợ Vector gốc. Khuyến nghị: Đọc toàn bộ tài liệu từ DB lên bộ nhớ Java, sử dụng thư viện LangChain4j tạo embeddings, tính Cosine Similarity trực tiếp trên Service layer, HOẶC dùng DB ngoài (ChromaDB/Pinecone).
+
+**Phan Bảo Duy (BE2):** Cài đặt SDK Google Gemini, viết Rate Limiter giới hạn Guest (5 lần/ngày) và API đổi trạng thái xếp lịch phỏng vấn.
+
+👉 **\[TỐI ƯU TỪ GAPS\]:** Sử dụng thư viện Bucket4j (in-memory rate limiting) kết hợp Filter Spring Boot lấy client IP qua Header X-Forwarded-For, không cần thiết lập Redis.
+
+**Trần Văn An (BE3):** Viết API Chấm điểm phỏng vấn, tự động INSERT thành viên mới nếu Passed và cấu hình gửi Mail thông báo tự động.
+
+\[BỔ SUNG MỚI\]: Tích hợp logic tự động gửi Email mời phỏng vấn (Accept kèm lịch hẹn) hoặc thư cảm ơn (Reject) ngay tại bước duyệt đơn đầu vào (BR-R05).
+
+**Nguyễn Văn Linh (FE1):** Xây dựng UI Khung chat AI hỗ trợ định dạng Markdown và hiển thị nguồn trích dẫn.
+
+**Đặng Minh Bình An (FE2):** Làm màn hình Quản lý đơn ứng tuyển (xếp lịch, phân công người chấm, nhập điểm) dành cho Ban Điều Hành. \[BỔ SUNG MỚI\]: Khóa/ẩn nút "Gửi lời mời phỏng vấn" và vô hiệu hóa API chuyển trạng thái này nếu đợt nhận đơn ứng tuyển 15 ngày chưa chính thức kết thúc (BR-R04).
+
+### 📅 TUẦN 5: Quản Lý Sự Kiện, Hủy Sự Kiện & SLA
+
+**Lê Hoàng Long (Lead / BE1):** Viết cơ chế RAG Sync bất đồng bộ và bộ lọc SQL cô lập dữ liệu AI.
+
+\[BỔ SUNG MỚI\]: Tách RAG Sync thành 3 sub-task cụ thể: (1) API CRUD KnowledgeArchive kèm field visibilityScope (ClubInternal / Public). (2) Áp dụng SQL filter mặc định WHERE clubID = :userClubID OR visibilityScope = 'Public' cho mọi RAG retrieval query. (3) Setup Message Queue viết consumer nhận event sau mỗi insert/update KnowledgeArchive và trigger rebuild vector embedding bất đồng bộ.
+
+\[BỔ SUNG\]: Viết API Hủy sự kiện đã Approved, yêu cầu bắt buộc truyền lên body lý do tối thiểu 20 ký tự, đồng thời tự động gửi thông báo cho người tham dự theo BR-E06.
+
+👉 **\[TỐI ƯU TỪ GAPS\]:** Về việc đồng bộ RAG, có thể dùng Spring @Async hoặc ApplicationEventPublisher thay vì cài đặt Message Queue phức tạp như Kafka/RabbitMQ.
+
+**Phan Bảo Duy (BE2):** Viết API Tạo đề xuất sự kiện, validate mốc thời gian tối thiểu 14 ngày (và ngoại lệ 7 ngày nếu Resubmit). \[BỔ SUNG\]: Viết Scheduler chạy hằng ngày báo cáo SLA: Tự động gửi cảnh báo khẩn cấp lên Admin nếu có đề xuất sự kiện bị kẹt ở trạng thái Pending quá 7 ngày theo BR-G02.
+
+\[BỔ SUNG MỚI\]: Mở rộng API Đề xuất sự kiện để nhận và lưu danh sách EventRole (PR, Hậu cần, Diễn giả...) gán cho từng cá nhân trong Ban tổ chức (BR-E03).
+
+👉 **\[BỔ SUNG TỪ GAPS\]:** Viết API Đăng ký và Hủy đăng ký sự kiện (EventRegistration), kiểm tra điều kiện sinh viên phải là Active member (BR-D05) nếu là sự kiện nội bộ.
+
+**Trần Văn An (BE3):** Viết API Phê duyệt sự kiện (trả mã 409 nếu trùng lịch/địa điểm) và tích hợp Cache cho Bảng xếp hạng. \[BỔ SUNG\]: Viết Scheduler đôn đốc BĐH: Quét và nhắc nhở upload báo cáo sự kiện nếu đã quá hạn 7 ngày kể từ lúc sự kiện kết thúc theo BR-E05. \[BỔ SUNG CHỐT HẠ\]: Bổ sung validation bắt buộc trường pdpFeedback (ghi chú phê duyệt) không được rỗng khi phê duyệt các đề xuất sự kiện có ngân sách dự kiến > 5.000.000 VNĐ theo quy tắc BR-E07.
+
+**Nguyễn Văn Linh (FE1):** Thiết kế Form đề xuất sự kiện đa bước cho Club Leader. \[BỔ SUNG\]: Thiết kế UI/Popup bắt buộc nhập lý do (có validate >20 ký tự) khi BĐH bấm Hủy một sự kiện đã Approved. \[BỔ SUNG MỚI\]: Thêm section "Phân bổ nhân sự" vào form đề xuất sự kiện để Leader chọn người và gán vai trò tổ chức (BR-E03).
+
+👉 **\[BỔ SUNG TỪ GAPS\]:** Thiết kế nút "Đăng ký tham gia" / "Hủy đăng ký" trên UI danh sách/chi tiết sự kiện của sinh viên.
+
+**Đặng Minh Bình An (FE2):** Làm màn hình Xét duyệt sự kiện của IC-PDP, bật highlight cảnh báo đỏ nếu ngân sách > 5 triệu hoặc trùng lịch 409.
+
+### 📊 TUẦN 6: Điểm Danh, Chấm Điểm & Khóa Sổ
+
+**Lê Hoàng Long (Lead / BE1):** Viết API kích hoạt Chế độ bảo trì hệ thống, chặn các request POST/PUT/DELETE từ User trả về mã 503.
+
+**Phan Bảo Duy (BE2):** Viết API Điểm danh bắt buộc đính URL ảnh minh chứng, API chấm điểm hiệu suất và module xuất file Excel bằng Apache POI. \[BỔ SUNG MỚI\]: Xây dựng module xử lý Điểm phong trào chuyên sâu: Chặn cộng điểm 2 lần, tự động tính điểm = Điểm x Hệ số, chặn sinh viên Inactive, lưu điểm âm cho kỷ luật, kiểm tra trần điểm tối đa 100 điểm lấy từ SystemConfig. \[BỔ SUNG CHỐT HẠ\]: Viết Trigger/Logic tự động "Mở khóa" điểm phong trào (chuyển pointStatus từ Locked sang Unlocked) ngay khi sự kiện được IC-PDP đổi trạng thái thành Closed theo quy tắc BR-D01.
+
+**Trần Văn An (BE3):** Viết API Đóng học kỳ (chặn nếu còn sự kiện dở dang hoặc điểm bị khóa) và API Ghi đè khẩn cấp bắt buộc ghi log vào bảng AuditLog. \[BỔ SUNG MỚI\]: Cập nhật API Đóng học kỳ: Lấy danh sách yêu cầu sửa điểm chưa giải quyết và đếm bản ghi AttendanceBenefit còn Locked. Nếu vi phạm, phải trả về lỗi HTTP 409 chứa payload JSON chi tiết để Frontend hiển thị.
+
+**Nguyễn Văn Linh (FE1):** Xây dựng giao diện màn hình Đóng học kỳ dành cho Admin hiển thị chi tiết các lỗi chặn. \[BỔ SUNG MỚI - BR-G01\]: Xây dựng UI Emergency Override cho Admin/IC-PDP bao gồm form nhập overrideReason (textarea, validate tối thiểu 30 ký tự, hiển thị bộ đếm), dropdown, nút Submit. Confirmation kèm AuditLog entry. Nút ẩn hoàn toàn với Student/Leader.
+
+**Đặng Minh Bình An (FE2):** Làm giao diện Điểm danh sự kiện, giao diện chấm điểm hiệu suất và giao diện xem Bảng xếp hạng KPI.
+
+### 🚀 TUẦN 7: Kiểm Thử, Tối Ưu & Nghiệm Thu
+
+**Back-end Team:** Viết Unit Test (JUnit/Mockito), dùng Postman/JMeter giả lập 2 người cùng duyệt sự kiện chống Race Condition. \[BỔ SUNG MỚI - Race Condition Test Suite\]: Bổ sung 3 kịch bản JMeter bắt buộc: (1) 2 request đồng thời gán 2 Leader vào 1 CLB → 1 được chấp nhận, 1 nhận 409. (2) 2 sinh viên cùng nộp đơn khi slot cuối còn 1 chỗ → chỉ 1 đơn được INSERT. (3) Admin và IC-PDP cùng gọi API đóng học kỳ đồng thời → không double-close. Ghi kết quả vào báo cáo chứng minh Pessimistic/Optimistic Lock hoạt động.
+
+**Front-end Team:** Rà soát UI/UX, thiết lập Responsive Layout mượt mà trên thiết bị di động.
+
+**Toàn bộ thành viên nhóm:** Thực hiện kịch bản UAT, quay Video Demo và hoàn thiện Slide thuyết trình SWP391.

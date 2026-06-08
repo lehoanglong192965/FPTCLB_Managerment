@@ -54,7 +54,4 @@ public class Club {
      * - CLB bị vô hiệu hóa/tạm khóa.
      * - Scheduler có thể tự động chuyển sang trạng thái này.
      */
-    @Column(name = "clubStatus")
-    private String clubStatus;
-
 }

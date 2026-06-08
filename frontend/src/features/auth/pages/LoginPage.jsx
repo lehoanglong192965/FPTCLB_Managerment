@@ -42,6 +42,7 @@ const ROLE_REDIRECT = {
   ADMIN:  "/admin",
   ICPDP:  "/icpdp",
   MEMBER: "/member",
+  ALUMNI: "/alumni",
 };
 
 
@@ -77,7 +78,7 @@ export default function LoginPage() {
       login({ email: userEmail, role });
 
       // Redirect đến dashboard theo role
-      navigate(ROLE_REDIRECT[role] ?? "/member");
+      navigate(role === "LEADER" ? "/club-leader" : (ROLE_REDIRECT[role] ?? "/member"));
     } catch (err) {
       const msg = err?.response?.data?.error ?? "Email hoặc mật khẩu không đúng.";
       setError(msg);

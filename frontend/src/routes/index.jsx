@@ -32,6 +32,9 @@ import MemberEvents from "../features/member/pages/MemberEvents";
 import MemberClubs from "../features/member/pages/MemberClubs";
 import MemberNotifications from "../features/member/pages/MemberNotifications";
 
+// Alumni pages
+import AlumniHome from "../features/alumni/pages/AlumniHome";
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -71,6 +74,11 @@ export default function AppRoutes() {
         <Route path="clubs" element={<MemberClubs />} />
         <Route path="events" element={<MemberEvents />} />
         <Route path="notifications" element={<MemberNotifications />} />
+      </Route>
+
+      {/* ── Alumni dashboard ────────────────────────────────── */}
+      <Route path="/alumni" element={<DashboardLayout />}>
+        <Route index element={<AlumniHome />} />
       </Route>
     </Routes>
   );

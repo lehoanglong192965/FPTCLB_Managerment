@@ -2,8 +2,14 @@ package com.fptu.fcms.service;
 
 import com.fptu.fcms.dto.request.UpdateProfileRequest;
 import com.fptu.fcms.dto.response.UserProfileResponse;
+import com.fptu.fcms.dto.response.ClubRoleResponse;
 import com.fptu.fcms.entity.UserAccount;
+import com.fptu.fcms.entity.ClubMembership;
+import com.fptu.fcms.entity.Semester;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.repository.ClubMembershipRepository;
+import com.fptu.fcms.repository.SemesterRepository;
+import com.fptu.fcms.repository.ClubRoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +20,9 @@ import java.util.Optional;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final ClubMembershipRepository clubMembershipRepository;
+    private final SemesterRepository semesterRepository;
+    private final ClubRoleRepository clubRoleRepository;
 
     @Override
     public UserProfileResponse getProfile(Integer userId) {
@@ -60,6 +69,37 @@ public class UserServiceImpl implements UserService {
                 user.getFullName(),
                 user.getMajor() != null ? user.getMajor() : "NULL",
                 user.getRoleID()
+        );
+    }
+
+    @Override
+    public ClubRoleResponse getClubRole(Integer userId) {
+        Optional<Semester> activeSemesterOpt = semesterRepository.findByIsActiveTrueAndIsDeletedFalse();
+        if (activeSemesterOpt.isEmpty()) {
+            return new ClubRoleResponse(3, null, "Member"); // Mặc định là Member nếu không có kỳ Active
+        }
+        Semester activeSemester = activeSemesterOpt.get();
+
+        java.util.List<ClubMembership> memberships = clubMembershipRepository
+                .findByUserIDAndSemesterIDAndIsDeletedFalse(userId, activeSemester.getSemesterID());
+
+        if (memberships.isEmpty()) {
+            return new ClubRoleResponse(3, null, "Member");
+        }
+
+        // Tìm membership có clubRoleID nhỏ nhất (ưu tiên 1: Leader > 2: ViceLeader > 3: Member)
+        ClubMembership highestRoleMembership = memberships.stream()
+                .min(java.util.Comparator.comparingInt(ClubMembership::getClubRoleID))
+                .orElse(memberships.get(0));
+
+        String roleName = clubRoleRepository.findById(highestRoleMembership.getClubRoleID())
+                .map(cr -> cr.getRoleName())
+                .orElse("Member");
+
+        return new ClubRoleResponse(
+                highestRoleMembership.getClubRoleID(),
+                highestRoleMembership.getClubID(),
+                roleName
         );
     }
 }

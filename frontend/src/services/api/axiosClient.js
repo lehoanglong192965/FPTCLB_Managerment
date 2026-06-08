@@ -10,6 +10,7 @@ export const ROLES = {
   CLUB_LEADER: "CLUB_LEADER",
   CLUB_MANAGER: "CLUB_MANAGER",
   ADMIN: "ADMIN",
+  ALUMNI: "ALUMNI",
 };
 
 // Thứ tự quyền của các vai trò, dùng để so sánh nhanh trong hasMinRole()

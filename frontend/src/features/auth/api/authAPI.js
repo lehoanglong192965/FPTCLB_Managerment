@@ -86,6 +86,12 @@ const authApi = {
    */
   checkEmailExists: (email) =>
     axiosClient.get("/auth/check-email", { params: { email } }),
+
+  /**
+   * Lấy quyền của người dùng trong câu lạc bộ
+   */
+  getMyClubRole: () =>
+    axiosClient.get("/user/my-club-role"),
 };
 
 export default authApi;

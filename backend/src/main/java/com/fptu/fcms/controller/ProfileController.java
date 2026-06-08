@@ -2,6 +2,7 @@ package com.fptu.fcms.controller;
 
 import com.fptu.fcms.dto.request.UpdateProfileRequest;
 import com.fptu.fcms.dto.response.UserProfileResponse;
+import com.fptu.fcms.dto.response.ClubRoleResponse;
 import com.fptu.fcms.service.UserService;
 import com.fptu.fcms.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,18 @@ public class ProfileController {
                     "fullName", response.getFullName(),
                     "major", response.getMajor()
             ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/my-club-role")
+    public ResponseEntity<?> getMyClubRole(@AuthenticationPrincipal UserPrincipal currentUser) {
+        try {
+            Integer userId = currentUser.getUserId();
+            ClubRoleResponse response = userService.getClubRole(userId);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", e.getMessage()));

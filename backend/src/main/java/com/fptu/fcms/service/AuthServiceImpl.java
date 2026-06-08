@@ -4,6 +4,7 @@ import com.fptu.fcms.dto.request.LoginRequest;
 import com.fptu.fcms.dto.request.RegisterRequest;
 import com.fptu.fcms.dto.response.AuthResponse;
 import com.fptu.fcms.entity.UserAccount;
+import com.fptu.fcms.repository.AllowedEmailRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.security.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
+    private final AllowedEmailRepository allowedEmailRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -26,7 +28,9 @@ public class AuthServiceImpl implements AuthService {
         String email = request.getEmail();
 
         if (!email.endsWith("@fpt.edu.vn") && !email.endsWith("@fe.edu.vn")){
-            throw new IllegalArgumentException("Hệ thống chỉ chấp nhận email nội bộ (@fpt.edu.vn hoặc @fe.edu.vn)");
+            if (!allowedEmailRepository.existsByEmail(email)) {
+                throw new IllegalArgumentException("Tài khoản email này chưa được cấp phép trong hệ thống.");
+            }
         }
 
         Optional<UserAccount> userOptional = userRepository.findByEmailAndIsDeletedFalse(email);
@@ -61,7 +65,9 @@ public class AuthServiceImpl implements AuthService {
         String email = request.getEmail();
 
         if (!email.endsWith("@fpt.edu.vn") && !email.endsWith("@fe.edu.vn")){
-            throw new IllegalArgumentException("Hệ thống chỉ chấp nhận email nội bộ (@fpt.edu.vn hoặc @fe.edu.vn)");
+            if (!allowedEmailRepository.existsByEmail(email)) {
+                throw new IllegalArgumentException("Tài khoản email này chưa được cấp phép trong hệ thống.");
+            }
         }
 
         Optional<UserAccount> existingUser = userRepository.findByEmailAndIsDeletedFalse(email);
@@ -80,6 +86,7 @@ public class AuthServiceImpl implements AuthService {
         newUser.setCreatedAt(LocalDateTime.now());
         newUser.setFullName(request.getFullName() != null ? request.getFullName() : "Chưa cập nhật");
         newUser.setStudentId(request.getStudentId()); // Lưu mã sinh viên
+        newUser.setPhoneNumber(request.getPhoneNumber()); // Lưu SĐT
         newUser.setRoleID(3);
         newUser.setMajor(request.getMajor() != null ? request.getMajor() : "Chưa cập nhật");
 
