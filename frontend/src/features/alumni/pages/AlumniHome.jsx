@@ -1,5 +1,4 @@
 import React from "react";
-import "../../../assets/css/dashboardContent.css";
 
 export default function AlumniHome() {
   return (

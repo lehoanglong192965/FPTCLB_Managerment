@@ -39,10 +39,12 @@ function Logo() {
 }
 
 const ROLE_REDIRECT = {
-  ADMIN:  "/admin",
-  ICPDP:  "/icpdp",
-  MEMBER: "/member",
-  ALUMNI: "/alumni",
+  ADMIN:       "/admin",
+  ICPDP:       "/icpdp",
+  MEMBER:      "/member",
+  ALUMNI:      "/alumni",
+  CLUB_LEADER: "/club-leader",
+  VICE_LEADER: "/club-leader",
 };
 
 
@@ -59,8 +61,7 @@ export default function LoginPage() {
   const handleSSO = (provider) => {
     setError("");
     setLoading(provider);
-    // TODO: tích hợp OAuth khi backend hỗ trợ
-    setTimeout(() => setLoading(null), 1400);
+    window.location.href = `http://localhost:8080/oauth2/authorization/${provider}`;
   };
 
   const handleSubmit = async (e) => {
@@ -78,7 +79,7 @@ export default function LoginPage() {
       login({ email: userEmail, role });
 
       // Redirect đến dashboard theo role
-      navigate(role === "LEADER" ? "/club-leader" : (ROLE_REDIRECT[role] ?? "/member"));
+      navigate(ROLE_REDIRECT[role] ?? "/member");
     } catch (err) {
       const msg = err?.response?.data?.error ?? "Email hoặc mật khẩu không đúng.";
       setError(msg);

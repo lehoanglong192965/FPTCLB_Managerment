@@ -44,7 +44,7 @@ export default function RegisterPage() {
 
   const handleSSO = () => {
     setLoading("google");
-    setTimeout(() => { setLoading(null); navigate("/"); }, 1400);
+    window.location.href = "http://localhost:8080/oauth2/authorization/google";
   };
 
   const handleChange = (e) => {
@@ -87,7 +87,8 @@ export default function RegisterPage() {
         major:    form.major,
       });
       setSuccess(true);
-      setTimeout(() => navigate("/login"), 2000);
+      localStorage.setItem("pending_verify_email", form.email);
+      setTimeout(() => navigate("/verify-otp", { state: { email: form.email } }), 2000);
     } catch (err) {
       const status = err?.response?.status;
       if (status === 409) {
@@ -260,7 +261,7 @@ export default function RegisterPage() {
 
             {success && (
               <p style={{ color: "#10b981", fontSize: 14, textAlign: "center", marginBottom: 8 }}>
-                Đăng ký thành công! Đang chuyển sang trang đăng nhập...
+                Đăng ký thành công! Đang chuyển sang trang xác thực OTP...
               </p>
             )}
             {errors.form && (

@@ -87,7 +87,7 @@ export const TokenService = {
 const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? "https://your-api-url.com/api",
   headers: { "Content-Type": "application/json" },
-  timeout: 12000,
+  timeout: 30000,
 });
 
 // ─────────────────────────────────────────────────────────────────

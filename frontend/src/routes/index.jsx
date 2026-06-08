@@ -6,6 +6,7 @@ import EventListPage from "../features/events/pages/EventListPage";
 import LoginPage from "../features/auth/pages/LoginPage";
 import RegisterPage from "../features/auth/pages/RegisterPage";
 import VerifyOTP from "../features/auth/pages/VerifyOTP";
+import OAuthRedirect from "../features/auth/pages/OAuthRedirect";
 import ClubDetailPage from "../features/clubs/pages/ClubDetailPage";
 import EventDetailPage from "../features/events/pages/EventDetailPage";
 
@@ -47,6 +48,7 @@ export default function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-otp" element={<VerifyOTP />} />
+      <Route path="/oauth2/redirect" element={<OAuthRedirect />} />
 
       {/* ── ICPDP dashboard ─────────────────────────────────── */}
       <Route path="/icpdp" element={<DashboardLayout />}>
