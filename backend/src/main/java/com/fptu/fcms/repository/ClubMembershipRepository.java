@@ -142,4 +142,8 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
             Integer userID,
             Integer semesterID
     );
+    boolean existsByClubIDAndUserIDAndIsDeletedFalse(
+            Integer clubID,
+            Integer userID
+    );
 }
