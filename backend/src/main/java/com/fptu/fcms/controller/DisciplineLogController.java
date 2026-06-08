@@ -2,16 +2,20 @@ package com.fptu.fcms.controller;
 
 import com.fptu.fcms.dto.DisciplineLogDTO;
 import com.fptu.fcms.service.DisciplineLogService;
+import com.fptu.fcms.security.UserPrincipal;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 
@@ -19,13 +23,11 @@ import java.util.List;
  * REST Controller cho DisciplineLog — API quản lý án kỷ luật.
  *
  * Toàn bộ endpoint yêu cầu xác thực JWT và phân quyền Admin hoặc ICPDP.
- * Mục đích chính: cung cấp dữ liệu kiểm thử cho các Business Rule liên quan
- * đến kỷ luật sinh viên (ví dụ: BR-01 chặn gán Leader cho SV có án kỷ luật).
- *
- * Lưu ý về @PreAuthorize:
- *   Các annotation @PreAuthorize("hasAnyRole(...)") yêu cầu SecurityConfig khai báo
- *   @EnableMethodSecurity. JwtAuthenticationFilter map role từ DB sang
- *   SimpleGrantedAuthority("ROLE_" + roleName), nên hasRole('Admin') khớp với ROLE_Admin.
+ * Khi tạo/cập nhật DisciplineLog có status = Active,
+ * service sẽ tự động:
+ * - đình chỉ tài khoản user bị kỷ luật
+ * - hạ clubRoleID của Leader xuống Member
+ * - ghi AuditLog
  */
 @RestController
 @RequestMapping("/api/discipline-logs")
@@ -50,17 +52,35 @@ public class DisciplineLogController {
     }
 
     @PostMapping
-    @Operation(summary = "Tạo mới án kỷ luật", description = "Yêu cầu quyền Admin hoặc ICPDP")
-    public ResponseEntity<DisciplineLogDTO> createDisciplineLog(@Valid @RequestBody DisciplineLogDTO dto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(disciplineLogService.createDisciplineLog(dto));
+    @Operation(
+            summary = "Tạo mới án kỷ luật",
+            description = "Admin/ICPDP tạo án kỷ luật. Nếu status = Active thì tự động hạ Leader xuống Member."
+    )
+    public ResponseEntity<DisciplineLogDTO> createDisciplineLog(
+            @Valid @RequestBody DisciplineLogDTO dto,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        Integer actorID = principal != null ? principal.getUserId() : null;
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(disciplineLogService.createDisciplineLog(dto, actorID));
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Cập nhật án kỷ luật", description = "Chỉ cho phép sửa reason và disciplineStatus")
+    @Operation(
+            summary = "Cập nhật án kỷ luật",
+            description = "Chỉ cho phép sửa reason và disciplineStatus. Nếu status = Active thì tự động hạ Leader xuống Member."
+    )
     public ResponseEntity<DisciplineLogDTO> updateDisciplineLog(
             @PathVariable Integer id,
-            @Valid @RequestBody DisciplineLogDTO dto) {
-        return ResponseEntity.ok(disciplineLogService.updateDisciplineLog(id, dto));
+            @Valid @RequestBody DisciplineLogDTO dto,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        Integer actorID = principal != null ? principal.getUserId() : null;
+
+        return ResponseEntity.ok(
+                disciplineLogService.updateDisciplineLog(id, dto, actorID)
+        );
     }
 
     @DeleteMapping("/{id}")
