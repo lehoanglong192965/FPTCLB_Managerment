@@ -45,7 +45,7 @@ const MAJOR_OPTIONS = [
 ];
 
 function EditModal({ current, onClose, onSaved }) {
-  const [form, setForm] = useState({ fullName: current.fullName ?? "", major: current.major ?? "" });
+  const [form, setForm] = useState({ fullName: current.fullName ?? "", major: current.major ?? "", phoneNumber: current.phoneNumber ?? "" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -63,7 +63,11 @@ function EditModal({ current, onClose, onSaved }) {
 
     setLoading(true);
     try {
-      await authService.updateProfile({ fullName: form.fullName.trim(), major: form.major });
+      await authService.updateProfile({
+        fullName: form.fullName.trim(),
+        major: form.major ,
+        phoneNumber: form.phoneNumber.trim()
+      });
       setSuccess(true);
       setTimeout(() => { onSaved(); onClose(); }, 1200);
     } catch (err) {
@@ -113,6 +117,29 @@ function EditModal({ current, onClose, onSaved }) {
               ))}
             </select>
           </div>
+          <div className="ep-field">
+            <label>Số điện thoại</label>
+            <input
+                type="tel"
+                value={form.phoneNumber}
+                onChange={(e) => {
+                  setForm((p) => ({
+                    ...p,
+                    phoneNumber: e.target.value,
+                  }));
+                  setErrors((p) => ({
+                    ...p,
+                    phoneNumber: "",
+                  }));
+                }}
+                placeholder="Nhập số điện thoại"
+                disabled={loading}
+            />
+            {errors.phoneNumber && (
+                <span className="ep-error">{errors.phoneNumber}</span>
+            )}
+          </div>
+
 
           {errors.form && <p className="ep-error" style={{ textAlign: "center" }}>{errors.form}</p>}
           {success && <p className="ep-success">Cập nhật thành công!</p>}
@@ -138,7 +165,7 @@ export default function ProfilePage() {
     studentId: authProfile.studentId ?? "—",
     faculty:   authProfile.major ?? "—",
     email:     authProfile.email ?? "—",
-    phone:     authProfile.phone ?? "—",
+    phone:     authProfile.phoneNumber ?? "—",
     major:     authProfile.major ?? "—",
     clubs:     [],
     timeline:  MOCK_TIMELINE,

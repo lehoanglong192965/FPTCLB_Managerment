@@ -42,7 +42,8 @@ public class ProfileController {
             return ResponseEntity.ok(Map.of(
                     "message", "Cập nhật hồ sơ thành công!",
                     "fullName", response.getFullName(),
-                    "major", response.getMajor()
+                    "major", response.getMajor(),
+                    "phone",response.getPhoneNumber()
             ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
