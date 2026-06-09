@@ -39,7 +39,9 @@ public class UserServiceImpl implements UserService {
                 user.getEmail(),
                 user.getFullName(),
                 user.getMajor() != null ? user.getMajor() : "NULL",
-                user.getRoleID()
+                user.getRoleID(),
+                user.getStudentId(),
+                user.getPhoneNumber()
         );
     }
 
@@ -68,7 +70,9 @@ public class UserServiceImpl implements UserService {
                 user.getEmail(),
                 user.getFullName(),
                 user.getMajor() != null ? user.getMajor() : "NULL",
-                user.getRoleID()
+                user.getRoleID(),
+                user.getStudentId(),
+                user.getPhoneNumber()
         );
     }
 
