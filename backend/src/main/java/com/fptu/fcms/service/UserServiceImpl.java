@@ -6,10 +6,7 @@ import com.fptu.fcms.dto.response.ClubRoleResponse;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.entity.ClubMembership;
 import com.fptu.fcms.entity.Semester;
-import com.fptu.fcms.repository.UserRepository;
-import com.fptu.fcms.repository.ClubMembershipRepository;
-import com.fptu.fcms.repository.SemesterRepository;
-import com.fptu.fcms.repository.ClubRoleRepository;
+import com.fptu.fcms.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
