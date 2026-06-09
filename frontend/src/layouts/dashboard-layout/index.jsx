@@ -4,6 +4,7 @@ import { TokenService } from "../../services/api/axiosClient";
 import { decodeJwtPayload } from "../../features/auth/utils/tokenGuard";
 import Sidebar from "./Sidebar";
 import { getSidebarConfig } from "./sidebarConfigs";
+import AiChat from "../../components/AiChat";
 import "../../assets/css/dashboardLayout.css";
 
 function resolveRole(authUser) {
@@ -18,17 +19,6 @@ function resolveRole(authUser) {
   return payload?.roles?.[0]?.toUpperCase() ?? "MEMBER";
 }
 
-/*
- * DashboardLayout — layout wrapper với sidebar cho mọi role sau đăng nhập.
- *
- * Cách dùng (trong routes):
- *   <Route path="/admin" element={<DashboardLayout />}>
- *     <Route index element={<SystemOverview />} />
- *     <Route path="clubs" element={<ClubManagement />} />
- *   </Route>
- *
- * Để thêm/xoá mục menu, chỉnh file ./sidebarConfigs.js
- */
 export default function DashboardLayout() {
   const { user } = useAuth();
   const role = resolveRole(user);
@@ -38,8 +28,11 @@ export default function DashboardLayout() {
     <div className="dashboard-layout">
       <Sidebar navItems={navItems} />
       <main className="dashboard-main">
-        <Outlet />
+        <div className="dashboard-page-content">
+          <Outlet />
+        </div>
       </main>
+      {role !== "ADMIN" && <AiChat />}
     </div>
   );
 }

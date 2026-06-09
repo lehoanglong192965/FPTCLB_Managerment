@@ -46,8 +46,17 @@ export default function Sidebar({ navItems }) {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-logo">FPTU Clubs</div>
+      {/* Logo */}
+      <div className="sidebar-logo">
+        <div className="sidebar-logo-mark">F</div>
+        <span>
+          <span className="sidebar-logo-fptu">FPTU</span>
+          {" "}
+          <span className="sidebar-logo-clubs">Clubs</span>
+        </span>
+      </div>
 
+      {/* User */}
       <div className="sidebar-user">
         <div className="sidebar-user-avatar">{avatarLetter}</div>
         <div style={{ overflow: "hidden" }}>
@@ -56,6 +65,7 @@ export default function Sidebar({ navItems }) {
         </div>
       </div>
 
+      {/* Nav */}
       <nav className="sidebar-nav">
         {navItems.map((item) => (
           <NavLink
@@ -72,6 +82,7 @@ export default function Sidebar({ navItems }) {
         ))}
       </nav>
 
+      {/* Footer */}
       <div className="sidebar-footer">
         <button className="sidebar-logout-btn" onClick={handleLogout}>
           <LogOut size={17} />
