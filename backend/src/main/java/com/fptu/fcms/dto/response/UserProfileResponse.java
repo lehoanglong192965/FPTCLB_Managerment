@@ -15,4 +15,6 @@ public class UserProfileResponse {
     private String fullName;
     private String major;
     private Integer roleId;
+    private String studentId;
+    private String phoneNumber;
 }
