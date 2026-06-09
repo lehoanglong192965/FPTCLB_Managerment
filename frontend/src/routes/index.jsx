@@ -21,10 +21,13 @@ import IcpdpClubOverview from "../features/icpdp-dashboard/pages/IcpdpClubOvervi
 import IcpdpPersonnelReassign from "../features/icpdp-dashboard/pages/IcpdpPersonnelReassign";
 import IcpdpDisciplineLog from "../features/icpdp-dashboard/pages/IcpdpDisciplineLog";
 import IcpdpClubManagement from "../features/icpdp-dashboard/pages/IcpdpClubManagement";
+import IcpdpRecruitment from "../features/icpdp-dashboard/pages/IcpdpRecruitment";
+import IcpdpBlacklist from "../features/icpdp-dashboard/pages/IcpdpBlacklist";
 
 // Admin pages
 import SemesterManagement from "../features/admin-dashboard/pages/SemesterManagement";
 import UserManagement from "../features/admin-dashboard/pages/UserManagement";
+import SystemConfigPage from "../features/admin-dashboard/pages/SystemConfigPage";
 
 // Club Leader pages
 import ClubOverview from "../features/club-leader-dashboard/pages/ClubOverview";
@@ -38,12 +41,16 @@ import MemberHome from "../features/member-dashboard/pages/MemberHome";
 import MemberEvents from "../features/member-dashboard/pages/MemberEvents";
 import MemberClubs from "../features/member-dashboard/pages/MemberClubs";
 import MemberNotifications from "../features/member-dashboard/pages/MemberNotifications";
+import MemberApply from "../features/member-dashboard/pages/MemberApply";
 
 // Shared
 import ProfilePage from "../features/profile/pages/ProfilePage";
 
 // Alumni pages
 import AlumniHome from "../features/alumni/pages/AlumniHome";
+import AlumniClubs from "../features/alumni/pages/AlumniClubs";
+import AlumniEvents from "../features/alumni/pages/AlumniEvents";
+import AlumniNetwork from "../features/alumni/pages/AlumniNetwork";
 
 export default function AppRoutes() {
   return (
@@ -67,6 +74,8 @@ export default function AppRoutes() {
         <Route path="event-approval" element={<IcpdpEventApproval />} />
         <Route path="personnel-reassign" element={<IcpdpPersonnelReassign />} />
         <Route path="discipline-log" element={<IcpdpDisciplineLog />} />
+        <Route path="recruitment" element={<IcpdpRecruitment />} />
+        <Route path="blacklist" element={<IcpdpBlacklist />} />
         <Route path="notifications" element={<IcpdpNotifications />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -75,6 +84,7 @@ export default function AppRoutes() {
       <Route path="/admin" element={<DashboardLayout />}>
         <Route index element={<SemesterManagement />} />
         <Route path="users" element={<UserManagement />} />
+        <Route path="system-config" element={<SystemConfigPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -94,12 +104,46 @@ export default function AppRoutes() {
         <Route path="clubs" element={<MemberClubs />} />
         <Route path="events" element={<MemberEvents />} />
         <Route path="notifications" element={<MemberNotifications />} />
+        <Route path="apply" element={<MemberApply />} />
+        <Route path="profile" element={<ProfilePage />} />
+      </Route>
+
+      {/* ── Vice Leader dashboard ───────────────────────────── */}
+      <Route path="/vice-leader" element={<DashboardLayout />}>
+        <Route index element={<ClubOverview />} />
+        <Route path="members" element={<ClubMemberMgmt />} />
+        <Route path="events" element={<ClubEventsMgmt />} />
+        <Route path="notifications" element={<ClubNotifications />} />
+        <Route path="profile" element={<ProfilePage />} />
+      </Route>
+
+      {/* ── Core Team dashboard ─────────────────────────────── */}
+      <Route path="/core-team" element={<DashboardLayout />}>
+        <Route index element={<ClubOverview />} />
+        <Route path="events" element={<ClubEventsMgmt />} />
+        <Route path="members" element={<ClubMemberMgmt />} />
+        <Route path="notifications" element={<ClubNotifications />} />
+        <Route path="profile" element={<ProfilePage />} />
+      </Route>
+
+      {/* ── Club Manager dashboard ──────────────────────────── */}
+      <Route path="/manager" element={<DashboardLayout />}>
+        <Route index element={<ClubOverview />} />
+        <Route path="clubs" element={<IcpdpClubOverview />} />
+        <Route path="members" element={<ClubMemberMgmt />} />
+        <Route path="events" element={<ClubEventsMgmt />} />
+        <Route path="notifications" element={<ClubNotifications />} />
+        <Route path="reports" element={<ClubReports />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       {/* ── Alumni dashboard ────────────────────────────────── */}
       <Route path="/alumni" element={<DashboardLayout />}>
         <Route index element={<AlumniHome />} />
+        <Route path="clubs" element={<AlumniClubs />} />
+        <Route path="events" element={<AlumniEvents />} />
+        <Route path="network" element={<AlumniNetwork />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
     </Routes>
   );

@@ -188,23 +188,6 @@ export default function RegisterPage() {
               </div>
               {errors.confirmPassword && <p className="rg-error">{errors.confirmPassword}</p>}
             </div>
-            {/* Email */}
-            <div className="rg-field">
-              <label className="rg-label">Email <span>*</span></label>
-              <input
-                className="rg-input"
-                type="email"
-                name="email"
-                placeholder="example@fpt.edu.vn"
-                value={form.email}
-                onChange={handleChange}
-                disabled={loading}
-                autoComplete="email"
-              />
-              {errors.email && <p className="rg-error">{errors.email}</p>}
-            </div>
-
-
             {/* Student ID + Major */}
             <div className="register-row">
               <div className="rg-field">
