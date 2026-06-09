@@ -60,25 +60,25 @@ const storage = typeof window !== "undefined" ? localStorage : null;
 export const TokenService = {
   getAccess: () => storage?.getItem("access_token") ?? null,
   getRefresh: () => storage?.getItem("refresh_token") ?? null,
-  // Mặc định GUEST nếu chưa đăng nhập
   getRole: () => storage?.getItem("user_role") ?? ROLES.GUEST,
-
-  // Gọi sau khi login/register thành công
-  // Ví dụ: TokenService.save(response.data)
-  // Backend cần trả về: { access_token, refresh_token, role }
-  save({ access_token, refresh_token, role }) {
-    storage?.setItem("access_token", access_token);
-    storage?.setItem("refresh_token", refresh_token);
-    // role = "MEMBER" cho người mới đăng ký
-    // role = "CLUB_LEADER" nếu là chủ nhiệm, v.v.
-    storage?.setItem("user_role", role ?? ROLES.MEMBER);
+  getClubId: () => {
+    const v = storage?.getItem("user_club_id");
+    return v ? parseInt(v, 10) : null;
   },
 
-  // Dọn dẹp sạch sẽ dữ liệu phiên làm việc, phục vụ cho việc đăng xuất hoặc xóa quyền khi hệ thống phát hiện gian lận/hết hạn.
+  save({ access_token, refresh_token, role, clubId }) {
+    storage?.setItem("access_token", access_token);
+    storage?.setItem("refresh_token", refresh_token);
+    storage?.setItem("user_role", role ?? ROLES.MEMBER);
+    if (clubId != null) storage?.setItem("user_club_id", String(clubId));
+    else storage?.removeItem("user_club_id");
+  },
+
   clear() {
     storage?.removeItem("access_token");
     storage?.removeItem("refresh_token");
     storage?.removeItem("user_role");
+    storage?.removeItem("user_club_id");
   },
 };
 

@@ -1,10 +1,13 @@
 import { Bell, Award, Flame, CalendarDays, ChevronRight } from "lucide-react";
 import "../../../assets/css/memberHome.css";
+import { useAuth } from "../../auth/context/AuthContext";
 
-const mockUser = {
-  name: "An",
-  greeting: "Chào buổi tối",
-};
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Chào buổi sáng";
+  if (h < 18) return "Chào buổi chiều";
+  return "Chào buổi tối";
+}
 
 const mockStats = [
   { label: "CLB Tham Gia",    value: 1, icon: null,  cardClass: "mh-stat-card-pink"  },
@@ -61,13 +64,16 @@ const mockNotifications = [
 ];
 
 export default function MemberHome() {
+  const { profile } = useAuth();
+  const displayName = profile?.fullName?.split(" ").pop() ?? profile?.fullName ?? "bạn";
+
   return (
     <div>
       {/* Header */}
       <div className="mh-header">
         <div>
           <h1 className="mh-greeting">
-            {mockUser.greeting}, {mockUser.name}!
+            {getGreeting()}, {displayName}!
           </h1>
           <p className="mh-greeting-sub">
             Chúc bạn một ngày học tập và hoạt động thật năng suất.

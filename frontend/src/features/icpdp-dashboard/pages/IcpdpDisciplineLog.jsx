@@ -1,180 +1,125 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ShieldAlert, Plus, Search, ChevronDown, X,
-  AlertTriangle, AlertOctagon, Ban, Clock, CheckCircle2,
-  FileText, User,
+  CheckCircle2, FileText, Clock, RefreshCw,
 } from "lucide-react";
 import "../../../assets/css/icpdpEventApproval.css";
 import "../../../assets/css/icpdpClubOverview.css";
 import "../../../assets/css/icpdpPersonnelReassign.css";
 import "../../../assets/css/icpdpDisciplineLog.css";
+import disciplineLogApi from "../api/disciplineLogApi";
 
-/* ── Mock data ───────────────────────────────────────────── */
-const MOCK_LOGS = [
-  {
-    id: 1,
-    studentId: "SE171234",
-    name: "Nguyễn Văn An",
-    club: "FPTU IT Club",
-    role: "Trưởng CLB",
-    type: "dismiss",
-    severity: "high",
-    description: "Gian lận trong bài kiểm tra học kỳ, bị nhà trường đình chỉ 1 học kỳ.",
-    date: "02/06/2026",
-    recordedBy: "IC-PDP",
-    status: "active",
-  },
-  {
-    id: 2,
-    studentId: "DE191002",
-    name: "Tống Minh Sơn",
-    club: "FPTU Dance Club",
-    role: "Phó Trưởng CLB",
-    type: "warning",
-    severity: "medium",
-    description: "Vắng mặt 3 buổi sinh hoạt CLB liên tiếp mà không có lý do chính đáng.",
-    date: "20/05/2026",
-    recordedBy: "IC-PDP",
-    status: "resolved",
-  },
-  {
-    id: 3,
-    studentId: "IB181003",
-    name: "Đinh Quốc Minh",
-    club: "FPTU English Club",
-    role: "Thành viên",
-    type: "discipline",
-    severity: "high",
-    description: "Sử dụng ngôn ngữ không phù hợp trong sự kiện chính thức của CLB, gây ảnh hưởng đến hình ảnh.",
-    date: "10/05/2026",
-    recordedBy: "IC-PDP",
-    status: "active",
-  },
-  {
-    id: 4,
-    studentId: "MU201004",
-    name: "Kiều Văn Yên",
-    club: "FPTU Music Club",
-    role: "Thành viên",
-    type: "warning",
-    severity: "low",
-    description: "Nộp báo cáo sự kiện trễ hạn 2 lần trong học kỳ.",
-    date: "01/05/2026",
-    recordedBy: "IC-PDP",
-    status: "resolved",
-  },
-  {
-    id: 5,
-    studentId: "SE172003",
-    name: "Vũ Minh Đức",
-    club: "FPTU IT Club",
-    role: "Thành viên",
-    type: "discipline",
-    severity: "medium",
-    description: "Thu phí thành viên trái phép, không minh bạch tài chính trong ban tổ chức sự kiện.",
-    date: "15/04/2026",
-    recordedBy: "IC-PDP",
-    status: "active",
-  },
-];
-
-const CLUBS = [
-  "FPTU IT Club", "FPTU English Club", "FPTU Dance Club",
-  "FPTU Music Club", "FPTU Chess Club", "FPTU Volunteer",
-];
-
-const TYPE_CONFIG = {
-  warning:    { label: "Nhắc nhở",  icon: AlertTriangle,  color: "yellow" },
-  discipline: { label: "Kỷ luật",   icon: AlertOctagon,   color: "orange" },
-  dismiss:    { label: "Cách chức", icon: Ban,             color: "red"    },
-};
-
-const SEVERITY_CONFIG = {
-  low:    { label: "Nhẹ",    color: "sev-low"    },
-  medium: { label: "Trung bình", color: "sev-medium" },
-  high:   { label: "Nặng",   color: "sev-high"   },
+const STATUS_CONFIG = {
+  Active:   { label: "Đang xử lý",    color: "orange" },
+  Resolved: { label: "Đã giải quyết", color: "green"  },
 };
 
 const TABS = [
   { key: "all",      label: "Tất cả" },
-  { key: "active",   label: "Đang xử lý" },
-  { key: "resolved", label: "Đã giải quyết" },
+  { key: "Active",   label: "Đang xử lý" },
+  { key: "Resolved", label: "Đã giải quyết" },
 ];
 
-const INIT_FORM = {
-  studentId: "", name: "", club: "", role: "member",
-  type: "warning", severity: "medium", description: "",
-};
+const INIT_FORM = { userID: "", semesterID: "", reason: "" };
+
+function formatDate(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("vi-VN");
+}
 
 export default function IcpdpDisciplineLog() {
-  const [logs, setLogs]       = useState(MOCK_LOGS);
-  const [activeTab, setTab]   = useState("all");
-  const [search, setSearch]   = useState("");
-  const [filterType, setFilterType] = useState("all");
+  const [logs, setLogs]             = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [activeTab, setTab]         = useState("all");
+  const [search, setSearch]         = useState("");
   const [showModal, setShowModal]   = useState(false);
   const [detail, setDetail]         = useState(null);
   const [form, setForm]             = useState(INIT_FORM);
+  const [submitting, setSubmitting] = useState(false);
   const [toast, setToast]           = useState(null);
-
-  const set = (f) => (e) => setForm((p) => ({ ...p, [f]: e.target.value }));
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3200);
   };
 
-  const handleAdd = () => {
-    if (!form.studentId.trim() || !form.name.trim() || !form.club || !form.description.trim()) {
+  const loadLogs = async () => {
+    setLoading(true);
+    try {
+      const data = await disciplineLogApi.getAll();
+      setLogs(Array.isArray(data) ? data : []);
+    } catch {
+      showToast("Không thể tải dữ liệu nhật ký.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadLogs(); }, []);
+
+  const set = (f) => (e) => setForm((p) => ({ ...p, [f]: e.target.value }));
+
+  const handleAdd = async () => {
+    if (!form.userID || !form.semesterID || !form.reason.trim()) {
       showToast("Vui lòng điền đầy đủ thông tin.", "error");
       return;
     }
-    setLogs((prev) => [
-      {
-        id: prev.length + 1,
-        ...form,
-        date: new Date().toLocaleDateString("vi-VN"),
-        recordedBy: "IC-PDP",
-        status: "active",
-      },
-      ...prev,
-    ]);
-    setForm(INIT_FORM);
-    setShowModal(false);
-    showToast("Đã ghi nhận vi phạm vào nhật ký.");
+    setSubmitting(true);
+    try {
+      await disciplineLogApi.create({
+        userID: parseInt(form.userID, 10),
+        semesterID: parseInt(form.semesterID, 10),
+        reason: form.reason.trim(),
+        disciplineStatus: "Active",
+      });
+      setForm(INIT_FORM);
+      setShowModal(false);
+      showToast("Đã ghi nhận vi phạm vào nhật ký.");
+      loadLogs();
+    } catch (err) {
+      showToast(err?.response?.data?.error ?? "Ghi nhận thất bại.", "error");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const resolve = (id) => {
-    setLogs((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, status: "resolved" } : l))
-    );
-    setDetail(null);
-    showToast("Đã đánh dấu vi phạm là Đã giải quyết.");
+  const resolve = async (log) => {
+    try {
+      await disciplineLogApi.update(log.disciplineID, {
+        userID: log.userID,
+        semesterID: log.semesterID,
+        reason: log.reason,
+        disciplineStatus: "Resolved",
+      });
+      setDetail(null);
+      showToast("Đã đánh dấu vi phạm là Đã giải quyết.");
+      loadLogs();
+    } catch (err) {
+      showToast(err?.response?.data?.error ?? "Cập nhật thất bại.", "error");
+    }
   };
 
   const filtered = useMemo(() => {
     let list = logs;
-    if (activeTab !== "all")    list = list.filter((l) => l.status === activeTab);
-    if (filterType !== "all")   list = list.filter((l) => l.type === filterType);
+    if (activeTab !== "all") list = list.filter((l) => l.disciplineStatus === activeTab);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
         (l) =>
-          l.name.toLowerCase().includes(q) ||
-          l.studentId.toLowerCase().includes(q) ||
-          l.club.toLowerCase().includes(q)
+          String(l.userID).includes(q) ||
+          l.reason?.toLowerCase().includes(q)
       );
     }
     return list;
-  }, [logs, activeTab, filterType, search]);
+  }, [logs, activeTab, search]);
 
   const tabCount = (key) => {
-    if (key === "all")      return logs.length;
-    return logs.filter((l) => l.status === key).length;
+    if (key === "all") return logs.length;
+    return logs.filter((l) => l.disciplineStatus === key).length;
   };
 
   return (
     <div>
-      {/* ── Header ──────────────────────────────────────────── */}
       <div className="page-header">
         <h1 className="page-title">Nhật Ký Kỷ Luật</h1>
         <p className="page-subtitle">
@@ -182,35 +127,33 @@ export default function IcpdpDisciplineLog() {
         </p>
       </div>
 
-      {toast && (
-        <div className={`co-toast co-toast-${toast.type}`}>{toast.msg}</div>
-      )}
+      {toast && <div className={`co-toast co-toast-${toast.type}`}>{toast.msg}</div>}
 
-      {/* ── Summary stats ────────────────────────────────────── */}
+      {/* Summary stats */}
       <div className="dl-stats-row">
-        {Object.entries(TYPE_CONFIG).map(([key, cfg]) => {
-          const count = logs.filter((l) => l.type === key).length;
-          const Icon  = cfg.icon;
-          return (
-            <div key={key} className={`dl-stat-card dl-stat-${cfg.color}`}>
-              <Icon size={22} />
-              <div>
-                <p className="dl-stat-label">{cfg.label}</p>
-                <p className="dl-stat-value">{count}</p>
-              </div>
-            </div>
-          );
-        })}
-        <div className="dl-stat-card dl-stat-gray">
+        <div className="dl-stat-card dl-stat-orange">
+          <ShieldAlert size={22} />
+          <div>
+            <p className="dl-stat-label">Đang xử lý</p>
+            <p className="dl-stat-value">{logs.filter((l) => l.disciplineStatus === "Active").length}</p>
+          </div>
+        </div>
+        <div className="dl-stat-card dl-stat-green">
           <CheckCircle2 size={22} />
           <div>
             <p className="dl-stat-label">Đã giải quyết</p>
-            <p className="dl-stat-value">{logs.filter((l) => l.status === "resolved").length}</p>
+            <p className="dl-stat-value">{logs.filter((l) => l.disciplineStatus === "Resolved").length}</p>
+          </div>
+        </div>
+        <div className="dl-stat-card dl-stat-gray">
+          <FileText size={22} />
+          <div>
+            <p className="dl-stat-label">Tổng cộng</p>
+            <p className="dl-stat-value">{logs.length}</p>
           </div>
         </div>
       </div>
 
-      {/* ── Main card ────────────────────────────────────────── */}
       <div className="content-card">
         {/* Toolbar */}
         <div className="dl-toolbar">
@@ -219,95 +162,70 @@ export default function IcpdpDisciplineLog() {
               <Search size={15} className="co-search-icon" />
               <input
                 className="co-search-input"
-                placeholder="Tìm tên, MSSV, CLB..."
+                placeholder="Tìm User ID, lý do..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-
-            <div className="dl-filter-wrap">
-              <select
-                className="dl-filter-select"
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-              >
-                <option value="all">Tất cả loại</option>
-                {Object.entries(TYPE_CONFIG).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}</option>
-                ))}
-              </select>
-              <ChevronDown size={13} className="dl-filter-arrow" />
-            </div>
+            <button className="pr-btn-ghost" style={{ display: "flex", alignItems: "center", gap: 6 }} onClick={loadLogs}>
+              <RefreshCw size={14} /> Làm mới
+            </button>
           </div>
-
           <button className="dl-btn-add" onClick={() => setShowModal(true)}>
-            <Plus size={15} />
-            Ghi nhận vi phạm
+            <Plus size={15} /> Ghi nhận vi phạm
           </button>
         </div>
 
         {/* Tabs */}
         <div className="approval-tabs">
-          {TABS.map((tab) => {
-            const count = tabCount(tab.key);
-            return (
-              <button
-                key={tab.key}
-                className={`approval-tab${activeTab === tab.key ? " active" : ""}`}
-                onClick={() => setTab(tab.key)}
-              >
-                {tab.label}
-                {count > 0 && <span className="approval-tab-badge">{count}</span>}
-              </button>
-            );
-          })}
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              className={`approval-tab${activeTab === tab.key ? " active" : ""}`}
+              onClick={() => setTab(tab.key)}
+            >
+              {tab.label}
+              {tabCount(tab.key) > 0 && (
+                <span className="approval-tab-badge">{tabCount(tab.key)}</span>
+              )}
+            </button>
+          ))}
         </div>
 
         {/* Log list */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <p className="approval-empty">Đang tải...</p>
+        ) : filtered.length === 0 ? (
           <p className="approval-empty">Không có vi phạm nào phù hợp.</p>
         ) : (
           <div className="dl-log-list">
             {filtered.map((log) => {
-              const typeCfg = TYPE_CONFIG[log.type];
-              const sevCfg  = SEVERITY_CONFIG[log.severity];
-              const Icon    = typeCfg.icon;
-
+              const statusCfg = STATUS_CONFIG[log.disciplineStatus] ?? STATUS_CONFIG.Active;
               return (
                 <div
-                  key={log.id}
-                  className={`dl-log-item dl-log-${typeCfg.color}`}
+                  key={log.disciplineID}
+                  className={`dl-log-item dl-log-${statusCfg.color}`}
                   onClick={() => setDetail(log)}
                 >
-                  <div className={`dl-log-type-icon dl-icon-${typeCfg.color}`}>
-                    <Icon size={18} />
+                  <div className={`dl-log-type-icon dl-icon-${statusCfg.color}`}>
+                    <ShieldAlert size={18} />
                   </div>
-
                   <div className="dl-log-body">
                     <div className="dl-log-top">
                       <div className="dl-log-person">
-                        <span className="dl-log-name">{log.name}</span>
-                        <span className="dl-log-student-id">{log.studentId}</span>
+                        <span className="dl-log-name">User #{log.userID}</span>
+                        <span className="dl-log-student-id">Học kỳ #{log.semesterID}</span>
                       </div>
                       <div className="dl-log-badges">
-                        <span className={`dl-badge dl-badge-type dl-badge-${typeCfg.color}`}>
-                          {typeCfg.label}
+                        <span className={`dl-badge dl-badge-type dl-badge-${statusCfg.color}`}>
+                          {statusCfg.label}
                         </span>
-                        <span className={`dl-badge ${sevCfg.color}`}>
-                          {sevCfg.label}
-                        </span>
-                        {log.status === "resolved" && (
-                          <span className="dl-badge dl-badge-resolved">Đã giải quyết</span>
-                        )}
                       </div>
                     </div>
-
-                    <p className="dl-log-desc">{log.description}</p>
-
+                    <p className="dl-log-desc">{log.reason}</p>
                     <div className="dl-log-meta">
-                      <span>{log.club} — {log.role}</span>
                       <span className="dl-log-date">
-                        <Clock size={11} /> {log.date}
+                        <Clock size={11} /> {formatDate(log.createdAt)}
                       </span>
                     </div>
                   </div>
@@ -318,7 +236,7 @@ export default function IcpdpDisciplineLog() {
         )}
       </div>
 
-      {/* ── Add modal ────────────────────────────────────────── */}
+      {/* Add modal */}
       {showModal && (
         <div className="dl-overlay" onClick={() => setShowModal(false)}>
           <div className="dl-modal" onClick={(e) => e.stopPropagation()}>
@@ -335,97 +253,45 @@ export default function IcpdpDisciplineLog() {
             <div className="dl-modal-body">
               <div className="dl-form-row">
                 <div className="dl-form-field">
-                  <label className="pr-label">Mã số sinh viên</label>
-                  <input className="pr-select" style={{ padding: "9px 12px" }}
-                    placeholder="VD: SE171234"
-                    value={form.studentId}
-                    onChange={set("studentId")}
+                  <label className="pr-label">User ID <span style={{ color: "#ef4444" }}>*</span></label>
+                  <input
+                    className="pr-select" style={{ padding: "9px 12px" }}
+                    type="number" placeholder="VD: 42"
+                    value={form.userID} onChange={set("userID")}
                   />
                 </div>
                 <div className="dl-form-field">
-                  <label className="pr-label">Họ và tên</label>
-                  <input className="pr-select" style={{ padding: "9px 12px" }}
-                    placeholder="Họ và tên sinh viên"
-                    value={form.name}
-                    onChange={set("name")}
+                  <label className="pr-label">Học kỳ ID <span style={{ color: "#ef4444" }}>*</span></label>
+                  <input
+                    className="pr-select" style={{ padding: "9px 12px" }}
+                    type="number" placeholder="VD: 1"
+                    value={form.semesterID} onChange={set("semesterID")}
                   />
-                </div>
-              </div>
-
-              <div className="dl-form-row">
-                <div className="dl-form-field">
-                  <label className="pr-label">Câu lạc bộ</label>
-                  <div className="pr-select-wrap">
-                    <select className="pr-select" value={form.club} onChange={set("club")}>
-                      <option value="">-- Chọn CLB --</option>
-                      {CLUBS.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    <ChevronDown size={14} className="pr-select-arrow" />
-                  </div>
-                </div>
-                <div className="dl-form-field">
-                  <label className="pr-label">Chức vụ</label>
-                  <div className="pr-select-wrap">
-                    <select className="pr-select" value={form.role} onChange={set("role")}>
-                      <option value="Trưởng CLB">Trưởng CLB</option>
-                      <option value="Phó Trưởng CLB">Phó Trưởng CLB</option>
-                      <option value="Ban điều hành">Ban điều hành</option>
-                      <option value="Thành viên">Thành viên</option>
-                    </select>
-                    <ChevronDown size={14} className="pr-select-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="dl-form-row">
-                <div className="dl-form-field">
-                  <label className="pr-label">Loại vi phạm</label>
-                  <div className="pr-select-wrap">
-                    <select className="pr-select" value={form.type} onChange={set("type")}>
-                      {Object.entries(TYPE_CONFIG).map(([k, v]) => (
-                        <option key={k} value={k}>{v.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={14} className="pr-select-arrow" />
-                  </div>
-                </div>
-                <div className="dl-form-field">
-                  <label className="pr-label">Mức độ nghiêm trọng</label>
-                  <div className="pr-select-wrap">
-                    <select className="pr-select" value={form.severity} onChange={set("severity")}>
-                      {Object.entries(SEVERITY_CONFIG).map(([k, v]) => (
-                        <option key={k} value={k}>{v.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={14} className="pr-select-arrow" />
-                  </div>
                 </div>
               </div>
 
               <div className="dl-form-field">
-                <label className="pr-label">Mô tả vi phạm</label>
+                <label className="pr-label">Lý do vi phạm <span style={{ color: "#ef4444" }}>*</span></label>
                 <textarea
-                  className="pr-textarea"
-                  rows={4}
-                  placeholder="Mô tả chi tiết hành vi vi phạm và bằng chứng liên quan..."
-                  value={form.description}
-                  onChange={set("description")}
+                  className="pr-textarea" rows={4}
+                  placeholder="Mô tả chi tiết hành vi vi phạm..."
+                  value={form.reason} onChange={set("reason")}
                 />
               </div>
             </div>
 
             <div className="dl-modal-footer">
-              <button className="pr-btn-ghost" onClick={() => setShowModal(false)}>Hủy</button>
-              <button className="pr-btn-primary" style={{ width: "auto" }} onClick={handleAdd}>
+              <button className="pr-btn-ghost" onClick={() => setShowModal(false)} disabled={submitting}>Hủy</button>
+              <button className="pr-btn-primary" style={{ width: "auto" }} onClick={handleAdd} disabled={submitting}>
                 <FileText size={15} />
-                Lưu vào nhật ký
+                {submitting ? "Đang lưu..." : "Lưu vào nhật ký"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Detail drawer ─────────────────────────────────────── */}
+      {/* Detail drawer */}
       {detail && (
         <div className="dl-overlay" onClick={() => setDetail(null)}>
           <div className="dl-drawer" onClick={(e) => e.stopPropagation()}>
@@ -437,25 +303,13 @@ export default function IcpdpDisciplineLog() {
             </div>
 
             <div className="dl-drawer-body">
-              <div className="dl-drawer-person">
-                <div className="pr-avatar pr-avatar-red">
-                  {detail.name.split(" ").slice(-2).map((w) => w[0]).join("")}
-                </div>
-                <div>
-                  <div className="pr-person-name">{detail.name}</div>
-                  <div className="pr-person-id">{detail.studentId}</div>
-                </div>
-              </div>
-
               <div className="dl-drawer-meta">
                 {[
-                  ["CLB",          detail.club],
-                  ["Chức vụ",      detail.role],
-                  ["Loại vi phạm", TYPE_CONFIG[detail.type].label],
-                  ["Mức độ",       SEVERITY_CONFIG[detail.severity].label],
-                  ["Ngày ghi",     detail.date],
-                  ["Ghi bởi",      detail.recordedBy],
-                  ["Trạng thái",   detail.status === "active" ? "Đang xử lý" : "Đã giải quyết"],
+                  ["Mã vi phạm",  `#${detail.disciplineID}`],
+                  ["User ID",     `#${detail.userID}`],
+                  ["Học kỳ ID",   `#${detail.semesterID}`],
+                  ["Trạng thái",  STATUS_CONFIG[detail.disciplineStatus]?.label ?? detail.disciplineStatus],
+                  ["Ngày tạo",    formatDate(detail.createdAt)],
                 ].map(([key, val]) => (
                   <div key={key} className="pr-meta-item">
                     <span className="pr-meta-key">{key}</span>
@@ -465,17 +319,14 @@ export default function IcpdpDisciplineLog() {
               </div>
 
               <div className="dl-drawer-desc">
-                <p className="pr-label">Mô tả vi phạm</p>
-                <p className="dl-drawer-desc-text">{detail.description}</p>
+                <p className="pr-label">Lý do vi phạm</p>
+                <p className="dl-drawer-desc-text">{detail.reason}</p>
               </div>
             </div>
 
-            {detail.status === "active" && (
+            {detail.disciplineStatus === "Active" && (
               <div className="dl-drawer-footer">
-                <button
-                  className="pr-btn-primary"
-                  onClick={() => resolve(detail.id)}
-                >
+                <button className="pr-btn-primary" onClick={() => resolve(detail)}>
                   <CheckCircle2 size={15} />
                   Đánh dấu đã giải quyết
                 </button>

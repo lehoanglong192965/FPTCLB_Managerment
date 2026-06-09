@@ -25,22 +25,24 @@ const authService = {
     // Tạm thời lưu token để authApi.getMyClubRole() có thể lấy gửi đi
     TokenService.save({ access_token: data.token, refresh_token: null, role });
 
+    let clubId = null;
     if (role === "MEMBER") {
       try {
         const res = await authApi.getMyClubRole();
         if (res.clubRoleID === 1) {
           role = "CLUB_LEADER";
+          clubId = res.clubID ?? null;
         } else if (res.clubRoleID === 2) {
           role = "VICE_LEADER";
+          clubId = res.clubID ?? null;
         }
-        // Cập nhật lại role trong TokenService
-        TokenService.save({ access_token: data.token, refresh_token: null, role });
+        TokenService.save({ access_token: data.token, refresh_token: null, role, clubId });
       } catch (e) {
         console.error("Lỗi lấy quyền CLB", e);
       }
     }
 
-    return { token: data.token, role, email: payload?.sub };
+    return { token: data.token, role, email: payload?.sub, clubId };
   },
 
   register: async (params) => {
@@ -65,6 +67,7 @@ const authService = {
   forgotPassword: (email) => authApi.forgotPassword(email),
 
   resetPassword: (params) => authApi.resetPassword(params),
+  updateProfile: (params) => authApi.updateProfile(params),
   checkEmailExists: (email) => authApi.checkEmailExists(email),
   getMyClubRole: () => authApi.getMyClubRole(),
   verifyOTP: (email, otpCode) => authApi.verifyOTP(email, otpCode),
