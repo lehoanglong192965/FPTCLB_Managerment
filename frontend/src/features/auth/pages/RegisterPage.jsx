@@ -155,6 +155,22 @@ export default function RegisterPage() {
               {errors.username && <p className="rg-error">{errors.username}</p>}
             </div>
 
+            {/* Email */}
+            <div className="rg-field">
+              <label className="rg-label">Email <span>*</span></label>
+              <input
+                className="rg-input"
+                type="email"
+                name="email"
+                placeholder="example@fpt.edu.vn"
+                value={form.email}
+                onChange={handleChange}
+                disabled={loading}
+                autoComplete="email"
+              />
+              {errors.email && <p className="rg-error">{errors.email}</p>}
+            </div>
+
             {/* Password */}
             <div className="rg-field">
               <label className="rg-label">Mật khẩu <span>*</span></label>
@@ -199,22 +215,6 @@ export default function RegisterPage() {
                 </button>
               </div>
               {errors.confirmPassword && <p className="rg-error">{errors.confirmPassword}</p>}
-            </div>
-
-            {/* Email */}
-            <div className="rg-field">
-              <label className="rg-label">Email <span>*</span></label>
-              <input
-                className="rg-input"
-                type="email"
-                name="email"
-                placeholder="example@fpt.edu.vn"
-                value={form.email}
-                onChange={handleChange}
-                disabled={loading}
-                autoComplete="email"
-              />
-              {errors.email && <p className="rg-error">{errors.email}</p>}
             </div>
 
             {/* Upload ảnh thẻ sinh viên — chỉ hiện khi email không phải .edu */}

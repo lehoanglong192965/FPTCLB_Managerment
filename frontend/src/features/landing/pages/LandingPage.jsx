@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { STATS } from "../../../constants/mockData";
 import ClubsSection from "../../clubs/components/ClubsSection";
 import EventsSection from "../../events/components/EventsSection";
+import AiChat from "../../../components/AiChat";
 import "../../../assets/css/landingPage.css";
 
 function Hero() {
@@ -81,6 +82,7 @@ export default function LandingPage() {
       <ClubsSection />
       <EventsSection />
       <CTABanner />
+      <AiChat />
     </div>
   );
 }

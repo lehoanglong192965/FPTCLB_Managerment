@@ -10,27 +10,36 @@ import ClubDetailPage from "../features/clubs/pages/ClubDetailPage";
 import EventDetailPage from "../features/events/pages/EventDetailPage";
 
 // Dashboard layout (shared sidebar + outlet)
-import DashboardLayout from "../layouts/DashboardLayout";
+import DashboardLayout from "../layouts/dashboard-layout";
 
 // ICPDP pages
-import IcpdpOverview from "../features/icpdp/pages/IcpdpOverview";
+import IcpdpOverview from "../features/icpdp-dashboard/pages/IcpdpOverview";
+import IcpdpNotifications from "../features/icpdp-dashboard/pages/IcpdpNotifications";
+import IcpdpEventApproval from "../features/icpdp-dashboard/pages/IcpdpEventApproval";
+import IcpdpClubOverview from "../features/icpdp-dashboard/pages/IcpdpClubOverview";
+import IcpdpPersonnelReassign from "../features/icpdp-dashboard/pages/IcpdpPersonnelReassign";
+import IcpdpDisciplineLog from "../features/icpdp-dashboard/pages/IcpdpDisciplineLog";
+import IcpdpClubManagement from "../features/icpdp-dashboard/pages/IcpdpClubManagement";
 
 // Admin pages
-import SemesterManagement from "../features/admin/pages/SemesterManagement";
-import UserManagement from "../features/admin/pages/UserManagement";
+import SemesterManagement from "../features/admin-dashboard/pages/SemesterManagement";
+import UserManagement from "../features/admin-dashboard/pages/UserManagement";
 
 // Club Leader pages
-import ClubOverview from "../features/clubLeader/pages/ClubOverview";
-import ClubMemberMgmt from "../features/clubLeader/pages/ClubMemberMgmt";
-import ClubEventsMgmt from "../features/clubLeader/pages/ClubEventsMgmt";
-import ClubNotifications from "../features/clubLeader/pages/ClubNotifications";
-import ClubReports from "../features/clubLeader/pages/ClubReports";
+import ClubOverview from "../features/club-leader-dashboard/pages/ClubOverview";
+import ClubMemberMgmt from "../features/club-leader-dashboard/pages/ClubMemberMgmt";
+import ClubEventsMgmt from "../features/club-leader-dashboard/pages/ClubEventsMgmt";
+import ClubNotifications from "../features/club-leader-dashboard/pages/ClubNotifications";
+import ClubReports from "../features/club-leader-dashboard/pages/ClubReports";
 
 // Member pages
-import MemberHome from "../features/member/pages/MemberHome";
-import MemberEvents from "../features/member/pages/MemberEvents";
-import MemberClubs from "../features/member/pages/MemberClubs";
-import MemberNotifications from "../features/member/pages/MemberNotifications";
+import MemberHome from "../features/member-dashboard/pages/MemberHome";
+import MemberEvents from "../features/member-dashboard/pages/MemberEvents";
+import MemberClubs from "../features/member-dashboard/pages/MemberClubs";
+import MemberNotifications from "../features/member-dashboard/pages/MemberNotifications";
+
+// Shared
+import ProfilePage from "../features/profile/pages/ProfilePage";
 
 export default function AppRoutes() {
   return (
@@ -48,12 +57,20 @@ export default function AppRoutes() {
       {/* ── ICPDP dashboard ─────────────────────────────────── */}
       <Route path="/icpdp" element={<DashboardLayout />}>
         <Route index element={<IcpdpOverview />} />
+        <Route path="club-overview" element={<IcpdpClubOverview />} />
+        <Route path="club-management" element={<IcpdpClubManagement />} />
+        <Route path="event-approval" element={<IcpdpEventApproval />} />
+        <Route path="personnel-reassign" element={<IcpdpPersonnelReassign />} />
+        <Route path="discipline-log" element={<IcpdpDisciplineLog />} />
+        <Route path="notifications" element={<IcpdpNotifications />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       {/* ── Admin dashboard ─────────────────────────────────── */}
       <Route path="/admin" element={<DashboardLayout />}>
         <Route index element={<SemesterManagement />} />
         <Route path="users" element={<UserManagement />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       {/* ── Club Leader dashboard ───────────────────────────── */}
@@ -63,6 +80,7 @@ export default function AppRoutes() {
         <Route path="events" element={<ClubEventsMgmt />} />
         <Route path="notifications" element={<ClubNotifications />} />
         <Route path="reports" element={<ClubReports />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
 
       {/* ── Member dashboard ────────────────────────────────── */}
@@ -71,6 +89,7 @@ export default function AppRoutes() {
         <Route path="clubs" element={<MemberClubs />} />
         <Route path="events" element={<MemberEvents />} />
         <Route path="notifications" element={<MemberNotifications />} />
+        <Route path="profile" element={<ProfilePage />} />
       </Route>
     </Routes>
   );

@@ -7,7 +7,7 @@ import AppRoutes from "../routes";
 
 const HIDDEN_CHROME = [];
 
-const DASHBOARD_PREFIXES = ["/admin", "/club-leader", "/manager", "/vice-leader", "/core-team", "/member"];
+const DASHBOARD_PREFIXES = ["/admin", "/icpdp", "/club-leader", "/manager", "/vice-leader", "/core-team", "/member"];
 
 export default function MainLayout() {
   const location = useLocation();

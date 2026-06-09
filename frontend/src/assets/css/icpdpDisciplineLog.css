@@ -1,0 +1,410 @@
+/* ══════════════════════════════════════════════════════════
+   ICPDP DISCIPLINE LOG
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Summary stat row ────────────────────────────────────── */
+.dl-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.dl-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  border-left: 4px solid transparent;
+}
+
+.dl-stat-card svg { flex-shrink: 0; opacity: 0.75; }
+
+.dl-stat-label {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin: 0 0 3px;
+}
+
+.dl-stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  line-height: 1;
+}
+
+.dl-stat-yellow { border-left-color: #f59e0b; }
+.dl-stat-yellow svg { color: #f59e0b; }
+
+.dl-stat-orange { border-left-color: #e6430a; }
+.dl-stat-orange svg { color: #e6430a; }
+
+.dl-stat-red    { border-left-color: #dc2626; }
+.dl-stat-red svg { color: #dc2626; }
+
+.dl-stat-gray   { border-left-color: #10b981; }
+.dl-stat-gray svg { color: #10b981; }
+
+/* ── Toolbar ─────────────────────────────────────────────── */
+.dl-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.dl-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dl-filter-wrap { position: relative; }
+
+.dl-filter-select {
+  padding: 8px 32px 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: #374151;
+  background: #fff;
+  appearance: none;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.dl-filter-select:focus { border-color: #e6430a; }
+
+.dl-filter-arrow {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.dl-btn-add {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  background: #e6430a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.dl-btn-add:hover { background: #d13d09; }
+
+/* ── Log list ────────────────────────────────────────────── */
+.dl-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.dl-log-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid #f3f4f6;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.dl-log-item:hover {
+  border-color: #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Left accent bar via border-left */
+.dl-log-yellow { border-left: 3px solid #f59e0b; }
+.dl-log-orange { border-left: 3px solid #e6430a; }
+.dl-log-red    { border-left: 3px solid #dc2626; }
+
+/* Type icon circle */
+.dl-log-type-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.dl-icon-yellow { background: #fffbeb; color: #d97706; }
+.dl-icon-orange { background: #fff8f5; color: #e6430a; }
+.dl-icon-red    { background: #fef2f2; color: #dc2626; }
+
+.dl-log-body { flex: 1; min-width: 0; }
+
+.dl-log-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.dl-log-person {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dl-log-name       { font-size: 14.5px; font-weight: 700; color: #111827; }
+.dl-log-student-id { font-size: 12px; color: #9ca3af; }
+
+.dl-log-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* ── Badges ──────────────────────────────────────────────── */
+.dl-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dl-badge-type {}
+
+.dl-badge-yellow   { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+.dl-badge-orange   { background: #fff8f5; color: #e6430a; border: 1px solid #fdd9cc; }
+.dl-badge-red      { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.dl-badge-resolved { background: #d1fae5; color: #059669; }
+
+.sev-low    { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.sev-medium { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+.sev-high   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+
+.dl-log-desc {
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.5;
+  margin: 0 0 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dl-log-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.dl-log-date {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Modal ───────────────────────────────────────────────── */
+.dl-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: dl-fade 0.15s ease;
+}
+
+@keyframes dl-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.dl-modal {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 620px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: dl-slide 0.18s ease;
+}
+
+@keyframes dl-slide {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.dl-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+
+.dl-modal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dl-modal-icon  { color: #e6430a; }
+.dl-modal-title { font-size: 16px; font-weight: 700; color: #111827; margin: 0; }
+
+.dl-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: #6b7280;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dl-modal-close:hover { background: #f3f4f6; color: #111827; }
+
+.dl-modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.dl-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.dl-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dl-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+
+/* ── Detail drawer (right-side panel) ────────────────────── */
+.dl-drawer {
+  background: #fff;
+  border-radius: 14px;
+  width: 420px;
+  max-width: 95vw;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  animation: dl-slide 0.18s ease;
+}
+
+.dl-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+
+.dl-drawer-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.dl-drawer-body {
+  padding: 20px 22px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dl-drawer-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: #f9fafb;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+.dl-drawer-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.dl-drawer-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dl-drawer-desc-text {
+  font-size: 13.5px;
+  color: #374151;
+  line-height: 1.6;
+  margin: 0;
+  padding: 12px 14px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.dl-drawer-footer {
+  padding: 16px 22px;
+  border-top: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
