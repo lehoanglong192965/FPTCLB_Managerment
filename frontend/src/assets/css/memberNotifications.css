@@ -1,0 +1,145 @@
+/* ══════════════════════════════════════════════════════════
+   MEMBER NOTIFICATIONS PAGE
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Page header ─────────────────────────────────────────── */
+.mn-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.mn-header-left .page-title  { margin-bottom: 2px; }
+.mn-header-left .page-subtitle { margin: 0; }
+
+.mn-mark-all-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  border: 1.5px solid #d1d5db;
+  background: #fff;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+  font-family: inherit;
+}
+
+.mn-mark-all-btn:hover {
+  border-color: #e6430a;
+  color: #e6430a;
+}
+
+/* ── Notification list ───────────────────────────────────── */
+.mn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Notification item ───────────────────────────────────── */
+.mn-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.mn-item.unread {
+  background: #fff5f0;
+  border-color: #fde0d0;
+}
+
+.mn-item.read {
+  background: #fff;
+  border-color: #f0f0f0;
+}
+
+.mn-item:hover {
+  border-color: #e6430a55;
+  box-shadow: 0 2px 8px rgba(230, 67, 10, 0.07);
+}
+
+/* ── Icon wrapper ────────────────────────────────────────── */
+.mn-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.mn-icon-wrap.event    { background: #eff6ff; color: #2563eb; }
+.mn-icon-wrap.deadline { background: #fff1f2; color: #e11d48; }
+.mn-icon-wrap.recruit  { background: #fff7ed; color: #ea580c; }
+
+/* ── Content ─────────────────────────────────────────────── */
+.mn-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.mn-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  line-height: 1.4;
+}
+
+.mn-item.unread .mn-title { color: #e6430a; }
+.mn-item.read   .mn-title { color: #374151; }
+
+.mn-desc {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+/* ── Tag badge ───────────────────────────────────────────── */
+.mn-tag {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mn-tag.event    { background: #2563eb; color: #fff; }
+.mn-tag.deadline { background: #e11d48; color: #fff; }
+.mn-tag.recruit  { background: #ea580c; color: #fff; }
+
+/* ── Right: time + dot ───────────────────────────────────── */
+.mn-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mn-time {
+  font-size: 12px;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.mn-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e6430a;
+}

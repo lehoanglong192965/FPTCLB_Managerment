@@ -12,6 +12,10 @@ import {
   Star,
   FileText,
   ShieldCheck,
+  UserCircle,
+  ArrowRightLeft,
+  ShieldAlert,
+  Layers,
 } from "lucide-react";
 
 /*
@@ -26,17 +30,19 @@ import {
 
 export const SIDEBAR_CONFIGS = {
   ADMIN: [
-    { key: "semesters", label: "Quản Lý Học Kỳ",    icon: BookOpen, path: "/admin",       exact: true },
-    { key: "users",     label: "Quản Lý Người Dùng", icon: Users,    path: "/admin/users" },
+    { key: "semesters", label: "Quản Lý Học Kỳ",      icon: BookOpen,    path: "/admin",          exact: true },
+    { key: "users",     label: "Quản Lý Người Dùng",   icon: Users,       path: "/admin/users" },
+    { key: "profile",   label: "Thông Tin Tài Khoản",  icon: UserCircle,  path: "/admin/profile" },
   ],
 
   ICPDP: [
-    { key: "overview",      label: "Tổng Quan",            icon: LayoutDashboard, path: "/icpdp",              exact: true },
-    { key: "clubs",         label: "Quản Lý CLB",          icon: Building2,       path: "/icpdp/clubs" },
-    { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/icpdp/members" },
-    { key: "events",        label: "Sự Kiện",              icon: Calendar,        path: "/icpdp/events" },
-    { key: "reports",       label: "Báo Cáo",              icon: BarChart2,       path: "/icpdp/reports" },
-    { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/icpdp/notifications" },
+    { key: "club-overview",      label: "Tổng Quan CLB",       icon: Building2,      path: "/icpdp/club-overview" },
+    { key: "club-management",    label: "Quản Lý CLB",         icon: Layers,         path: "/icpdp/club-management" },
+    { key: "event-approval",     label: "Phê Duyệt Sự Kiện",   icon: Calendar,       path: "/icpdp/event-approval" },
+    { key: "personnel-reassign", label: "Điều Động Nhân Sự",   icon: ArrowRightLeft, path: "/icpdp/personnel-reassign" },
+    { key: "discipline-log",     label: "Nhật Ký Kỷ Luật",     icon: ShieldAlert,    path: "/icpdp/discipline-log" },
+    { key: "notifications",      label: "Thông Báo",           icon: Bell,           path: "/icpdp/notifications" },
+    { key: "profile",            label: "Thông Tin Tài Khoản", icon: UserCircle,     path: "/icpdp/profile" },
   ],
 
   CLUB_MANAGER: [
@@ -46,35 +52,40 @@ export const SIDEBAR_CONFIGS = {
     { key: "events",        label: "Sự Kiện",              icon: Calendar,        path: "/manager/events" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/manager/notifications" },
     { key: "reports",       label: "Báo Cáo",              icon: BarChart2,       path: "/manager/reports" },
+    { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/manager/profile" },
   ],
 
   CLUB_LEADER: [
-    { key: "overview",      label: "Tổng Quan CLB",        icon: Home,            path: "/club-leader",         exact: true },
+    { key: "overview",      label: "Tổng Quan CLB",        icon: Home,            path: "/club-leader",              exact: true },
     { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/club-leader/members" },
     { key: "events",        label: "Sự Kiện CLB",          icon: Calendar,        path: "/club-leader/events" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/club-leader/notifications" },
     { key: "reports",       label: "Báo Cáo CLB",          icon: BarChart2,       path: "/club-leader/reports" },
+    { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/club-leader/profile" },
   ],
 
   VICE_LEADER: [
-    { key: "overview",      label: "Tổng Quan CLB",        icon: Home,            path: "/vice-leader",         exact: true },
+    { key: "overview",      label: "Tổng Quan CLB",        icon: Home,            path: "/vice-leader",              exact: true },
     { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/vice-leader/members" },
     { key: "events",        label: "Sự Kiện",              icon: Calendar,        path: "/vice-leader/events" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/vice-leader/notifications" },
+    { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/vice-leader/profile" },
   ],
 
   CORE_TEAM: [
-    { key: "overview",      label: "Tổng Quan",            icon: Home,            path: "/core-team",           exact: true },
+    { key: "overview",      label: "Tổng Quan",            icon: Home,            path: "/core-team",                exact: true },
     { key: "events",        label: "Sự Kiện",              icon: Calendar,        path: "/core-team/events" },
     { key: "members",       label: "Danh Sách Thành Viên", icon: Users,           path: "/core-team/members" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/core-team/notifications" },
+    { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/core-team/profile" },
   ],
 
   MEMBER: [
-    { key: "home",          label: "Trang Chủ",            icon: Home,            path: "/member",              exact: true },
+    { key: "home",          label: "Bảng Điều Khiển",      icon: LayoutDashboard, path: "/member",              exact: true },
     { key: "clubs",         label: "Câu Lạc Bộ",           icon: Star,            path: "/member/clubs" },
     { key: "events",        label: "Sự Kiện",              icon: Calendar,        path: "/member/events" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/member/notifications" },
+    { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/member/profile" },
   ],
 
   ALUMNI: [

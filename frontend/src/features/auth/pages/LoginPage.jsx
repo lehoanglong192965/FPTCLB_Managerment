@@ -56,33 +56,46 @@ export default function LoginPage() {
   const [showPass, setShowPass]     = useState(false);
   const [keepSigned, setKeepSigned] = useState(false);
   const [loading, setLoading]       = useState(null);
-  const [error, setError]           = useState("");
+  const [errors, setErrors]         = useState({ email: "", password: "" });
 
   const handleSSO = (provider) => {
-    setError("");
+    setErrors({ email: "", password: "" });
     setLoading(provider);
     window.location.href = `http://localhost:8080/oauth2/authorization/${provider}`;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    if (!email || !password) {
-      setError("Vui lòng nhập đầy đủ email và mật khẩu.");
+
+    // Validate tất cả field cùng lúc
+    const errs = { email: "", password: "" };
+    if (!email.trim())  errs.email    = "Vui lòng nhập email.";
+    if (!password)      errs.password = "Vui lòng nhập mật khẩu.";
+    if (errs.email || errs.password) {
+      setErrors(errs);
       return;
     }
+
+    setErrors({ email: "", password: "" });
     setLoading("email");
     try {
       const { role, email: userEmail } = await authService.login(email, password);
-
-      // Lưu vào AuthContext để dùng toàn app
       login({ email: userEmail, role });
-
-      // Redirect đến dashboard theo role
       navigate(ROLE_REDIRECT[role] ?? "/member");
     } catch (err) {
-      const msg = err?.response?.data?.error ?? "Email hoặc mật khẩu không đúng.";
-      setError(msg);
+      const msg = err?.response?.data?.error ?? "";
+      if (msg.includes("chấp nhận email")) {
+        setErrors((p) => ({ ...p, email: "Chỉ chấp nhận email nội bộ FPT (@fpt.edu.vn hoặc @fe.edu.vn)." }));
+      } else if (msg.includes("tìm thấy tài khoản")) {
+        setErrors((p) => ({ ...p, email: "Email không tồn tại trong hệ thống." }));
+      } else if (msg.includes("bị khóa") || msg.includes("Suspended")) {
+        setErrors((p) => ({ ...p, email: "Tài khoản đã bị khóa. Vui lòng liên hệ Admin." }));
+      } else if (msg.includes("Sai mật khẩu")) {
+        setPassword("");
+        setErrors((p) => ({ ...p, password: "Mật khẩu không đúng." }));
+      } else {
+        setErrors((p) => ({ ...p, password: "Đăng nhập thất bại, vui lòng thử lại." }));
+      }
     } finally {
       setLoading(null);
     }
@@ -102,23 +115,30 @@ export default function LoginPage() {
         <form className="login-form" onSubmit={handleSubmit} noValidate>
           <div className="login-field">
             <input
-              className="login-field__input"
+              className={`login-field__input${errors.email ? " login-field__input--error" : ""}`}
               type="email"
               placeholder="Email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (errors.email) setErrors((p) => ({ ...p, email: "" }));
+              }}
               disabled={!!loading}
               autoComplete="email"
             />
+            {errors.email && <p className="login-field__error">{errors.email}</p>}
           </div>
 
           <div className="login-field login-field--password">
             <input
-              className="login-field__input"
+              className={`login-field__input${errors.password ? " login-field__input--error" : ""}`}
               type={showPass ? "text" : "password"}
               placeholder="Mật khẩu"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errors.password) setErrors((p) => ({ ...p, password: "" }));
+              }}
               disabled={!!loading}
               autoComplete="current-password"
             />
@@ -130,6 +150,7 @@ export default function LoginPage() {
             >
               <EyeIcon open={showPass} />
             </button>
+            {errors.password && <p className="login-field__error">{errors.password}</p>}
           </div>
 
           <div className="login-options">
@@ -145,8 +166,6 @@ export default function LoginPage() {
               QUÊN MẬT KHẨU?
             </a>
           </div>
-
-          {error && <p className="login-error">{error}</p>}
 
           <button type="submit" className="login-submit" disabled={!!loading}>
             {loading === "email" ? "Đang kiểm tra..." : "ĐĂNG NHẬP"}

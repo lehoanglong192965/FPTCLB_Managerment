@@ -186,15 +186,17 @@
   text-decoration: underline;
 }
 
-/* ── Error message ───────────────────────────── */
-.login-error {
-  font-size: 13px;
+/* ── Field-level error ───────────────────────── */
+.login-field__input--error {
+  border-bottom-color: var(--lp-error) !important;
+}
+
+.login-field__error {
+  font-size: 12px;
   color: var(--lp-error);
-  margin: 0;
-  padding: 8px 12px;
-  background: #FDF2F2;
-  border-radius: 6px;
-  border-left: 3px solid var(--lp-error);
+  margin: 5px 0 0;
+  padding-left: 2px;
+  line-height: 1.4;
 }
 
 /* ── Submit button ───────────────────────────── */

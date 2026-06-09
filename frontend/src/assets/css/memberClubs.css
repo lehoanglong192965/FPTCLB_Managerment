@@ -1,0 +1,303 @@
+/* ══════════════════════════════════════════════════════════
+   MEMBER CLUBS PAGE
+   ══════════════════════════════════════════════════════════ */
+
+.mc-section {
+  background: #fff;
+  border-radius: 14px;
+  padding: 22px 24px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  margin-bottom: 24px;
+}
+
+.mc-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.mc-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.mc-section-count {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* ── Joined club items ───────────────────────────────────── */
+.mc-joined-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mc-joined-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1.5px solid #f0f0f0;
+  border-radius: 12px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.mc-joined-item:hover {
+  border-color: #e6430a33;
+  box-shadow: 0 2px 8px rgba(230, 67, 10, 0.07);
+}
+
+.mc-joined-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.mc-joined-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.mc-joined-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mc-joined-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.mc-joined-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mc-joined-role-badge {
+  padding: 3px 12px;
+  border-radius: 20px;
+  border: 1px solid #d1d5db;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  background: transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mc-joined-enter-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #e6430a;
+  background: transparent;
+  color: #e6430a;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+  font-family: inherit;
+}
+
+.mc-joined-enter-btn:hover {
+  background: #e6430a;
+  color: #fff;
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+.mc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 0;
+  color: #9ca3af;
+  gap: 8px;
+}
+
+.mc-empty p {
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ── Search + filter row ─────────────────────────────────── */
+.mc-search-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.mc-search-wrap {
+  position: relative;
+  flex: 1;
+}
+
+.mc-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.mc-search-input {
+  width: 100%;
+  padding: 10px 14px 10px 38px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #111827;
+  outline: none;
+  background: #f9fafb;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.mc-search-input:focus {
+  border-color: #e6430a;
+  background: #fff;
+}
+
+.mc-search-input::placeholder {
+  color: #9ca3af;
+}
+
+/* ── Funnel button + dropdown ────────────────────────────── */
+.mc-filter-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.mc-funnel-btn {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  border: 1.5px solid #e5e7eb;
+  background: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #374151;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.mc-funnel-btn:hover,
+.mc-funnel-btn.active {
+  border-color: #e6430a;
+  background: #fff7f5;
+  color: #e6430a;
+}
+
+.mc-funnel-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e6430a;
+  border: 1.5px solid #fff;
+}
+
+.mc-filter-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 200px;
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  padding: 8px 6px;
+  z-index: 50;
+}
+
+.mc-filter-dropdown-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 10px 8px;
+  margin: 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.mc-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  font-size: 13.5px;
+  color: #374151;
+  cursor: pointer;
+  border-radius: 8px;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+
+.mc-filter-option:hover {
+  background: #fef3ed;
+  color: #e6430a;
+}
+
+.mc-filter-option.selected {
+  color: #e6430a;
+  font-weight: 600;
+}
+
+.mc-filter-option-check {
+  width: 16px;
+  font-size: 13px;
+  color: #e6430a;
+  flex-shrink: 0;
+}
+
+/* ── Discover grid ───────────────────────────────────────── */
+.mc-discover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.mc-no-result {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px 0;
+  color: #9ca3af;
+  font-size: 14px;
+  margin: 0;
+}
