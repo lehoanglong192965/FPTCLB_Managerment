@@ -4,6 +4,7 @@ import com.fptu.fcms.entity.SystemRole;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.repository.SystemRoleRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.repository.AllowedEmailRepository;
 import com.fptu.fcms.security.UserPrincipal;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
@@ -20,10 +21,12 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
     private final SystemRoleRepository roleRepository;
+    private final AllowedEmailRepository allowedEmailRepository;
 
-    public CustomOAuth2UserService(UserRepository userRepository, SystemRoleRepository roleRepository) {
+    public CustomOAuth2UserService(UserRepository userRepository, SystemRoleRepository roleRepository, AllowedEmailRepository allowedEmailRepository) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.allowedEmailRepository = allowedEmailRepository;
     }
 
     @Override
@@ -39,10 +42,11 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             throw new OAuth2AuthenticationException(new OAuth2Error("email_not_found"), "Không lấy được email từ Google.");
         }
 
-        // 3. KIỂM TRA ĐUÔI EMAIL (Cốt lõi của bài toán)
+        // 3. KIỂM TRA ĐUÔI EMAIL VÀ WHITELIST
         if (!email.endsWith("@fpt.edu.vn") && !email.endsWith("@fe.edu.vn")) {
-            // Ném lỗi ngay lập tức để chặn đăng nhập
-            throw new OAuth2AuthenticationException(new OAuth2Error("invalid_domain"), "Hệ thống chỉ cho phép tài khoản @fpt.edu.vn hoặc @fe.edu.vn.");
+            if (!allowedEmailRepository.existsByEmail(email)) {
+                throw new OAuth2AuthenticationException(new OAuth2Error("invalid_domain"), "Tài khoản email này chưa được cấp phép trong hệ thống.");
+            }
         }
 
         // 4. Kiểm tra User đã tồn tại trong Database chưa

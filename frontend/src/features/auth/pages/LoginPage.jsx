@@ -39,9 +39,12 @@ function Logo() {
 }
 
 const ROLE_REDIRECT = {
-  ADMIN:  "/admin",
-  ICPDP:  "/icpdp",
-  MEMBER: "/member",
+  ADMIN:       "/admin",
+  ICPDP:       "/icpdp",
+  MEMBER:      "/member",
+  ALUMNI:      "/alumni",
+  CLUB_LEADER: "/club-leader",
+  VICE_LEADER: "/club-leader",
 };
 
 
@@ -58,8 +61,7 @@ export default function LoginPage() {
   const handleSSO = (provider) => {
     setErrors({ email: "", password: "" });
     setLoading(provider);
-    // TODO: tích hợp OAuth khi backend hỗ trợ
-    setTimeout(() => setLoading(null), 1400);
+    window.location.href = `http://localhost:8080/oauth2/authorization/${provider}`;
   };
 
   const handleSubmit = async (e) => {

@@ -6,6 +6,7 @@ const ROLE_MAP = {
   1: "ADMIN",
   2: "ICPDP",
   3: "MEMBER",
+  4: "ALUMNI",
 };
 
 /**
@@ -19,9 +20,25 @@ const authService = {
     // data = { type: "Bearer", token: "eyJ..." }
 
     const payload = decodeJwtPayload(data.token);
-    const role = ROLE_MAP[payload?.roleID] ?? "MEMBER";
+    let role = ROLE_MAP[payload?.roleID] ?? "MEMBER";
 
+    // Tạm thời lưu token để authApi.getMyClubRole() có thể lấy gửi đi
     TokenService.save({ access_token: data.token, refresh_token: null, role });
+
+    if (role === "MEMBER") {
+      try {
+        const res = await authApi.getMyClubRole();
+        if (res.clubRoleID === 1) {
+          role = "CLUB_LEADER";
+        } else if (res.clubRoleID === 2) {
+          role = "VICE_LEADER";
+        }
+        // Cập nhật lại role trong TokenService
+        TokenService.save({ access_token: data.token, refresh_token: null, role });
+      } catch (e) {
+        console.error("Lỗi lấy quyền CLB", e);
+      }
+    }
 
     return { token: data.token, role, email: payload?.sub };
   },
@@ -49,5 +66,8 @@ const authService = {
 
   resetPassword: (params) => authApi.resetPassword(params),
   checkEmailExists: (email) => authApi.checkEmailExists(email),
+  getMyClubRole: () => authApi.getMyClubRole(),
+  verifyOTP: (email, otpCode) => authApi.verifyOTP(email, otpCode),
+  resendOTP: (email) => authApi.resendOTP(email),
 };
 export default authService;

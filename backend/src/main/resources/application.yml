@@ -39,3 +39,7 @@ jwt:
 
 server:
   port: 8080
+
+# OTP Configuration
+otp:
+  expiration-minutes: 10

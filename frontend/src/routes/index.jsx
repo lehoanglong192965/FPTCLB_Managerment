@@ -6,6 +6,7 @@ import EventListPage from "../features/events/pages/EventListPage";
 import LoginPage from "../features/auth/pages/LoginPage";
 import RegisterPage from "../features/auth/pages/RegisterPage";
 import VerifyOTP from "../features/auth/pages/VerifyOTP";
+import OAuthRedirect from "../features/auth/pages/OAuthRedirect";
 import ClubDetailPage from "../features/clubs/pages/ClubDetailPage";
 import EventDetailPage from "../features/events/pages/EventDetailPage";
 
@@ -41,6 +42,9 @@ import MemberNotifications from "../features/member-dashboard/pages/MemberNotifi
 // Shared
 import ProfilePage from "../features/profile/pages/ProfilePage";
 
+// Alumni pages
+import AlumniHome from "../features/alumni/pages/AlumniHome";
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -53,6 +57,7 @@ export default function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-otp" element={<VerifyOTP />} />
+      <Route path="/oauth2/redirect" element={<OAuthRedirect />} />
 
       {/* ── ICPDP dashboard ─────────────────────────────────── */}
       <Route path="/icpdp" element={<DashboardLayout />}>
@@ -90,6 +95,11 @@ export default function AppRoutes() {
         <Route path="events" element={<MemberEvents />} />
         <Route path="notifications" element={<MemberNotifications />} />
         <Route path="profile" element={<ProfilePage />} />
+      </Route>
+
+      {/* ── Alumni dashboard ────────────────────────────────── */}
+      <Route path="/alumni" element={<DashboardLayout />}>
+        <Route index element={<AlumniHome />} />
       </Route>
     </Routes>
   );

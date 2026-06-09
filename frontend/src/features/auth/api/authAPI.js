@@ -86,6 +86,24 @@ const authApi = {
    */
   checkEmailExists: (email) =>
     axiosClient.get("/auth/check-email", { params: { email } }),
+
+  /**
+   * Lấy quyền của người dùng trong câu lạc bộ
+   */
+  getMyClubRole: () =>
+    axiosClient.get("/user/my-club-role"),
+
+  /**
+   * Xác thực mã OTP
+   */
+  verifyOTP: (email, otpCode) =>
+    axiosClient.post("/auth/verify-otp", { email, otpCode }),
+
+  /**
+   * Gửi lại mã OTP
+   */
+  resendOTP: (email) =>
+    axiosClient.post(`/auth/resend-otp?email=${email}`),
 };
 
 export default authApi;

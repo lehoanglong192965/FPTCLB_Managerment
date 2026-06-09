@@ -8,3 +8,8 @@
 *.py
 temp_docx/
 .idea/
+
+frontend/playwright-report/
+frontend/test-results/
+scratch/
+.reports/

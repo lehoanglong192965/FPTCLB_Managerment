@@ -87,6 +87,13 @@ export const SIDEBAR_CONFIGS = {
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/member/notifications" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/member/profile" },
   ],
+
+  ALUMNI: [
+    { key: "home",          label: "Bảng Tin Cựu Sinh Viên", icon: Home,          path: "/alumni",              exact: true },
+    { key: "clubs",         label: "Câu Lạc Bộ Cũ",        icon: Star,            path: "/alumni/clubs" },
+    { key: "events",        label: "Sự Kiện",              icon: Calendar,        path: "/alumni/events" },
+    { key: "network",       label: "Mạng Lưới",            icon: Users,           path: "/alumni/network" },
+  ],
 };
 
 export const ROLE_LABELS = {
@@ -97,6 +104,7 @@ export const ROLE_LABELS = {
   VICE_LEADER:  "Phó Trưởng CLB",
   CORE_TEAM:    "Ban Điều Hành",
   MEMBER:       "Thành Viên",
+  ALUMNI:       "Cựu Sinh Viên",
   GUEST:        "Khách",
 };
 

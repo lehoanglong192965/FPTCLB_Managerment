@@ -10,6 +10,7 @@ export const ROLES = {
   CLUB_LEADER: "CLUB_LEADER",
   CLUB_MANAGER: "CLUB_MANAGER",
   ADMIN: "ADMIN",
+  ALUMNI: "ALUMNI",
 };
 
 // Thứ tự quyền của các vai trò, dùng để so sánh nhanh trong hasMinRole()
@@ -86,7 +87,7 @@ export const TokenService = {
 const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? "https://your-api-url.com/api",
   headers: { "Content-Type": "application/json" },
-  timeout: 12000,
+  timeout: 30000,
 });
 
 // ─────────────────────────────────────────────────────────────────
