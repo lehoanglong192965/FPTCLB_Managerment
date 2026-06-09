@@ -80,6 +80,14 @@ const authApi = {
     axiosClient.post("/auth/reset-password", { token, newPassword }),
 
   /**
+   * Cập nhật thông tin hồ sơ.
+   * @param {{ fullName: string, major: string }}
+   * @returns {{ message: string, fullName: string, major: string }}
+   */
+  updateProfile: ({ fullName, major }) =>
+    axiosClient.put("/user/profile", { fullName, major }),
+
+  /**
    * Kiểm tra email đã tồn tại trong hệ thống chưa.
    * @param {string} email
    * @returns {{ exists: boolean }}

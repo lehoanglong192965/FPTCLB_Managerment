@@ -11,11 +11,15 @@ import {
   Home,
   Star,
   FileText,
+  Send,
   ShieldCheck,
   UserCircle,
   ArrowRightLeft,
   ShieldAlert,
   Layers,
+  UserPlus,
+  Ban,
+  Network,
 } from "lucide-react";
 
 /*
@@ -30,9 +34,10 @@ import {
 
 export const SIDEBAR_CONFIGS = {
   ADMIN: [
-    { key: "semesters", label: "Quản Lý Học Kỳ",      icon: BookOpen,    path: "/admin",          exact: true },
-    { key: "users",     label: "Quản Lý Người Dùng",   icon: Users,       path: "/admin/users" },
-    { key: "profile",   label: "Thông Tin Tài Khoản",  icon: UserCircle,  path: "/admin/profile" },
+    { key: "semesters",     label: "Quản Lý Học Kỳ",        icon: BookOpen,    path: "/admin",               exact: true },
+    { key: "users",         label: "Quản Lý Người Dùng",     icon: Users,       path: "/admin/users" },
+    { key: "system-config", label: "Cấu Hình Hệ Thống",     icon: Settings,    path: "/admin/system-config" },
+    { key: "profile",       label: "Thông Tin Tài Khoản",    icon: UserCircle,  path: "/admin/profile" },
   ],
 
   ICPDP: [
@@ -41,6 +46,8 @@ export const SIDEBAR_CONFIGS = {
     { key: "event-approval",     label: "Phê Duyệt Sự Kiện",   icon: Calendar,       path: "/icpdp/event-approval" },
     { key: "personnel-reassign", label: "Điều Động Nhân Sự",   icon: ArrowRightLeft, path: "/icpdp/personnel-reassign" },
     { key: "discipline-log",     label: "Nhật Ký Kỷ Luật",     icon: ShieldAlert,    path: "/icpdp/discipline-log" },
+    { key: "recruitment",        label: "Tuyển Dụng",          icon: UserPlus,       path: "/icpdp/recruitment" },
+    { key: "blacklist",          label: "Danh Sách Đen",       icon: Ban,            path: "/icpdp/blacklist" },
     { key: "notifications",      label: "Thông Báo",           icon: Bell,           path: "/icpdp/notifications" },
     { key: "profile",            label: "Thông Tin Tài Khoản", icon: UserCircle,     path: "/icpdp/profile" },
   ],
@@ -83,16 +90,18 @@ export const SIDEBAR_CONFIGS = {
   MEMBER: [
     { key: "home",          label: "Bảng Điều Khiển",      icon: LayoutDashboard, path: "/member",              exact: true },
     { key: "clubs",         label: "Câu Lạc Bộ",           icon: Star,            path: "/member/clubs" },
+    { key: "apply",         label: "Nộp Đơn Ứng Tuyển",   icon: Send,            path: "/member/apply" },
     { key: "events",        label: "Sự Kiện",              icon: Calendar,        path: "/member/events" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/member/notifications" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/member/profile" },
   ],
 
   ALUMNI: [
-    { key: "home",          label: "Bảng Tin Cựu Sinh Viên", icon: Home,          path: "/alumni",              exact: true },
-    { key: "clubs",         label: "Câu Lạc Bộ Cũ",        icon: Star,            path: "/alumni/clubs" },
-    { key: "events",        label: "Sự Kiện",              icon: Calendar,        path: "/alumni/events" },
-    { key: "network",       label: "Mạng Lưới",            icon: Users,           path: "/alumni/network" },
+    { key: "home",    label: "Bảng Tin Cựu Sinh Viên", icon: Home,       path: "/alumni",         exact: true },
+    { key: "clubs",   label: "Câu Lạc Bộ Cũ",          icon: Star,       path: "/alumni/clubs" },
+    { key: "events",  label: "Sự Kiện",                 icon: Calendar,   path: "/alumni/events" },
+    { key: "network", label: "Mạng Lưới",               icon: Network,    path: "/alumni/network" },
+    { key: "profile", label: "Thông Tin Tài Khoản",     icon: UserCircle, path: "/alumni/profile" },
   ],
 };
 

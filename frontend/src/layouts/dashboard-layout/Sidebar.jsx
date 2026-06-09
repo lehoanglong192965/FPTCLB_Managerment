@@ -27,12 +27,13 @@ function resolveUserInfo(authUser) {
 }
 
 export default function Sidebar({ navItems }) {
-  const { user, logout } = useAuth();
+  const { user, logout, profile } = useAuth();
   const navigate = useNavigate();
 
   const { name, role } = resolveUserInfo(user);
+  const displayName = profile?.fullName || name;
   const roleLabel = ROLE_LABELS[role] ?? role;
-  const avatarLetter = name[0]?.toUpperCase() ?? "U";
+  const avatarLetter = displayName[0]?.toUpperCase() ?? "U";
 
   const handleLogout = async () => {
     try {
@@ -60,7 +61,7 @@ export default function Sidebar({ navItems }) {
       <div className="sidebar-user">
         <div className="sidebar-user-avatar">{avatarLetter}</div>
         <div style={{ overflow: "hidden" }}>
-          <p className="sidebar-user-name">{name}</p>
+          <p className="sidebar-user-name">{displayName}</p>
           <p className="sidebar-user-role">{roleLabel}</p>
         </div>
       </div>
