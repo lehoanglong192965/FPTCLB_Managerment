@@ -33,15 +33,6 @@ export default function RegisterPage() {
   const [loading, setLoading]         = useState(null);
   const [success, setSuccess]         = useState(false);
 
-  const isNonEduEmail = (() => {
-    const lower = form.email.toLowerCase();
-    return (
-      lower.includes("@") &&
-      !lower.endsWith("@fpt.edu.vn") &&
-      !lower.endsWith("@fe.edu.vn")
-    );
-  })();
-
   const handleSSO = () => {
     setLoading("google");
     window.location.href = "http://localhost:8080/oauth2/authorization/google";
@@ -213,52 +204,7 @@ export default function RegisterPage() {
               {errors.email && <p className="rg-error">{errors.email}</p>}
             </div>
 
-            {/* Upload ảnh thẻ sinh viên — chỉ hiện khi email không phải .edu */}
-            {isNonEduEmail && (
-              <div className="rg-field">
-                <label className="rg-label">
-                  Ảnh thẻ sinh viên <span>*</span>
-                  <span className="rg-label-hint"> (Email không thuộc domain @fpt.edu.vn — cần xác minh)</span>
-                </label>
-                <div
-                  className={`rg-upload-zone${cardPreview ? " rg-upload-zone--has-img" : ""}`}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={handleCardDrop}
-                  onClick={() => document.getElementById("studentCardInput").click()}
-                >
-                  {cardPreview ? (
-                    <>
-                      <img src={cardPreview} alt="Xem trước thẻ SV" className="rg-upload-preview" />
-                      <button
-                        type="button"
-                        className="rg-upload-remove"
-                        onClick={(e) => { e.stopPropagation(); setStudentCard(null); setCardPreview(null); }}
-                      >
-                        Xoá
-                      </button>
-                    </>
-                  ) : (
-                    <div className="rg-upload-placeholder">
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ABABAB" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="3"/>
-                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                        <path d="M21 15l-5-5L5 21"/>
-                      </svg>
-                      <p>Kéo thả hoặc <span>chọn ảnh</span></p>
-                      <p className="rg-upload-hint">JPG, PNG — tối đa 5MB</p>
-                    </div>
-                  )}
-                </div>
-                <input
-                  id="studentCardInput"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  style={{ display: "none" }}
-                  onChange={handleCardChange}
-                />
-                {errors.studentCard && <p className="rg-error">{errors.studentCard}</p>}
-              </div>
-            )}
+
             {/* Student ID + Major */}
             <div className="register-row">
               <div className="rg-field">
