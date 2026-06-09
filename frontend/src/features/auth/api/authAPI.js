@@ -81,11 +81,11 @@ const authApi = {
 
   /**
    * Cập nhật thông tin hồ sơ.
-   * @param {{ fullName: string, major: string }}
-   * @returns {{ message: string, fullName: string, major: string }}
+   * @param {{ fullName: string, major: string, phoneNumber: string }}
+   * @returns {{ message: string, fullName: string, major: string , phoneNumber: string}}
    */
-  updateProfile: ({ fullName, major }) =>
-    axiosClient.put("/user/profile", { fullName, major }),
+  updateProfile: ({ fullName, major, phoneNumber }) =>
+    axiosClient.put("/user/profile", { fullName, major,phoneNumber }),
 
   /**
    * Kiểm tra email đã tồn tại trong hệ thống chưa.

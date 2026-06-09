@@ -111,14 +111,14 @@ export default function RegisterPage() {
           {/* Form */}
           <form className="register-form" onSubmit={handleSubmit} noValidate>
 
-            {/* Username */}
+            {/* Fullname */}
             <div className="rg-field">
-              <label className="rg-label">Tên đăng nhập <span>*</span></label>
+              <label className="rg-label">Họ và tên <span>*</span></label>
               <input
                 className="rg-input"
                 type="text"
                 name="username"
-                placeholder="Nhập tên đăng nhập"
+                placeholder="Nhập họ và tên"
                 value={form.username}
                 onChange={handleChange}
                 disabled={loading}

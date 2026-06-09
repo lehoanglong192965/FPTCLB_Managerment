@@ -60,6 +60,10 @@ public class UserServiceImpl implements UserService {
             user.setMajor(request.getMajor());
         }
 
+        if(request.getPhoneNumber() != null && !request.getPhoneNumber().trim().isEmpty()) {
+            user.setPhoneNumber(request.getPhoneNumber());
+        }
+
         userRepository.save(user);
 
         return new UserProfileResponse(
