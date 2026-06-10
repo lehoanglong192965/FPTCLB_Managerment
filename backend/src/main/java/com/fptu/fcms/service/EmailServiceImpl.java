@@ -23,7 +23,7 @@ public class EmailServiceImpl implements EmailService {
     public void sendOTPEmail(String email, String otpCode) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(senderEmail);
+            message.setFrom("FPTU Club <" + senderEmail + ">");
             message.setTo(email);
             message.setSubject("FPTU Club Management - Ma xac thuc OTP cua ban");
 
@@ -47,7 +47,7 @@ public class EmailServiceImpl implements EmailService {
     public void sendAccountActivationEmail(String email, String fullName) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(senderEmail);
+            message.setFrom("FPTU Club <" + senderEmail + ">");
             message.setTo(email);
             message.setSubject("FPTU Club Management - Tai khoan da duoc kich hoat");
 
