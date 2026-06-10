@@ -1,15 +1,14 @@
 package com.fptu.fcms.scheduler;
 
-import com.fptu.fcms.entity.Club;
-import com.fptu.fcms.repository.ClubMembershipRepository;
+import com.fptu.fcms.entity.Semester;
 import com.fptu.fcms.repository.ClubRepository;
+import com.fptu.fcms.repository.SemesterRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -18,6 +17,7 @@ import java.util.List;
 public class ClubSizeScheduler {
 
     private final ClubRepository clubRepository;
+    private final SemesterRepository semesterRepository;
 
     // Chạy lúc 00:00 mỗi ngày để kiểm tra
     @Scheduled(cron = "0 0 0 * * ?")
@@ -25,8 +25,15 @@ public class ClubSizeScheduler {
     public void scanAndDeactivateSmallClubs() {
         log.info("Starting scheduled job: Scan and deactivate clubs with < 5 active members (BR-B07).");
         
-        // TODO: Cập nhật logic để tự động lấy ID của học kỳ đang Active
-        Integer activeSemesterID = 1; 
+        // Tự động lấy ID của học kỳ đang Active từ database
+        Integer activeSemesterID = semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
+                .map(Semester::getSemesterID)
+                .orElse(null);
+
+        if (activeSemesterID == null) {
+            log.warn("Hệ thống không có học kỳ nào đang Active. Bỏ qua Scheduled Job (BR-B07).");
+            return;
+        }
 
         List<Integer> clubsToDeactivate = clubRepository.findClubsToDeactivate(activeSemesterID);
 

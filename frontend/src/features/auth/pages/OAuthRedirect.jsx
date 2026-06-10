@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { TokenService } from "../../../services/api/axiosClient";
 import { decodeJwtPayload } from "../utils/tokenGuard";
 import { useAuth } from "../context/AuthContext";
-import authApi from "../api/authAPI";
+import authApi from "../api/authApi";
 
 const ROLE_MAP = {
   1: "ADMIN",

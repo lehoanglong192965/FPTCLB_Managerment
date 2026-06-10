@@ -2,6 +2,7 @@ package com.fptu.fcms.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
@@ -14,11 +15,15 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
+    @Value("${spring.mail.username:baoduy214365@gmail.com}")
+    private String senderEmail;
+
     @Override
     @Async
     public void sendOTPEmail(String email, String otpCode) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(senderEmail);
             message.setTo(email);
             message.setSubject("FPTU Club Management - Ma xac thuc OTP cua ban");
 
@@ -42,6 +47,7 @@ public class EmailServiceImpl implements EmailService {
     public void sendAccountActivationEmail(String email, String fullName) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(senderEmail);
             message.setTo(email);
             message.setSubject("FPTU Club Management - Tai khoan da duoc kich hoat");
 

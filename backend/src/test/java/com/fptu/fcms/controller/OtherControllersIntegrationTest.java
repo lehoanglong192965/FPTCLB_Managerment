@@ -45,7 +45,7 @@ public class OtherControllersIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Đăng ký tài khoản thành công!"));
+                .andExpect(jsonPath("$.message").value("Đăng ký tài khoản thành công! Vui lòng kiểm tra email để nhận mã OTP."));
 
         // 2. Login to get JWT Token
         LoginRequest loginRequest = new LoginRequest();
