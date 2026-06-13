@@ -1,0 +1,15 @@
+### Root Ignores ###
+.agent/
+.vscode/
+.gemini/
+*.docx
+*.zip
+*.sql
+*.py
+temp_docx/
+.idea/
+
+frontend/playwright-report/
+frontend/test-results/
+scratch/
+.reports/
