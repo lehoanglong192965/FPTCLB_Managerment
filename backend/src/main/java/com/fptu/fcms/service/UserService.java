@@ -6,6 +6,7 @@ import com.fptu.fcms.dto.response.ClubRoleResponse;
 
 public interface UserService {
     UserProfileResponse getProfile(Integer userId);
+    UserProfileResponse getProfileByStudentId(String studentId);
     UserProfileResponse updateProfile(Integer userId, UpdateProfileRequest request);
     ClubRoleResponse getClubRole(Integer userId);
 }

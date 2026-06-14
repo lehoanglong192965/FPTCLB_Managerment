@@ -43,6 +43,22 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public UserProfileResponse getProfileByStudentId(String studentId) {
+        UserAccount user = userRepository.findByStudentIdAndIsDeletedFalse(studentId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thông tin người dùng với MSSV: " + studentId));
+
+        return new UserProfileResponse(
+                user.getUserID(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getMajor() != null ? user.getMajor() : "NULL",
+                user.getRoleID(),
+                user.getStudentId(),
+                user.getPhoneNumber()
+        );
+    }
+
+    @Override
     public UserProfileResponse updateProfile(Integer userId, UpdateProfileRequest request) {
         Optional<UserAccount> userOptional = userRepository.findById(userId);
 

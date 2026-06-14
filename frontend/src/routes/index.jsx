@@ -22,6 +22,7 @@ import IcpdpPersonnelReassign from "../features/icpdp-dashboard/pages/IcpdpPerso
 import IcpdpDisciplineLog from "../features/icpdp-dashboard/pages/IcpdpDisciplineLog";
 import IcpdpClubManagement from "../features/icpdp-dashboard/pages/IcpdpClubManagement";
 import IcpdpRecruitment from "../features/icpdp-dashboard/pages/IcpdpRecruitment";
+import IcpdpClubRequests from "../features/icpdp-dashboard/pages/IcpdpClubRequests";
 import IcpdpBlacklist from "../features/icpdp-dashboard/pages/IcpdpBlacklist";
 
 // Admin pages
@@ -42,6 +43,8 @@ import MemberEvents from "../features/member-dashboard/pages/MemberEvents";
 import MemberClubs from "../features/member-dashboard/pages/MemberClubs";
 import MemberNotifications from "../features/member-dashboard/pages/MemberNotifications";
 import MemberApply from "../features/member-dashboard/pages/MemberApply";
+import ClubRegistrationForm from "../features/member-dashboard/pages/ClubRegistrationForm";
+import MemberRegistrationHistory from "../features/member-dashboard/pages/MemberRegistrationHistory";
 
 // Shared
 import ProfilePage from "../features/profile/pages/ProfilePage";
@@ -71,6 +74,7 @@ export default function AppRoutes() {
         <Route index element={<IcpdpOverview />} />
         <Route path="club-overview" element={<IcpdpClubOverview />} />
         <Route path="club-management" element={<IcpdpClubManagement />} />
+        <Route path="club-requests" element={<IcpdpClubRequests />} />
         <Route path="event-approval" element={<IcpdpEventApproval />} />
         <Route path="personnel-reassign" element={<IcpdpPersonnelReassign />} />
         <Route path="discipline-log" element={<IcpdpDisciplineLog />} />
@@ -102,6 +106,8 @@ export default function AppRoutes() {
       <Route path="/member" element={<DashboardLayout />}>
         <Route index element={<MemberHome />} />
         <Route path="clubs" element={<MemberClubs />} />
+        <Route path="club-register" element={<ClubRegistrationForm />} />
+        <Route path="club-register-history" element={<MemberRegistrationHistory />} />
         <Route path="events" element={<MemberEvents />} />
         <Route path="notifications" element={<MemberNotifications />} />
         <Route path="apply" element={<MemberApply />} />

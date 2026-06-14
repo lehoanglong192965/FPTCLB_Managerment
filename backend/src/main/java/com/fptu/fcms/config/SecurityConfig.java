@@ -72,7 +72,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/oauth2/**",
-                                "/login/**"
+                                "/login/**",
+                                "/api/uploads/**"
                         ).permitAll()
                         // Cho phép truy cập Swagger UI
                         .requestMatchers(

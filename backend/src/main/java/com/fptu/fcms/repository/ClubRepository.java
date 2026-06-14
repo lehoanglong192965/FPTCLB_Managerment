@@ -21,4 +21,7 @@ public interface ClubRepository extends JpaRepository<Club, Integer> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Club c SET c.clubStatus = 'Inactive' WHERE c.clubID IN :clubIDs")
     void updateStatusToInactive(@Param("clubIDs") List<Integer> clubIDs);
+
+    boolean existsByClubCode(String clubCode);
+    boolean existsByClubName(String clubName);
 }

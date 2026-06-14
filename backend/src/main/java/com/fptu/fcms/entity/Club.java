@@ -24,9 +24,11 @@ public class Club {
     @Column(name = "clubCode")
     private String clubCode;
 
+    @org.hibernate.annotations.Nationalized
     @Column(name = "clubName")
     private String clubName;
 
+    @org.hibernate.annotations.Nationalized
     @Column(name = "description")
     private String description;
 
