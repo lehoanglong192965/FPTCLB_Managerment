@@ -46,3 +46,4 @@ dist/
 build/
 .idea/
 src/main/resources/application-local.yml
+backend/src/main/resources/application-local.yml

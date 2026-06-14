@@ -1,6 +1,7 @@
 package com.fptu.fcms.dto.response;
 
 import lombok.Data;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -13,6 +14,7 @@ public class RecruitmentApplicationResponseDTO {
     private String introduction;
     private String answersJson;
     private String status;
+    private BigDecimal interviewScore;
     private LocalDateTime submittedAt;
     private LocalDateTime createdAt;
 }

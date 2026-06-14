@@ -8,10 +8,16 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class EmailServiceImpl implements EmailService {
+
+    private static final DateTimeFormatter INTERVIEW_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private final JavaMailSender mailSender;
 
@@ -63,6 +69,93 @@ public class EmailServiceImpl implements EmailService {
             log.info("Account activation email sent successfully to: {}", email);
         } catch (Exception e) {
             log.error("Error sending activation email to: {}", email, e);
+        }
+    }
+
+    @Override
+    @Async
+    public void sendApplicationAcceptedEmail(
+            String email,
+            String studentName,
+            LocalDateTime interviewTime,
+            String interviewLocation
+    ) {
+        String text = "Xin chào " + studentName + ",\n"
+                + "Đơn ứng tuyển của bạn đã được chấp nhận vào vòng phỏng vấn.\n"
+                + "Thời gian: " + interviewTime.format(INTERVIEW_TIME_FORMATTER) + "\n"
+                + "Địa điểm: " + interviewLocation + "\n"
+                + "Vui lòng tham gia đúng giờ.\n"
+                + "Trân trọng,\n"
+                + "CLB ABC";
+
+        sendPlainTextEmail(
+                email,
+                "Thư mời phỏng vấn CLB ABC",
+                text,
+                "application accepted"
+        );
+    }
+
+    @Override
+    @Async
+    public void sendApplicationRejectedEmail(String email) {
+        String text = "Cảm ơn bạn đã quan tâm tới CLB ABC.\n"
+                + "Rất tiếc hồ sơ của bạn chưa phù hợp với đợt tuyển này.\n"
+                + "Chúc bạn thành công trong những cơ hội tiếp theo.";
+
+        sendPlainTextEmail(
+                email,
+                "Thư phản hồi hồ sơ ứng tuyển - CLB ABC",
+                text,
+                "application rejected"
+        );
+    }
+
+    @Override
+    @Async
+    public void sendInterviewPassedEmail(String email) {
+        String text = "Chúc mừng!\n"
+                + "Bạn đã vượt qua vòng phỏng vấn và chính thức trở thành thành viên CLB ABC.";
+
+        sendPlainTextEmail(
+                email,
+                "Thông báo kết quả phỏng vấn - CLB ABC",
+                text,
+                "interview passed"
+        );
+    }
+
+    @Override
+    @Async
+    public void sendInterviewFailedEmail(String email) {
+        String text = "Cảm ơn bạn đã tham gia phỏng vấn.\n"
+                + "Rất tiếc bạn chưa phù hợp với vị trí tuyển dụng trong đợt này.";
+
+        sendPlainTextEmail(
+                email,
+                "Thông báo kết quả phỏng vấn - CLB ABC",
+                text,
+                "interview failed"
+        );
+    }
+
+    private void sendPlainTextEmail(
+            String email,
+            String subject,
+            String text,
+            String emailType
+    ) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom("FPTU Club <" + senderEmail + ">");
+            message.setTo(email);
+            message.setSubject(subject);
+            message.setText(text);
+
+            mailSender.send(message);
+            log.info("{} email sent successfully to: {}", emailType, email);
+        } catch (Exception e) {
+            log.error("Error sending {} email to: {}", emailType, email, e);
         }
     }
 }
