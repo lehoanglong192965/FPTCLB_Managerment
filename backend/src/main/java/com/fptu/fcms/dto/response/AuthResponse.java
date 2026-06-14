@@ -13,8 +13,14 @@ public class AuthResponse {
     @Builder.Default
     private String type = "Bearer";
     private String token;
+    private String refreshToken;
 
     public AuthResponse(String token) {
         this.token = token;
+    }
+
+    public AuthResponse(String token, String refreshToken) {
+        this.token = token;
+        this.refreshToken = refreshToken;
     }
 }

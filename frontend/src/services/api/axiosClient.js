@@ -176,11 +176,11 @@ async function doRefresh() {
   );
   // Lưu lại token mới, giữ nguyên role (role không đổi khi refresh)
   TokenService.save({
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
+    access_token: data.token,
+    refresh_token: data.refreshToken,
     role: TokenService.getRole(),
   });
-  return data.access_token;
+  return data.token;
 }
 
 // ─────────────────────────────────────────────────────────────────

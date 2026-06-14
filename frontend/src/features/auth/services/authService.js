@@ -23,7 +23,7 @@ const authService = {
     let role = ROLE_MAP[payload?.roleID] ?? "MEMBER";
 
     // Tạm thời lưu token để authApi.getMyClubRole() có thể lấy gửi đi
-    TokenService.save({ access_token: data.token, refresh_token: null, role });
+    TokenService.save({ access_token: data.token, refresh_token: data.refreshToken, role });
 
     let clubId = null;
     if (role === "MEMBER") {
@@ -36,7 +36,7 @@ const authService = {
           role = "VICE_LEADER";
           clubId = res.clubID ?? null;
         }
-        TokenService.save({ access_token: data.token, refresh_token: null, role, clubId });
+        TokenService.save({ access_token: data.token, refresh_token: data.refreshToken, role, clubId });
       } catch (e) {
         console.error("Lỗi lấy quyền CLB", e);
       }
