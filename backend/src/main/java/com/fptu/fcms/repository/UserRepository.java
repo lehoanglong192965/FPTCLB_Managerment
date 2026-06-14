@@ -14,4 +14,6 @@ public interface UserRepository extends JpaRepository<UserAccount, Integer> {
     Optional<UserAccount> findByEmailAndIsDeletedFalse(String email);
 
     Optional<UserAccount> findByStudentIdAndIsDeletedFalse(String studentId);
+
+    Optional<UserAccount> findByUserIDAndIsDeletedFalse(Integer userID);
 }

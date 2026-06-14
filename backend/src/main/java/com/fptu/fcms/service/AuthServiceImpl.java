@@ -64,8 +64,29 @@ public class AuthServiceImpl implements AuthService {
                 userEntity.getUserID(),
                 roleId
         );
+        String refreshToken = jwtTokenProvider.generateRefreshToken(userEntity.getEmail());
 
-        return new AuthResponse(token);
+        return new AuthResponse(token, refreshToken);
+    }
+
+    @Override
+    public AuthResponse refreshToken(String refreshToken) {
+        if (jwtTokenProvider.validateToken(refreshToken)) {
+            String email = jwtTokenProvider.getEmailFromJwt(refreshToken);
+            Optional<UserAccount> userOptional = userRepository.findByEmailAndIsDeletedFalse(email);
+            
+            if (userOptional.isPresent()) {
+                UserAccount user = userOptional.get();
+                String newToken = jwtTokenProvider.generateToken(
+                        user.getEmail(),
+                        user.getUserID(),
+                        user.getRoleID()
+                );
+                // Có thể tạo refresh token mới hoặc dùng lại cái cũ
+                return new AuthResponse(newToken, refreshToken);
+            }
+        }
+        throw new IllegalArgumentException("Refresh token không hợp lệ hoặc đã hết hạn!");
     }
 
     @Override

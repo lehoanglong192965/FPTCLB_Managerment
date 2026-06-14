@@ -20,7 +20,7 @@ public class JwtService {
         return Jwts.builder()
                 .setSubject(email)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 86400000)) // Token sống 24h
+                .setExpiration(new Date(System.currentTimeMillis() + 900000)) // Token sống 15p
                 .signWith(
                         SignatureAlgorithm.HS256,
                         SECRET_KEY

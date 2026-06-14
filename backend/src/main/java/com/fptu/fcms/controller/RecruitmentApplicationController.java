@@ -30,7 +30,7 @@ public class RecruitmentApplicationController {
     private final RecruitmentApplicationService recruitmentService;
 
     @PostMapping("/apply")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('Student', 'Admin', 'ICPDP')")
     @Operation(summary = "Nộp đơn ứng tuyển CLB", description = "Dành cho sinh viên nộp đơn ứng tuyển. Chặn nếu bị blacklist hoặc vượt 4 CLB/đơn (BR-R01).")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Nộp đơn thành công", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RecruitmentApplicationResponseDTO.class))),
@@ -68,7 +68,7 @@ public class RecruitmentApplicationController {
      * Logic nghiệp vụ xử lý trong RecruitmentApplicationService.
      */
     @PostMapping("/{id}/withdraw")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('Student', 'Admin', 'ICPDP')")
     @Operation(
             summary = "Rút đơn ứng tuyển CLB",
             description = "Sinh viên rút đơn. Có transaction và lock để chống spam/race condition."

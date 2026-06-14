@@ -14,14 +14,17 @@ public class JwtTokenProvider {
     @Value("${jwt.secret:day-la-mot-chuoi-bi-mat-rat-dai-de-ky-jwt-token-fptu-2026}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration:86400000}")
+    @Value("${jwt.expiration:900000}")
     private long jwtExpirationDate;
+
+    @Value("${jwt.refreshExpiration:604800000}")
+    private long refreshTokenExpirationDate;
 
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
-    // Tạo JWT Token đính kèm Custom Claims (userID, roleID)
+    // Tạo JWT Access Token đính kèm Custom Claims (userID, roleID)
     public String generateToken(String email, Integer userId, Integer roleId) {
         Date currentDate = new Date();
         Date expireDate = new Date(currentDate.getTime() + jwtExpirationDate);
@@ -30,6 +33,19 @@ public class JwtTokenProvider {
                 .setSubject(email)
                 .claim("userID", userId)
                 .claim("roleID", roleId)
+                .setIssuedAt(currentDate)
+                .setExpiration(expireDate)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    // Tạo Refresh Token (Thời gian sống lâu hơn, ít thông tin hơn)
+    public String generateRefreshToken(String email) {
+        Date currentDate = new Date();
+        Date expireDate = new Date(currentDate.getTime() + refreshTokenExpirationDate);
+
+        return Jwts.builder()
+                .setSubject(email)
                 .setIssuedAt(currentDate)
                 .setExpiration(expireDate)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
