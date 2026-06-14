@@ -30,12 +30,15 @@ public class Event {
     @Column(name = "eventCode")
     private String eventCode;
 
+    @org.hibernate.annotations.Nationalized
     @Column(name = "eventName")
     private String eventName;
 
+    @org.hibernate.annotations.Nationalized
     @Column(name = "description")
     private String description;
 
+    @org.hibernate.annotations.Nationalized
     @Column(name = "location")
     private String location;
 

@@ -62,4 +62,15 @@ public class ProfileController {
                     .body(Map.of("error", e.getMessage()));
         }
     }
+
+    @GetMapping("/by-student-id/{studentId}")
+    public ResponseEntity<?> getUserByStudentId(@PathVariable String studentId) {
+        try {
+            UserProfileResponse response = userService.getProfileByStudentId(studentId);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
 }

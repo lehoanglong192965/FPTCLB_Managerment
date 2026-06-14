@@ -43,6 +43,7 @@ export const SIDEBAR_CONFIGS = {
   ICPDP: [
     { key: "club-overview",      label: "Tổng Quan CLB",       icon: Building2,      path: "/icpdp/club-overview" },
     { key: "club-management",    label: "Quản Lý CLB",         icon: Layers,         path: "/icpdp/club-management" },
+    { key: "club-requests",      label: "Duyệt Đăng Ký CLB",   icon: FileText,       path: "/icpdp/club-requests" },
     { key: "event-approval",     label: "Phê Duyệt Sự Kiện",   icon: Calendar,       path: "/icpdp/event-approval" },
     { key: "personnel-reassign", label: "Điều Động Nhân Sự",   icon: ArrowRightLeft, path: "/icpdp/personnel-reassign" },
     { key: "discipline-log",     label: "Nhật Ký Kỷ Luật",     icon: ShieldAlert,    path: "/icpdp/discipline-log" },
@@ -90,6 +91,8 @@ export const SIDEBAR_CONFIGS = {
   MEMBER: [
     { key: "home",          label: "Bảng Điều Khiển",      icon: LayoutDashboard, path: "/member",              exact: true },
     { key: "clubs",         label: "Câu Lạc Bộ",           icon: Star,            path: "/member/clubs" },
+    { key: "club-register", label: "Đăng Ký Lập CLB",      icon: FileText,        path: "/member/club-register" },
+    { key: "club-register-history", label: "Lịch Sử Đăng Ký CLB", icon: FileText, path: "/member/club-register-history" },
     { key: "apply",         label: "Nộp Đơn Ứng Tuyển",   icon: Send,            path: "/member/apply" },
     { key: "events",        label: "Sự Kiện",              icon: Calendar,        path: "/member/events" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/member/notifications" },

@@ -32,6 +32,7 @@ public class UserAccount {
     @Column(name = "password")
     private String password;
 
+    @org.hibernate.annotations.Nationalized
     @Column(name = "fullName")
     private String fullName;
 
@@ -41,6 +42,7 @@ public class UserAccount {
     @Column(name = "phoneNumber", length = 20)
     private String phoneNumber;
 
+    @org.hibernate.annotations.Nationalized
     @Column(name = "major", length = 100)
     private String major;
 
