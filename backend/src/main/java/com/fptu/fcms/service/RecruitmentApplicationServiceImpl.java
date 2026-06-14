@@ -30,6 +30,8 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
     // Sau khi rút đơn khỏi 1 CLB, phải đợi 3 giờ mới được nộp lại CLB đó
     private static final long COOLDOWN_HOURS = 3;
 
+    private static final int MAX_ACTIVE_CLUBS_OR_APPLICATIONS = 3;
+
     private final RecruitmentApplicationRepository recruitmentRepository;
     private final ClubMembershipRepository membershipRepository;
     private final ClubBlacklistRepository blacklistRepository;
@@ -103,8 +105,8 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
         int pendingApplications = recruitmentRepository.countPendingApplications(currentUserID, currentSemesterID);
         int activeClubs = membershipRepository.countByUserIDAndSemesterIDAndIsDeletedFalse(currentUserID, currentSemesterID);
 
-        if ((pendingApplications + activeClubs) >= 4) {
-            throw new BusinessRuleException("Vượt quá giới hạn 4 CLB/Đơn ứng tuyển (BR-R01).");
+        if ((pendingApplications + activeClubs) >= MAX_ACTIVE_CLUBS_OR_APPLICATIONS) {
+            throw new BusinessRuleException("Vượt quá giới hạn 3 CLB/Đơn ứng tuyển (BR-R01).");
         }
 
         // 3. Khởi tạo đơn mới
@@ -293,6 +295,7 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
         response.setIntroduction(savedEntity.getIntroduction());
         response.setAnswersJson(savedEntity.getAnswersJson());
         response.setStatus(savedEntity.getStatus());
+        response.setInterviewScore(savedEntity.getInterviewScore());
         response.setSubmittedAt(savedEntity.getSubmittedAt());
         response.setCreatedAt(savedEntity.getCreatedAt());
 

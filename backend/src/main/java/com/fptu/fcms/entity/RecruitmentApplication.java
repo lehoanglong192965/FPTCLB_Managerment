@@ -48,6 +48,9 @@ public class RecruitmentApplication {
     @Column(name = "aiFeedback")
     private String aiFeedback;
 
+    @Column(name = "interviewScore")
+    private BigDecimal interviewScore;
+
     @Column(name = "submittedAt")
     private LocalDateTime submittedAt;
 

@@ -2,6 +2,8 @@ package com.fptu.fcms.repository;
 
 import com.fptu.fcms.entity.ClubBlacklist;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -26,5 +28,14 @@ public interface ClubBlacklistRepository
     boolean existsByClubIDAndUserIDAndIsDeletedFalse(
             Integer clubID,
             Integer userID
+    );
+
+    @Query("SELECT COUNT(b) > 0 FROM ClubBlacklist b, UserAccount u " +
+            "WHERE b.userID = u.userID " +
+            "AND u.studentId = :studentId " +
+            "AND b.isDeleted = false " +
+            "AND u.isDeleted = false")
+    boolean existsByStudentId(
+            @Param("studentId") String studentId
     );
 }

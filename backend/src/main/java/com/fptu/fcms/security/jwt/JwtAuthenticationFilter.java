@@ -16,6 +16,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import com.fptu.fcms.repository.ClubMembershipRepository;
+import com.fptu.fcms.repository.ClubRoleRepository;
+import com.fptu.fcms.repository.SemesterRepository;
 import com.fptu.fcms.repository.SystemRoleRepository;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -28,6 +31,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
     private SystemRoleRepository systemRoleRepository;
+
+    @Autowired
+    private SemesterRepository semesterRepository;
+
+    @Autowired
+    private ClubRoleRepository clubRoleRepository;
+
+    @Autowired
+    private ClubMembershipRepository clubMembershipRepository;
 
     @Override
     protected void doFilterInternal(
@@ -55,6 +67,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getRoleName()));
                     });
                 }
+                addActiveClubLeaderAuthority(userId, authorities);
 
                 // 5. Đóng gói vào UserPrincipal
                 UserPrincipal userPrincipal = new UserPrincipal(
@@ -91,5 +104,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return bearerToken.substring(7);
         }
         return null;
+    }
+
+    private void addActiveClubLeaderAuthority(
+            Integer userId,
+            List<GrantedAuthority> authorities
+    ) {
+        if (userId == null) {
+            return;
+        }
+
+        semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
+                .flatMap(activeSemester -> clubRoleRepository.findByRoleNameAndIsDeletedFalse("Leader")
+                        .map(leaderRole -> clubMembershipRepository
+                                .existsByUserIDAndSemesterIDAndClubRoleIDAndIsDeletedFalse(
+                                        userId,
+                                        activeSemester.getSemesterID(),
+                                        leaderRole.getClubRoleID()
+                                )))
+                .filter(Boolean.TRUE::equals)
+                .ifPresent(isLeader -> authorities.add(new SimpleGrantedAuthority("ROLE_Leader")));
     }
 }

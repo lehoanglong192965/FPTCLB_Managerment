@@ -155,6 +155,16 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
             Integer clubID,
             Integer userID
     );
+
+    @Query("SELECT COUNT(m) > 0 FROM ClubMembership m, UserAccount u " +
+            "WHERE m.userID = u.userID " +
+            "AND u.studentId = :studentId " +
+            "AND m.isDeleted = false " +
+            "AND u.isDeleted = false")
+    boolean existsByStudentIdAndIsDeletedFalse(
+            @Param("studentId") String studentId
+    );
+
     // Tìm tất cả membership mà user đang là Leader trong học kỳ
     // Dùng khi Admin/ICPDP kỷ luật Active để hạ Leader xuống Member
     @Query("SELECT m FROM ClubMembership m " +
