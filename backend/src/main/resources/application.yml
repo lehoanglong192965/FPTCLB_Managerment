@@ -25,6 +25,11 @@ spring:
         format_sql: true
         default_schema: dbo
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
   security:
     oauth2:
       client:
