@@ -14,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -54,8 +56,14 @@ public class ClubRegistrationService {
                 .map(FoundingMemberDTO::getStudentId)
                 .collect(Collectors.toList());
 
+        Set<String> uniqueStudentIds = new HashSet<>();
+
         // Validation 2: Ensure all proposed members have registered user accounts and check club limits
         for (String studentId : proposedStudentIds) {
+            if (!uniqueStudentIds.add(studentId)) {
+                throw new BusinessRuleException("Danh sách thành viên sáng lập có sinh viên bị trùng lặp (MSSV: " + studentId + ").");
+            }
+
             UserAccount user = userRepository.findByStudentIdAndIsDeletedFalse(studentId)
                     .orElseThrow(() -> new BusinessRuleException("Sinh viên có MSSV: " + studentId + " chưa đăng ký tài khoản trên hệ thống."));
 
@@ -156,8 +164,13 @@ public class ClubRegistrationService {
                 .map(ClubRegistrationMember::getStudentId)
                 .collect(Collectors.toList());
 
+            Set<String> uniqueStudentIds = new HashSet<>();
             List<UserAccount> membersToAssign = new ArrayList<>();
             for (String studentId : proposedStudentIds) {
+                if (!uniqueStudentIds.add(studentId)) {
+                    throw new BusinessRuleException("Đơn đăng ký không hợp lệ: Danh sách thành viên sáng lập có sinh viên bị trùng lặp (MSSV: " + studentId + "). Vui lòng Từ chối đơn này.");
+                }
+
                 UserAccount user = userRepository.findByStudentIdAndIsDeletedFalse(studentId)
                         .orElseThrow(() -> new BusinessRuleException("Sinh viên có MSSV: " + studentId + " chưa đăng ký tài khoản trên hệ thống."));
 
