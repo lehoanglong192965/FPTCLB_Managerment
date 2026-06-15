@@ -156,6 +156,8 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
             Integer userID
     );
 
+    int countByClubIDAndIsDeletedFalse(Integer clubID);
+
     @Query("SELECT COUNT(m) > 0 FROM ClubMembership m, UserAccount u " +
             "WHERE m.userID = u.userID " +
             "AND u.studentId = :studentId " +

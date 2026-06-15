@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ClubRepository extends JpaRepository<Club, Integer> {
@@ -24,4 +25,6 @@ public interface ClubRepository extends JpaRepository<Club, Integer> {
 
     boolean existsByClubCode(String clubCode);
     boolean existsByClubName(String clubName);
+    Optional<Club> findByClubCodeAndIsDeletedFalse(String clubCode);
+    List<Club> findByClubStatusAndIsDeletedFalse(String clubStatus);
 }

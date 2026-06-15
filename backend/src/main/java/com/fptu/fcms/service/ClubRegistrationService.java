@@ -187,6 +187,7 @@ public class ClubRegistrationService {
             club.setClubCode(registration.getClubCode());
             club.setClubName(registration.getClubName());
             club.setDescription(registration.getDescription());
+            club.setCategory(registration.getCategory());
             club.setClubStatus("Active");
             club.setCreatedAt(LocalDateTime.now());
             club.setIsDeleted(false);

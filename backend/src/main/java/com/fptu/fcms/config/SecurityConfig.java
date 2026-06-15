@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.http.HttpMethod;
 
 import org.springframework.security.config.http.SessionCreationPolicy;
 
@@ -75,6 +76,8 @@ public class SecurityConfig {
                                 "/login/**",
                                 "/api/uploads/**"
                         ).permitAll()
+                        // Cho phép đọc thông tin danh sách và chi tiết CLB công khai
+                        .requestMatchers(HttpMethod.GET, "/api/clubs", "/api/clubs/*").permitAll()
                         // Cho phép truy cập Swagger UI
                         .requestMatchers(
                                 "/v3/api-docs/**",
