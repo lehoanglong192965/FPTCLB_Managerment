@@ -1,4 +1,3 @@
-import "../../assets/css/footer.css";
 import {
   IconFacebook, IconTwitter, IconInstagram, IconLinkedin,
   IconMapPin, IconPhone, IconMail
@@ -24,50 +23,66 @@ const CONTACT_ITEMS = [
 
 export default function Footer() {
   return (
-    <footer className="footer">
-      <div className="footer__grid">
+    <footer
+      className="bg-[var(--navy)] border-t border-white/[0.06] pt-14 px-[5%] pb-7"
+    >
+      <div className="grid grid-cols-[2fr_1fr_1fr_1.4fr] gap-10 max-w-[1200px] mx-auto mb-12 max-[900px]:grid-cols-2 max-[600px]:grid-cols-1">
 
-        {/* Brand */}
         <div className="footer__brand">
-          <a href="/" className="header__logo">
-            <div className="header__logo-icon">F</div>
-            <div className="header__logo-text">
-              <span>FPTU Clubs</span>
+          <a href="/" className="flex items-center gap-[10px] no-underline">
+            <div
+              className="w-[38px] h-[38px] rounded-[10px] flex items-center justify-center text-[18px] font-black text-white flex-shrink-0"
+              style={{
+                background: "linear-gradient(135deg, var(--orange), var(--orange-light))",
+                boxShadow: "0 4px 12px rgba(255,107,0,0.40)",
+              }}
+            >
+              F
+            </div>
+            <div className="flex flex-col leading-[1.1]">
+              <span className="text-[15px] font-extrabold text-[#F37021] tracking-[-0.3px]">FPTU Clubs</span>
             </div>
           </a>
-          <p>
+          <p className="text-[13px] text-white/45 leading-[1.7] max-w-[230px] mt-[14px] mb-5">
             Nền tảng quản lý câu lạc bộ sinh viên chính thức của Đại học FPT
             — kết nối đam mê, xây dựng cộng đồng.
           </p>
-          <div className="footer__socials">
+          <div className="flex gap-[10px]">
             {SOCIAL_ICONS.map((s) => (
-              <button key={s.label} className="footer__social-btn" aria-label={s.label}>
+              <button
+                key={s.label}
+                className="w-9 h-9 rounded-sm bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-[15px] cursor-pointer transition-all duration-200 hover:bg-[var(--orange)] hover:border-[var(--orange)] hover:-translate-y-0.5"
+                aria-label={s.label}
+              >
                 {s.icon}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Link columns */}
         {Object.entries(FOOTER_LINKS).map(([heading, links]) => (
-          <div key={heading} className="footer__col">
-            <h4>{heading}</h4>
-            <ul className="footer__links">
+          <div key={heading}>
+            <h4 className="text-[13px] font-extrabold text-white/85 tracking-[0.3px] mb-4">{heading}</h4>
+            <ul className="list-none p-0 m-0 flex flex-col gap-[10px]">
               {links.map((l) => (
                 <li key={l}>
-                  <a href="#">{l}</a>
+                  <a
+                    href="#"
+                    className="text-[13px] text-white/45 font-medium no-underline transition-colors duration-200 hover:text-[var(--orange-light)]"
+                  >
+                    {l}
+                  </a>
                 </li>
               ))}
             </ul>
           </div>
         ))}
 
-        {/* Contact */}
-        <div className="footer__col">
-          <h4>Liên Hệ</h4>
+        <div>
+          <h4 className="text-[13px] font-extrabold text-white/85 tracking-[0.3px] mb-4">Liên Hệ</h4>
           {CONTACT_ITEMS.map((item) => (
-            <div key={item.text} className="footer__contact-item">
-              <span className="footer__contact-icon">{item.icon}</span>
+            <div key={item.text} className="flex items-start gap-2 text-[13px] text-white/45 font-medium mb-[10px] leading-[1.5]">
+              <span className="flex-shrink-0 mt-[1px]">{item.icon}</span>
               <span>{item.text}</span>
             </div>
           ))}
@@ -75,9 +90,9 @@ export default function Footer() {
 
       </div>
 
-      <div className="footer__bottom">
-        <p>© 2026 FPTU Clubs · Đại học FPT. All rights reserved.</p>
-        <span className="footer__bottom-badge">Made by FPT Students</span>
+      <div className="max-w-[1200px] mx-auto pt-6 border-t border-white/[0.07] flex items-center justify-between flex-wrap gap-3">
+        <p className="text-[12px] text-white/30 font-medium m-0">© 2026 FPTU Clubs · Đại học FPT. All rights reserved.</p>
+        <span className="text-[11px] font-bold text-white/25 tracking-[0.5px]">Made by FPT Students</span>
       </div>
     </footer>
   );

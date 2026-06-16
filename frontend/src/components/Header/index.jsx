@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "../../assets/css/header.css";
 
 export const NAV_ITEMS = [
   { label: "Trang Chủ",  href: "home"   },
@@ -32,19 +31,37 @@ export default function Header({ activeSection }) {
   };
 
   return (
-    <header className={`header ${scrolled ? "scrolled" : ""}`}>
-      <a href="/" className="header__logo">
-        <div className="header__logo-icon">F</div>
-        <div className="header__logo-text">
-          <span>FPTU Clubs</span>
+    <header
+      className={[
+        "fixed top-0 left-0 right-0 z-[999] h-[68px] flex items-center justify-between px-[5%] bg-white transition-all duration-200",
+        scrolled ? "shadow-md backdrop-blur-[16px]" : "",
+      ].join(" ")}
+    >
+      <a href="/" className="flex items-center gap-[10px] flex-shrink-0 no-underline">
+        <div
+          className="w-[38px] h-[38px] rounded-[10px] flex items-center justify-center text-[18px] font-black text-white flex-shrink-0"
+          style={{
+            background: "linear-gradient(135deg, var(--orange), var(--orange-light))",
+            boxShadow: "0 4px 12px rgba(255,107,0,0.40)",
+          }}
+        >
+          F
+        </div>
+        <div className="flex flex-col leading-[1.1]">
+          <span className="text-[15px] font-extrabold text-[#F37021] tracking-[-0.3px]">FPTU Clubs</span>
         </div>
       </a>
 
-      <nav className="header__nav">
+      <nav className="hidden md:flex items-center gap-1">
         {NAV_ITEMS.map((item) => (
           <button
             key={item.href}
-            className={`header__nav-link ${activeSection === item.href ? "active" : ""}`}
+            className={[
+              "relative px-4 py-2 rounded-sm text-[14px] font-semibold bg-transparent border-0 cursor-pointer font-['inherit'] transition-all duration-200",
+              activeSection === item.href
+                ? "text-[#F37021] bg-[rgba(240,228,215,0.815)]"
+                : "text-[rgba(114,114,114,0.75)] hover:text-[#F37021] hover:bg-[rgba(240,228,215,0.815)]",
+            ].join(" ")}
             onClick={() => handleNav(item.href)}
           >
             {item.label}
@@ -52,9 +69,25 @@ export default function Header({ activeSection }) {
         ))}
       </nav>
 
-      <div className="header__actions">
-        <button className="btn-ghost" onClick={() => navigate("/login")}>Đăng Nhập</button>
-        <button className="btn-primary" onClick={() => navigate("/register")}>Đăng Ký</button>
+      <div className="flex items-center gap-[10px]">
+        <button
+          className="px-[18px] py-2 rounded-sm text-[14px] font-semibold bg-transparent border border-black cursor-pointer font-['inherit'] text-[#F37021] transition-all duration-200 hover:bg-[rgba(255,255,255,0.1)] hover:border-[rgba(241,130,3,0.897)] hover:text-[#F37021]"
+          onClick={() => navigate("/login")}
+        >
+          Đăng Nhập
+        </button>
+        <button
+          className="px-5 py-[9px] rounded-sm text-[14px] font-bold text-white border-0 cursor-pointer font-['inherit'] transition-all duration-200 hover:-translate-y-px"
+          style={{
+            background: "linear-gradient(135deg, var(--orange), var(--orange-light))",
+            boxShadow: "var(--shadow-orange)",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 12px 36px rgba(255,107,0,0.40)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "var(--shadow-orange)"; }}
+          onClick={() => navigate("/register")}
+        >
+          Đăng Ký
+        </button>
       </div>
     </header>
   );
