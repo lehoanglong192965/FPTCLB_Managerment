@@ -42,6 +42,9 @@ public class Club {
     @Column(name = "category")
     private String category;
 
+    @Column(name = "clubImage")
+    private String clubImage;
+
     @Column(name = "createdAt")
     private LocalDateTime createdAt;
 

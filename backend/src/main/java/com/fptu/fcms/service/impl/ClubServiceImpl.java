@@ -57,6 +57,7 @@ public class ClubServiceImpl implements ClubService {
         
         // Default recruiting = true for active clubs
         dto.setRecruiting(true);
+        dto.setClubImage(club.getClubImage());
 
         return dto;
     }

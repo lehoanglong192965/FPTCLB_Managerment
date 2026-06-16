@@ -11,6 +11,7 @@ public class ClubRegistrationResponseDTO {
     private String clubName;
     private String clubNameEn;
     private String category;
+    private String clubImage;
     private String description;
     private String mission;
     private String uniqueness;

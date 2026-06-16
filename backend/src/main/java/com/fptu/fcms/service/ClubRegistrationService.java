@@ -80,6 +80,7 @@ public class ClubRegistrationService {
                 .clubName(request.getClubName())
                 .clubNameEn(request.getClubNameEn())
                 .category(request.getCategory())
+                .clubImage(request.getClubImage())
                 .description(request.getDescription())
                 .mission(request.getMission())
                 .uniqueness(request.getUniqueness())
@@ -188,6 +189,7 @@ public class ClubRegistrationService {
             club.setClubName(registration.getClubName());
             club.setDescription(registration.getDescription());
             club.setCategory(registration.getCategory());
+            club.setClubImage(registration.getClubImage());
             club.setClubStatus("Active");
             club.setCreatedAt(LocalDateTime.now());
             club.setIsDeleted(false);
@@ -245,6 +247,7 @@ public class ClubRegistrationService {
         dto.setClubName(registration.getClubName());
         dto.setClubNameEn(registration.getClubNameEn());
         dto.setCategory(registration.getCategory());
+        dto.setClubImage(registration.getClubImage());
         dto.setDescription(registration.getDescription());
         dto.setMission(registration.getMission());
         dto.setUniqueness(registration.getUniqueness());
