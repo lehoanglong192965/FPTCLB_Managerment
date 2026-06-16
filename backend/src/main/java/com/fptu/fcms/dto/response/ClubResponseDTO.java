@@ -17,5 +17,6 @@ public class ClubResponseDTO {
     private String color;      // Tự động map theo category
     private Integer members;   // Số lượng thành viên thực trong DB
     private Boolean recruiting;// Mặc định true
+    private String clubImage;
     private String clubStatus;
 }

@@ -20,6 +20,9 @@ public class ClubRegistrationRequestDTO {
     @NotBlank(message = "Lĩnh vực hoạt động không được để trống")
     private String category;
 
+    @NotBlank(message = "Ảnh đại diện câu lạc bộ không được để trống")
+    private String clubImage;
+
     private String description;
 
     @NotBlank(message = "Sứ mệnh không được để trống")

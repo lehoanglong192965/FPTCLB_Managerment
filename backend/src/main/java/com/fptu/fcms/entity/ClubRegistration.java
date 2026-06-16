@@ -35,6 +35,9 @@ public class ClubRegistration {
     @Column(name = "category", nullable = false)
     private String category;
 
+    @Column(name = "clubImage")
+    private String clubImage;
+
     @org.hibernate.annotations.Nationalized
     @Column(name = "description")
     private String description;
