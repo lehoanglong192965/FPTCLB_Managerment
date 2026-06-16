@@ -1,59 +1,59 @@
 import { Routes, Route } from "react-router-dom";
 // Public pages
-import LandingPage from "../features/landing/pages/LandingPage";
-import ClubListPage from "../features/clubs/pages/ClubListPage";
-import EventListPage from "../features/events/pages/EventListPage";
-import LoginPage from "../features/auth/pages/LoginPage";
-import RegisterPage from "../features/auth/pages/RegisterPage";
-import VerifyOTP from "../features/auth/pages/VerifyOTP";
-import OAuthRedirect from "../features/auth/pages/OAuthRedirect";
-import ClubDetailPage from "../features/clubs/pages/ClubDetailPage";
-import EventDetailPage from "../features/events/pages/EventDetailPage";
+import LandingPage from "../pages/landing/LandingPage";
+import ClubListPage from "../pages/clubs/ClubListPage";
+import EventListPage from "../pages/events/EventListPage";
+import LoginPage from "../pages/auth/LoginPage";
+import RegisterPage from "../pages/auth/RegisterPage";
+import VerifyOTP from "../pages/auth/VerifyOTP";
+import OAuthRedirect from "../pages/auth/OAuthRedirect";
+import ClubDetailPage from "../pages/clubs/ClubDetailPage";
+import EventDetailPage from "../pages/events/EventDetailPage";
 
 // Dashboard layout (shared sidebar + outlet)
-import DashboardLayout from "../layouts/dashboard-layout";
+import DashboardLayout from "../components/layout";
 
 // ICPDP pages
-import IcpdpOverview from "../features/icpdp-dashboard/pages/IcpdpOverview";
-import IcpdpNotifications from "../features/icpdp-dashboard/pages/IcpdpNotifications";
-import IcpdpEventApproval from "../features/icpdp-dashboard/pages/IcpdpEventApproval";
-import IcpdpClubOverview from "../features/icpdp-dashboard/pages/IcpdpClubOverview";
-import IcpdpPersonnelReassign from "../features/icpdp-dashboard/pages/IcpdpPersonnelReassign";
-import IcpdpDisciplineLog from "../features/icpdp-dashboard/pages/IcpdpDisciplineLog";
-import IcpdpClubManagement from "../features/icpdp-dashboard/pages/IcpdpClubManagement";
-import IcpdpRecruitment from "../features/icpdp-dashboard/pages/IcpdpRecruitment";
-import IcpdpClubRequests from "../features/icpdp-dashboard/pages/IcpdpClubRequests";
-import IcpdpBlacklist from "../features/icpdp-dashboard/pages/IcpdpBlacklist";
+import IcpdpOverview from "../pages/icpdp/IcpdpOverview";
+import IcpdpNotifications from "../pages/icpdp/IcpdpNotifications";
+import IcpdpEventApproval from "../pages/icpdp/IcpdpEventApproval";
+import IcpdpClubOverview from "../pages/icpdp/IcpdpClubOverview";
+import IcpdpPersonnelReassign from "../pages/icpdp/IcpdpPersonnelReassign";
+import IcpdpDisciplineLog from "../pages/icpdp/IcpdpDisciplineLog";
+import IcpdpClubManagement from "../pages/icpdp/IcpdpClubManagement";
+import IcpdpRecruitment from "../pages/icpdp/IcpdpRecruitment";
+import IcpdpClubRequests from "../pages/icpdp/IcpdpClubRequests";
+import IcpdpBlacklist from "../pages/icpdp/IcpdpBlacklist";
 
 // Admin pages
-import SemesterManagement from "../features/admin-dashboard/pages/SemesterManagement";
-import UserManagement from "../features/admin-dashboard/pages/UserManagement";
-import SystemConfigPage from "../features/admin-dashboard/pages/SystemConfigPage";
+import SemesterManagement from "../pages/admin/SemesterManagement";
+import UserManagement from "../pages/admin/UserManagement";
+import SystemConfigPage from "../pages/admin/SystemConfigPage";
 
 // Club Leader pages
-import ClubOverview from "../features/club-leader-dashboard/pages/ClubOverview";
-import ClubMemberMgmt from "../features/club-leader-dashboard/pages/ClubMemberMgmt";
-import ClubEventsMgmt from "../features/club-leader-dashboard/pages/ClubEventsMgmt";
-import ClubNotifications from "../features/club-leader-dashboard/pages/ClubNotifications";
-import ClubReports from "../features/club-leader-dashboard/pages/ClubReports";
+import ClubOverview from "../pages/club-leader/ClubOverview";
+import ClubMemberMgmt from "../pages/club-leader/ClubMemberMgmt";
+import ClubEventsMgmt from "../pages/club-leader/ClubEventsMgmt";
+import ClubNotifications from "../pages/club-leader/ClubNotifications";
+import ClubReports from "../pages/club-leader/ClubReports";
 
 // Member pages
-import MemberHome from "../features/member-dashboard/pages/MemberHome";
-import MemberEvents from "../features/member-dashboard/pages/MemberEvents";
-import MemberClubs from "../features/member-dashboard/pages/MemberClubs";
-import MemberNotifications from "../features/member-dashboard/pages/MemberNotifications";
-import MemberApply from "../features/member-dashboard/pages/MemberApply";
-import ClubRegistrationForm from "../features/member-dashboard/pages/ClubRegistrationForm";
-import MemberRegistrationHistory from "../features/member-dashboard/pages/MemberRegistrationHistory";
+import MemberHome from "../pages/member/MemberHome";
+import MemberEvents from "../pages/member/MemberEvents";
+import MemberClubs from "../pages/member/MemberClubs";
+import MemberNotifications from "../pages/member/MemberNotifications";
+import MemberApply from "../pages/member/MemberApply";
+import ClubRegistrationForm from "../pages/member/ClubRegistrationForm";
+import MemberRegistrationHistory from "../pages/member/MemberRegistrationHistory";
 
 // Shared
-import ProfilePage from "../features/profile/pages/ProfilePage";
+import ProfilePage from "../pages/profile/ProfilePage";
 
 // Alumni pages
-import AlumniHome from "../features/alumni/pages/AlumniHome";
-import AlumniClubs from "../features/alumni/pages/AlumniClubs";
-import AlumniEvents from "../features/alumni/pages/AlumniEvents";
-import AlumniNetwork from "../features/alumni/pages/AlumniNetwork";
+import AlumniHome from "../pages/alumni/AlumniHome";
+import AlumniClubs from "../pages/alumni/AlumniClubs";
+import AlumniEvents from "../pages/alumni/AlumniEvents";
+import AlumniNetwork from "../pages/alumni/AlumniNetwork";
 
 export default function AppRoutes() {
   return (

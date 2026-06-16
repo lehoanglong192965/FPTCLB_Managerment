@@ -1,8 +1,68 @@
+@import "tailwindcss";
+
+/* Đăng ký Be Vietnam Pro là font-sans của Tailwind */
+@theme {
+  --font-sans: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ── CSS Variables (global) ── */
+:root {
+  --orange:        #FF6B00;
+  --orange-dark:   #E05A00;
+  --orange-light:  #FF8C33;
+  --orange-glow:   rgba(255, 107, 0, 0.18);
+  --blue:          #1A6FC4;
+  --blue-dark:     #0C447C;
+  --blue-light:    #E6F1FB;
+  --blue-mid:      #378ADD;
+  --blue-glow:     rgba(26, 111, 196, 0.15);
+  --green:         #27AE60;
+  --green-dark:    #1E8449;
+  --green-light:   #EAF3DE;
+  --green-mid:     #2ECC71;
+  --green-glow:    rgba(39, 174, 96, 0.15);
+  --navy:          #0D1B3E;
+  --navy-mid:      #132150;
+  --navy-light:    #1C2F6E;
+  --surface:       #F7F8FC;
+  --surface-card:  #FFFFFF;
+  --border:        #E8EAF0;
+  --text-primary:   #0D1B3E;
+  --text-secondary: #4B5674;
+  --text-muted:     #8B92A9;
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  20px;
+  --radius-xl:  28px;
+  --shadow-sm:      0 2px 8px rgba(13,27,62,0.07);
+  --shadow-md:      0 6px 24px rgba(13,27,62,0.11);
+  --shadow-lg:      0 16px 48px rgba(13,27,62,0.14);
+  --shadow-orange:  0 8px 32px rgba(255,107,0,0.30);
+  --shadow-blue:    0 8px 32px rgba(26,111,196,0.25);
+  --shadow-green:   0 8px 32px rgba(39,174,96,0.25);
+  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --header-h:   68px;
+}
+
 *, *::before, *::after { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: 'Be Vietnam Pro', sans-serif;
+  font-family: var(--font-sans);
+  background: var(--surface);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+a { text-decoration: none; color: inherit; }
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes otp-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
