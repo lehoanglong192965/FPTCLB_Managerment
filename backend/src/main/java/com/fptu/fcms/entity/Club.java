@@ -38,6 +38,10 @@ public class Club {
     @Column(name = "clubStatus")
     private String clubStatus;
 
+    @org.hibernate.annotations.Nationalized
+    @Column(name = "category")
+    private String category;
+
     @Column(name = "createdAt")
     private LocalDateTime createdAt;
 
