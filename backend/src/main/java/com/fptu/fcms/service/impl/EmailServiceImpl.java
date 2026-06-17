@@ -80,7 +80,8 @@ public class EmailServiceImpl implements EmailService {
             String email,
             String studentName,
             LocalDateTime interviewTime,
-            String interviewLocation
+            String interviewLocation,
+            String clubName
     ) {
         String text = "Xin chào " + studentName + ",\n"
                 + "Đơn ứng tuyển của bạn đã được chấp nhận vào vòng phỏng vấn.\n"
@@ -88,11 +89,11 @@ public class EmailServiceImpl implements EmailService {
                 + "Địa điểm: " + interviewLocation + "\n"
                 + "Vui lòng tham gia đúng giờ.\n"
                 + "Trân trọng,\n"
-                + "CLB ABC";
+                + clubName;
 
         sendPlainTextEmail(
                 email,
-                "Thư mời phỏng vấn CLB ABC",
+                "Thư mời phỏng vấn - " + clubName,
                 text,
                 "application accepted"
         );
@@ -100,14 +101,14 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     @Async
-    public void sendApplicationRejectedEmail(String email) {
-        String text = "Cảm ơn bạn đã quan tâm tới CLB ABC.\n"
+    public void sendApplicationRejectedEmail(String email, String clubName) {
+        String text = "Cảm ơn bạn đã quan tâm tới " + clubName + ".\n"
                 + "Rất tiếc hồ sơ của bạn chưa phù hợp với đợt tuyển này.\n"
                 + "Chúc bạn thành công trong những cơ hội tiếp theo.";
 
         sendPlainTextEmail(
                 email,
-                "Thư phản hồi hồ sơ ứng tuyển - CLB ABC",
+                "Thư phản hồi hồ sơ ứng tuyển - " + clubName,
                 text,
                 "application rejected"
         );
@@ -115,13 +116,13 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     @Async
-    public void sendInterviewPassedEmail(String email) {
+    public void sendInterviewPassedEmail(String email, String clubName) {
         String text = "Chúc mừng!\n"
-                + "Bạn đã vượt qua vòng phỏng vấn và chính thức trở thành thành viên CLB ABC.";
+                + "Bạn đã vượt qua vòng phỏng vấn và chính thức trở thành thành viên " + clubName + ".";
 
         sendPlainTextEmail(
                 email,
-                "Thông báo kết quả phỏng vấn - CLB ABC",
+                "Thông báo kết quả phỏng vấn - " + clubName,
                 text,
                 "interview passed"
         );
@@ -129,13 +130,13 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     @Async
-    public void sendInterviewFailedEmail(String email) {
-        String text = "Cảm ơn bạn đã tham gia phỏng vấn.\n"
+    public void sendInterviewFailedEmail(String email, String clubName) {
+        String text = "Cảm ơn bạn đã tham gia phỏng vấn cùng " + clubName + ".\n"
                 + "Rất tiếc bạn chưa phù hợp với vị trí tuyển dụng trong đợt này.";
 
         sendPlainTextEmail(
                 email,
-                "Thông báo kết quả phỏng vấn - CLB ABC",
+                "Thông báo kết quả phỏng vấn - " + clubName,
                 text,
                 "interview failed"
         );

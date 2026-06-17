@@ -18,13 +18,14 @@ public interface EmailService {
             String email,
             String studentName,
             LocalDateTime interviewTime,
-            String interviewLocation
+            String interviewLocation,
+            String clubName
     );
 
-    void sendApplicationRejectedEmail(String email);
+    void sendApplicationRejectedEmail(String email, String clubName);
 
-    void sendInterviewPassedEmail(String email);
+    void sendInterviewPassedEmail(String email, String clubName);
 
-    void sendInterviewFailedEmail(String email);
+    void sendInterviewFailedEmail(String email, String clubName);
 }
 
