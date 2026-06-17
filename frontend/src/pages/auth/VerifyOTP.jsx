@@ -177,7 +177,7 @@ export default function VerifyOTP() {
           Không nhận được mã?{" "}
           {cooldown === 0 ? (
             <button
-              className="bg-transparent border-0 cursor-pointer text-[#3B82F6] font-semibold text-[13px] p-0 font-['inherit'] transition-colors duration-150 hover:underline"
+              className="bg-transparent border-0 cursor-pointer text-[#3B82F6] font-semibold text-[13px] p-0 font-[inherit] transition-colors duration-150 hover:underline"
               onClick={handleResend}
             >
               Gửi lại OTP

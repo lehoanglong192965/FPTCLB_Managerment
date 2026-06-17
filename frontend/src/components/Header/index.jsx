@@ -57,7 +57,7 @@ export default function Header({ activeSection }) {
           <button
             key={item.href}
             className={[
-              "relative px-4 py-2 rounded-sm text-[14px] font-semibold bg-transparent border-0 cursor-pointer font-['inherit'] transition-all duration-200",
+              "relative px-4 py-2 rounded-sm text-[14px] font-semibold bg-transparent border-0 cursor-pointer font-[inherit] transition-all duration-200",
               activeSection === item.href
                 ? "text-[#F37021] bg-[rgba(240,228,215,0.815)]"
                 : "text-[rgba(114,114,114,0.75)] hover:text-[#F37021] hover:bg-[rgba(240,228,215,0.815)]",
@@ -71,13 +71,22 @@ export default function Header({ activeSection }) {
 
       <div className="flex items-center gap-[10px]">
         <button
-          className="px-[18px] py-2 rounded-sm text-[14px] font-semibold bg-transparent border border-black cursor-pointer font-['inherit'] text-[#F37021] transition-all duration-200 hover:bg-[rgba(255,255,255,0.1)] hover:border-[rgba(241,130,3,0.897)] hover:text-[#F37021]"
+          className="px-[18px] py-2 rounded-sm text-[14px] font-semibold bg-transparent border cursor-pointer font-[inherit] transition-all duration-200"
+          style={{ color: "#9ca3af", borderColor: "#9ca3af" }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "#F37021";
+            e.currentTarget.style.borderColor = "#F37021";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "#9ca3af";
+            e.currentTarget.style.borderColor = "#9ca3af";
+          }}
           onClick={() => navigate("/login")}
         >
           Đăng Nhập
         </button>
         <button
-          className="px-5 py-[9px] rounded-sm text-[14px] font-bold text-white border-0 cursor-pointer font-['inherit'] transition-all duration-200 hover:-translate-y-px"
+          className="px-5 py-[9px] rounded-sm text-[14px] font-bold text-white border-0 cursor-pointer font-[inherit] transition-all duration-200 hover:-translate-y-px"
           style={{
             background: "linear-gradient(135deg, var(--orange), var(--orange-light))",
             boxShadow: "var(--shadow-orange)",

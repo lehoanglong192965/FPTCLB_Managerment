@@ -1,21 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronRight, Star, Search, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal } from "lucide-react";
 import ClubCard from "../../components/clubs/ClubCard";
-import ClubSpace from "./ClubSpace";
+import ClubDetailCard from "../../components/clubs/ClubDetailCard";
+import ApplyClubModal from "../../components/clubs/ApplyClubModal";
+import { useApplications } from "../../contexts/ApplicationsContext";
 
 const ALL_TAGS = ["Tất cả", "Âm nhạc", "Nghệ thuật", "Ngoại ngữ", "Thể thao", "STEM", "Cộng đồng", "Truyền thông"];
-
-const mockJoinedClubs = [
-  {
-    id: 1,
-    name: "FPTU IT Club",
-    tag: "IT",
-    color: "#1d4ed8",
-    emoji: "💻",
-    role: "Thành viên",
-    members: 120,
-  },
-];
 
 const mockOtherClubs = [
   { id: 2, name: "FPTU Music Club",     abbr: "music",     tag: "Âm nhạc",    color: "#7c3aed", emoji: "🎵", desc: "Nơi kết nối những người yêu âm nhạc tại FPTU, tổ chức biểu diễn và workshop âm nhạc.", members: 85,  recruiting: true  },
@@ -29,11 +19,25 @@ const mockOtherClubs = [
 ];
 
 export default function MemberClubs() {
+  const { addApplication }          = useApplications();
   const [search, setSearch]         = useState("");
   const [activeTag, setActiveTag]   = useState("Tất cả");
   const [filterOpen, setFilterOpen] = useState(false);
-  const [selectedClub, setSelectedClub] = useState(null);
+  const [viewingClub, setViewingClub]   = useState(null);
+  const [applyClub, setApplyClub]       = useState(null);
+  const [toast, setToast]               = useState(null);
   const filterRef                   = useRef(null);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleApplySubmitted = (payload) => {
+    addApplication(payload);
+    setApplyClub(null);
+    showToast(`Nộp đơn ứng tuyển vào ${payload.clubName} thành công!`);
+  };
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -51,77 +55,49 @@ export default function MemberClubs() {
     return matchSearch && matchTag;
   });
 
-  if (selectedClub) {
-    return <ClubSpace club={selectedClub} onBack={() => setSelectedClub(null)} />;
+  const toastEl = toast && (
+    <div className="fixed top-5 right-7 z-[999] px-5 py-3 rounded-lg text-[13.5px] font-medium shadow-lg bg-emerald-100 text-emerald-900">
+      {toast}
+    </div>
+  );
+
+  if (viewingClub) {
+    return (
+      <>
+        {toastEl}
+        <ClubDetailCard
+          club={viewingClub}
+          clubEvents={[]}
+          onBack={() => setViewingClub(null)}
+          primaryAction={
+            viewingClub.recruiting
+              ? { label: "Nộp đơn ứng tuyển", onClick: () => setApplyClub(viewingClub) }
+              : null
+          }
+        />
+        {applyClub && (
+          <ApplyClubModal
+            club={applyClub}
+            onClose={() => setApplyClub(null)}
+            onSubmitted={handleApplySubmitted}
+          />
+        )}
+      </>
+    );
   }
 
   return (
     <div>
+      {toastEl}
       <div className="page-header">
-        <h1 className="page-title">Câu Lạc Bộ</h1>
-        <p className="page-subtitle">CLB bạn đang tham gia và khám phá thêm</p>
+        <h1 className="page-title">Khám Phá CLB</h1>
+        <p className="page-subtitle">Tìm và đăng ký tham gia câu lạc bộ phù hợp với bạn</p>
       </div>
 
-      {/* CLB đã tham gia */}
+      {/* Danh sách câu lạc bộ */}
       <div className="bg-white rounded-[14px] px-6 py-[22px] shadow-[0_1px_4px_rgba(0,0,0,0.06)] mb-6">
         <div className="flex items-center justify-between mb-[18px]">
-          <h2 className="text-[15px] font-semibold text-gray-900 m-0">CLB đã tham gia</h2>
-          <span className="text-[13px] text-gray-400">{mockJoinedClubs.length} CLB</span>
-        </div>
-
-        {mockJoinedClubs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-9 text-gray-400 gap-2">
-            <Star size={36} strokeWidth={1.5} />
-            <p className="text-sm m-0">Bạn chưa tham gia CLB nào.</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {mockJoinedClubs.map((club) => (
-              <div
-                key={club.id}
-                className="flex items-center gap-3.5 px-4 py-3.5 border-[1.5px] border-[#f0f0f0] rounded-xl transition-all hover:border-[#e6430a33] hover:shadow-[0_2px_8px_rgba(230,67,10,0.07)]"
-              >
-                <div
-                  className="w-[52px] h-[52px] rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                  style={{ background: club.color + "18" }}
-                >
-                  {club.emoji}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 m-0 mb-1 truncate">{club.name}</p>
-                  <p className="flex items-center gap-2 text-xs text-gray-500 m-0">
-                    <span
-                      className="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                      style={{
-                        background: club.color + "18",
-                        color: club.color,
-                        border: `1px solid ${club.color}44`,
-                      }}
-                    >
-                      {club.tag}
-                    </span>
-                    {club.members.toLocaleString()} thành viên
-                  </p>
-                </div>
-                <span className="px-3 py-0.5 rounded-full border border-gray-300 text-xs font-medium text-gray-700 bg-transparent whitespace-nowrap flex-shrink-0">
-                  {club.role}
-                </span>
-                <button
-                  className="flex items-center gap-1 px-3.5 py-[7px] rounded-lg border-[1.5px] border-[#e6430a] bg-transparent text-[#e6430a] text-[13px] font-medium cursor-pointer flex-shrink-0 transition-all hover:bg-[#e6430a] hover:text-white font-[inherit]"
-                  onClick={() => setSelectedClub(club)}
-                >
-                  Vào không gian <ChevronRight size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Câu lạc bộ khác */}
-      <div className="bg-white rounded-[14px] px-6 py-[22px] shadow-[0_1px_4px_rgba(0,0,0,0.06)] mb-6">
-        <div className="flex items-center justify-between mb-[18px]">
-          <h2 className="text-[15px] font-semibold text-gray-900 m-0">Câu lạc bộ khác</h2>
+          <h2 className="text-[15px] font-semibold text-gray-900 m-0">Tất cả câu lạc bộ</h2>
           <span className="text-[13px] text-gray-400">{filtered.length} CLB</span>
         </div>
 
@@ -184,7 +160,9 @@ export default function MemberClubs() {
               Không tìm thấy câu lạc bộ phù hợp.
             </p>
           ) : (
-            filtered.map((club) => <ClubCard key={club.id} club={club} />)
+            filtered.map((club) => (
+              <ClubCard key={club.id} club={club} onSelect={() => setViewingClub(club)} />
+            ))
           )}
         </div>
       </div>
