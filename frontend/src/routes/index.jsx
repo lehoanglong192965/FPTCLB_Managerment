@@ -36,11 +36,13 @@ import ClubMemberMgmt from "../pages/club-leader/ClubMemberMgmt";
 import ClubEventsMgmt from "../pages/club-leader/ClubEventsMgmt";
 import ClubNotifications from "../pages/club-leader/ClubNotifications";
 import ClubReports from "../pages/club-leader/ClubReports";
+import ClubApplicationsMgmt from "../pages/club-leader/ClubApplicationsMgmt";
 
 // Member pages
 import MemberHome from "../pages/member/MemberHome";
 import MemberEvents from "../pages/member/MemberEvents";
 import MemberClubs from "../pages/member/MemberClubs";
+import MemberMyClubs from "../pages/member/MemberMyClubs";
 import MemberNotifications from "../pages/member/MemberNotifications";
 import MemberApply from "../pages/member/MemberApply";
 import ClubRegistrationForm from "../pages/member/ClubRegistrationForm";
@@ -96,6 +98,7 @@ export default function AppRoutes() {
       <Route path="/club-leader" element={<DashboardLayout />}>
         <Route index element={<ClubOverview />} />
         <Route path="members" element={<ClubMemberMgmt />} />
+        <Route path="applications" element={<ClubApplicationsMgmt />} />
         <Route path="events" element={<ClubEventsMgmt />} />
         <Route path="notifications" element={<ClubNotifications />} />
         <Route path="reports" element={<ClubReports />} />
@@ -105,6 +108,7 @@ export default function AppRoutes() {
       {/* ── Member dashboard ────────────────────────────────── */}
       <Route path="/member" element={<DashboardLayout />}>
         <Route index element={<MemberHome />} />
+        <Route path="my-clubs" element={<MemberMyClubs />} />
         <Route path="clubs" element={<MemberClubs />} />
         <Route path="club-register" element={<ClubRegistrationForm />} />
         <Route path="club-register-history" element={<MemberRegistrationHistory />} />

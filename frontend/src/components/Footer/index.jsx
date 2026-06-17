@@ -43,7 +43,7 @@ export default function Footer() {
               <span className="text-[15px] font-extrabold text-[#F37021] tracking-[-0.3px]">FPTU Clubs</span>
             </div>
           </a>
-          <p className="text-[13px] text-white/45 leading-[1.7] max-w-[230px] mt-[14px] mb-5">
+          <p className="text-[13px] leading-[1.7] max-w-[230px] mt-[14px] mb-5" style={{ color: "rgba(255,255,255,0.55)" }}>
             Nền tảng quản lý câu lạc bộ sinh viên chính thức của Đại học FPT
             — kết nối đam mê, xây dựng cộng đồng.
           </p>
@@ -68,7 +68,8 @@ export default function Footer() {
                 <li key={l}>
                   <a
                     href="#"
-                    className="text-[13px] text-white/45 font-medium no-underline transition-colors duration-200 hover:text-[var(--orange-light)]"
+                    className="text-[13px] font-medium no-underline transition-colors duration-200 hover:text-[var(--orange-light)]"
+                    style={{ color: "rgba(255,255,255,0.55)" }}
                   >
                     {l}
                   </a>
@@ -81,7 +82,7 @@ export default function Footer() {
         <div>
           <h4 className="text-[13px] font-extrabold text-white/85 tracking-[0.3px] mb-4">Liên Hệ</h4>
           {CONTACT_ITEMS.map((item) => (
-            <div key={item.text} className="flex items-start gap-2 text-[13px] text-white/45 font-medium mb-[10px] leading-[1.5]">
+            <div key={item.text} className="flex items-start gap-2 text-[13px] font-medium mb-[10px] leading-[1.5]" style={{ color: "rgba(255,255,255,0.55)" }}>
               <span className="flex-shrink-0 mt-[1px]">{item.icon}</span>
               <span>{item.text}</span>
             </div>

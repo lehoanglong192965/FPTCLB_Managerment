@@ -20,6 +20,7 @@ import {
   UserPlus,
   Ban,
   Network,
+  ClipboardList,
 } from "lucide-react";
 
 /*
@@ -66,6 +67,7 @@ export const SIDEBAR_CONFIGS = {
   CLUB_LEADER: [
     { key: "overview",      label: "Tổng Quan CLB",        icon: Home,            path: "/club-leader",              exact: true },
     { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/club-leader/members" },
+    { key: "applications",  label: "Đơn Ứng Tuyển",        icon: ClipboardList,   path: "/club-leader/applications" },
     { key: "events",        label: "Sự Kiện CLB",          icon: Calendar,        path: "/club-leader/events" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/club-leader/notifications" },
     { key: "reports",       label: "Báo Cáo CLB",          icon: BarChart2,       path: "/club-leader/reports" },
@@ -90,10 +92,11 @@ export const SIDEBAR_CONFIGS = {
 
   MEMBER: [
     { key: "home",          label: "Bảng Điều Khiển",      icon: LayoutDashboard, path: "/member",              exact: true },
-    { key: "clubs",         label: "Câu Lạc Bộ",           icon: Star,            path: "/member/clubs" },
+    { key: "my-clubs",      label: "Câu Lạc Bộ Của Tôi",   icon: Building2,       path: "/member/my-clubs" },
+    { key: "clubs",         label: "Khám Phá CLB",         icon: Star,            path: "/member/clubs" },
     { key: "club-register", label: "Đăng Ký Lập CLB",      icon: FileText,        path: "/member/club-register" },
     { key: "club-register-history", label: "Lịch Sử Đăng Ký CLB", icon: FileText, path: "/member/club-register-history" },
-    { key: "apply",         label: "Nộp Đơn Ứng Tuyển",   icon: Send,            path: "/member/apply" },
+    { key: "apply",         label: "Đơn Ứng Tuyển",       icon: Send,            path: "/member/apply" },
     { key: "events",        label: "Sự Kiện",              icon: Calendar,        path: "/member/events" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/member/notifications" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/member/profile" },
