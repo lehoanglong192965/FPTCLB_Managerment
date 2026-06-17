@@ -211,7 +211,8 @@ public class ClubRegistrationServiceImpl implements ClubRegistrationService {
 
             // 3. Create memberships for all founding members
             for (ClubRegistrationMember fm : registration.getFoundingMembers()) {
-                UserAccount fmUser = userRepository.findByStudentIdAndIsDeletedFalse(fm.getStudentId()).get();
+                UserAccount fmUser = userRepository.findByStudentIdAndIsDeletedFalse(fm.getStudentId())
+                        .orElseThrow(() -> new BusinessRuleException("Thành viên sáng lập có MSSV: " + fm.getStudentId() + " chưa có tài khoản trên hệ thống."));
                 ClubMembership fmMembership = new ClubMembership();
                 fmMembership.setClubID(club.getClubID());
                 fmMembership.setUserID(fmUser.getUserID());
