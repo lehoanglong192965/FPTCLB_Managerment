@@ -8,6 +8,7 @@ import com.fptu.fcms.entity.*;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,7 @@ public class ClubBoardServiceImpl implements ClubBoardService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "memberRanking", allEntries = true)
     public ClubBoardMemberResponse changeBoardMember(
             Integer clubID,
             ClubBoardChangeRequest request,

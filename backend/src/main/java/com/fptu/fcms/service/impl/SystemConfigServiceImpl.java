@@ -6,6 +6,7 @@ import com.fptu.fcms.repository.SystemConfigRepository;
 import com.fptu.fcms.service.SystemConfigService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -25,6 +26,7 @@ public class SystemConfigServiceImpl
 
     // Cập nhật giá trị cấu hình theo configKey
     @Override
+    @CacheEvict(value = "memberRanking", allEntries = true)
     public Object updateConfig(
             String configKey,
             SystemConfigRequest request

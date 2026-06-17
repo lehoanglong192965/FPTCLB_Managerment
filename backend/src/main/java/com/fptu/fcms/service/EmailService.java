@@ -27,5 +27,7 @@ public interface EmailService {
     void sendInterviewPassedEmail(String email, String clubName);
 
     void sendInterviewFailedEmail(String email, String clubName);
+
+    void sendEventReportReminderEmail(String email, String eventName);
 }
 

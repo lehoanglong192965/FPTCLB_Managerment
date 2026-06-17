@@ -151,6 +151,22 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
             Integer semesterID
     );
 
+    @Query("SELECT DISTINCT u FROM ClubMembership m, UserAccount u " +
+            "WHERE m.userID = u.userID " +
+            "AND m.clubID = :clubID " +
+            "AND m.isDeleted = false " +
+            "AND u.isDeleted = false " +
+            "AND u.accountStatus = 'Active'")
+    List<com.fptu.fcms.entity.UserAccount> findActiveUsersByClubID(
+            @Param("clubID") Integer clubID
+    );
+
+    List<ClubMembership> findByClubIDAndSemesterIDAndClubRoleIDInAndIsDeletedFalse(
+            Integer clubID,
+            Integer semesterID,
+            List<Integer> clubRoleIDs
+    );
+
     boolean existsByClubIDAndUserIDAndIsDeletedFalse(
             Integer clubID,
             Integer userID

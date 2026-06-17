@@ -54,6 +54,16 @@ public class Event {
     @Column(name = "eventStatus")
     private String eventStatus;
 
+    @org.hibernate.annotations.Nationalized
+    @Column(name = "pdpFeedback")
+    private String pdpFeedback;
+
+    @Column(name = "approvedBy")
+    private Integer approvedBy;
+
+    @Column(name = "approvedAt")
+    private LocalDateTime approvedAt;
+
     @Column(name = "isResubmitted")
     private Boolean isResubmitted;
 

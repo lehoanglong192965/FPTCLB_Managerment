@@ -142,6 +142,20 @@ public class EmailServiceImpl implements EmailService {
         );
     }
 
+    @Override
+    @Async
+    public void sendEventReportReminderEmail(String email, String eventName) {
+        String text = "Sự kiện " + eventName + " đã kết thúc quá 7 ngày.\n"
+                + "Vui lòng upload báo cáo tổng kết sự kiện lên hệ thống.";
+
+        sendPlainTextEmail(
+                email,
+                "Nhắc upload báo cáo sự kiện",
+                text,
+                "event report reminder"
+        );
+    }
+
     private void sendPlainTextEmail(
             String email,
             String subject,
