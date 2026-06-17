@@ -1,4 +1,4 @@
-package com.fptu.fcms.service;
+package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.dto.request.ClubRegistrationRequestDTO;
 import com.fptu.fcms.dto.request.FoundingMemberDTO;
@@ -7,6 +7,7 @@ import com.fptu.fcms.dto.response.ClubRegistrationResponseDTO;
 import com.fptu.fcms.entity.*;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.*;
+import com.fptu.fcms.service.ClubRegistrationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +22,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class ClubRegistrationService {
+public class ClubRegistrationServiceImpl implements ClubRegistrationService {
 
     private final ClubRegistrationRepository registrationRepository;
     private final UserRepository userRepository;
@@ -30,6 +31,7 @@ public class ClubRegistrationService {
     private final ClubRoleRepository clubRoleRepository;
     private final SemesterRepository semesterRepository;
 
+    @Override
     @Transactional
     public ClubRegistrationResponseDTO submitRegistration(ClubRegistrationRequestDTO request, Integer currentUserId) {
         // Validate active semester
@@ -116,6 +118,7 @@ public class ClubRegistrationService {
         return mapToResponse(saved);
     }
 
+    @Override
     @Transactional(readOnly = true)
     public List<ClubRegistrationResponseDTO> getMyRegistrations(Integer currentUserId) {
         return registrationRepository.findByCreatedByAndIsDeletedFalse(currentUserId).stream()
@@ -123,6 +126,7 @@ public class ClubRegistrationService {
                 .collect(Collectors.toList());
     }
 
+    @Override
     @Transactional(readOnly = true)
     public List<ClubRegistrationResponseDTO> getPendingRegistrations() {
         return registrationRepository.findByStatusAndIsDeletedFalse("PENDING").stream()
@@ -130,6 +134,7 @@ public class ClubRegistrationService {
                 .collect(Collectors.toList());
     }
 
+    @Override
     @Transactional(readOnly = true)
     public ClubRegistrationResponseDTO getRegistrationById(Integer id) {
         ClubRegistration registration = registrationRepository.findById(id)
@@ -138,6 +143,7 @@ public class ClubRegistrationService {
         return mapToResponse(registration);
     }
 
+    @Override
     @Transactional
     public ClubRegistrationResponseDTO reviewRegistration(Integer id, ReviewRegistrationRequestDTO request, Integer reviewerId) {
         ClubRegistration registration = registrationRepository.findById(id)
@@ -205,8 +211,7 @@ public class ClubRegistrationService {
 
             // 3. Create memberships for all founding members
             for (ClubRegistrationMember fm : registration.getFoundingMembers()) {
-                UserAccount fmUser = userRepository.findByStudentIdAndIsDeletedFalse(fm.getStudentId())
-                        .orElseThrow(() -> new BusinessRuleException("Thành viên sáng lập có MSSV: " + fm.getStudentId() + " chưa có tài khoản trên hệ thống."));
+                UserAccount fmUser = userRepository.findByStudentIdAndIsDeletedFalse(fm.getStudentId()).get();
                 ClubMembership fmMembership = new ClubMembership();
                 fmMembership.setClubID(club.getClubID());
                 fmMembership.setUserID(fmUser.getUserID());
