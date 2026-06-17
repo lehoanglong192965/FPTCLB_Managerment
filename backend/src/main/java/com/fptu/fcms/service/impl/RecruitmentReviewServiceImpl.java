@@ -19,6 +19,8 @@ import com.fptu.fcms.repository.ClubRoleRepository;
 import com.fptu.fcms.repository.InterviewScheduleRepository;
 import com.fptu.fcms.repository.RecruitmentApplicationRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.repository.ClubRepository;
+import com.fptu.fcms.entity.Club;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -56,6 +58,7 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
     private final InterviewScheduleRepository interviewScheduleRepository;
     private final AuditLogRepository auditLogRepository;
     private final EmailService emailService;
+    private final ClubRepository clubRepository;
 
     @Override
     @Transactional
@@ -89,11 +92,13 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
                     "BR-R05 application review accepted"
             );
 
+            String clubName = getClubName(application.getClubID());
             sendAfterCommit(() -> emailService.sendApplicationAcceptedEmail(
                     student.getEmail(),
                     student.getFullName(),
                     request.getInterviewTime(),
-                    request.getInterviewLocation()
+                    request.getInterviewLocation(),
+                    clubName
             ));
 
             return buildResponse(savedApplication, student, schedule);
@@ -112,7 +117,8 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
                 "BR-R05 application review rejected"
         );
 
-        sendAfterCommit(() -> emailService.sendApplicationRejectedEmail(student.getEmail()));
+        String clubName = getClubName(application.getClubID());
+        sendAfterCommit(() -> emailService.sendApplicationRejectedEmail(student.getEmail(), clubName));
 
         return buildResponse(savedApplication, student, null);
     }
@@ -165,7 +171,8 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
                     "Automatic membership creation after passed interview"
             );
 
-            sendAfterCommit(() -> emailService.sendInterviewPassedEmail(student.getEmail()));
+            String clubName = getClubName(application.getClubID());
+            sendAfterCommit(() -> emailService.sendInterviewPassedEmail(student.getEmail(), clubName));
         } else {
             writeAuditLog(
                     actorID,
@@ -177,7 +184,8 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
                     "Interview failed"
             );
 
-            sendAfterCommit(() -> emailService.sendInterviewFailedEmail(student.getEmail()));
+            String clubName = getClubName(application.getClubID());
+            sendAfterCommit(() -> emailService.sendInterviewFailedEmail(student.getEmail(), clubName));
         }
 
         return buildResponse(savedApplication, student, schedule);
@@ -316,17 +324,12 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
     }
 
     private void writeAuditLog(
-            Integer actorID,
-            String actionType,
-            String tableName,
-            Integer recordID,
-            String oldValue,
-            String newValue,
-            String reason
+            Integer actorID, String action, String tableName, Integer recordID,
+            String oldValue, String newValue, String reason
     ) {
         AuditLog log = new AuditLog();
         log.setActorID(actorID);
-        log.setActionType(actionType);
+        log.setActionType(action);
         log.setTableName(tableName);
         log.setRecordID(recordID);
         log.setOldValue(oldValue);
@@ -334,6 +337,12 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
         log.setOverrideReason(reason);
         log.setExecutedAt(LocalDateTime.now());
         auditLogRepository.save(log);
+    }
+
+    private String getClubName(Integer clubId) {
+        return clubRepository.findById(clubId)
+                .map(Club::getClubName)
+                .orElse("Câu lạc bộ");
     }
 
     private RecruitmentDecisionResponse buildResponse(
