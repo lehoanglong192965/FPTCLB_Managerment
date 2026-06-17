@@ -20,30 +20,18 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        try {
-            AuthResponse response = authService.login(request);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", e.getMessage()));
-        }
+    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
+        return ResponseEntity.ok(authService.login(request));
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@RequestBody Map<String, String> request) {
-        try {
-            String refreshToken = request.get("refreshToken");
-            AuthResponse response = authService.refreshToken(refreshToken);
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", e.getMessage()));
-        }
+    public ResponseEntity<AuthResponse> refresh(@RequestBody Map<String, String> request) {
+        String refreshToken = request.get("refreshToken");
+        return ResponseEntity.ok(authService.refreshToken(refreshToken));
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<Map<String, String>> register(@RequestBody RegisterRequest request) {
         authService.register(request);
         return ResponseEntity.ok(Map.of(
                 "message", "Đăng ký tài khoản thành công! Vui lòng kiểm tra email để nhận mã OTP.",
@@ -52,7 +40,7 @@ public class AuthController {
     }
 
     @PostMapping("/verify-otp")
-    public ResponseEntity<?> verifyOTP(@RequestBody VerifyOTPRequest request) {
+    public ResponseEntity<Map<String, String>> verifyOTP(@RequestBody VerifyOTPRequest request) {
         authService.verifyOTPAndActivateAccount(request);
         return ResponseEntity.ok(Map.of(
                 "message", "Xác thực thành công! Tài khoản của bạn đã được kích hoạt.",
@@ -61,15 +49,16 @@ public class AuthController {
     }
 
     @PostMapping("/resend-otp")
-    public ResponseEntity<?> resendOTP(@RequestParam String email) {
+    public ResponseEntity<Map<String, String>> resendOTP(@RequestParam String email) {
         authService.resendOTP(email);
         return ResponseEntity.ok(Map.of(
                 "message", "Mã OTP đã được gửi lại. Vui lòng kiểm tra email của bạn.",
                 "email", email
         ));
     }
+
     @PostMapping("/logout")
-    public ResponseEntity<?> logout() {
+    public ResponseEntity<Map<String, String>> logout() {
         return ResponseEntity.ok(Map.of("message", "Đăng xuất thành công!"));
     }
 }
