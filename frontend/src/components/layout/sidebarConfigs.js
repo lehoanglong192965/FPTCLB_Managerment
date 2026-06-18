@@ -71,6 +71,7 @@ export const SIDEBAR_CONFIGS = {
     { key: "events",        label: "Sự Kiện CLB",          icon: Calendar,        path: "/club-leader/events" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/club-leader/notifications" },
     { key: "reports",       label: "Báo Cáo CLB",          icon: BarChart2,       path: "/club-leader/reports" },
+    { key: "blacklist",     label: "Danh Sách Đen",        icon: Ban,             path: "/club-leader/blacklist" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/club-leader/profile" },
   ],
 
