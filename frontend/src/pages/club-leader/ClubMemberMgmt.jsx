@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Users, Mail, Search, X, Phone, BookOpen, Calendar, Hash, ShieldOff, ChevronRight } from "lucide-react";
+import { Users, Mail, Search, X, Phone, BookOpen, Calendar, Hash, ShieldOff, ChevronRight, Ban } from "lucide-react";
+import { useClubData } from "../../contexts/ClubDataContext";
 
 const ROLE_BADGE = {
   Leader:     { label: "Trưởng CLB",    color: "#E6430A", bg: "#FFF3EE" },
@@ -8,58 +9,7 @@ const ROLE_BADGE = {
   Member:     { label: "Thành viên",    color: "#059669", bg: "#ecfdf5" },
 };
 
-const MOCK_MEMBERS = [
-  {
-    membershipID: 1, userID: 101, fullName: "Nguyễn Văn A",
-    email: "aNV@fpt.edu.vn", phone: "0901234567",
-    studentCode: "SE180001", major: "Software Engineering",
-    clubRoleName: "Leader", semesterCode: "SU26", joinedDate: "2025-09-01",
-  },
-  {
-    membershipID: 2, userID: 102, fullName: "Trần Thị Bình",
-    email: "binhTT@fpt.edu.vn", phone: "0912345678",
-    studentCode: "SE180002", major: "Artificial Intelligence",
-    clubRoleName: "ViceLeader", semesterCode: "SU26", joinedDate: "2025-09-01",
-  },
-  {
-    membershipID: 3, userID: 103, fullName: "Lê Hoàng Cường",
-    email: "cuongLH@fpt.edu.vn", phone: "0923456789",
-    studentCode: "SE180003", major: "Information Security",
-    clubRoleName: "CoreTeam", semesterCode: "SU26", joinedDate: "2025-09-05",
-  },
-  {
-    membershipID: 4, userID: 104, fullName: "Phạm Ngọc Dung",
-    email: "dungPN@fpt.edu.vn", phone: "0934567890",
-    studentCode: "SE180004", major: "Software Engineering",
-    clubRoleName: "Member", semesterCode: "SU26", joinedDate: "2025-09-10",
-  },
-  {
-    membershipID: 5, userID: 105, fullName: "Hoàng Minh Đức",
-    email: "ducHM@fpt.edu.vn", phone: "0945678901",
-    studentCode: "SE180005", major: "Business IT",
-    clubRoleName: "Member", semesterCode: "SU26", joinedDate: "2025-09-10",
-  },
-  {
-    membershipID: 6, userID: 106, fullName: "Vũ Thị Lan",
-    email: "lanVT@fpt.edu.vn", phone: "0956789012",
-    studentCode: "SE180006", major: "Digital Art & Design",
-    clubRoleName: "Member", semesterCode: "SU26", joinedDate: "2025-09-12",
-  },
-  {
-    membershipID: 7, userID: 107, fullName: "Đặng Quốc Hùng",
-    email: "hungDQ@fpt.edu.vn", phone: "0967890123",
-    studentCode: "SE180007", major: "Software Engineering",
-    clubRoleName: "Member", semesterCode: "SU26", joinedDate: "2025-09-15",
-  },
-  {
-    membershipID: 8, userID: 108, fullName: "Ngô Thị Mai",
-    email: "maiNT@fpt.edu.vn", phone: "0978901234",
-    studentCode: "SE180008", major: "Information Technology",
-    clubRoleName: "Member", semesterCode: "SU26", joinedDate: "2025-09-18",
-  },
-];
-
-function RoleBadge({ role }) {
+export function RoleBadge({ role }) {
   const cfg = ROLE_BADGE[role] ?? { label: role, color: "#6b7280", bg: "#f3f4f6" };
   return (
     <span style={{
@@ -71,7 +21,7 @@ function RoleBadge({ role }) {
   );
 }
 
-function Avatar({ name, size = 38 }) {
+export function Avatar({ name, size = 38 }) {
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%", flexShrink: 0,
@@ -95,20 +45,80 @@ function InfoRow({ icon: Icon, label, value }) {
   );
 }
 
-function MemberModal({ member, onClose, onExpel }) {
-  const [showExpel, setShowExpel]   = useState(false);
-  const [reason, setReason]         = useState("");
-  const [reasonError, setReasonError] = useState("");
+function ActionSection({ label, buttonStyle, icon: Icon, confirmTitle, onConfirm }) {
+  const [open, setOpen]     = useState(false);
+  const [reason, setReason] = useState("");
+  const [error, setError]   = useState("");
 
-  const canExpel = member.clubRoleName !== "Leader";
-
-  const handleExpelConfirm = () => {
-    if (!reason.trim()) {
-      setReasonError("Vui lòng nhập lý do khai trừ.");
-      return;
-    }
-    onExpel(member, reason.trim());
+  const handleConfirm = () => {
+    if (!reason.trim()) { setError("Vui lòng nhập lý do."); return; }
+    onConfirm(reason.trim());
   };
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          width: "100%", padding: "9px 0", borderRadius: 10,
+          fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+          ...buttonStyle,
+        }}
+      >
+        <Icon size={14} /> {label}
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ borderRadius: 12, border: `1.5px solid ${buttonStyle.borderColor ?? "#fee2e2"}`, background: buttonStyle.confirmBg ?? "#fff5f5", padding: 14 }}>
+      <p style={{ fontSize: 13, fontWeight: 600, color: buttonStyle.color, margin: "0 0 10px", display: "flex", alignItems: "center", gap: 6 }}>
+        <Icon size={14} /> {confirmTitle}
+      </p>
+      <label style={{ fontSize: 12, fontWeight: 600, color: "#4b5563", display: "block", marginBottom: 4 }}>
+        Lý do <span style={{ color: "#ef4444" }}>*</span>
+      </label>
+      <textarea
+        value={reason}
+        onChange={(e) => { setReason(e.target.value); setError(""); }}
+        rows={3}
+        placeholder="Nhập lý do..."
+        style={{
+          width: "100%", padding: "8px 10px", borderRadius: 8, fontFamily: "inherit",
+          border: `1.5px solid ${error ? "#ef4444" : (buttonStyle.borderColor ?? "#fca5a5")}`,
+          fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box", background: "#fff",
+        }}
+      />
+      {error && <p style={{ color: "#ef4444", fontSize: 12, margin: "4px 0 0" }}>{error}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <button
+          onClick={handleConfirm}
+          style={{
+            flex: 1, padding: "8px 0", borderRadius: 8, border: "none",
+            background: buttonStyle.confirmColor ?? "#ef4444",
+            color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+          }}
+        >
+          Xác nhận
+        </button>
+        <button
+          onClick={() => { setOpen(false); setReason(""); setError(""); }}
+          style={{
+            padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e5e7eb",
+            background: "#fff", color: "#6b7280", fontSize: 13, fontWeight: 600,
+            cursor: "pointer", fontFamily: "inherit",
+          }}
+        >
+          Hủy
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MemberModal({ member, isBlacklisted, onClose, onExpel, onBlacklist }) {
+  const canAct = member.clubRoleName !== "Leader";
 
   const formatDate = (iso) =>
     iso ? new Date(iso).toLocaleDateString("vi-VN", { year: "numeric", month: "long", day: "numeric" }) : "—";
@@ -132,10 +142,7 @@ function MemberModal({ member, onClose, onExpel }) {
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 20px 0" }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>Thông tin thành viên</span>
-          <button
-            onClick={onClose}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4 }}
-          >
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", padding: 4 }}>
             <X size={18} />
           </button>
         </div>
@@ -149,91 +156,64 @@ function MemberModal({ member, onClose, onExpel }) {
 
         {/* Chi tiết */}
         <div style={{ padding: "4px 20px 8px" }}>
-          <InfoRow icon={Mail}     label="Email"      value={member.email} />
-          <InfoRow icon={Phone}    label="Điện thoại" value={member.phone} />
-          <InfoRow icon={Hash}     label="MSSV"       value={member.studentCode} />
-          <InfoRow icon={BookOpen} label="Ngành"      value={member.major} />
+          <InfoRow icon={Mail}     label="Email"         value={member.email} />
+          <InfoRow icon={Phone}    label="Điện thoại"    value={member.phone} />
+          <InfoRow icon={Hash}     label="MSSV"          value={member.studentCode} />
+          <InfoRow icon={BookOpen} label="Ngành"         value={member.major} />
           <InfoRow icon={Calendar} label="Ngày tham gia" value={formatDate(member.joinedDate)} />
-          <InfoRow icon={Calendar} label="Học kỳ"    value={member.semesterCode} />
+          <InfoRow icon={Calendar} label="Học kỳ"        value={member.semesterCode} />
         </div>
 
-        {/* Khai trừ */}
-        {canExpel && (
-          <div style={{ padding: "12px 20px 20px" }}>
-            {!showExpel ? (
-              <button
-                onClick={() => setShowExpel(true)}
-                style={{
-                  width: "100%", padding: "9px 0", borderRadius: 10,
-                  border: "1.5px solid #fee2e2", background: "#fff",
-                  color: "#ef4444", fontSize: 13, fontWeight: 600,
-                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                  fontFamily: "inherit",
-                }}
-              >
-                <ShieldOff size={14} /> Khai trừ thành viên
-              </button>
-            ) : (
-              <div style={{ borderRadius: 12, border: "1.5px solid #fee2e2", background: "#fff5f5", padding: 14 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: "#dc2626", margin: "0 0 10px", display: "flex", alignItems: "center", gap: 6 }}>
-                  <ShieldOff size={14} /> Xác nhận khai trừ {member.fullName}?
-                </p>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#4b5563", display: "block", marginBottom: 4 }}>
-                  Lý do khai trừ <span style={{ color: "#ef4444" }}>*</span>
-                </label>
-                <textarea
-                  value={reason}
-                  onChange={(e) => { setReason(e.target.value); setReasonError(""); }}
-                  rows={3}
-                  placeholder="Nhập lý do khai trừ thành viên..."
-                  style={{
-                    width: "100%", padding: "8px 10px", borderRadius: 8, fontFamily: "inherit",
-                    border: `1.5px solid ${reasonError ? "#ef4444" : "#fca5a5"}`,
-                    fontSize: 13, outline: "none", resize: "vertical",
-                    boxSizing: "border-box", background: "#fff",
-                  }}
-                />
-                {reasonError && (
-                  <p style={{ color: "#ef4444", fontSize: 12, margin: "4px 0 0" }}>{reasonError}</p>
-                )}
-                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                  <button
-                    onClick={handleExpelConfirm}
-                    style={{
-                      flex: 1, padding: "8px 0", borderRadius: 8, border: "none",
-                      background: "#ef4444", color: "#fff", fontSize: 13, fontWeight: 600,
-                      cursor: "pointer", fontFamily: "inherit",
-                    }}
-                  >
-                    Xác nhận khai trừ
-                  </button>
-                  <button
-                    onClick={() => { setShowExpel(false); setReason(""); setReasonError(""); }}
-                    style={{
-                      padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e5e7eb",
-                      background: "#fff", color: "#6b7280", fontSize: 13, fontWeight: 600,
-                      cursor: "pointer", fontFamily: "inherit",
-                    }}
-                  >
-                    Hủy
-                  </button>
-                </div>
+        {/* Hành động */}
+        {canAct && (
+          <div style={{ padding: "12px 20px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Khai trừ */}
+            <ActionSection
+              label="Khai trừ thành viên"
+              icon={ShieldOff}
+              confirmTitle={`Xác nhận khai trừ ${member.fullName}?`}
+              buttonStyle={{
+                border: "1.5px solid #fee2e2", background: "#fff", color: "#ef4444",
+                borderColor: "#fca5a5", confirmBg: "#fff5f5", confirmColor: "#ef4444",
+              }}
+              onConfirm={(reason) => onExpel(member, reason)}
+            />
+
+            {/* Thêm vào danh sách đen */}
+            {isBlacklisted ? (
+              <div style={{
+                padding: "9px 0", borderRadius: 10, textAlign: "center",
+                border: "1.5px solid #e5e7eb", background: "#f9fafb",
+                fontSize: 13, color: "#9ca3af", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              }}>
+                <Ban size={13} /> Đã trong danh sách đen
               </div>
+            ) : (
+              <ActionSection
+                label="Thêm vào danh sách đen"
+                icon={Ban}
+                confirmTitle={`Xác nhận cấm ${member.fullName}?`}
+                buttonStyle={{
+                  border: "1.5px solid #fde68a", background: "#fff", color: "#b45309",
+                  borderColor: "#fcd34d", confirmBg: "#fffbeb", confirmColor: "#b45309",
+                }}
+                onConfirm={(reason) => onBlacklist(member, reason)}
+              />
             )}
           </div>
         )}
 
-        {!canExpel && <div style={{ height: 20 }} />}
+        {!canAct && <div style={{ height: 20 }} />}
       </div>
     </div>
   );
 }
 
 export default function ClubMemberMgmt() {
-  const [members, setMembers]     = useState(MOCK_MEMBERS);
-  const [search, setSearch]       = useState("");
-  const [selected, setSelected]   = useState(null);
-  const [toast, setToast]         = useState(null);
+  const { members, blacklist, expelMember, addToBlacklist } = useClubData();
+  const [search, setSearch]   = useState("");
+  const [selected, setSelected] = useState(null);
+  const [toast, setToast]     = useState(null);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -241,15 +221,24 @@ export default function ClubMemberMgmt() {
   };
 
   const handleExpel = (member, reason) => {
-    setMembers((prev) => prev.filter((m) => m.membershipID !== member.membershipID));
+    expelMember(member);
     setSelected(null);
     showToast(`Đã khai trừ ${member.fullName}.`);
+  };
+
+  const handleBlacklist = (member, reason) => {
+    addToBlacklist(member, reason);
+    setSelected(null);
+    showToast(`Đã thêm ${member.fullName} vào danh sách đen.`);
   };
 
   const filtered = members.filter((m) => {
     const q = search.toLowerCase();
     return m.fullName?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q);
   });
+
+  const isBlacklisted = (member) =>
+    blacklist.some((b) => b.userID === member.userID);
 
   return (
     <div>
@@ -258,9 +247,7 @@ export default function ClubMemberMgmt() {
         <p className="page-subtitle">Danh sách thành viên câu lạc bộ</p>
       </div>
 
-      {toast && (
-        <div className={`co-toast co-toast-${toast.type}`}>{toast.msg}</div>
-      )}
+      {toast && <div className={`co-toast co-toast-${toast.type}`}>{toast.msg}</div>}
 
       <div className="content-card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: "1rem", flexWrap: "wrap" }}>
@@ -323,8 +310,10 @@ export default function ClubMemberMgmt() {
       {selected && (
         <MemberModal
           member={selected}
+          isBlacklisted={isBlacklisted(selected)}
           onClose={() => setSelected(null)}
           onExpel={handleExpel}
+          onBlacklist={handleBlacklist}
         />
       )}
     </div>
