@@ -19,8 +19,8 @@ const authApi = {
   forgotPassword: (email) =>
     axiosClient.post("/auth/forgot-password", { email }),
 
-  resetPassword: ({ email, otp, newPassword }) =>
-    axiosClient.post("/auth/reset-password", { email, otp, newPassword }),
+  resetPassword: ({ email, otp, newPassword, confirmPassword }) =>
+    axiosClient.post("/auth/reset-password", { email, otp, newPassword, confirmPassword }),
 
   updateProfile: ({ fullName, major, phoneNumber }) =>
     axiosClient.put("/user/profile", { fullName, major, phoneNumber }),
