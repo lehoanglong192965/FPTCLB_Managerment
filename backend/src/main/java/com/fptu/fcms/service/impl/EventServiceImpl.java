@@ -122,4 +122,46 @@ public class EventServiceImpl implements EventService {
             }
         }
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getPendingEvents() {
+        return eventRepository.findByEventStatusAndIsDeletedFalse("Pending");
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Event getEventById(Integer eventId) {
+        return eventRepository.findById(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
+    }
+
+    @Override
+    @Transactional
+    public void approveEvent(Integer eventId) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
+        
+        if (!"Pending".equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Chỉ có thể phê duyệt sự kiện đang ở trạng thái chờ duyệt (Pending).");
+        }
+        
+        event.setEventStatus("Approved");
+        eventRepository.save(event);
+    }
+
+    @Override
+    @Transactional
+    public void rejectEvent(Integer eventId, String reason) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
+        
+        if (!"Pending".equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Chỉ có thể từ chối sự kiện đang ở trạng thái chờ duyệt (Pending).");
+        }
+        
+        event.setEventStatus("Rejected");
+        event.setRejectionReason(reason);
+        eventRepository.save(event);
+    }
 }

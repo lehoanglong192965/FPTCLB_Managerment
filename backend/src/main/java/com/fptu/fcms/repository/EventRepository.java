@@ -10,6 +10,8 @@ import java.util.List;
 public interface EventRepository extends JpaRepository<Event, Integer> {
     List<Event> findByClubIDAndIsDeletedFalse(Integer clubID);
 
+    List<Event> findByEventStatusAndIsDeletedFalse(String status);
+    
     // [BR-G02] Tìm các event Pending lâu hơn một mốc thời gian
     List<Event> findByEventStatusAndCreatedAtBeforeAndIsDeletedFalse(String status, java.time.LocalDateTime date);
 }

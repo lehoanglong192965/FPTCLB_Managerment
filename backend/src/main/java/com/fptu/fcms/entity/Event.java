@@ -54,6 +54,10 @@ public class Event {
     @Column(name = "eventStatus")
     private String eventStatus;
 
+    @org.hibernate.annotations.Nationalized
+    @Column(name = "rejectionReason")
+    private String rejectionReason;
+
     @Column(name = "isResubmitted")
     private Boolean isResubmitted;
 
