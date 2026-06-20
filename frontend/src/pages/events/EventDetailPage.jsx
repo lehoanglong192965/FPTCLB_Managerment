@@ -1,10 +1,19 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { EVENTS } from "../../constants/mockData";
+import { useEvents } from "../../contexts/EventsContext";
 
 const BADGE_LABEL = {
   open:     "Đăng ký mở",
   upcoming: "Sắp diễn ra",
   full:     "Hết chỗ",
+};
+
+const TICKET_BADGE = {
+  registered: { label: "Đã đăng ký",   bg: "#DCFCE7", color: "#15803D" },
+  ongoing:    { label: "Đang diễn ra", bg: "#DBEAFE", color: "#1D4ED8" },
+  completed:  { label: "Đã kết thúc",  bg: "#F3F4F6", color: "#6B7280" },
+  cancelled:  { label: "Đã hủy",       bg: "#FEE2E2", color: "#DC2626" },
 };
 
 function CalendarIcon() {
@@ -52,10 +61,27 @@ function InfoIcon() {
   );
 }
 
+const LS_KEY = "fptclb_cancelled_tickets";
+const getCancelled = () => new Set(JSON.parse(localStorage.getItem(LS_KEY) ?? "[]"));
+const saveCancel   = (t) => {
+  const s = getCancelled(); s.add(t);
+  localStorage.setItem(LS_KEY, JSON.stringify([...s]));
+};
+
 export default function EventDetailPage() {
-  const { title }  = useParams();
-  const navigate   = useNavigate();
-  const event      = EVENTS.find((e) => e.title === decodeURIComponent(title));
+  const { title }    = useParams();
+  const navigate     = useNavigate();
+  const location     = useLocation();
+  const fromTickets  = location.state?.fromTickets ?? false;
+  const ticketStatus = location.state?.ticketStatus ?? null;
+  const eventTitle   = decodeURIComponent(title);
+
+  const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [cancelled, setCancelled]         = useState(() => getCancelled().has(eventTitle));
+
+  const { approvedEvents } = useEvents();
+  const allEvents = [...approvedEvents, ...EVENTS.filter((e) => !approvedEvents.some((a) => a.id === e.id))];
+  const event = allEvents.find((e) => e.title === eventTitle);
 
   if (!event) {
     return (
@@ -71,7 +97,9 @@ export default function EventDetailPage() {
     );
   }
 
-  const heroBg      = `linear-gradient(135deg, ${event.color}ee, ${event.color}99)`;
+  const heroBg      = event.bannerUrl
+    ? undefined
+    : `linear-gradient(135deg, ${event.color}ee, ${event.color}99)`;
   const fillPct     = Math.round((event.currentParticipants / event.maxParticipants) * 100);
   const isFull      = event.badgeType === "full";
 
@@ -82,17 +110,34 @@ export default function EventDetailPage() {
         {/* Hero banner */}
         <div
           className="relative rounded-[18px] overflow-hidden h-[340px] flex items-center justify-center max-md:h-[240px]"
-          style={{ background: heroBg }}
+          style={
+            event.bannerUrl
+              ? { backgroundImage: `url(${event.bannerUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+              : { background: heroBg }
+          }
         >
-          <span className="text-[120px] opacity-[0.18] select-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 leading-none">
-            {event.emoji}
-          </span>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/72 to-transparent flex flex-col justify-end px-9 py-8">
-            <span className={`inline-flex items-center text-[12px] font-bold px-3 py-1 rounded-full mb-2.5 w-fit ${
-              event.badgeType === "full" ? "bg-[#6B7280] text-white" : "bg-[#F37021] text-white"
-            }`}>
-              {BADGE_LABEL[event.badgeType]}
+          {!event.bannerUrl && (
+            <span className="text-[120px] opacity-[0.18] select-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 leading-none">
+              {event.emoji}
             </span>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/72 to-transparent flex flex-col justify-end px-9 py-8">
+            {fromTickets ? (() => {
+              const key = cancelled ? "cancelled" : ticketStatus;
+              const tb  = TICKET_BADGE[key] ?? TICKET_BADGE.registered;
+              return (
+                <span className="inline-flex items-center text-[12px] font-bold px-3 py-1 rounded-full mb-2.5 w-fit"
+                  style={{ background: tb.bg, color: tb.color }}>
+                  {tb.label}
+                </span>
+              );
+            })() : (
+              <span className={`inline-flex items-center text-[12px] font-bold px-3 py-1 rounded-full mb-2.5 w-fit ${
+                event.badgeType === "full" ? "bg-[#6B7280] text-white" : "bg-[#F37021] text-white"
+              }`}>
+                {BADGE_LABEL[event.badgeType]}
+              </span>
+            )}
             <h1 className="text-[clamp(1.6rem,3.5vw,2.4rem)] font-black text-white tracking-[-0.5px] mb-2 leading-[1.15]">
               {event.title}
             </h1>
@@ -167,18 +212,66 @@ export default function EventDetailPage() {
                 </div>
               </div>
 
-              {/* Register button */}
-              <button
-                className={`w-full py-[13px] mt-1 border-none rounded-[10px] text-[15px] font-bold font-[inherit] transition-all ${
-                  isFull
-                    ? "bg-[#D1D5DB] text-[#9CA3AF] cursor-not-allowed"
-                    : "bg-[#F37021] text-white cursor-pointer hover:bg-[#e05c0a] hover:-translate-y-px"
-                }`}
-                disabled={isFull}
-                onClick={() => !isFull && navigate("/register")}
-              >
-                {isFull ? "Đã hết chỗ" : "Đăng ký tham gia"}
-              </button>
+              {/* Action button — đổi theo context (ticket vs. explore) */}
+              {fromTickets ? (
+                ticketStatus === "registered" ? (
+                  cancelled ? (
+                    <div className="w-full py-[13px] mt-1 rounded-[10px] text-[15px] font-bold text-center"
+                      style={{ background: "#F3F4F6", color: "#6B7280" }}>
+                      Đã hủy đăng ký
+                    </div>
+                  ) : cancelConfirm ? (
+                    <div className="flex flex-col gap-2 mt-1">
+                      <p className="text-[13px] text-center text-[#6B7280] m-0">Xác nhận hủy đăng ký sự kiện này?</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setCancelConfirm(false)}
+                          className="flex-1 py-2.5 rounded-[10px] border-[1.5px] border-gray-200 text-[13.5px] font-semibold text-gray-600 bg-white cursor-pointer font-[inherit]"
+                        >
+                          Giữ lại
+                        </button>
+                        <button
+                          onClick={() => { saveCancel(eventTitle); setCancelled(true); setCancelConfirm(false); }}
+                          className="flex-1 py-2.5 rounded-[10px] border-none text-[13.5px] font-semibold text-white cursor-pointer font-[inherit]"
+                          style={{ background: "#e11d48" }}
+                        >
+                          Xác nhận
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setCancelConfirm(true)}
+                      className="w-full py-[13px] mt-1 border-none rounded-[10px] text-[15px] font-bold font-[inherit] cursor-pointer transition-all hover:-translate-y-px"
+                      style={{ background: "#e11d48", color: "#fff" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "#be123c"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "#e11d48"; }}
+                    >
+                      Hủy đăng ký
+                    </button>
+                  )
+                ) : (
+                  <button
+                    disabled
+                    className="w-full py-[13px] mt-1 border-none rounded-[10px] text-[15px] font-bold font-[inherit] cursor-not-allowed"
+                    style={{ background: "#F3F4F6", color: "#6B7280" }}
+                  >
+                    {ticketStatus === "ongoing" ? "Đang diễn ra" : "Đã kết thúc"}
+                  </button>
+                )
+              ) : (
+                <button
+                  className={`w-full py-[13px] mt-1 border-none rounded-[10px] text-[15px] font-bold font-[inherit] transition-all ${
+                    isFull
+                      ? "bg-[#D1D5DB] text-[#9CA3AF] cursor-not-allowed"
+                      : "bg-[#F37021] text-white cursor-pointer hover:bg-[#e05c0a] hover:-translate-y-px"
+                  }`}
+                  disabled={isFull}
+                  onClick={() => !isFull && navigate("/register")}
+                >
+                  {isFull ? "Đã hết chỗ" : "Đăng ký tham gia"}
+                </button>
+              )}
 
             </div>
           </aside>

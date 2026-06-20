@@ -13,6 +13,7 @@ export function normalizeClub(raw) {
     recruiting: raw.recruiting ?? raw.isRecruiting ?? false,
     color:      raw.color      ?? raw.themeColor   ?? "#1A6FC4",
     emoji:      raw.emoji      ?? "🏛️",
+    clubImage:  raw.clubImage  ?? raw.imageUrl     ?? raw.logoUrl ?? raw.avatarUrl ?? raw.image ?? raw.logo ?? null,
   };
 }
 

@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 export const NAV_ITEMS = [
-  { label: "Trang Chủ",  href: "home"   },
-  { label: "Câu Lạc Bộ", href: "clubs"  },
-  { label: "Sự Kiện",    href: "events" },
-  { label: "About",      href: "about"  },
+  { label: "Trang Chủ",  href: "home"     },
+  { label: "Câu Lạc Bộ", href: "clubs"   },
+  { label: "Sự Kiện",    href: "events"  },
+  { label: "Tính Năng",  href: "features" },
 ];
 
 export default function Header({ activeSection }) {

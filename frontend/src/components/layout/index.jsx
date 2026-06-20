@@ -3,6 +3,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { TokenService } from "../../services/api/axiosClient";
 import { decodeJwtPayload } from "../../lib/tokenGuard";
 import Sidebar from "./Sidebar";
+import Topbar from "./Topbar";
 import { getSidebarConfig } from "./sidebarConfigs";
 import AiChat from "../../components/AiChat";
 
@@ -27,6 +28,7 @@ export default function DashboardLayout() {
     <div className="flex min-h-screen">
       <Sidebar navItems={navItems} />
       <main className="flex-1 ml-60 bg-[#F4F5F7] min-h-screen flex flex-col">
+        <Topbar />
         <div className="p-7 px-8 flex-1">
           <Outlet />
         </div>

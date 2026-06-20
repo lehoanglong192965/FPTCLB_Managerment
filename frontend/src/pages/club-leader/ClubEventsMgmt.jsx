@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Calendar, Plus, Clock, MapPin, Search, X, AlertTriangle } from "lucide-react";
+import EventProposalForm from "./EventProposalForm";
+import { useEvents } from "../../contexts/EventsContext";
 
 const MOCK_EVENTS = [
   { id: 1, name: "Workshop UI/UX Design",  date: "15/07/2026", time: "14:00", location: "Hall A",         status: "approved", attendees: 45  },
@@ -9,10 +11,11 @@ const MOCK_EVENTS = [
 ];
 
 const STATUS_CFG = {
-  upcoming:  { label: "Sắp diễn ra", color: "#059669", bg: "#ecfdf5" },
-  approved:  { label: "Đã phê duyệt", color: "#2563eb", bg: "#eff6ff" },
-  cancelled: { label: "Đã hủy",      color: "#dc2626", bg: "#fef2f2" },
-  done:      { label: "Đã kết thúc", color: "#6b7280", bg: "#f3f4f6" },
+  pending:   { label: "Chờ phê duyệt", color: "#d97706", bg: "#fffbeb" },
+  upcoming:  { label: "Sắp diễn ra",   color: "#059669", bg: "#ecfdf5" },
+  approved:  { label: "Đã phê duyệt",  color: "#2563eb", bg: "#eff6ff" },
+  cancelled: { label: "Đã hủy",        color: "#dc2626", bg: "#fef2f2" },
+  done:      { label: "Đã kết thúc",   color: "#6b7280", bg: "#f3f4f6" },
 };
 
 const REASON_MIN = 20;
@@ -120,9 +123,25 @@ function CancelModal({ event, onConfirm, onClose }) {
 }
 
 export default function ClubEventsMgmt() {
-  const [search, setSearch]         = useState("");
-  const [events, setEvents]         = useState(MOCK_EVENTS);
+  const [search, setSearch]             = useState("");
+  const [events, setEvents]             = useState(MOCK_EVENTS);
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [showForm, setShowForm]         = useState(false);
+  const { proposeEvent }                = useEvents();
+
+  const handleProposalSubmit = (formData) => {
+    proposeEvent(formData, "CLB FPT");
+    setEvents((prev) => [{
+      id:       Date.now(),
+      name:     formData.name,
+      date:     formData.date,
+      time:     formData.startTime,
+      location: formData.location || "Online",
+      status:   "pending",
+      attendees: Number(formData.expectedCount),
+    }, ...prev]);
+    setShowForm(false);
+  };
 
   const filtered = events.filter((e) =>
     e.name.toLowerCase().includes(search.toLowerCase())
@@ -154,7 +173,7 @@ export default function ClubEventsMgmt() {
               style={{ width: "100%", padding: "8px 10px 8px 32px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
             />
           </div>
-          <button className="dl-btn-add" disabled style={{ opacity: 0.5, cursor: "not-allowed" }} title="Tính năng đang phát triển">
+          <button className="dl-btn-add" onClick={() => setShowForm(true)}>
             <Plus size={15} /> Tạo sự kiện
           </button>
         </div>
@@ -222,6 +241,13 @@ export default function ClubEventsMgmt() {
           event={cancelTarget}
           onConfirm={handleCancelConfirm}
           onClose={() => setCancelTarget(null)}
+        />
+      )}
+
+      {showForm && (
+        <EventProposalForm
+          onClose={() => setShowForm(false)}
+          onSubmit={handleProposalSubmit}
         />
       )}
     </div>

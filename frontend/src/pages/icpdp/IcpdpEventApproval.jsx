@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useEvents } from "../../contexts/EventsContext";
 
 const MOCK_EVENTS = [
   {
@@ -57,14 +58,21 @@ const STATUS_BADGE = {
 };
 
 const TABS = [
+  { key: "all",     label: "Tất cả" },
   { key: "pending", label: "Chờ duyệt" },
   { key: "ongoing", label: "Đang diễn ra" },
-  { key: "all",     label: "Tất cả" },
 ];
 
 export default function IcpdpEventApproval() {
-  const [activeTab, setActiveTab] = useState("pending");
-  const [events, setEvents]       = useState(MOCK_EVENTS);
+  const [activeTab, setActiveTab]   = useState("pending");
+  const [localEvents, setLocalEvents] = useState(MOCK_EVENTS);
+  const { proposals, approveProposal, rejectProposal } = useEvents();
+
+  // Merge mock events (local state) + proposals từ Club Leader (context)
+  const events = [
+    ...proposals,
+    ...localEvents.filter((e) => !proposals.some((p) => p.id === e.id)),
+  ];
 
   const filtered = activeTab === "all"
     ? events
@@ -74,15 +82,25 @@ export default function IcpdpEventApproval() {
     ? events.length
     : events.filter((e) => e.status === key).length;
 
-  const approve = (id) =>
-    setEvents((prev) =>
-      prev.map((e) => e.id === id ? { ...e, status: "approved", statusLabel: "Đã phê duyệt" } : e)
-    );
+  const approve = (id) => {
+    if (proposals.some((p) => p.id === id)) {
+      approveProposal(id);
+    } else {
+      setLocalEvents((prev) =>
+        prev.map((e) => e.id === id ? { ...e, status: "approved", statusLabel: "Đã phê duyệt" } : e)
+      );
+    }
+  };
 
-  const reject = (id) =>
-    setEvents((prev) =>
-      prev.map((e) => e.id === id ? { ...e, status: "rejected", statusLabel: "Đã từ chối" } : e)
-    );
+  const reject = (id) => {
+    if (proposals.some((p) => p.id === id)) {
+      rejectProposal(id);
+    } else {
+      setLocalEvents((prev) =>
+        prev.map((e) => e.id === id ? { ...e, status: "rejected", statusLabel: "Đã từ chối" } : e)
+      );
+    }
+  };
 
   return (
     <div>
@@ -201,7 +219,7 @@ export default function IcpdpEventApproval() {
                     Phê duyệt
                   </button>
                   <button
-                    className="px-5 py-2 bg-white text-gray-700 border border-gray-300 hover:border-red-500 hover:text-red-600 rounded-lg text-[13.5px] font-semibold cursor-pointer transition-colors duration-150 whitespace-nowrap"
+                    className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white border-none rounded-lg text-[13.5px] font-semibold cursor-pointer transition-colors duration-150 whitespace-nowrap"
                     onClick={() => reject(event.id)}
                   >
                     Từ chối
