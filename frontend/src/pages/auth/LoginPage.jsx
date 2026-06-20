@@ -53,7 +53,6 @@ export default function LoginPage() {
   const [email, setEmail]           = useState("");
   const [password, setPassword]     = useState("");
   const [showPass, setShowPass]     = useState(false);
-  const [keepSigned, setKeepSigned] = useState(false);
   const [loading, setLoading]       = useState(null);
   const [errors, setErrors]         = useState({ email: "", password: "" });
 
@@ -177,19 +176,12 @@ export default function LoginPage() {
             )}
           </div>
 
-          <div className="flex items-center justify-between mt-[2px]">
-            <label className="flex items-center gap-[7px] text-[13px] text-[#6B6B6B] cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="w-[15px] h-[15px] cursor-pointer accent-[#F37022]"
-                checked={keepSigned}
-                onChange={(e) => setKeepSigned(e.target.checked)}
-              />
-              <span>Duy trì đăng nhập</span>
-            </label>
+          <div className="flex items-center justify-end mt-[2px]">
             <Link
               to="/forgot-password"
-              className="text-[12px] font-semibold text-[#F37022] no-underline tracking-[0.03em] hover:underline"
+              style={{ color: "#F37022", fontSize: "12px", fontWeight: 600, textDecoration: "none", letterSpacing: "0.03em", transition: "color 0.15s, text-decoration 0.15s" }}
+              onMouseEnter={e => { e.currentTarget.style.color = "#d65e18"; e.currentTarget.style.textDecoration = "underline"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "#F37022"; e.currentTarget.style.textDecoration = "none"; }}
             >
               QUÊN MẬT KHẨU?
             </Link>
