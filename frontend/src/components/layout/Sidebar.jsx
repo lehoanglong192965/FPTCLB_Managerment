@@ -33,7 +33,7 @@ export default function Sidebar({ navItems }) {
   const { name, role } = resolveUserInfo(user);
   const displayName = profile?.fullName || name;
   const roleLabel = ROLE_LABELS[role] ?? role;
-  const avatarLetter = displayName[0]?.toUpperCase() ?? "U";
+  const avatarLetter = (displayName.split(" ").pop()?.[0] ?? "U").toUpperCase();
 
   const handleLogout = async () => {
     try {

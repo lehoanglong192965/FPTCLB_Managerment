@@ -23,7 +23,6 @@ import IcpdpDisciplineLog from "../pages/icpdp/IcpdpDisciplineLog";
 import IcpdpClubManagement from "../pages/icpdp/IcpdpClubManagement";
 import IcpdpRecruitment from "../pages/icpdp/IcpdpRecruitment";
 import IcpdpClubRequests from "../pages/icpdp/IcpdpClubRequests";
-import IcpdpBlacklist from "../pages/icpdp/IcpdpBlacklist";
 
 // Admin pages
 import SemesterManagement from "../pages/admin/SemesterManagement";
@@ -46,9 +45,11 @@ import MemberEvents from "../pages/member/MemberEvents";
 import MemberClubs from "../pages/member/MemberClubs";
 import MemberMyClubs from "../pages/member/MemberMyClubs";
 import MemberNotifications from "../pages/member/MemberNotifications";
+import MemberMyTickets from "../pages/member/MemberMyTickets";
 import MemberApply from "../pages/member/MemberApply";
 import ClubRegistrationForm from "../pages/member/ClubRegistrationForm";
 import MemberRegistrationHistory from "../pages/member/MemberRegistrationHistory";
+import MemberNotificationSettings from "../pages/member/MemberNotificationSettings";
 
 // Shared
 import ProfilePage from "../pages/profile/ProfilePage";
@@ -83,7 +84,6 @@ export default function AppRoutes() {
         <Route path="personnel-reassign" element={<IcpdpPersonnelReassign />} />
         <Route path="discipline-log" element={<IcpdpDisciplineLog />} />
         <Route path="recruitment" element={<IcpdpRecruitment />} />
-        <Route path="blacklist" element={<IcpdpBlacklist />} />
         <Route path="notifications" element={<IcpdpNotifications />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -116,7 +116,9 @@ export default function AppRoutes() {
         <Route path="club-register" element={<ClubRegistrationForm />} />
         <Route path="club-register-history" element={<MemberRegistrationHistory />} />
         <Route path="events" element={<MemberEvents />} />
+        <Route path="tickets" element={<MemberMyTickets />} />
         <Route path="notifications" element={<MemberNotifications />} />
+        <Route path="notification-settings" element={<MemberNotificationSettings />} />
         <Route path="apply" element={<MemberApply />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>

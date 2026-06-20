@@ -228,7 +228,8 @@ export default function LoginPage() {
           Chưa có tài khoản?{" "}
           <a
             href="#"
-            className="text-[#F37022] font-medium no-underline hover:underline"
+            className="font-semibold no-underline hover:underline"
+            style={{ color: "#F37021" }}
             onClick={(e) => { e.preventDefault(); navigate("/register"); }}
           >
             Tạo tài khoản

@@ -96,15 +96,12 @@ export default function IcpdpClubRequests() {
         </div>
       )}
 
-      <div className="flex items-start justify-between mb-6">
+      <div className="page-header flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#0D1B3E] m-0 mb-1">Duyệt Đăng Ký CLB</h1>
-          <p className="text-sm text-[#4B5674] m-0">IC-PDP — Xét duyệt hồ sơ đăng ký thành lập câu lạc bộ mới</p>
+          <h1 className="page-title">Duyệt Đăng Ký CLB</h1>
+          <p className="page-subtitle">Xét duyệt hồ sơ đăng ký thành lập câu lạc bộ mới</p>
         </div>
-        <button
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-sm font-medium cursor-pointer hover:bg-slate-200 transition-colors"
-          onClick={loadRequests}
-        >
+        <button className="pr-btn-ghost" onClick={loadRequests}>
           <RefreshCw size={14} /> Tải lại
         </button>
       </div>
@@ -171,6 +168,17 @@ export default function IcpdpClubRequests() {
                   <h3 className="flex items-center gap-2 text-base font-semibold text-slate-800 border-l-4 border-blue-600 pl-2.5 mb-4 m-0">
                     <Compass size={16} /> Thông tin Câu lạc bộ
                   </h3>
+                  {selected.clubImage && (
+                    <div className="mb-4">
+                      <p className="text-[13px] font-semibold text-slate-500 mb-2">Ảnh đại diện CLB (Logo):</p>
+                      <img
+                        src={getImageUrl(selected.clubImage)}
+                        alt="Logo CLB"
+                        className="w-[120px] h-[120px] object-cover rounded-xl border border-slate-200 cursor-pointer transition-transform hover:scale-105"
+                        onClick={() => setPreviewImage(getImageUrl(selected.clubImage))}
+                      />
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3 text-sm bg-slate-50 p-4 rounded-lg mb-3">
                     <span className="font-medium text-slate-500">Tên CLB (Việt):</span>
                     <span className="font-semibold text-slate-900">{selected.clubName}</span>
@@ -210,7 +218,7 @@ export default function IcpdpClubRequests() {
                         <span className="font-semibold text-slate-900">{m.phoneNumber} / {m.email}</span>
                       </div>
 
-                      {m.proposedRole !== "Member" && (
+                      {m.cardImage ? (
                         <>
                           <p className="text-[13px] font-semibold text-slate-500 mb-1">Ảnh thẻ sinh viên minh chứng:</p>
                           <div className="relative w-fit overflow-hidden rounded-lg border border-slate-300">
@@ -228,6 +236,8 @@ export default function IcpdpClubRequests() {
                             </div>
                           </div>
                         </>
+                      ) : m.proposedRole !== "Member" && (
+                        <p className="text-[12px] text-red-400 italic mt-1">⚠ Chưa có ảnh thẻ sinh viên</p>
                       )}
                     </div>
                   ))}
