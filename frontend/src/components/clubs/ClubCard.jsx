@@ -1,8 +1,16 @@
 import { useNavigate } from "react-router-dom";
 
+const resolveImg = (url) => {
+  if (!url) return null;
+  if (url.startsWith("http") || url.startsWith("data:")) return url;
+  const base = (import.meta.env.VITE_API_URL || "http://localhost:8080/api").replace(/\/api\/?$/, "");
+  return `${base}${url}`;
+};
+
 export default function ClubCard({ club, onSelect }) {
   const navigate = useNavigate();
   const toDetail = onSelect ?? (() => navigate(`/clubs/${encodeURIComponent(club.abbr)}`));
+  const imgSrc   = resolveImg(club.clubImage ?? club.image ?? club.logoUrl ?? null);
 
   return (
     <div
@@ -15,20 +23,29 @@ export default function ClubCard({ club, onSelect }) {
       {/* Banner */}
       <div
         className="relative h-[150px] flex flex-col items-center justify-center overflow-hidden text-center px-4"
-        style={{ background: `linear-gradient(135deg, ${club.color}, ${club.color}99)` }}
+        style={
+          imgSrc
+            ? { backgroundImage: `url(${imgSrc})`, backgroundSize: "cover", backgroundPosition: "center" }
+            : { background: `linear-gradient(135deg, ${club.color}, ${club.color}99)` }
+        }
       >
-        {/* dotted network pattern */}
-        <div
-          className="absolute inset-0 opacity-25"
-          style={{
-            backgroundImage: "radial-gradient(rgba(255,255,255,0.7) 1px, transparent 1.5px)",
-            backgroundSize: "16px 16px",
-          }}
-        />
+        {imgSrc ? (
+          <div className="absolute inset-0 bg-black/30" />
+        ) : (
+          <div
+            className="absolute inset-0 opacity-25"
+            style={{
+              backgroundImage: "radial-gradient(rgba(255,255,255,0.7) 1px, transparent 1.5px)",
+              backgroundSize: "16px 16px",
+            }}
+          />
+        )}
         <span className="relative text-[18px] font-extrabold text-white uppercase tracking-[-0.2px] leading-tight mb-2">
           {club.tag}
         </span>
-        <span className="relative text-[40px] opacity-90 select-none leading-none">{club.emoji}</span>
+        {!imgSrc && (
+          <span className="relative text-[40px] opacity-90 select-none leading-none">{club.emoji}</span>
+        )}
       </div>
 
       {/* Body */}

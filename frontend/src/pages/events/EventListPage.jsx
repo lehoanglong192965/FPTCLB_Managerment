@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { EVENTS } from "../../constants/mockData";
 import EventCard from "../../components/events/EventCard";
+import { useEvents } from "../../contexts/EventsContext";
 
 const BADGE_FILTERS = ["Tất cả", "Đăng ký mở", "Sắp diễn ra", "Hết chỗ"];
 
@@ -9,8 +10,14 @@ export default function EventListPage() {
   const navigate = useNavigate();
   const [search, setSearch]             = useState("");
   const [activeFilter, setActiveFilter] = useState("Tất cả");
+  const { approvedEvents }              = useEvents();
 
-  const filtered = EVENTS.filter((event) => {
+  const allEvents = [
+    ...approvedEvents,
+    ...EVENTS.filter((e) => !approvedEvents.some((a) => a.id === e.id)),
+  ];
+
+  const filtered = allEvents.filter((event) => {
     const matchFilter = activeFilter === "Tất cả" || event.badge === activeFilter;
     const matchSearch =
       event.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -66,7 +73,7 @@ export default function EventListPage() {
 
       <div className="flex flex-col gap-4">
         {filtered.length > 0
-          ? filtered.map((event) => <EventCard key={event.title} event={event} />)
+          ? filtered.map((event) => <EventCard key={event.id ?? event.title} event={event} />)
           : <p className="text-center text-gray-400 text-[15px] py-16">Không tìm thấy sự kiện nào.</p>
         }
       </div>

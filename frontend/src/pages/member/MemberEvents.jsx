@@ -1,65 +1,36 @@
 import { useState, useRef, useEffect } from "react";
-import { Calendar, Search, SlidersHorizontal, CalendarDays } from "lucide-react";
+import { Search, SlidersHorizontal } from "lucide-react";
 import EventCard from "../../components/events/EventCard";
+import { EVENTS } from "../../constants/mockData";
+import { useEvents } from "../../contexts/EventsContext";
 
 const ALL_TAGS = ["Tất cả", "Công nghệ", "Âm nhạc", "Thể thao", "Hội thảo", "Cộng đồng", "Giải trí"];
-
-const mockRegisteredEvents = [
-  {
-    id: 1,
-    title: "Code War 2026",
-    club: "FPTU IT Club",
-    month: "THÁNG 7",
-    day: "15",
-    time: "15:00",
-    location: "Hall A",
-    status: "registered",
-  },
-  {
-    id: 2,
-    title: "Tech Talk: AI & LLM",
-    club: "FPTU IT Club",
-    month: "THÁNG 6",
-    day: "20",
-    time: "09:00",
-    location: "Tòa nhà F – P.201",
-    status: "ongoing",
-  },
-];
-
-const mockOtherEvents = [
-  { id: 3,  title: "Acoustic Night Vol.5",    club: "FPTU Music Club",     tag: "Âm nhạc",   color: "#7c3aed", emoji: "🎵", date: "22/06/2026 • 18:30", currentParticipants: 80,  maxParticipants: 150 },
-  { id: 4,  title: "FPT Sport Festival 2026", club: "FPTU Sport Club",     tag: "Thể thao",  color: "#d97706", emoji: "⚽", date: "28/06/2026 • 07:00", currentParticipants: 200, maxParticipants: 300 },
-  { id: 5,  title: "English Debate Open",     club: "FPTU English Club",   tag: "Hội thảo",  color: "#059669", emoji: "🌍", date: "01/07/2026 • 14:00", currentParticipants: 45,  maxParticipants: 60  },
-  { id: 6,  title: "Kpop Cover Contest",      club: "FPTU Dance Club",     tag: "Giải trí",  color: "#e11d48", emoji: "💃", date: "05/07/2026 • 17:00", currentParticipants: 30,  maxParticipants: 50  },
-  { id: 7,  title: "STEM Hackathon 2026",     club: "FPTU Science Club",   tag: "Công nghệ", color: "#0284c7", emoji: "🔬", date: "10/07/2026 • 08:00", currentParticipants: 60,  maxParticipants: 80  },
-  { id: 8,  title: "Green Campus Day",        club: "FPTU Volunteer Club", tag: "Cộng đồng", color: "#16a34a", emoji: "🤝", date: "12/07/2026 • 08:00", currentParticipants: 120, maxParticipants: 200 },
-  { id: 9,  title: "Short Film Festival",     club: "FPTU Media Club",     tag: "Giải trí",  color: "#9333ea", emoji: "📹", date: "18/07/2026 • 19:00", currentParticipants: 55,  maxParticipants: 100 },
-  { id: 10, title: "Art Exhibition 2026",     club: "FPTU Art Club",       tag: "Giải trí",  color: "#db2777", emoji: "🎨", date: "20/07/2026 • 10:00", currentParticipants: 40,  maxParticipants: 80  },
-];
-
-const STATUS_LABEL = {
-  registered: "Đã đăng ký",
-  ongoing:    "Đang diễn ra",
-};
 
 export default function MemberEvents() {
   const [search, setSearch]         = useState("");
   const [activeTag, setActiveTag]   = useState("Tất cả");
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef                   = useRef(null);
+  const { approvedEvents }          = useEvents();
+
+  // Base events (có id) + approved events từ ICPDP (không trùng)
+  const baseEvents  = EVENTS.filter((e) => e.id != null);
+  const MOCK_EVENTS = [
+    ...approvedEvents.filter((a) => !baseEvents.some((b) => b.id === a.id)),
+    ...baseEvents,
+  ];
 
   useEffect(() => {
-    function handleClickOutside(e) {
+    const handleClickOutside = (e) => {
       if (filterRef.current && !filterRef.current.contains(e.target)) {
         setFilterOpen(false);
       }
-    }
+    };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filtered = mockOtherEvents.filter((e) => {
+  const filtered = MOCK_EVENTS.filter((e) => {
     const matchSearch = e.title.toLowerCase().includes(search.toLowerCase()) ||
                         e.club.toLowerCase().includes(search.toLowerCase());
     const matchTag    = activeTag === "Tất cả" || e.tag === activeTag;
@@ -69,66 +40,11 @@ export default function MemberEvents() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Sự Kiện</h1>
-        <p className="page-subtitle">Sự kiện đã đăng ký và khám phá thêm</p>
+        <h1 className="page-title">Khám Phá Sự Kiện</h1>
+        <p className="page-subtitle">Tìm và đăng ký sự kiện từ các câu lạc bộ</p>
       </div>
 
-      {/* Sự kiện đã đăng ký */}
-      <div className="bg-white rounded-[14px] px-6 py-[22px] shadow-[0_1px_4px_rgba(0,0,0,0.06)] mb-6">
-        <div className="flex items-center justify-between mb-[18px]">
-          <h2 className="text-[15px] font-semibold text-gray-900 m-0">Sự kiện đã đăng ký</h2>
-          <span className="text-[13px] text-gray-400">{mockRegisteredEvents.length} sự kiện</span>
-        </div>
-
-        {mockRegisteredEvents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-9 text-gray-400 gap-2">
-            <Calendar size={36} strokeWidth={1.5} />
-            <p className="text-sm m-0">Bạn chưa đăng ký sự kiện nào.</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {mockRegisteredEvents.map((ev) => (
-              <div
-                key={ev.id}
-                className="flex items-center gap-3.5 px-4 py-3.5 border-[1.5px] border-[#f0f0f0] rounded-xl transition-all hover:border-[#e6430a33] hover:shadow-[0_2px_8px_rgba(230,67,10,0.07)]"
-              >
-                <div className="flex flex-col items-center justify-center w-[52px] min-h-[58px] bg-[#fff3ee] rounded-xl flex-shrink-0 py-1.5">
-                  <span className="text-[9px] font-bold text-[#e6430a] uppercase tracking-[0.3px] leading-none">{ev.month}</span>
-                  <span className="text-[22px] font-bold text-[#e6430a] leading-[1.1]">{ev.day}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 m-0 mb-0.5 truncate">{ev.title}</p>
-                  <p className="flex items-center gap-1.5 text-xs text-gray-500 m-0 mb-0.5">
-                    <CalendarDays size={12} />
-                    {ev.time} • {ev.location}
-                  </p>
-                  <p className="text-xs text-gray-400 m-0">{ev.club}</p>
-                </div>
-                <span
-                  className={`px-3 py-0.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 ${
-                    ev.status === "registered"
-                      ? "bg-emerald-100 text-emerald-600"
-                      : "bg-blue-100 text-blue-600"
-                  }`}
-                >
-                  {STATUS_LABEL[ev.status]}
-                </span>
-                <button className="px-3.5 py-[7px] rounded-lg border-none bg-blue-700 text-white text-[13px] font-medium cursor-pointer flex-shrink-0 transition-colors hover:bg-blue-800 font-[inherit]">
-                  Xem vé
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Sự kiện khác */}
-      <div className="bg-white rounded-[14px] px-6 py-[22px] shadow-[0_1px_4px_rgba(0,0,0,0.06)] mb-6">
-        <div className="flex items-center justify-between mb-[18px]">
-          <h2 className="text-[15px] font-semibold text-gray-900 m-0">Sự kiện khác</h2>
-          <span className="text-[13px] text-gray-400">{filtered.length} sự kiện</span>
-        </div>
-
+      <div className="content-card">
         {/* Search + Filter */}
         <div className="flex gap-2.5 items-center mb-5">
           <div className="relative flex-1">
@@ -180,6 +96,10 @@ export default function MemberEvents() {
             )}
           </div>
         </div>
+
+        <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
+          {filtered.length} sự kiện
+        </p>
 
         {/* Grid */}
         <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>

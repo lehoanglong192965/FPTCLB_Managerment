@@ -237,10 +237,7 @@ export default function IcpdpClubManagement() {
               {counts.dissolved} giải thể
             </span>
           )}
-          <button
-            className="inline-flex items-center gap-1.5 px-4.5 py-2.5 bg-[#e6430a] hover:bg-[#d13d09] text-white border-none rounded-lg text-[13.5px] font-semibold cursor-pointer transition-colors duration-150 whitespace-nowrap"
-            onClick={() => setCreate(true)}
-          >
+          <button className="dl-btn-add" onClick={() => setCreate(true)}>
             <Plus size={15} />
             Tạo CLB mới
           </button>
@@ -321,7 +318,7 @@ export default function IcpdpClubManagement() {
                           Tạm ngừng
                         </button>
                         <button
-                          className="px-3.5 py-1.5 bg-white border-[1.5px] border-red-300 text-red-600 rounded-[7px] text-[13px] font-semibold cursor-pointer transition-all duration-150 hover:bg-red-50 whitespace-nowrap"
+                          className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white border-none rounded-[7px] text-[13px] font-semibold cursor-pointer transition-colors duration-150 whitespace-nowrap"
                           onClick={() => setDiss(club.id)}
                         >
                           Giải thể
@@ -337,7 +334,7 @@ export default function IcpdpClubManagement() {
                           Kích hoạt lại
                         </button>
                         <button
-                          className="px-3.5 py-1.5 bg-white border-[1.5px] border-red-300 text-red-600 rounded-[7px] text-[13px] font-semibold cursor-pointer transition-all duration-150 hover:bg-red-50 whitespace-nowrap"
+                          className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white border-none rounded-[7px] text-[13px] font-semibold cursor-pointer transition-colors duration-150 whitespace-nowrap"
                           onClick={() => setDiss(club.id)}
                         >
                           Giải thể

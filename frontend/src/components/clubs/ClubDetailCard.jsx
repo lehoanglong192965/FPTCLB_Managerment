@@ -44,9 +44,17 @@ function MapPinIcon() {
  * @param {object}   primaryAction optional { label, onClick } rendered as the hero CTA button
  * @param {object}   onBack        optional () => void — renders a "← Quay lại" link above the hero card
  */
+const resolveImg = (url) => {
+  if (!url) return null;
+  if (url.startsWith("http") || url.startsWith("data:")) return url;
+  const base = (import.meta.env.VITE_API_URL || "http://localhost:8080/api").replace(/\/api\/?$/, "");
+  return `${base}${url}`;
+};
+
 export default function ClubDetailCard({ club, clubEvents = [], primaryAction, onBack }) {
-  const navigate = useNavigate();
-  const avatarBg = `linear-gradient(135deg, ${club.color}cc, ${club.color}66)`;
+  const navigate  = useNavigate();
+  const avatarBg  = `linear-gradient(135deg, ${club.color}cc, ${club.color}66)`;
+  const imgSrc    = resolveImg(club.clubImage ?? club.image ?? club.logoUrl ?? null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -62,10 +70,13 @@ export default function ClubDetailCard({ club, clubEvents = [], primaryAction, o
       {/* Hero card */}
       <div className="bg-white rounded-2xl border border-[#EBEBEB] px-8 py-7 flex items-center gap-6 max-md:flex-col max-md:items-start max-md:gap-4">
         <div
-          className="w-[100px] h-[100px] rounded-full shrink-0 flex items-center justify-center"
-          style={{ background: avatarBg }}
+          className="w-[100px] h-[100px] rounded-full shrink-0 flex items-center justify-center overflow-hidden"
+          style={{ background: imgSrc ? "transparent" : avatarBg }}
         >
-          <span className="text-[44px] leading-none">{club.emoji}</span>
+          {imgSrc
+            ? <img src={imgSrc} alt={club.name} className="w-full h-full object-cover" />
+            : <span className="text-[44px] leading-none">{club.emoji}</span>
+          }
         </div>
 
         <div className="flex-1 min-w-0">

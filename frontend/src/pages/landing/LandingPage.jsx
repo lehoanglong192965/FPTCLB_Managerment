@@ -1,7 +1,5 @@
 ﻿import { useNavigate } from "react-router-dom";
 import { UserPlus, Search, Rocket, Calendar, Users, Bot, BarChart2 } from "lucide-react";
-import { STATS } from "../../constants/mockData";
-import { usePublicClubs } from "../../hooks/usePublicClubs";
 import ClubsSection from "../../components/clubs/ClubsSection";
 import EventsSection from "../../components/events/EventsSection";
 import AiChat from "../../components/AiChat";
@@ -11,11 +9,6 @@ const scrollTo = (id) =>
 
 /* ── Hero ─────────────────────────────────────────── */
 function Hero() {
-  const { clubs, loading } = usePublicClubs();
-  const stats = STATS.map((s, i) =>
-    i === 0 && !loading ? { ...s, value: `${clubs.length}+` } : s
-  );
-
   return (
     <section
       id="home"
@@ -100,7 +93,7 @@ function Hero() {
               boxShadow: "0 8px 32px rgba(255,107,0,0.35)",
             }}
           >
-            Khám Phá CLB ↓
+            Khám Phá CLB 
           </button>
           <button
             onClick={() => scrollTo("events")}
@@ -111,44 +104,10 @@ function Hero() {
               border: "1.5px solid rgba(255,255,255,0.18)",
             }}
           >
-            📅 Xem Sự Kiện
+            Xem Sự Kiện
           </button>
         </div>
 
-        {/* Stats bar */}
-        <div
-          className="inline-flex rounded-[20px] overflow-hidden backdrop-blur-md border"
-          style={{
-            background: "rgba(255,255,255,0.05)",
-            borderColor: "rgba(255,255,255,0.10)",
-          }}
-        >
-          {stats.map((s, i) => (
-            <div
-              key={s.label}
-              className="px-10 py-[18px] text-center"
-              style={{
-                borderRight: i < stats.length - 1 ? "1px solid rgba(255,255,255,0.08)" : "none",
-              }}
-            >
-              <div
-                className="text-[26px] font-black leading-none"
-                style={{
-                  color: i === 0 ? "#FF8C33" : i === 1 ? "#85B7EB" : "#2ECC71",
-                  letterSpacing: "-1px",
-                }}
-              >
-                {s.value}
-              </div>
-              <div
-                className="text-[11px] font-semibold uppercase mt-1.5"
-                style={{ color: "rgba(255,255,255,0.45)", letterSpacing: "0.6px" }}
-              >
-                {s.label}
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
     </section>
   );
@@ -273,7 +232,7 @@ const FEATURES = [
 
 function FeaturesSection() {
   return (
-    <section className="px-[5%] py-24" style={{ background: "#F7F8FC" }}>
+    <section id="features" className="px-[5%] py-24" style={{ background: "#F7F8FC" }}>
       {/* Header */}
       <div className="text-center mb-14">
         <span

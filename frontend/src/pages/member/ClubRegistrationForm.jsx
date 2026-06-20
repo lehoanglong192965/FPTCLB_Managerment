@@ -44,6 +44,7 @@ export default function ClubRegistrationForm() {
     description: "",
     mission: "",
     uniqueness: "",
+    clubImage: "",
     orgStructure: "",
     meetingFrequency: "1 lần / tuần",
     meetingLocation: "Phòng học trống của trường",
@@ -97,6 +98,21 @@ export default function ClubRegistrationForm() {
         [key]: "MSSV chưa đăng ký tài khoản trên hệ thống.",
       }));
       setValidationSuccess((prev) => ({ ...prev, [key]: "" }));
+    }
+  };
+
+  const handleClubImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await clubRegistrationApi.uploadCardImage(file);
+      setFormData((prev) => ({ ...prev, clubImage: res.url }));
+    } catch {
+      setError("Không thể tải lên ảnh đại diện CLB. Vui lòng thử lại.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -334,6 +350,33 @@ export default function ClubRegistrationForm() {
                 onChange={handleChange("uniqueness")}
               />
             </div>
+
+            <div className="col-span-2">
+              <label className={labelCls}>Ảnh đại diện CLB (Logo) <span className="text-red-500">*</span></label>
+              {formData.clubImage ? (
+                <div className="relative w-fit">
+                  <img
+                    src={getImageUrl(formData.clubImage)}
+                    alt="Club logo"
+                    className="w-[140px] h-[140px] object-cover rounded-xl border border-slate-200 mt-1"
+                  />
+                  <button
+                    type="button"
+                    className="absolute top-2 right-2 bg-red-500 text-white border-none rounded-full w-6 h-6 flex items-center justify-center cursor-pointer shadow-sm hover:bg-red-600"
+                    onClick={() => setFormData((prev) => ({ ...prev, clubImage: "" }))}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ) : (
+                <label className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer bg-slate-50 transition-all min-h-[120px] flex flex-col items-center justify-center hover:border-blue-600 hover:bg-slate-100">
+                  <Upload size={24} className="text-slate-500 mb-2" />
+                  <span className="text-sm font-medium text-slate-700">Chọn ảnh logo CLB (.jpg, .png)</span>
+                  <span className="text-xs text-slate-400 mt-1">Khuyến nghị: ảnh vuông, tối thiểu 200×200px</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleClubImageUpload} />
+                </label>
+              )}
+            </div>
           </div>
 
           <div className="flex justify-end mt-[30px]">
@@ -342,6 +385,10 @@ export default function ClubRegistrationForm() {
               onClick={() => {
                 if (!formData.clubName || !formData.clubCode || !formData.mission || !formData.uniqueness) {
                   setError("Vui lòng điền đầy đủ các mục thông tin bắt buộc (*).");
+                  return;
+                }
+                if (!formData.clubImage) {
+                  setError("Vui lòng tải lên ảnh đại diện (logo) cho CLB.");
                   return;
                 }
                 setError("");

@@ -189,19 +189,17 @@ export default function SemesterManagement() {
 
   return (
     <div>
-      <div className="flex items-start justify-between mb-5 gap-4">
+      <div className="page-header flex items-start justify-between gap-4">
         <div>
-          <h1 className="page-title">Quản lý Học Kỳ</h1>
+          <h1 className="page-title">Quản Lý Học Kỳ</h1>
+          <p className="page-subtitle">Tạo và quản lý các học kỳ trong hệ thống</p>
         </div>
         <div className="flex gap-2.5 flex-shrink-0">
-          <button
-            className="flex items-center gap-1.5 px-4 py-2 border border-gray-300 rounded-lg bg-white text-[13.5px] font-medium text-gray-700 cursor-pointer transition-colors hover:border-[#e6430a] hover:text-[#e6430a]"
-            onClick={openCreateModal}
-          >
-            <Plus size={16} /> Tạo học kỳ mới
+          <button className="pr-btn-ghost">
+            <Zap size={15} /> Emergency Leader Exit
           </button>
-          <button className="flex items-center gap-1.5 px-4 py-2 border-0 rounded-lg bg-[#e6430a] text-[13.5px] font-medium text-white cursor-pointer transition-colors hover:bg-[#c93a09]">
-            <Zap size={16} /> Emergency Leader Exit
+          <button className="dl-btn-add" onClick={openCreateModal}>
+            <Plus size={15} /> Tạo học kỳ mới
           </button>
         </div>
       </div>
