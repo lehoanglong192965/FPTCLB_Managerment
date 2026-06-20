@@ -48,6 +48,18 @@ public class AuthController {
         ));
     }
 
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody com.fptu.fcms.dto.request.ForgotPasswordRequest request) {
+        authService.forgotPassword(request.getEmail());
+        return ResponseEntity.ok(Map.of("message", "Mã OTP đã được gửi tới email của bạn."));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@RequestBody com.fptu.fcms.dto.request.ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(Map.of("message", "Mật khẩu đã được cập nhật thành công!"));
+    }
+
     @PostMapping("/resend-otp")
     public ResponseEntity<Map<String, String>> resendOTP(@RequestParam String email) {
         authService.resendOTP(email);

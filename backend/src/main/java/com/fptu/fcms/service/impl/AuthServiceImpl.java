@@ -179,4 +179,26 @@ public class AuthServiceImpl implements AuthService {
         // Tạo mã OTP mới và gửi lại
         otpService.generateAndSendOTP(email);
     }
+
+    @Override
+    public void forgotPassword(String email) {
+        if (!userRepository.findByEmailAndIsDeletedFalse(email).isPresent()) {
+            throw new IllegalArgumentException("Không tìm thấy tài khoản với email này.");
+        }
+        otpService.generateAndSendOTP(email);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(com.fptu.fcms.dto.request.ResetPasswordRequest request) {
+        if (!otpService.verifyOTP(request.getEmail(), request.getOtp())) {
+            throw new IllegalArgumentException("Mã OTP không hợp lệ hoặc đã hết hạn.");
+        }
+
+        UserAccount user = userRepository.findByEmailAndIsDeletedFalse(request.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản."));
+        
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+    }
 }

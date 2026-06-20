@@ -10,4 +10,6 @@ public interface AuthService {
     void register(RegisterRequest request);
     void verifyOTPAndActivateAccount(com.fptu.fcms.dto.request.VerifyOTPRequest request);
     void resendOTP(String email);
+    void forgotPassword(String email);
+    void resetPassword(com.fptu.fcms.dto.request.ResetPasswordRequest request);
 }
