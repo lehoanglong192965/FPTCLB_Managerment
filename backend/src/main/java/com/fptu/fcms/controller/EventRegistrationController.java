@@ -20,6 +20,7 @@ public class EventRegistrationController {
 
     @PostMapping("/register/{eventId}")
     @PreAuthorize("hasAnyRole('Member')")
+
     public ResponseEntity<Map<String, String>> registerEvent(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
@@ -29,8 +30,11 @@ public class EventRegistrationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Đăng ký sự kiện thành công!"));
     }
 
+
     @DeleteMapping("/unregister/{eventId}")
+
     @PreAuthorize("hasAnyRole('Member')") // Chỉ thành viên mới được hủy đăng ký
+
     public ResponseEntity<Map<String, String>> unregisterEvent(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
