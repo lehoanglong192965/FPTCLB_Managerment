@@ -26,5 +26,6 @@ public interface ClubRepository extends JpaRepository<Club, Integer> {
     boolean existsByClubCode(String clubCode);
     boolean existsByClubName(String clubName);
     Optional<Club> findByClubCodeAndIsDeletedFalse(String clubCode);
+    Optional<Club> findByClubIDAndIsDeletedFalse(Integer clubID);
     List<Club> findByClubStatusAndIsDeletedFalse(String clubStatus);
 }

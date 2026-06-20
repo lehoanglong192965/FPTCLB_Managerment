@@ -2,20 +2,29 @@ package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.dto.request.CancelEventRequest;
 import com.fptu.fcms.dto.request.CreateEventProposalRequest;
+import com.fptu.fcms.dto.request.EventApprovalRequest;
+import com.fptu.fcms.dto.response.EventApprovalResponse;
+import com.fptu.fcms.entity.AuditLog;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventAssignment;
 import com.fptu.fcms.entity.EventRegistration;
 import com.fptu.fcms.entity.UserAccount;
+import com.fptu.fcms.exception.BusinessRuleException;
+import com.fptu.fcms.repository.AuditLogRepository;
 import com.fptu.fcms.repository.EventAssignmentRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.EventService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -25,10 +34,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EventServiceImpl implements EventService {
 
+    private static final String STATUS_PENDING = "Pending";
+    private static final String STATUS_APPROVED = "Approved";
+    private static final String STATUS_REJECTED = "Rejected";
+    private static final BigDecimal HIGH_BUDGET_THRESHOLD = new BigDecimal("5000000");
+
     private final EventRepository eventRepository;
     private final EventAssignmentRepository eventAssignmentRepository;
     private final EventRegistrationRepository registrationRepository;
     private final UserRepository userRepository;
+    private final AuditLogRepository auditLogRepository;
     private final EmailService emailService;
 
     @Override
@@ -65,7 +80,7 @@ public class EventServiceImpl implements EventService {
         event.setBudget(request.getBudget());
         event.setStartDate(request.getStartDate());
         event.setEndDate(request.getEndDate());
-        event.setEventStatus("Pending");
+        event.setEventStatus(STATUS_PENDING);
         event.setIsResubmitted(isResubmit);
         event.setIsInternal(request.getIsInternal() != null && request.getIsInternal());
         event.setIsScoreLocked(false);
@@ -97,7 +112,7 @@ public class EventServiceImpl implements EventService {
                 .filter(e -> e.getClubID().equals(clubID))
                 .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại hoặc không thuộc CLB của bạn."));
 
-        if (!"Approved".equals(event.getEventStatus())) {
+        if (!STATUS_APPROVED.equals(event.getEventStatus())) {
             throw new IllegalArgumentException("Chỉ có thể hủy sự kiện đã được phê duyệt (Approved).");
         }
 
@@ -121,5 +136,111 @@ public class EventServiceImpl implements EventService {
                 emailService.sendSimpleEmail(user.getEmail(), subject, content);
             }
         }
+    }
+
+    /**
+     * BR-E07: PDP/Admin phê duyệt hoặc từ chối đề xuất sự kiện.
+     * Khi duyệt sẽ kiểm tra ngân sách lớn, trùng lịch/địa điểm và ghi audit log.
+     */
+    @Override
+    @Transactional
+    public EventApprovalResponse approveEvent(Integer eventId, EventApprovalRequest request, UserPrincipal currentUser) {
+        Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
+                .orElseThrow(() -> new BusinessRuleException("Sự kiện không tồn tại.", HttpStatus.NOT_FOUND));
+
+        String decision = normalizeDecision(request.getDecision());
+        String oldStatus = event.getEventStatus();
+        String feedback = request.getPdpFeedback();
+
+        if (STATUS_APPROVED.equals(decision)) {
+            validateHighBudgetFeedback(event, feedback);
+            validateScheduleConflict(event);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        event.setEventStatus(decision);
+        event.setPdpFeedback(feedback);
+        event.setApprovedBy(currentUser.getUserId());
+        event.setApprovedAt(now);
+        Event savedEvent = eventRepository.save(event);
+
+        saveApprovalAuditLog(currentUser.getUserId(), savedEvent, oldStatus, decision, feedback, now);
+
+        String message = STATUS_APPROVED.equals(decision)
+                ? "Sự kiện đã được phê duyệt."
+                : "Sự kiện đã bị từ chối.";
+
+        return new EventApprovalResponse(
+                savedEvent.getEventID(),
+                savedEvent.getEventName(),
+                savedEvent.getEventStatus(),
+                savedEvent.getPdpFeedback(),
+                message
+        );
+    }
+
+    private String normalizeDecision(String decision) {
+        if (!StringUtils.hasText(decision)) {
+            throw new BusinessRuleException("decision chỉ được là Approved hoặc Rejected.", HttpStatus.BAD_REQUEST);
+        }
+
+        String normalized = decision.trim();
+        if (!STATUS_APPROVED.equals(normalized) && !STATUS_REJECTED.equals(normalized)) {
+            throw new BusinessRuleException("decision chỉ được là Approved hoặc Rejected.", HttpStatus.BAD_REQUEST);
+        }
+        return normalized;
+    }
+
+    /**
+     * Sự kiện ngân sách trên 5.000.000 VNĐ bắt buộc PDP nhập ghi chú phê duyệt.
+     */
+    private void validateHighBudgetFeedback(Event event, String feedback) {
+        BigDecimal budget = event.getBudget() == null ? BigDecimal.ZERO : event.getBudget();
+        if (budget.compareTo(HIGH_BUDGET_THRESHOLD) > 0 && !StringUtils.hasText(feedback)) {
+            throw new BusinessRuleException(
+                    "Vui lòng nhập ghi chú phê duyệt cho sự kiện có ngân sách trên 5.000.000 VNĐ."
+            );
+        }
+    }
+
+    /**
+     * Check overlap theo công thức: current.start < other.end AND current.end > other.start.
+     */
+    private void validateScheduleConflict(Event event) {
+        boolean hasConflict = eventRepository
+                .existsByLocationAndEventIDNotAndEventStatusAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
+                        event.getLocation(),
+                        event.getEventID(),
+                        STATUS_APPROVED,
+                        event.getEndDate(),
+                        event.getStartDate()
+                );
+
+        if (hasConflict) {
+            throw new BusinessRuleException("Sự kiện bị trùng lịch hoặc địa điểm.", HttpStatus.CONFLICT);
+        }
+    }
+
+    /**
+     * AuditLog dùng lại bảng hiện có để lưu vết quyết định EVENT_APPROVED/EVENT_REJECTED.
+     */
+    private void saveApprovalAuditLog(
+            Integer actorId,
+            Event event,
+            String oldStatus,
+            String newStatus,
+            String feedback,
+            LocalDateTime executedAt
+    ) {
+        AuditLog auditLog = new AuditLog();
+        auditLog.setActorID(actorId);
+        auditLog.setActionType(STATUS_APPROVED.equals(newStatus) ? "EVENT_APPROVED" : "EVENT_REJECTED");
+        auditLog.setTableName("Event");
+        auditLog.setRecordID(event.getEventID());
+        auditLog.setOldValue(oldStatus);
+        auditLog.setNewValue(newStatus);
+        auditLog.setOverrideReason(StringUtils.hasText(feedback) ? feedback : "Event approval decision");
+        auditLog.setExecutedAt(executedAt);
+        auditLogRepository.save(auditLog);
     }
 }

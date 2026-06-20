@@ -7,6 +7,7 @@ import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.service.EventRegistrationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "memberRanking", allEntries = true)
     public void registerEvent(Integer eventID, Integer userID) {
         Event event = eventRepository.findById(eventID)
                 .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
@@ -53,6 +55,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "memberRanking", allEntries = true)
     public void unregisterEvent(Integer eventID, Integer userID) {
         EventRegistration registration = registrationRepo.findByEventIDAndUserIDAndIsDeletedFalse(eventID, userID)
                 .orElseThrow(() -> new IllegalArgumentException("Bạn chưa đăng ký sự kiện này."));
