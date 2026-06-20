@@ -14,7 +14,7 @@ public class JwtTokenProvider {
     @Value("${jwt.secret:day-la-mot-chuoi-bi-mat-rat-dai-de-ky-jwt-token-fptu-2026}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration:900000}")
+    @Value("${jwt.expiration:86400000}")
     private long jwtExpirationDate;
 
     @Value("${jwt.refreshExpiration:604800000}")
@@ -56,6 +56,7 @@ public class JwtTokenProvider {
     public String getEmailFromJwt(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
+                .setAllowedClockSkewSeconds(60)
                 .build()
                 .parseClaimsJws(token)
                 .getBody()
@@ -65,8 +66,18 @@ public class JwtTokenProvider {
     // Xác thực tính toàn vẹn và hạn sử dụng của Token
     public boolean validateToken(String authToken) {
         try {
-            Jwts.parserBuilder().setSigningKey(getSigningKey()).build().parseClaimsJws(authToken);
+            Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .setAllowedClockSkewSeconds(60) // Cho phép lệch 60 giây
+                    .build()
+                    .parseClaimsJws(authToken);
             return true;
+        } catch (ExpiredJwtException ex) {
+            System.err.println("JWT đã hết hạn: " + ex.getMessage());
+        } catch (SignatureException ex) {
+            System.err.println("Chữ ký JWT không hợp lệ: " + ex.getMessage());
+        } catch (MalformedJwtException ex) {
+            System.err.println("JWT không đúng định dạng: " + ex.getMessage());
         } catch (JwtException | IllegalArgumentException ex) {
             System.err.println("Xác thực JWT thất bại: " + ex.getMessage());
         }
@@ -76,6 +87,7 @@ public class JwtTokenProvider {
     public Integer getUserIdFromJwt(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
+                .setAllowedClockSkewSeconds(60)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
@@ -86,6 +98,7 @@ public class JwtTokenProvider {
     public Integer getRoleIdFromJwt(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
+                .setAllowedClockSkewSeconds(60)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();

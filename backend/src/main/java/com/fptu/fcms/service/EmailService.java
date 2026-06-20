@@ -27,5 +27,10 @@ public interface EmailService {
     void sendInterviewPassedEmail(String email, String clubName);
 
     void sendInterviewFailedEmail(String email, String clubName);
+
+    /**
+     * Gửi email dạng text thuần với Subject và Content tùy chỉnh
+     */
+    void sendSimpleEmail(String to, String subject, String content);
 }
 

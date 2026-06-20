@@ -3,7 +3,6 @@ package com.fptu.fcms.service;
 import com.fptu.fcms.dto.request.ClubRegistrationRequestDTO;
 import com.fptu.fcms.dto.request.ReviewRegistrationRequestDTO;
 import com.fptu.fcms.dto.response.ClubRegistrationResponseDTO;
-
 import java.util.List;
 
 public interface ClubRegistrationService {

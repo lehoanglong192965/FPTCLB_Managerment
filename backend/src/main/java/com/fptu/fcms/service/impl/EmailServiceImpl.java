@@ -142,6 +142,23 @@ public class EmailServiceImpl implements EmailService {
         );
     }
 
+    @Override
+    @Async
+    public void sendSimpleEmail(String to, String subject, String content) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom("FPTU Club <" + senderEmail + ">");
+            message.setTo(to);
+            message.setSubject(subject);
+            message.setText(content);
+
+            mailSender.send(message);
+            log.info("Simple email sent successfully to: {}", to);
+        } catch (Exception e) {
+            log.error("Error sending simple email to: {}", to, e);
+        }
+    }
+
     private void sendPlainTextEmail(
             String email,
             String subject,

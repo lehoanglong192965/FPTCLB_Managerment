@@ -57,6 +57,9 @@ public class Event {
     @Column(name = "isResubmitted")
     private Boolean isResubmitted;
 
+    @Column(name = "isInternal")
+    private Boolean isInternal;
+
     @Column(name = "isScoreLocked")
     private Boolean isScoreLocked;
 
