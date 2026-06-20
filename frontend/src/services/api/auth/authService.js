@@ -62,6 +62,7 @@ const authService = {
   getMyClubRole: () => authApi.getMyClubRole(),
   verifyOTP: (email, otpCode) => authApi.verifyOTP(email, otpCode),
   resendOTP: (email) => authApi.resendOTP(email),
+  resendForgotPasswordOTP: (email) => authApi.resendForgotPasswordOTP(email),
 };
 
 export default authService;

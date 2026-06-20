@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import authService from "../../services/api/auth/authService";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -187,13 +187,12 @@ export default function LoginPage() {
               />
               <span>Duy trì đăng nhập</span>
             </label>
-            <a
-              href="#"
+            <Link
+              to="/forgot-password"
               className="text-[12px] font-semibold text-[#F37022] no-underline tracking-[0.03em] hover:underline"
-              onClick={(e) => e.preventDefault()}
             >
               QUÊN MẬT KHẨU?
-            </a>
+            </Link>
           </div>
 
           <button

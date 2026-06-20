@@ -11,5 +11,6 @@ public interface AuthService {
     void verifyOTPAndActivateAccount(com.fptu.fcms.dto.request.VerifyOTPRequest request);
     void resendOTP(String email);
     void forgotPassword(String email);
+    void resendForgotPasswordOTP(String email);
     void resetPassword(com.fptu.fcms.dto.request.ResetPasswordRequest request);
 }

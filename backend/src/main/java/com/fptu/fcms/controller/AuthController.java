@@ -69,6 +69,15 @@ public class AuthController {
         ));
     }
 
+    @PostMapping("/resend-forgot-otp")
+    public ResponseEntity<Map<String, String>> resendForgotPasswordOTP(@RequestParam String email) {
+        authService.resendForgotPasswordOTP(email);
+        return ResponseEntity.ok(Map.of(
+                "message", "Mã OTP mới đã được gửi tới email của bạn.",
+                "email", email
+        ));
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<Map<String, String>> logout() {
         return ResponseEntity.ok(Map.of("message", "Đăng xuất thành công!"));

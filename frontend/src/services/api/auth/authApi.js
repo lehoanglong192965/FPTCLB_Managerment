@@ -19,8 +19,8 @@ const authApi = {
   forgotPassword: (email) =>
     axiosClient.post("/auth/forgot-password", { email }),
 
-  resetPassword: ({ token, newPassword }) =>
-    axiosClient.post("/auth/reset-password", { token, newPassword }),
+  resetPassword: ({ email, otp, newPassword }) =>
+    axiosClient.post("/auth/reset-password", { email, otp, newPassword }),
 
   updateProfile: ({ fullName, major, phoneNumber }) =>
     axiosClient.put("/user/profile", { fullName, major, phoneNumber }),
@@ -36,6 +36,9 @@ const authApi = {
 
   resendOTP: (email) =>
     axiosClient.post(`/auth/resend-otp?email=${email}`),
+    
+  resendForgotPasswordOTP: (email) =>
+    axiosClient.post(`/auth/resend-forgot-otp?email=${email}`),
 };
 
 export default authApi;
