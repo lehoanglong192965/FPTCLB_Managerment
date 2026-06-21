@@ -189,4 +189,18 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
             Integer clubRoleID
     );
 
+    List<ClubMembership> findByClubIDAndSemesterIDAndIsDeletedFalse(
+            Integer clubID,
+            Integer semesterID
+    );
+
+    List<ClubMembership> findByClubIDAndClubRoleIDInAndIsDeletedFalse(
+            Integer clubID,
+            java.util.Collection<Integer> clubRoleIDs
+    );
+    List<ClubMembership> findByClubIDAndSemesterIDAndClubRoleIDInAndIsDeletedFalse(
+            Integer clubID,
+            Integer semesterID,
+            java.util.Collection<Integer> clubRoleIDs
+    );
 }

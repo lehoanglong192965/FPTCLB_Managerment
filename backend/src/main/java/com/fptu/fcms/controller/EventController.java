@@ -2,6 +2,8 @@ package com.fptu.fcms.controller;
 
 import com.fptu.fcms.dto.request.CancelEventRequest;
 import com.fptu.fcms.dto.request.CreateEventProposalRequest;
+import com.fptu.fcms.dto.request.EventApprovalRequest;
+import com.fptu.fcms.dto.response.EventApprovalResponse;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EventService;
 import jakarta.validation.Valid;
@@ -30,6 +32,15 @@ public class EventController {
         // For simplicity, we'll assume the request comes from a valid user for the club.
         eventService.createEventProposal(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Đề xuất sự kiện đã được gửi thành công."));
+    }
+
+    @PutMapping("/{eventId}/approval")
+    @PreAuthorize("hasAnyRole('ICPDP')")
+    public ResponseEntity<EventApprovalResponse> approveEvent(
+            @PathVariable Integer eventId,
+            @Valid @RequestBody EventApprovalRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(eventService.approveEvent(eventId, request, currentUser));
     }
 
     @PatchMapping("/{clubId}/{eventId}/cancel")

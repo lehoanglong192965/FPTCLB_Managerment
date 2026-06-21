@@ -55,6 +55,16 @@ public class Event {
     private String eventStatus;
 
     @org.hibernate.annotations.Nationalized
+    @Column(name = "pdpFeedback")
+    private String pdpFeedback;
+
+    @Column(name = "approvedBy")
+    private Integer approvedBy;
+
+    @Column(name = "approvedAt")
+    private LocalDateTime approvedAt;
+
+    @org.hibernate.annotations.Nationalized
     @Column(name = "rejectionReason")
     private String rejectionReason;
 
@@ -74,5 +84,3 @@ public class Event {
     private Boolean isDeleted;
 
 }
-
-
