@@ -9,10 +9,12 @@ export default function VerifyOTP() {
   const navigate = useNavigate();
   const { state } = useLocation();
 
+  const isForgotPassword = state?.mode === "forgot-password";
+
   const [email, setEmail] = useState(() => {
     return state?.email || localStorage.getItem("pending_verify_email") || "";
   });
-  const [isEditingEmail, setIsEditingEmail] = useState(!email);
+  const [isEditingEmail, setIsEditingEmail] = useState(!email && !isForgotPassword);
 
   const [otp, setOtp] = useState(Array(6).fill(""));
   const [loading, setLoading] = useState(false);
@@ -34,12 +36,16 @@ export default function VerifyOTP() {
     setError("");
     setSuccess("");
     try {
-      await authService.verifyOTP(email, otp.join(""));
-      localStorage.removeItem("pending_verify_email");
-      setSuccess("Xác thực thành công! Đang chuyển hướng đăng nhập...");
-      setTimeout(() => {
-        navigate("/login", { replace: true });
-      }, 2000);
+      if (isForgotPassword) {
+        navigate("/reset-password", { state: { email, otp: otp.join("") }, replace: true });
+      } else {
+        await authService.verifyOTP(email, otp.join(""));
+        localStorage.removeItem("pending_verify_email");
+        setSuccess("Xác thực thành công! Đang chuyển hướng đăng nhập...");
+        setTimeout(() => {
+          navigate("/login", { replace: true });
+        }, 2000);
+      }
     } catch (err) {
       const msg = err?.response?.data?.error ?? "Xác thực OTP thất bại. Vui lòng thử lại!";
       setError(msg);
@@ -54,7 +60,11 @@ export default function VerifyOTP() {
     setError("");
     setSuccess("");
     try {
-      await authService.resendOTP(email);
+      if (isForgotPassword) {
+        await authService.resendForgotPasswordOTP(email);
+      } else {
+        await authService.resendOTP(email);
+      }
       setOtp(Array(6).fill(""));
       setCooldown(RESEND_SECONDS);
       setSuccess("Mã OTP mới đã được gửi vào email của bạn!");
@@ -97,8 +107,10 @@ export default function VerifyOTP() {
 
         <div className="text-center mb-8">
           <h1 className="text-[1.6rem] font-bold text-[#1A1A1A] mb-[6px] tracking-[-0.02em]">Xác thực OTP</h1>
-          <p className="text-[13px] text-[#6B6B6B] m-0 leading-[1.5]" style={{ marginBottom: "8px" }}>Check mail để lấy mã xác thực.</p>
-          {isEditingEmail ? (
+          <p className="text-[13px] text-[#6B6B6B] m-0 leading-[1.5]" style={{ marginBottom: "8px" }}>
+            {isForgotPassword ? "Mã OTP đã được gửi đến email của bạn." : "Check mail để lấy mã xác thực."}
+          </p>
+          {!isForgotPassword && isEditingEmail ? (
             <div style={{ width: "100%", maxWidth: "280px", margin: "10px auto 0" }}>
               <input
                 type="email"
@@ -124,22 +136,24 @@ export default function VerifyOTP() {
           ) : (
             <p className="text-[13px] font-semibold text-[#3B82F6] mt-[5px] max-w-[260px] overflow-hidden text-ellipsis whitespace-nowrap mx-auto">
               {email}
-              <button
-                type="button"
-                onClick={() => setIsEditingEmail(true)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#3B82F6",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                  textDecoration: "underline",
-                  marginLeft: "8px",
-                  fontWeight: 500
-                }}
-              >
-                Thay đổi
-              </button>
+              {!isForgotPassword && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingEmail(true)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#3B82F6",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    textDecoration: "underline",
+                    marginLeft: "8px",
+                    fontWeight: 500
+                  }}
+                >
+                  Thay đổi
+                </button>
+              )}
             </p>
           )}
         </div>

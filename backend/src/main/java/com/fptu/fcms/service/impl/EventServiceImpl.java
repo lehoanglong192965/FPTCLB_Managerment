@@ -56,15 +56,10 @@ public class EventServiceImpl implements EventService {
 
         // [BR-G02] Validate mốc thời gian tối thiểu
         if (isResubmit) {
-
             if (daysUntilEvent < 7) {
                 throw new IllegalArgumentException("Đề xuất lại (Resubmit) phải được gửi trước ít nhất 7 ngày.");
-
             }
-
-        }
-        else
-        {
+        } else {
             if (daysUntilEvent < 14) {
                 throw new IllegalArgumentException("Đề xuất sự kiện mới phải được gửi trước ít nhất 14 ngày.");
             }
@@ -116,7 +111,6 @@ public class EventServiceImpl implements EventService {
             throw new IllegalArgumentException("Chỉ có thể hủy sự kiện đã được phê duyệt (Approved).");
         }
 
-        // Cập nhật trạng thái
         event.setEventStatus("Cancelled");
         eventRepository.save(event);
 
@@ -128,7 +122,7 @@ public class EventServiceImpl implements EventService {
                     .collect(Collectors.toList());
 
             List<UserAccount> users = userRepository.findAllByUserIDIn(userIds);
-            
+
             String subject = "Thông báo hủy sự kiện: " + event.getEventName();
             String content = "Sự kiện " + event.getEventName() + " đã bị hủy với lý do:\n" + request.getReason();
 
@@ -162,6 +156,7 @@ public class EventServiceImpl implements EventService {
         event.setPdpFeedback(feedback);
         event.setApprovedBy(currentUser.getUserId());
         event.setApprovedAt(now);
+        event.setRejectionReason(STATUS_REJECTED.equals(decision) ? feedback : null);
         Event savedEvent = eventRepository.save(event);
 
         saveApprovalAuditLog(currentUser.getUserId(), savedEvent, oldStatus, decision, feedback, now);
@@ -177,6 +172,52 @@ public class EventServiceImpl implements EventService {
                 savedEvent.getPdpFeedback(),
                 message
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getPendingEvents() {
+        return eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_PENDING);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Event getEventById(Integer eventId) {
+        return eventRepository.findByEventIDAndIsDeletedFalse(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
+    }
+
+    @Override
+    @Transactional
+    public void approveEvent(Integer eventId) {
+        Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
+
+        if (!STATUS_PENDING.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Chỉ có thể phê duyệt sự kiện đang ở trạng thái chờ duyệt (Pending).");
+        }
+
+        validateScheduleConflict(event);
+        event.setEventStatus(STATUS_APPROVED);
+        event.setApprovedAt(LocalDateTime.now());
+        event.setRejectionReason(null);
+        eventRepository.save(event);
+    }
+
+    @Override
+    @Transactional
+    public void rejectEvent(Integer eventId, String reason) {
+        Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
+
+        if (!STATUS_PENDING.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Chỉ có thể từ chối sự kiện đang ở trạng thái chờ duyệt (Pending).");
+        }
+
+        event.setEventStatus(STATUS_REJECTED);
+        event.setPdpFeedback(reason);
+        event.setRejectionReason(reason);
+        eventRepository.save(event);
     }
 
     private String normalizeDecision(String decision) {

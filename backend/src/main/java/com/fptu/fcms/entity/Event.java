@@ -64,6 +64,10 @@ public class Event {
     @Column(name = "approvedAt")
     private LocalDateTime approvedAt;
 
+    @org.hibernate.annotations.Nationalized
+    @Column(name = "rejectionReason")
+    private String rejectionReason;
+
     @Column(name = "isResubmitted")
     private Boolean isResubmitted;
 
@@ -80,5 +84,3 @@ public class Event {
     private Boolean isDeleted;
 
 }
-
-

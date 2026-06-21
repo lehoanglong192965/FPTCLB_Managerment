@@ -28,6 +28,8 @@ public interface EventRepository extends JpaRepository<Event, Integer> {
             Collection<String> eventStatuses
     );
 
+    List<Event> findByEventStatusAndIsDeletedFalse(String status);
+
     // [BR-G02] Tìm các event Pending lâu hơn một mốc thời gian
     List<Event> findByEventStatusAndCreatedAtBeforeAndIsDeletedFalse(String status, LocalDateTime date);
 }
