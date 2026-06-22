@@ -21,6 +21,7 @@ import {
   Ban,
   Network,
   ClipboardList,
+  PlusCircle,
 } from "lucide-react";
 
 /*
@@ -67,7 +68,8 @@ export const SIDEBAR_CONFIGS = {
     { key: "overview",      label: "Tổng Quan CLB",        icon: Home,            path: "/club-leader",              exact: true },
     { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/club-leader/members" },
     { key: "applications",  label: "Đơn Ứng Tuyển",        icon: ClipboardList,   path: "/club-leader/applications" },
-    { key: "events",        label: "Sự Kiện CLB",          icon: Calendar,        path: "/club-leader/events" },
+    { key: "event-create",  label: "Tạo Sự Kiện",          icon: PlusCircle,      path: "/club-leader/event-create" },
+    { key: "events",        label: "Quản Lý Sự Kiện",      icon: Calendar,        path: "/club-leader/events" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/club-leader/notifications" },
     { key: "reports",       label: "Báo Cáo CLB",          icon: BarChart2,       path: "/club-leader/reports" },
     { key: "blacklist",     label: "Danh Sách Đen",        icon: Ban,             path: "/club-leader/blacklist" },
@@ -77,7 +79,8 @@ export const SIDEBAR_CONFIGS = {
   VICE_LEADER: [
     { key: "overview",      label: "Tổng Quan CLB",        icon: Home,            path: "/vice-leader",              exact: true },
     { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/vice-leader/members" },
-    { key: "events",        label: "Sự Kiện",              icon: Calendar,        path: "/vice-leader/events" },
+    { key: "event-create",  label: "Tạo Sự Kiện",          icon: PlusCircle,      path: "/vice-leader/event-create" },
+    { key: "events",        label: "Quản Lý Sự Kiện",      icon: Calendar,        path: "/vice-leader/events" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/vice-leader/notifications" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/vice-leader/profile" },
   ],

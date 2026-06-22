@@ -1,14 +1,21 @@
-import { useState } from "react";
-import { Calendar, Plus, Clock, MapPin, Search, X, AlertTriangle } from "lucide-react";
-import EventProposalForm from "./EventProposalForm";
-import { useEvents } from "../../contexts/EventsContext";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Calendar, Clock, MapPin, Search, X, AlertTriangle } from "lucide-react";
+import { TokenService } from "../../services/api/axiosClient";
 
-const MOCK_EVENTS = [
-  { id: 1, name: "Workshop UI/UX Design",  date: "15/07/2026", time: "14:00", location: "Hall A",         status: "approved", attendees: 45  },
-  { id: 2, name: "Hackathon mùa hè 2026",  date: "20/07/2026", time: "08:00", location: "FPT Arena",      status: "approved", attendees: 120 },
-  { id: 3, name: "Tech Talk: AI & LLM",    date: "01/06/2026", time: "15:00", location: "Phòng hội thảo", status: "done",     attendees: 67  },
-  { id: 4, name: "CLB Anniversary Night",  date: "10/05/2026", time: "18:00", location: "Sân ngoài",      status: "done",     attendees: 200 },
-];
+function loadEvents(clubId) {
+  if (!clubId) return [];
+  try {
+    return JSON.parse(localStorage.getItem(`club_events_${clubId}`) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveEvents(clubId, events) {
+  if (!clubId) return;
+  localStorage.setItem(`club_events_${clubId}`, JSON.stringify(events));
+}
 
 const STATUS_CFG = {
   pending:   { label: "Chờ phê duyệt", color: "#d97706", bg: "#fffbeb" },
@@ -123,49 +130,40 @@ function CancelModal({ event, onConfirm, onClose }) {
 }
 
 export default function ClubEventsMgmt() {
-  const [search, setSearch]             = useState("");
-  const [events, setEvents]             = useState(MOCK_EVENTS);
-  const [cancelTarget, setCancelTarget] = useState(null);
-  const [showForm, setShowForm]         = useState(false);
-  const { proposeEvent }                = useEvents();
+  const clubId  = TokenService.getClubId();
+  const navigate = useNavigate();
 
-  const handleProposalSubmit = (formData) => {
-    proposeEvent(formData, "CLB FPT");
-    setEvents((prev) => [{
-      id:       Date.now(),
-      name:     formData.name,
-      date:     formData.date,
-      time:     formData.startTime,
-      location: formData.location || "Online",
-      status:   "pending",
-      attendees: Number(formData.expectedCount),
-    }, ...prev]);
-    setShowForm(false);
-  };
+  const [search, setSearch]             = useState("");
+  const [events, setEvents]             = useState(() => loadEvents(clubId));
+  const [cancelTarget, setCancelTarget] = useState(null);
+
+  useEffect(() => {
+    setEvents(loadEvents(clubId));
+  }, [clubId]);
 
   const filtered = events.filter((e) =>
     e.name.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleCancelConfirm = (id, reason) => {
-    setEvents((prev) =>
-      prev.map((e) =>
-        e.id === id ? { ...e, status: "cancelled", cancelReason: reason } : e
-      )
+    const updated = events.map((e) =>
+      e.id === id ? { ...e, status: "cancelled", cancelReason: reason } : e
     );
+    setEvents(updated);
+    saveEvents(clubId, updated);
     setCancelTarget(null);
   };
 
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Sự Kiện CLB</h1>
-        <p className="page-subtitle">Quản lý lịch sự kiện của câu lạc bộ</p>
+        <h1 className="page-title">Quản Lý Sự Kiện</h1>
+        <p className="page-subtitle">Theo dõi trạng thái các sự kiện đã đề xuất</p>
       </div>
 
       <div className="content-card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", gap: "0.75rem" }}>
-          <div style={{ position: "relative", flex: 1, maxWidth: 320 }}>
+        <div style={{ marginBottom: "1rem" }}>
+          <div style={{ position: "relative", maxWidth: 360 }}>
             <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
             <input
               value={search} onChange={(e) => setSearch(e.target.value)}
@@ -173,14 +171,34 @@ export default function ClubEventsMgmt() {
               style={{ width: "100%", padding: "8px 10px 8px 32px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
             />
           </div>
-          <button className="dl-btn-add" onClick={() => setShowForm(true)}>
-            <Plus size={15} /> Tạo sự kiện
-          </button>
         </div>
 
         {filtered.length === 0 ? (
-          <p className="approval-empty">Không tìm thấy sự kiện phù hợp.</p>
+          <div style={{ textAlign: "center", padding: "48px 20px" }}>
+            <Calendar size={40} style={{ color: "#e5e7eb", margin: "0 auto 14px", display: "block" }} />
+            <p style={{ fontSize: 14, fontWeight: 600, color: "#374151", margin: "0 0 6px" }}>
+              {search ? "Không tìm thấy sự kiện phù hợp." : "Chưa có sự kiện nào."}
+            </p>
+            {!search && (
+              <p style={{ fontSize: 13, color: "#9ca3af", margin: "0 0 18px" }}>
+                Tạo đề xuất sự kiện để bắt đầu.
+              </p>
+            )}
+            {!search && (
+              <button
+                onClick={() => navigate("../event-create", { relative: "path" })}
+                style={{
+                  padding: "9px 22px", borderRadius: 10, border: "none",
+                  background: "#E6430A", color: "#fff", fontSize: 13.5, fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                + Tạo sự kiện ngay
+              </button>
+            )}
+          </div>
         ) : (
+
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
             {filtered.map((ev) => {
               const cfg = STATUS_CFG[ev.status];
@@ -241,13 +259,6 @@ export default function ClubEventsMgmt() {
           event={cancelTarget}
           onConfirm={handleCancelConfirm}
           onClose={() => setCancelTarget(null)}
-        />
-      )}
-
-      {showForm && (
-        <EventProposalForm
-          onClose={() => setShowForm(false)}
-          onSubmit={handleProposalSubmit}
         />
       )}
     </div>

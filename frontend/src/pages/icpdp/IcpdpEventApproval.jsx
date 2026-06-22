@@ -1,78 +1,178 @@
-import { useState } from "react";
-import { useEvents } from "../../contexts/EventsContext";
-
-const MOCK_EVENTS = [
-  {
-    id: 1,
-    status: "pending",
-    statusLabel: "Chờ IC-PDP duyệt",
-    name: "Tech Talk: AI & LLM",
-    club: "FPTU IT Club",
-    description: "Buổi hội thảo chuyên sâu về Large Language Models và ứng dụng trong doanh nghiệp.",
-    eventDate: "28/7/2026",
-    budget: "6.500.000",
-    location: "Phòng 202 — Tòa nhà A",
-    daysLeft: 50,
-    submittedAt: "5/7/2026",
-    scheduleConflict: false,
-  },
-  {
-    id: 2,
-    status: "ongoing",
-    statusLabel: "Đang diễn ra",
-    name: "Workshop: React & TypeScript",
-    club: "FPTU Code Club",
-    description: "Workshop thực hành xây dựng ứng dụng web hiện đại với React và TypeScript.",
-    eventDate: "10/6/2026",
-    budget: "2.000.000",
-    location: "Phòng 301 — Tòa nhà B",
-    daysLeft: null,
-    submittedAt: "1/6/2026",
-    scheduleConflict: true,
-  },
-  {
-    id: 3,
-    status: "pending",
-    statusLabel: "Chờ IC-PDP duyệt",
-    name: "Giao lưu Văn hóa Quốc tế",
-    club: "FPTU English Club",
-    description: "Sự kiện giao lưu văn hóa giữa sinh viên Việt Nam và sinh viên quốc tế tại FPTU.",
-    eventDate: "15/8/2026",
-    budget: "8.500.000",
-    location: "Hội trường A — Tòa nhà C",
-    daysLeft: 68,
-    submittedAt: "8/7/2026",
-    scheduleConflict: true,
-  },
-];
+import { useState, useEffect } from "react";
+import { X } from "lucide-react";
+import eventService from "../../services/api/events/eventService";
 
 const BUDGET_LIMIT = 5_000_000;
 
-const parseBudget = (str) => parseInt(str.replace(/\./g, ""), 10) || 0;
-
 const STATUS_BADGE = {
   pending:  "bg-yellow-100 text-yellow-700",
-  ongoing:  "bg-blue-100 text-blue-700",
   approved: "bg-green-100 text-green-700",
   rejected: "bg-red-100 text-red-700",
 };
 
 const TABS = [
-  { key: "all",     label: "Tất cả" },
-  { key: "pending", label: "Chờ duyệt" },
-  { key: "ongoing", label: "Đang diễn ra" },
+  { key: "all",      label: "Tất cả"     },
+  { key: "pending",  label: "Chờ duyệt"  },
+  { key: "approved", label: "Đã duyệt"   },
+  { key: "rejected", label: "Đã từ chối" },
 ];
 
-export default function IcpdpEventApproval() {
-  const [activeTab, setActiveTab]   = useState("pending");
-  const [localEvents, setLocalEvents] = useState(MOCK_EVENTS);
-  const { proposals, approveProposal, rejectProposal } = useEvents();
+function parseBudget(val) {
+  if (val == null) return 0;
+  if (typeof val === "number") return val;
+  return parseInt(String(val).replace(/\./g, ""), 10) || 0;
+}
 
-  // Merge mock events (local state) + proposals từ Club Leader (context)
-  const events = [
-    ...proposals,
-    ...localEvents.filter((e) => !proposals.some((p) => p.id === e.id)),
-  ];
+function formatDate(isoStr) {
+  if (!isoStr) return "";
+  const d = new Date(isoStr);
+  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+}
+
+function formatBudget(val) {
+  if (!val) return "0";
+  return Number(val).toLocaleString("vi-VN");
+}
+
+/* ── Reject reason modal ───────────────────────────────── */
+function RejectModal({ event, onConfirm, onClose }) {
+  const [reason, setReason]   = useState("");
+  const [touched, setTouched] = useState(false);
+
+  const isValid   = reason.trim().length >= 10;
+  const showError = touched && !isValid;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.45)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="text-[15px] font-bold text-gray-900 m-0">Từ chối sự kiện</h2>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 cursor-pointer border-none bg-transparent">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="px-6 py-5">
+          <p className="text-[13.5px] text-gray-600 mb-4 leading-relaxed">
+            Nhập lý do từ chối sự kiện <strong>"{event.name}"</strong>.
+          </p>
+          <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">
+            Lý do <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={reason}
+            onChange={(e) => { setReason(e.target.value); setTouched(true); }}
+            placeholder="Nhập lý do từ chối..."
+            rows={4}
+            className={`w-full resize-none rounded-xl border text-[13.5px] text-gray-800 px-3.5 py-3 outline-none transition-colors leading-relaxed ${
+              showError ? "border-red-400 bg-red-50/40" : "border-gray-200 focus:border-[#e6430a] bg-white"
+            }`}
+            style={{ boxSizing: "border-box" }}
+          />
+          {showError && <p className="text-[12px] text-red-600 mt-1">Lý do phải có ít nhất 10 ký tự.</p>}
+        </div>
+
+        <div className="flex gap-2.5 px-6 pb-5">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 text-[13.5px] font-semibold hover:bg-gray-50 cursor-pointer">
+            Hủy
+          </button>
+          <button
+            onClick={() => { setTouched(true); if (isValid) onConfirm(reason.trim()); }}
+            className="flex-1 py-2.5 rounded-xl text-white text-[13.5px] font-semibold border-none bg-red-600 hover:bg-red-700 cursor-pointer"
+          >
+            Xác nhận từ chối
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const LS_KEY = "icpdp_processed_events";
+
+function loadProcessed() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; }
+}
+
+function saveProcessed(events) {
+  const processed = events.filter((e) => e.status !== "pending");
+  localStorage.setItem(LS_KEY, JSON.stringify(processed));
+}
+
+const PUB_KEY = "public_approved_events";
+
+function savePublicApproved(events) {
+  const approved = events
+    .filter((e) => e.status === "approved")
+    .map((e) => ({
+      id:                  e.id,
+      title:               e.name,
+      club:                e.club,
+      emoji:               "🎉",
+      color:               "#E6430A",
+      badgeType:           "upcoming",
+      date:                e.eventDate,
+      location:            e.location ?? "",
+      maxParticipants:     0,
+      currentParticipants: 0,
+    }));
+  localStorage.setItem(PUB_KEY, JSON.stringify(approved));
+}
+
+/* ── Main ──────────────────────────────────────────────── */
+export default function IcpdpEventApproval() {
+  const [activeTab, setActiveTab]       = useState("pending");
+  const [events, setEvents]             = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [rejectTarget, setRejectTarget] = useState(null);
+
+  const fetchEvents = () => {
+    setLoading(true);
+    eventService.getPendingForIcpdp()
+      .then((res) => {
+        const list = Array.isArray(res) ? res : res?.data ?? [];
+        const pendingIds = new Set(list.map((e) => e.eventID));
+
+        const fromApi = list.map((e) => ({
+          id:               e.eventID,
+          status:           "pending",
+          statusLabel:      "Chờ IC-PDP duyệt",
+          name:             e.eventName,
+          club:             e.clubName ?? `CLB #${e.clubID}`,
+          description:      e.description,
+          eventDate:        formatDate(e.startDate),
+          budget:           formatBudget(e.budget),
+          location:         e.location,
+          submittedAt:      formatDate(e.createdAt),
+          scheduleConflict: false,
+        }));
+
+        // Merge: giữ lại các sự kiện đã xử lý từ localStorage (trừ những sự kiện vẫn còn pending từ API)
+        const processed = loadProcessed().filter((e) => !pendingIds.has(e.id));
+
+        setEvents([...fromApi, ...processed]);
+      })
+      .catch(() => {
+        // Nếu API lỗi, vẫn load processed từ localStorage
+        setEvents(loadProcessed());
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchEvents(); }, []);
+
+  const updateAndPersist = (updater) => {
+    setEvents((prev) => {
+      const next = updater(prev);
+      saveProcessed(next);
+      savePublicApproved(next);
+      return next;
+    });
+  };
 
   const filtered = activeTab === "all"
     ? events
@@ -82,24 +182,29 @@ export default function IcpdpEventApproval() {
     ? events.length
     : events.filter((e) => e.status === key).length;
 
-  const approve = (id) => {
-    if (proposals.some((p) => p.id === id)) {
-      approveProposal(id);
-    } else {
-      setLocalEvents((prev) =>
+  const approve = async (id) => {
+    try {
+      await eventService.approveForIcpdp(id);
+      updateAndPersist((prev) =>
         prev.map((e) => e.id === id ? { ...e, status: "approved", statusLabel: "Đã phê duyệt" } : e)
       );
+    } catch (err) {
+      alert(err?.response?.data?.message ?? "Phê duyệt thất bại.");
     }
   };
 
-  const reject = (id) => {
-    if (proposals.some((p) => p.id === id)) {
-      rejectProposal(id);
-    } else {
-      setLocalEvents((prev) =>
-        prev.map((e) => e.id === id ? { ...e, status: "rejected", statusLabel: "Đã từ chối" } : e)
+  const reject = async (id, reason) => {
+    try {
+      await eventService.rejectForIcpdp(id, reason);
+      updateAndPersist((prev) =>
+        prev.map((e) => e.id === id
+          ? { ...e, status: "rejected", statusLabel: "Đã từ chối", rejectionReason: reason }
+          : e)
       );
+    } catch (err) {
+      alert(err?.response?.data?.message ?? "Từ chối thất bại.");
     }
+    setRejectTarget(null);
   };
 
   return (
@@ -111,7 +216,7 @@ export default function IcpdpEventApproval() {
 
       <div className="flex gap-0 border-b-2 border-gray-200 mb-6">
         {TABS.map((tab) => {
-          const count = countOf(tab.key);
+          const count    = countOf(tab.key);
           const isActive = activeTab === tab.key;
           return (
             <button
@@ -135,44 +240,45 @@ export default function IcpdpEventApproval() {
       </div>
 
       <div className="flex flex-col gap-3.5">
-        {filtered.length === 0 && (
+        {loading && (
+          <p className="text-center py-16 text-gray-400 text-sm">Đang tải...</p>
+        )}
+        {!loading && filtered.length === 0 && (
           <p className="text-center py-16 text-gray-400 text-sm">Không có sự kiện nào.</p>
         )}
-        {filtered.map((event) => {
-          const hasBudgetWarning  = parseBudget(event.budget) > BUDGET_LIMIT;
-          const hasConflict       = event.scheduleConflict === true;
-          const hasWarning        = hasBudgetWarning || hasConflict;
+        {!loading && filtered.map((event) => {
+          const hasBudgetWarning = parseBudget(event.budget) > BUDGET_LIMIT;
+          const hasConflict      = event.scheduleConflict === true;
+
+          const borderColor =
+            event.status === "approved" ? "#16a34a" :
+            event.status === "rejected" ? "#dc2626" :
+            hasBudgetWarning || hasConflict ? "#ef4444" : "#e5e7eb";
+
+          const bgColor =
+            event.status === "approved" ? "#f0fdf4" :
+            event.status === "rejected" ? "#fef2f2" :
+            hasBudgetWarning || hasConflict ? "rgba(254,242,242,0.4)" : "#fff";
 
           return (
             <div
               key={event.id}
-              className={`bg-white rounded-xl px-6 py-5 shadow-sm flex justify-between items-start gap-6 transition-all ${
-                hasWarning
-                  ? "border-l-4 border-red-500 bg-red-50/40"
-                  : "border-l-4 border-transparent"
-              }`}
+              className="rounded-xl px-6 py-5 shadow-sm flex justify-between items-start gap-6 transition-all"
+              style={{ borderLeft: `4px solid ${borderColor}`, background: bgColor }}
             >
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-2.5">
-                  <span className={`inline-block px-3 py-0.5 rounded-full text-xs font-semibold ${STATUS_BADGE[event.status]}`}>
+                  <span className={`inline-block px-3 py-0.5 rounded-full text-xs font-semibold ${STATUS_BADGE[event.status] ?? STATUS_BADGE.pending}`}>
                     {event.statusLabel}
                   </span>
-
-                  {hasBudgetWarning && (
+                  {hasBudgetWarning && event.status === "pending" && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">
-                      <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                      </svg>
-                      Ngân sách vượt 5 triệu
+                      ⚠ Ngân sách vượt 5 triệu
                     </span>
                   )}
-
-                  {hasConflict && (
+                  {hasConflict && event.status === "pending" && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">
-                      <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 000 2 1 1 0 000-2z" clipRule="evenodd" />
-                      </svg>
-                      Trùng lịch
+                      ⚠ Trùng lịch
                     </span>
                   )}
                 </div>
@@ -182,32 +288,19 @@ export default function IcpdpEventApproval() {
                 <p className="text-[13.5px] text-gray-600 m-0 mb-3 leading-relaxed">{event.description}</p>
 
                 <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-[13px] text-gray-500">
-                  <span>
-                    Ngày tổ chức:{" "}
-                    <strong className={hasConflict ? "text-red-600" : "text-gray-900"}>
-                      {event.eventDate}
-                    </strong>
-                    {hasConflict && (
-                      <span className="ml-1 text-red-500 text-[11px] font-semibold">(trùng lịch)</span>
-                    )}
-                  </span>
-                  <span>
-                    Ngân sách:{" "}
-                    <strong className={hasBudgetWarning ? "text-red-600" : "text-gray-900"}>
-                      {event.budget} đ
-                    </strong>
-                    {hasBudgetWarning && (
-                      <span className="ml-1 text-red-500 text-[11px] font-semibold">(vượt giới hạn)</span>
-                    )}
-                  </span>
-                  <span>Địa điểm: <strong className="text-gray-900">{event.location}</strong></span>
-                  {event.daysLeft !== null && (
-                    <span className="text-[#e6430a] font-semibold">Còn {event.daysLeft} ngày</span>
-                  )}
+                  <span>Ngày tổ chức: <strong className={hasConflict ? "text-red-600" : "text-gray-900"}>{event.eventDate}</strong></span>
+                  <span>Ngân sách: <strong className={hasBudgetWarning ? "text-red-600" : "text-gray-900"}>{event.budget} đ</strong></span>
+                  {event.location && <span>Địa điểm: <strong className="text-gray-900">{event.location}</strong></span>}
                 </div>
                 <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-[13px] text-gray-500 mt-1.5">
                   <span>Nộp ngày: {event.submittedAt}</span>
                 </div>
+
+                {event.status === "rejected" && event.rejectionReason && (
+                  <div className="mt-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-[12.5px] text-red-700 leading-relaxed">
+                    <span className="font-semibold">Lý do từ chối:</span> {event.rejectionReason}
+                  </div>
+                )}
               </div>
 
               {event.status === "pending" && (
@@ -220,7 +313,7 @@ export default function IcpdpEventApproval() {
                   </button>
                   <button
                     className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white border-none rounded-lg text-[13.5px] font-semibold cursor-pointer transition-colors duration-150 whitespace-nowrap"
-                    onClick={() => reject(event.id)}
+                    onClick={() => setRejectTarget(event)}
                   >
                     Từ chối
                   </button>
@@ -230,6 +323,14 @@ export default function IcpdpEventApproval() {
           );
         })}
       </div>
+
+      {rejectTarget && (
+        <RejectModal
+          event={rejectTarget}
+          onConfirm={(reason) => reject(rejectTarget.id, reason)}
+          onClose={() => setRejectTarget(null)}
+        />
+      )}
     </div>
   );
 }
