@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  X, ChevronLeft, ChevronRight, Check,
-  Send, CalendarDays, FileText, CheckCircle2, ImagePlus, UploadCloud, Globe, Lock,
+  ChevronLeft, ChevronRight, Check,
+  Send, CalendarDays, FileText, CheckCircle2, ImagePlus, UploadCloud, Globe, Lock, X,
 } from "lucide-react";
 import eventService from "../../services/api/events/eventService";
 import semesterApi from "../../services/api/admin/semesterApi";
@@ -39,11 +40,12 @@ function Label({ children, required }) {
 
 function FieldError({ msg }) {
   if (!msg) return null;
-  return <p style={{ fontSize: 12, color: "#dc2626", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
-    <span>⚠</span> {msg}
-  </p>;
+  return (
+    <p style={{ fontSize: 12, color: "#dc2626", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+      <span>⚠</span> {msg}
+    </p>
+  );
 }
-
 
 function inputStyle(error) {
   return {
@@ -54,39 +56,37 @@ function inputStyle(error) {
   };
 }
 
-/* ─── Step progress bar ─────────────────────────────────────── */
+/* ─── Step bar ───────────────────────────────────────────────── */
 
 function StepBar({ current }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 0, padding: "20px 32px 0" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 32 }}>
       {STEPS.map((s, i) => {
         const done   = current > s.id;
         const active = current === s.id;
         return (
           <div key={s.id} style={{ display: "flex", alignItems: "center", flex: i < STEPS.length - 1 ? 1 : "none" }}>
-            {/* Circle */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
               <div style={{
-                width: 32, height: 32, borderRadius: "50%", display: "flex",
-                alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13,
+                width: 36, height: 36, borderRadius: "50%", display: "flex",
+                alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 14,
                 border: `2px solid ${done ? "#059669" : active ? "#E6430A" : "#d1d5db"}`,
                 background: done ? "#059669" : active ? "#E6430A" : "#fff",
                 color: done || active ? "#fff" : "#9ca3af",
                 transition: "all .25s",
               }}>
-                {done ? <Check size={14} strokeWidth={3} /> : s.id}
+                {done ? <Check size={16} strokeWidth={3} /> : s.id}
               </div>
               <span style={{
-                fontSize: 11.5, fontWeight: active ? 700 : 500, whiteSpace: "nowrap",
+                fontSize: 12, fontWeight: active ? 700 : 500, whiteSpace: "nowrap",
                 color: done ? "#059669" : active ? "#E6430A" : "#9ca3af",
               }}>
                 {s.label}
               </span>
             </div>
-            {/* Connector */}
             {i < STEPS.length - 1 && (
               <div style={{
-                flex: 1, height: 2, margin: "0 8px", marginBottom: 22,
+                flex: 1, height: 2, margin: "0 12px", marginBottom: 26,
                 background: done ? "#059669" : "#e5e7eb", transition: "background .25s",
               }} />
             )}
@@ -116,26 +116,18 @@ function BannerUpload({ value, onChange }) {
       <Label>Banner sự kiện</Label>
       {value ? (
         <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", border: "1.5px solid #e5e7eb" }}>
-          <img src={value} alt="Banner" style={{ width: "100%", height: 168, objectFit: "cover", display: "block" }} />
+          <img src={value} alt="Banner" style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }} />
           <button
             type="button"
             onClick={() => { onChange(null); if (fileRef.current) fileRef.current.value = ""; }}
             style={{
-              position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: "50%",
+              position: "absolute", top: 10, right: 10, width: 30, height: 30, borderRadius: "50%",
               border: "none", background: "rgba(0,0,0,0.55)", color: "#fff", cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}
           >
             <X size={14} />
           </button>
-          <div style={{
-            position: "absolute", bottom: 0, left: 0, right: 0,
-            background: "linear-gradient(to top, rgba(0,0,0,0.5), transparent)",
-            padding: "8px 12px", display: "flex", alignItems: "center", gap: 6,
-          }}>
-            <ImagePlus size={13} color="#fff" />
-            <span style={{ fontSize: 12, color: "#fff" }}>Nhấn × để xóa và chọn ảnh khác</span>
-          </div>
         </div>
       ) : (
         <div
@@ -145,12 +137,11 @@ function BannerUpload({ value, onChange }) {
           onClick={() => fileRef.current?.click()}
           style={{
             border: `2px dashed ${dragging ? "#E6430A" : "#d1d5db"}`,
-            borderRadius: 12, padding: "32px 20px", textAlign: "center",
-            background: dragging ? "#FFF3EE" : "#fafafa",
-            cursor: "pointer", transition: "all .15s",
+            borderRadius: 12, padding: "36px 20px", textAlign: "center",
+            background: dragging ? "#FFF3EE" : "#fafafa", cursor: "pointer", transition: "all .15s",
           }}
         >
-          <UploadCloud size={28} style={{ color: dragging ? "#E6430A" : "#9ca3af", margin: "0 auto 10px", display: "block" }} />
+          <UploadCloud size={30} style={{ color: dragging ? "#E6430A" : "#9ca3af", margin: "0 auto 10px", display: "block" }} />
           <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: dragging ? "#E6430A" : "#374151" }}>
             Kéo & thả hoặc <span style={{ color: "#E6430A", textDecoration: "underline" }}>chọn file</span>
           </p>
@@ -169,10 +160,10 @@ function InternalToggle({ value, onChange }) {
   return (
     <div>
       <Label>Phạm vi sự kiện</Label>
-      <div style={{ display: "flex", gap: 10 }}>
+      <div style={{ display: "flex", gap: 12 }}>
         {[
-          { val: false, label: "Công khai", icon: <Globe size={13} />, desc: "Mở cho tất cả sinh viên" },
-          { val: true,  label: "Nội bộ",    icon: <Lock  size={13} />, desc: "Chỉ dành cho thành viên CLB" },
+          { val: false, label: "Công khai", icon: <Globe size={14} />, desc: "Mở cho tất cả sinh viên" },
+          { val: true,  label: "Nội bộ",    icon: <Lock  size={14} />, desc: "Chỉ dành cho thành viên CLB" },
         ].map(({ val, label, icon, desc }) => {
           const active = value === val;
           return (
@@ -181,8 +172,8 @@ function InternalToggle({ value, onChange }) {
               type="button"
               onClick={() => onChange("isInternal", val)}
               style={{
-                flex: 1, display: "flex", alignItems: "center", gap: 10,
-                padding: "10px 14px", borderRadius: 10, fontSize: 13, cursor: "pointer",
+                flex: 1, display: "flex", alignItems: "center", gap: 12,
+                padding: "12px 16px", borderRadius: 10, fontSize: 13, cursor: "pointer",
                 border: `1.5px solid ${active ? "#E6430A" : "#e5e7eb"}`,
                 background: active ? "#FFF3EE" : "#fff",
                 color: active ? "#E6430A" : "#6b7280",
@@ -191,8 +182,8 @@ function InternalToggle({ value, onChange }) {
             >
               <span style={{ flexShrink: 0, display: "flex", alignItems: "center" }}>{icon}</span>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13 }}>{label}</div>
-                <div style={{ fontSize: 11.5, color: active ? "#c2410c" : "#9ca3af", marginTop: 1 }}>{desc}</div>
+                <div style={{ fontWeight: 700, fontSize: 13.5 }}>{label}</div>
+                <div style={{ fontSize: 12, color: active ? "#c2410c" : "#9ca3af", marginTop: 2 }}>{desc}</div>
               </div>
             </button>
           );
@@ -202,11 +193,11 @@ function InternalToggle({ value, onChange }) {
   );
 }
 
-/* ─── Step 1: Thông tin cơ bản ──────────────────────────────── */
+/* ─── Step 1 ─────────────────────────────────────────────────── */
 
 function Step1({ form, onChange, errors }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       <BannerUpload value={form.banner} onChange={(v) => onChange("banner", v)} />
 
       <div>
@@ -223,18 +214,18 @@ function Step1({ form, onChange, errors }) {
       <div>
         <Label required>Mô tả / Giới thiệu sự kiện</Label>
         <textarea
-          style={{ ...inputStyle(errors.desc), resize: "vertical", lineHeight: 1.6 }}
+          style={{ ...inputStyle(errors.desc), resize: "vertical", lineHeight: 1.7 }}
           placeholder="Giới thiệu mục tiêu, đối tượng tham gia, nội dung chính của sự kiện..."
-          rows={4}
+          rows={5}
           value={form.desc}
           onChange={(e) => onChange("desc", e.target.value)}
         />
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-          <FieldError msg={errors.desc} />
-          <span style={{ fontSize: 11.5, color: form.desc.length >= 30 ? "#059669" : "#9ca3af", marginLeft: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+          <span style={{ fontSize: 11.5, color: form.desc.length >= 30 ? "#059669" : "#9ca3af" }}>
             {form.desc.length} / 30+ ký tự
           </span>
         </div>
+        <FieldError msg={errors.desc} />
       </div>
 
       <div>
@@ -252,17 +243,14 @@ function Step1({ form, onChange, errors }) {
             fontSize: 13, fontWeight: 600, color: "#9ca3af", pointerEvents: "none",
           }}>đ</span>
         </div>
-
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 5 }}>
           <FieldError msg={errors.budget} />
           {form.budget && Number(form.budget) > BUDGET_LIMIT ? (
-            <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600 }}>
               ⚠ Vượt giới hạn 5.000.000 đ — cần ICPDP xem xét thêm
             </span>
           ) : form.budget && Number(form.budget) > 0 ? (
-            <span style={{ fontSize: 12, color: "#059669", marginLeft: "auto" }}>
-              ≈ {fmtVND(form.budget)} đ
-            </span>
+            <span style={{ fontSize: 12, color: "#059669", marginLeft: "auto" }}>≈ {fmtVND(form.budget)} đ</span>
           ) : null}
         </div>
       </div>
@@ -272,10 +260,9 @@ function Step1({ form, onChange, errors }) {
   );
 }
 
-/* ─── Step 2: Thời gian & Địa điểm ─────────────────────────── */
+/* ─── Step 2 ─────────────────────────────────────────────────── */
 
 function Step2({ form, onChange, errors }) {
-  // Ngày tối thiểu = hôm nay + 3 ngày
   const minDate = (() => {
     const d = new Date();
     d.setDate(d.getDate() + 14);
@@ -283,7 +270,7 @@ function Step2({ form, onChange, errors }) {
   })();
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
         <div>
           <Label required>Ngày tổ chức</Label>
@@ -319,58 +306,7 @@ function Step2({ form, onChange, errors }) {
   );
 }
 
-
-/* ─── Step 3: Xác nhận & Gửi ────────────────────────────────── */
-
-function Step3({ form }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{
-        padding: "14px 18px", borderRadius: 12, background: "#f0fdf4",
-        border: "1.5px solid #bbf7d0", display: "flex", alignItems: "center", gap: 10,
-      }}>
-        <CheckCircle2 size={18} color="#16a34a" />
-        <span style={{ fontSize: 13.5, color: "#15803d", fontWeight: 600 }}>
-          Kiểm tra lại thông tin trước khi gửi đề xuất.
-        </span>
-      </div>
-
-      {/* Banner preview */}
-      {form.banner && (
-        <SummaryCard icon={<ImagePlus size={15} color="#E6430A" />} title="Banner sự kiện">
-          <div style={{ padding: "10px 0" }}>
-            <img src={form.banner} alt="Banner" style={{ width: "100%", height: 160, objectFit: "cover", borderRadius: 8, display: "block" }} />
-          </div>
-        </SummaryCard>
-      )}
-
-      {/* Section: Basic info */}
-      <SummaryCard icon={<FileText size={15} color="#E6430A" />} title="Thông tin cơ bản">
-        <SummaryRow label="Tên sự kiện" value={form.name} />
-        <SummaryRow label="Mô tả"       value={form.desc} />
-        <SummaryRow label="Phạm vi"     value={form.isInternal ? "Nội bộ CLB" : "Công khai"} />
-        <div style={{ display: "flex", gap: 12, padding: "7px 0", borderBottom: "1px solid #f9fafb", alignItems: "center" }}>
-          <span style={{ fontSize: 12.5, color: "#6b7280", minWidth: 130, flexShrink: 0 }}>Ngân sách</span>
-          <span style={{ fontSize: 13, color: Number(form.budget) > BUDGET_LIMIT ? "#dc2626" : "#111827", fontWeight: 600 }}>
-            {fmtVND(form.budget)} đ
-            {Number(form.budget) > BUDGET_LIMIT && (
-              <span style={{ fontSize: 11.5, fontWeight: 600, marginLeft: 8, color: "#dc2626" }}>
-                ⚠ Vượt giới hạn
-              </span>
-            )}
-          </span>
-        </div>
-      </SummaryCard>
-
-      <SummaryCard icon={<CalendarDays size={15} color="#E6430A" />} title="Thời gian & Địa điểm">
-        <SummaryRow label="Ngày"      value={form.date} />
-        <SummaryRow label="Thời gian" value={`${form.startTime} – ${form.endTime}`} />
-        <SummaryRow label="Địa điểm" value={form.location || "—"} />
-      </SummaryCard>
-
-    </div>
-  );
-}
+/* ─── Step 3 ─────────────────────────────────────────────────── */
 
 function SummaryCard({ icon, title, children }) {
   return (
@@ -389,9 +325,54 @@ function SummaryCard({ icon, title, children }) {
 
 function SummaryRow({ label, value }) {
   return (
-    <div style={{ display: "flex", gap: 12, padding: "7px 0", borderBottom: "1px solid #f9fafb" }}>
-      <span style={{ fontSize: 12.5, color: "#6b7280", minWidth: 130, flexShrink: 0 }}>{label}</span>
+    <div style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid #f9fafb" }}>
+      <span style={{ fontSize: 12.5, color: "#6b7280", minWidth: 140, flexShrink: 0 }}>{label}</span>
       <span style={{ fontSize: 13, color: "#111827", fontWeight: 500 }}>{value}</span>
+    </div>
+  );
+}
+
+function Step3({ form }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{
+        padding: "14px 18px", borderRadius: 12, background: "#f0fdf4",
+        border: "1.5px solid #bbf7d0", display: "flex", alignItems: "center", gap: 10,
+      }}>
+        <CheckCircle2 size={18} color="#16a34a" />
+        <span style={{ fontSize: 13.5, color: "#15803d", fontWeight: 600 }}>
+          Kiểm tra lại thông tin trước khi gửi đề xuất.
+        </span>
+      </div>
+
+      {form.banner && (
+        <SummaryCard icon={<ImagePlus size={15} color="#E6430A" />} title="Banner sự kiện">
+          <div style={{ padding: "10px 0" }}>
+            <img src={form.banner} alt="Banner" style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 8, display: "block" }} />
+          </div>
+        </SummaryCard>
+      )}
+
+      <SummaryCard icon={<FileText size={15} color="#E6430A" />} title="Thông tin cơ bản">
+        <SummaryRow label="Tên sự kiện" value={form.name} />
+        <SummaryRow label="Mô tả"       value={form.desc} />
+        <SummaryRow label="Phạm vi"     value={form.isInternal ? "Nội bộ CLB" : "Công khai"} />
+        <div style={{ display: "flex", gap: 12, padding: "8px 0", alignItems: "center" }}>
+          <span style={{ fontSize: 12.5, color: "#6b7280", minWidth: 140, flexShrink: 0 }}>Ngân sách</span>
+          <span style={{ fontSize: 13, color: Number(form.budget) > BUDGET_LIMIT ? "#dc2626" : "#111827", fontWeight: 600 }}>
+            {fmtVND(form.budget)} đ
+            {Number(form.budget) > BUDGET_LIMIT && (
+              <span style={{ fontSize: 11.5, marginLeft: 8, color: "#dc2626" }}>⚠ Vượt giới hạn</span>
+            )}
+          </span>
+        </div>
+      </SummaryCard>
+
+      <SummaryCard icon={<CalendarDays size={15} color="#E6430A" />} title="Thời gian & Địa điểm">
+        <SummaryRow label="Ngày"      value={form.date} />
+        <SummaryRow label="Thời gian" value={`${form.startTime} – ${form.endTime}`} />
+        <SummaryRow label="Địa điểm" value={form.location || "—"} />
+      </SummaryCard>
     </div>
   );
 }
@@ -400,7 +381,6 @@ function SummaryRow({ label, value }) {
 
 function validate(step, form) {
   const e = {};
-
   if (step === 1) {
     if (!form.name.trim() || form.name.trim().length < 5)
       e.name = "Tên sự kiện phải có ít nhất 5 ký tự.";
@@ -409,51 +389,44 @@ function validate(step, form) {
     if (!form.budget || Number(form.budget) < 0)
       e.budget = "Vui lòng nhập ngân sách dự kiến (nhập 0 nếu không có).";
   }
-
   if (step === 2) {
-    // Ngày tổ chức
     if (!form.date) {
       e.date = "Vui lòng chọn ngày tổ chức.";
     } else {
-      const today     = new Date(); today.setHours(0, 0, 0, 0);
-      const minDate   = new Date(today); minDate.setDate(minDate.getDate() + 14);
-      const eventDate = new Date(form.date);
-      if (eventDate <= today)
-        e.date = "Ngày tổ chức phải là ngày trong tương lai.";
-      else if (eventDate < minDate)
-        e.date = "Đề xuất phải được gửi trước ít nhất 14 ngày so với ngày tổ chức.";
+      const today   = new Date(); today.setHours(0, 0, 0, 0);
+      const minDate = new Date(today); minDate.setDate(minDate.getDate() + 14);
+      const evDate  = new Date(form.date);
+      if (evDate <= today)   e.date = "Ngày tổ chức phải là ngày trong tương lai.";
+      else if (evDate < minDate) e.date = "Đề xuất phải được gửi trước ít nhất 14 ngày so với ngày tổ chức.";
     }
-
-    // Giờ bắt đầu / kết thúc
     if (!form.startTime) e.startTime = "Vui lòng chọn giờ bắt đầu.";
     if (!form.endTime)   e.endTime   = "Vui lòng chọn giờ kết thúc.";
     if (form.startTime && form.endTime && form.endTime <= form.startTime)
       e.endTime = "Giờ kết thúc phải sau giờ bắt đầu.";
-
     if (!form.location.trim())
       e.location = "Vui lòng nhập địa điểm tổ chức.";
   }
-
   return e;
 }
 
-/* ─── Main component ─────────────────────────────────────────── */
+/* ─── Main page ──────────────────────────────────────────────── */
 
-export default function EventProposalForm({ onClose, onSubmit }) {
-  const [step, setStep]         = useState(1);
-  const [form, setForm]         = useState(EMPTY_FORM);
-  const [errors, setErrors]     = useState({});
-  const [submitted, setSubmitted] = useState(false);
+export default function CreateEventPage() {
+  const navigate   = useNavigate();
+  const clubId     = TokenService.getClubId();
+
+  const [step, setStep]             = useState(1);
+  const [form, setForm]             = useState(EMPTY_FORM);
+  const [errors, setErrors]         = useState({});
+  const [submitted, setSubmitted]   = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [semesterId, setSemesterId] = useState(null);
 
-  const clubId = TokenService.getClubId();
-
   useEffect(() => {
     semesterApi.getAll()
       .then((res) => {
-        const list = Array.isArray(res) ? res : res?.data ?? [];
+        const list   = Array.isArray(res) ? res : res?.data ?? [];
         const active = list.find((s) => s.isActive) ?? list[list.length - 1];
         if (active) setSemesterId(active.semesterID ?? active.id);
       })
@@ -474,184 +447,155 @@ export default function EventProposalForm({ onClose, onSubmit }) {
 
   const goBack = () => { setErrors({}); setStep((s) => s - 1); };
 
+  const saveToLocal = () => {
+    const key = `club_events_${clubId}`;
+    const existing = JSON.parse(localStorage.getItem(key) || "[]");
+    const newEvent = {
+      id: Date.now(),
+      name: form.name,
+      date: form.date.split("-").reverse().join("/"),
+      time: form.startTime,
+      location: form.location,
+      status: "pending",
+      attendees: 0,
+    };
+    localStorage.setItem(key, JSON.stringify([newEvent, ...existing]));
+  };
+
   const handleSubmit = async () => {
     setSubmitting(true);
     setSubmitError("");
     try {
-      const startDate = `${form.date}T${form.startTime}:00`;
-      const endDate   = `${form.date}T${form.endTime}:00`;
-      const eventCode = `EVT-${clubId}-${Date.now()}`;
-
       await eventService.propose({
         clubID:        clubId,
         semesterID:    semesterId,
-        eventCode,
+        eventCode:     `EVT-${clubId}-${Date.now()}`,
         eventName:     form.name,
         description:   form.desc,
         location:      form.location || null,
         budget:        Number(form.budget) || 0,
-        startDate,
-        endDate,
+        startDate:     `${form.date}T${form.startTime}:00`,
+        endDate:       `${form.date}T${form.endTime}:00`,
         isResubmitted: false,
         isInternal:    form.isInternal,
         assignments:   null,
       });
-
+      saveToLocal();
       setSubmitted(true);
-      onSubmit?.({ ...form, status: "pending", submittedAt: new Date().toISOString() });
     } catch (err) {
-      const msg = err?.response?.data?.message ?? err?.message ?? "Gửi đề xuất thất bại.";
-      setSubmitError(msg);
+      setSubmitError(err?.response?.data?.message ?? err?.message ?? "Gửi đề xuất thất bại.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  return (
-    <div
-      style={{
-        position: "fixed", inset: 0, zIndex: 60,
-        background: "rgba(13,27,62,0.48)", backdropFilter: "blur(3px)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: "20px 16px",
-      }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div
-        style={{
-          background: "#fff", borderRadius: 20, width: "100%", maxWidth: 680,
-          maxHeight: "90vh", display: "flex", flexDirection: "column",
-          boxShadow: "0 24px 60px rgba(0,0,0,0.2)",
-          overflow: "hidden",
-        }}
-      >
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px 14px", borderBottom: "1.5px solid #f3f4f6" }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#111827" }}>
-              Đề xuất sự kiện mới
-            </h2>
-            <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "#6b7280" }}>
-              Bước {step} / 3 · {STEPS[step - 1].label}
+  /* ── Success screen ── */
+  if (submitted) {
+    return (
+      <div>
+        <div className="page-header">
+          <h1 className="page-title">Tạo Sự Kiện</h1>
+          <p className="page-subtitle">Đề xuất sự kiện mới cho câu lạc bộ</p>
+        </div>
+        <div className="content-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "60px 32px", gap: 20 }}>
+          <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Check size={40} color="#16a34a" strokeWidth={2.5} />
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#111827" }}>Đề xuất đã được gửi!</h3>
+            <p style={{ margin: "10px 0 0", fontSize: 14, color: "#6b7280", lineHeight: 1.7 }}>
+              Sự kiện <strong>"{form.name}"</strong> đã được gửi đến ICPDP để phê duyệt.<br />
+              Bạn có thể theo dõi trạng thái trong mục Quản Lý Sự Kiện.
             </p>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              width: 32, height: 32, borderRadius: "50%", border: "none",
-              background: "#f3f4f6", color: "#6b7280", cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "background .15s",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "#e5e7eb"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "#f3f4f6"; }}
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Step bar */}
-        <StepBar current={step} />
-
-        {/* Body */}
-        {submitted ? (
-          /* Success state */
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 40, gap: 16 }}>
-            <div style={{
-              width: 72, height: 72, borderRadius: "50%", background: "#dcfce7",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <Check size={36} color="#16a34a" strokeWidth={2.5} />
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#111827" }}>Đề xuất đã được gửi!</h3>
-              <p style={{ margin: "8px 0 0", fontSize: 13.5, color: "#6b7280", lineHeight: 1.6 }}>
-                Đề xuất sự kiện <strong>"{form.name}"</strong> đã được gửi đến<br />
-                ICPDP để phê duyệt. Bạn sẽ nhận thông báo sớm nhất.
-              </p>
-            </div>
+          <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
             <button
-              onClick={onClose}
+              onClick={() => { setForm(EMPTY_FORM); setStep(1); setSubmitted(false); }}
               style={{
-                marginTop: 8, padding: "10px 32px", borderRadius: 10,
-                background: "#E6430A", color: "#fff", border: "none",
-                fontSize: 14, fontWeight: 700, cursor: "pointer",
+                padding: "10px 24px", borderRadius: 10, border: "1.5px solid #e5e7eb",
+                background: "#fff", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer",
               }}
             >
-              Đóng
+              Tạo sự kiện khác
+            </button>
+            <button
+              onClick={() => navigate("../events", { relative: "path" })}
+              style={{
+                padding: "10px 24px", borderRadius: 10, border: "none",
+                background: "#E6430A", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              Xem Quản Lý Sự Kiện →
             </button>
           </div>
-        ) : (
-          <>
-            <div style={{ flex: 1, overflowY: "auto", padding: "24px 32px" }}>
-              {step === 1 && <Step1 form={form} onChange={onChange} errors={errors} />}
-              {step === 2 && <Step2 form={form} onChange={onChange} errors={errors} />}
-              {step === 3 && <Step3 form={form} />}
-            </div>
+        </div>
+      </div>
+    );
+  }
 
-            {/* Error message */}
-            {submitError && (
-              <div style={{ margin: "0 32px", padding: "10px 14px", borderRadius: 8, background: "#fef2f2", border: "1.5px solid #fecaca", fontSize: 13, color: "#dc2626" }}>
-                ⚠ {submitError}
-              </div>
-            )}
+  return (
+    <div>
+      <div className="page-header">
+        <h1 className="page-title">Tạo Sự Kiện</h1>
+        <p className="page-subtitle">Điền thông tin để đề xuất sự kiện mới — ICPDP sẽ xét duyệt trong vòng 3 ngày</p>
+      </div>
 
-            {/* Footer navigation */}
-            <div style={{
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "14px 32px", borderTop: "1.5px solid #f3f4f6",
-              background: "#fafafa",
-            }}>
-              <button
-                onClick={step === 1 ? onClose : goBack}
-                disabled={submitting}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  padding: "9px 20px", borderRadius: 10, fontSize: 13.5, fontWeight: 600,
-                  border: "1.5px solid #e5e7eb", background: "#fff", color: "#374151",
-                  cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.5 : 1,
-                  transition: "background .15s",
-                }}
-                onMouseEnter={(e) => { if (!submitting) e.currentTarget.style.background = "#f3f4f6"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; }}
-              >
-                <ChevronLeft size={16} />
-                {step === 1 ? "Hủy" : "Quay lại"}
-              </button>
+      <div className="content-card" style={{ maxWidth: 760, margin: "0 auto" }}>
+        <StepBar current={step} />
 
-              {step < 3 ? (
-                <button
-                  onClick={goNext}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "9px 24px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
-                    border: "none", background: "#E6430A", color: "#fff",
-                    cursor: "pointer", transition: "background .15s",
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "#c73a08"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "#E6430A"; }}
-                >
-                  Tiếp theo <ChevronRight size={16} />
-                </button>
-              ) : (
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 7,
-                    padding: "9px 28px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
-                    border: "none", background: submitting ? "#6ee7b7" : "#059669", color: "#fff",
-                    cursor: submitting ? "not-allowed" : "pointer", transition: "background .15s",
-                  }}
-                  onMouseEnter={(e) => { if (!submitting) e.currentTarget.style.background = "#047857"; }}
-                  onMouseLeave={(e) => { if (!submitting) e.currentTarget.style.background = "#059669"; }}
-                >
-                  <Send size={15} /> {submitting ? "Đang gửi..." : "Gửi đề xuất"}
-                </button>
-              )}
-            </div>
-          </>
+        <div style={{ marginBottom: 28 }}>
+          {step === 1 && <Step1 form={form} onChange={onChange} errors={errors} />}
+          {step === 2 && <Step2 form={form} onChange={onChange} errors={errors} />}
+          {step === 3 && <Step3 form={form} />}
+        </div>
+
+        {submitError && (
+          <div style={{ marginBottom: 20, padding: "10px 14px", borderRadius: 8, background: "#fef2f2", border: "1.5px solid #fecaca", fontSize: 13, color: "#dc2626" }}>
+            ⚠ {submitError}
+          </div>
         )}
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 20, borderTop: "1.5px solid #f3f4f6" }}>
+          <button
+            onClick={step === 1 ? () => navigate(-1) : goBack}
+            disabled={submitting}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "10px 22px", borderRadius: 10, fontSize: 13.5, fontWeight: 600,
+              border: "1.5px solid #e5e7eb", background: "#fff", color: "#374151",
+              cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.5 : 1,
+            }}
+          >
+            <ChevronLeft size={16} />
+            {step === 1 ? "Quay lại" : "Bước trước"}
+          </button>
+
+          {step < 3 ? (
+            <button
+              onClick={goNext}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "10px 26px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
+                border: "none", background: "#E6430A", color: "#fff", cursor: "pointer",
+              }}
+            >
+              Bước tiếp theo <ChevronRight size={16} />
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              style={{
+                display: "flex", alignItems: "center", gap: 7,
+                padding: "10px 30px", borderRadius: 10, fontSize: 13.5, fontWeight: 700,
+                border: "none", background: submitting ? "#6ee7b7" : "#059669", color: "#fff",
+                cursor: submitting ? "not-allowed" : "pointer",
+              }}
+            >
+              <Send size={15} /> {submitting ? "Đang gửi..." : "Gửi đề xuất"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

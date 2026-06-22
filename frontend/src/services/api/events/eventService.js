@@ -1,37 +1,34 @@
 import axiosClient from "../axiosClient";
 
 const eventService = {
-  // ── PUBLIC ──────────────────────────────────────────────────────
-  getPublic: (params) => axiosClient.get("/events/public", { params }),
-  getPublicById: (eventId) => axiosClient.get(`/events/public/${eventId}`),
+  // ── CLUB_LEADER / VICE_LEADER ─────────────────────────────────────────────
+  // POST /api/events/registerEvent
+  propose: (payload) => axiosClient.post("/events/registerEvent", payload),
 
-  // ── MEMBER ──────────────────────────────────────────────────────
-  register: (eventId) => axiosClient.post(`/events/${eventId}/register`),
-  unregister: (eventId) => axiosClient.delete(`/events/${eventId}/register`),
-  getMyEvents: (params) => axiosClient.get("/events/my", { params }),
-
-  // ── CORE_TEAM trở lên ───────────────────────────────────────────
-  getByClub: (clubId, params) =>
-    axiosClient.get(`/clubs/${clubId}/events`, { params }),
-  create: (clubId, payload) =>
-    axiosClient.post(`/clubs/${clubId}/events`, payload),
-  update: (clubId, eventId, payload) =>
-    axiosClient.put(`/clubs/${clubId}/events/${eventId}`, payload),
-  uploadBanner: (clubId, eventId, file) => {
-    const form = new FormData();
-    form.append("banner", file);
-    return axiosClient.post(`/clubs/${clubId}/events/${eventId}/banner`, form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-  },
+  // PATCH /api/events/{clubId}/{eventId}/cancel   body: { reason }
   cancel: (clubId, eventId, reason) =>
-    axiosClient.patch(`/clubs/${clubId}/events/${eventId}/cancel`, { reason }),
-  delete: (clubId, eventId) =>
-    axiosClient.delete(`/clubs/${clubId}/events/${eventId}`),
-  getAttendees: (clubId, eventId, params) =>
-    axiosClient.get(`/clubs/${clubId}/events/${eventId}/attendees`, { params }),
-  checkIn: (clubId, eventId, memberId) =>
-    axiosClient.patch(`/clubs/${clubId}/events/${eventId}/checkin/${memberId}`),
+    axiosClient.patch(`/events/${clubId}/${eventId}/cancel`, { reason }),
+
+  // ── ICPDP ─────────────────────────────────────────────────────────────────
+  // GET /api/icpdp/events/pending
+  getPendingForIcpdp: () => axiosClient.get("/icpdp/events/pending"),
+
+  // GET /api/icpdp/events/{eventId}
+  getEventByIdForIcpdp: (eventId) => axiosClient.get(`/icpdp/events/${eventId}`),
+
+  // PATCH /api/icpdp/events/{eventId}/approve
+  approveForIcpdp: (eventId) => axiosClient.patch(`/icpdp/events/${eventId}/approve`),
+
+  // PATCH /api/icpdp/events/{eventId}/reject   body: { reason }
+  rejectForIcpdp: (eventId, reason) =>
+    axiosClient.patch(`/icpdp/events/${eventId}/reject`, { reason }),
+
+  // ── MEMBER ────────────────────────────────────────────────────────────────
+  // POST /api/event-registrations/register/{eventId}
+  register: (eventId) => axiosClient.post(`/event-registrations/register/${eventId}`),
+
+  // DELETE /api/event-registrations/unregister/{eventId}
+  unregister: (eventId) => axiosClient.delete(`/event-registrations/unregister/${eventId}`),
 };
 
 export default eventService;

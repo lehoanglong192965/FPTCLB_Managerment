@@ -1,9 +1,26 @@
-﻿import { useNavigate } from "react-router-dom";
-import { EVENTS } from "../../constants/mockData";
+﻿import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import EventCard from "./EventCard";
+
+function loadApprovedEvents() {
+  try {
+    return JSON.parse(localStorage.getItem("public_approved_events") || "[]");
+  } catch {
+    return [];
+  }
+}
 
 export default function EventsSection() {
   const navigate = useNavigate();
+  const [events, setEvents] = useState(loadApprovedEvents);
+
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "public_approved_events") setEvents(loadApprovedEvents());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   return (
     <section
@@ -51,9 +68,17 @@ export default function EventsSection() {
         className="relative z-10 grid gap-5 max-w-[1200px] mx-auto"
         style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}
       >
-        {EVENTS.map((event) => (
-          <EventCard key={event.title} event={event} />
-        ))}
+        {events.length > 0 ? (
+          events.map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))
+        ) : (
+          <div className="col-span-full text-center py-10">
+            <p className="text-[15px] font-semibold" style={{ color: "rgba(255,255,255,0.5)" }}>
+              Chưa có sự kiện nào được phê duyệt.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* CTA */}
