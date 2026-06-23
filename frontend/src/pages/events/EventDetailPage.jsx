@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import eventService from "../../services/api/events/eventService";
+import EventRegistrationBtn from "../../components/events/EventRegistrationBtn";
 
 const BADGE_LABEL = {
   open:     "Đăng ký mở",
@@ -151,17 +152,11 @@ export default function EventDetailPage() {
           <aside>
             <div className="bg-white rounded-[14px] border border-[#EBEBEB] px-5 py-6 flex flex-col gap-5">
               
-              <button
-                  className={`w-full py-[13px] mt-1 border-none rounded-[10px] text-[15px] font-bold font-[inherit] transition-all ${
-                    isFull
-                      ? "bg-[#D1D5DB] text-[#9CA3AF] cursor-not-allowed"
-                      : "bg-[#F37021] text-white cursor-pointer hover:bg-[#e05c0a] hover:-translate-y-px"
-                  }`}
-                  disabled={isFull}
-                  onClick={() => !isFull && navigate("/register")}
-                >
-                  {isFull ? "Đã hết chỗ" : "Đăng ký tham gia"}
-                </button>
+              <EventRegistrationBtn 
+                  eventId={mappedEvent.id} 
+                  eventStatus={event.status || mappedEvent.badgeType === "open" ? "Upcoming" : ""}
+                  onRegisterSuccess={() => window.location.reload()} 
+              />
             </div>
           </aside>
 
