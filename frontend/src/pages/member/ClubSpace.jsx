@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ArrowLeft, Users, Calendar, Bell, Megaphone,
   Pin, Search, MapPin, Clock, ChevronRight,
 } from "lucide-react";
+import clubService from "../../services/api/clubs/clubService";
 
 const SPACE_DATA = {
   1: {
@@ -150,9 +151,28 @@ const TABS = [
 ];
 
 export default function ClubSpace({ club, onBack }) {
-  const [tab, setTab]           = useState("feed");
-  const [memberSearch, setMS]   = useState("");
+  const [tab, setTab]             = useState("feed");
+  const [memberSearch, setMS]     = useState("");
+  const [realEvents, setRealEvents]     = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
   const space = getSpace(club.id);
+
+  useEffect(() => {
+    if (tab === "events" && club?.id) {
+      setEventsLoading(true);
+      clubService.getAllEvents(club.id)
+        .then((res) => {
+          const data = Array.isArray(res) ? res : (res.data || []);
+          setRealEvents(data);
+        })
+        .catch((err) => {
+          console.error("Lỗi khi tải sự kiện CLB:", err);
+        })
+        .finally(() => {
+          setEventsLoading(false);
+        });
+    }
+  }, [tab, club?.id]);
 
   const filteredMembers = space.members.filter((m) =>
     m.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
@@ -259,14 +279,46 @@ export default function ClubSpace({ club, onBack }) {
 
         {tab === "events" && (
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <p className="text-[11.5px] font-semibold text-gray-400 uppercase tracking-wide m-0 mb-3">Sắp diễn ra</p>
-            {space.events.filter((e) => e.status === "upcoming").map((e) => (
-              <EventRow key={e.id} event={e} />
-            ))}
-            <p className="text-[11.5px] font-semibold text-gray-400 uppercase tracking-wide m-0 mb-3 mt-5">Đã kết thúc</p>
-            {space.events.filter((e) => e.status === "done").map((e) => (
-              <EventRow key={e.id} event={e} />
-            ))}
+            {eventsLoading ? (
+              <p className="text-center py-5 text-sm text-gray-400">Đang tải danh sách sự kiện...</p>
+            ) : realEvents.length === 0 ? (
+              <p className="text-center py-5 text-sm text-gray-400">Câu lạc bộ chưa có sự kiện nào.</p>
+            ) : (
+              <>
+                <p className="text-[11.5px] font-semibold text-gray-400 uppercase tracking-wide m-0 mb-3">Sắp diễn ra</p>
+                {realEvents
+                  .filter((e) => e.eventStatus === "Approved" || e.eventStatus === "Upcoming" || e.eventStatus === "Ongoing")
+                  .map((e) => (
+                    <EventRow
+                      key={e.eventID}
+                      event={{
+                        id: e.eventID,
+                        name: e.eventName,
+                        date: e.startDate ? new Date(e.startDate).toLocaleDateString("vi-VN") : "",
+                        time: e.startDate ? new Date(e.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
+                        location: e.location || "Chưa xếp phòng",
+                        status: "upcoming",
+                      }}
+                    />
+                  ))}
+                <p className="text-[11.5px] font-semibold text-gray-400 uppercase tracking-wide m-0 mb-3 mt-5">Đã kết thúc</p>
+                {realEvents
+                  .filter((e) => e.eventStatus === "Completed" || e.eventStatus === "Closed")
+                  .map((e) => (
+                    <EventRow
+                      key={e.eventID}
+                      event={{
+                        id: e.eventID,
+                        name: e.eventName,
+                        date: e.startDate ? new Date(e.startDate).toLocaleDateString("vi-VN") : "",
+                        time: e.startDate ? new Date(e.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
+                        location: e.location || "Chưa xếp phòng",
+                        status: "done",
+                      }}
+                    />
+                  ))}
+              </>
+            )}
           </div>
         )}
       </div>

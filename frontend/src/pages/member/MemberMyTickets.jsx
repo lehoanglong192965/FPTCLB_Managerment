@@ -1,47 +1,82 @@
-import { useState } from "react";
-import { Ticket, Search } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Ticket, Search, Loader2 } from "lucide-react";
 import EventCard from "../../components/events/EventCard";
-
-const INITIAL_TICKETS = [
-  {
-    id: 11, title: "Code War 2026",        club: "FPTU IT Club",
-    color: "#E6430A", emoji: "💻",
-    date: "15/07/2026", time: "15:00", location: "Hall A",
-    currentParticipants: 120, maxParticipants: 150,
-    ticketStatus: "registered",
-  },
-  {
-    id: 12, title: "Tech Talk: AI & LLM",  club: "FPTU IT Club",
-    color: "#0284c7", emoji: "🤖",
-    date: "20/06/2026", time: "09:00", location: "Tòa nhà F – P.201",
-    currentParticipants: 95, maxParticipants: 100,
-    ticketStatus: "ongoing",
-  },
-  {
-    id: 13, title: "Acoustic Night Vol.4", club: "FPTU Music Club",
-    color: "#7c3aed", emoji: "🎵",
-    date: "10/05/2026", time: "18:30", location: "Sân khấu ngoài trời",
-    currentParticipants: 150, maxParticipants: 150,
-    ticketStatus: "completed",
-  },
-];
+import eventService from "../../services/api/events/eventService";
+import clubService from "../../services/api/clubs/clubService";
 
 const FILTER_TABS = [
-  { key: "all",        label: "Tất cả"        },
-  { key: "registered", label: "Đã đăng ký"    },
-  { key: "ongoing",    label: "Đang diễn ra"  },
-  { key: "completed",  label: "Đã kết thúc"   },
-  { key: "cancelled",  label: "Đã hủy"        },
+  { key: "all",        label: "Tất cả"       },
+  { key: "registered", label: "Đã đăng ký"   },
+  { key: "ongoing",    label: "Đang làm BTC" },
 ];
 
 export default function MemberMyTickets() {
   const [search, setSearch]       = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [tickets, setTickets]     = useState([]);
+  const [loading, setLoading]     = useState(true);
 
-  const cancelledSet = new Set(JSON.parse(localStorage.getItem("fptclb_cancelled_tickets") ?? "[]"));
-  const tickets      = INITIAL_TICKETS.map((t) =>
-    cancelledSet.has(t.title) ? { ...t, ticketStatus: "cancelled" } : t
-  );
+  useEffect(() => {
+    const fetchTickets = async () => {
+      try {
+        const [regRes, assignRes, clubRes] = await Promise.all([
+          eventService.getMyRegistrations(),
+          eventService.getMyAssignments(),
+          clubService.getAll(),
+        ]);
+
+        const regs    = Array.isArray(regRes)    ? regRes    : (regRes.data    || []);
+        const assigns = Array.isArray(assignRes) ? assignRes : (assignRes.data || []);
+        const clubList = Array.isArray(clubRes)  ? clubRes   : (clubRes.data   || []);
+
+        const mappedRegs = regs.map((e) => {
+          const clubObj = clubList.find((c) => c.clubID === e.clubID);
+          return {
+            id: e.eventID,
+            title: e.eventName,
+            club: clubObj ? clubObj.name : "CLB FPTU",
+            color: clubObj ? clubObj.color : "#E6430A",
+            emoji: clubObj ? clubObj.emoji : "🎫",
+            date: e.startDate ? new Date(e.startDate).toLocaleDateString("vi-VN") : "",
+            time: e.startDate ? new Date(e.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
+            location: e.location || "Chưa xếp phòng",
+            ticketStatus: "registered",
+          };
+        });
+
+        const mappedAssigns = assigns.map((e) => {
+          const clubObj = clubList.find((c) => c.clubID === e.clubID);
+          return {
+            id: e.eventID,
+            title: e.eventName,
+            club: clubObj ? clubObj.name : "CLB FPTU",
+            color: clubObj ? clubObj.color : "#2563EB",
+            emoji: clubObj ? clubObj.emoji : "🛠️",
+            date: e.startDate ? new Date(e.startDate).toLocaleDateString("vi-VN") : "",
+            time: e.startDate ? new Date(e.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
+            location: e.location || "Chưa xếp phòng",
+            ticketStatus: "ongoing",
+          };
+        });
+
+        // Gộp, ưu tiên vai trò BTC nếu trùng event
+        const combined = [...mappedAssigns];
+        mappedRegs.forEach((r) => {
+          if (!combined.some((t) => t.id === r.id)) {
+            combined.push(r);
+          }
+        });
+
+        setTickets(combined);
+      } catch (err) {
+        console.error("Lỗi khi tải danh sách vé:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTickets();
+  }, []);
 
   const filtered = tickets.filter((e) => {
     const matchSearch = e.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -79,9 +114,9 @@ export default function MemberMyTickets() {
                 padding: "5px 14px", borderRadius: 99, fontSize: 13, fontWeight: 500,
                 cursor: "pointer", border: "1.5px solid",
                 fontFamily: "inherit", transition: "all 0.15s",
-                background:   activeTab === tab.key ? "#E6430A"   : "#fff",
-                color:        activeTab === tab.key ? "#fff"       : "#6b7280",
-                borderColor:  activeTab === tab.key ? "#E6430A"   : "#e5e7eb",
+                background:  activeTab === tab.key ? "#E6430A" : "#fff",
+                color:       activeTab === tab.key ? "#fff"    : "#6b7280",
+                borderColor: activeTab === tab.key ? "#E6430A" : "#e5e7eb",
               }}
             >
               {tab.label}
@@ -89,26 +124,33 @@ export default function MemberMyTickets() {
           ))}
         </div>
 
-        <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
-          {filtered.length} vé
-        </p>
-
-        {/* Grid */}
-        {filtered.length === 0 ? (
-          <div className="page-placeholder">
-            <Ticket size={48} className="page-placeholder-icon" />
-            <p className="page-placeholder-label">
-              {tickets.length === 0
-                ? "Bạn chưa đăng ký sự kiện nào."
-                : "Không tìm thấy kết quả."}
-            </p>
+        {loading ? (
+          <div className="text-center py-10">
+            <Loader2 className="animate-spin inline text-gray-400" size={28} />
+            <p className="text-sm text-gray-400 mt-2">Đang tải vé...</p>
           </div>
         ) : (
-          <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
-            {filtered.map((ev) => (
-              <EventCard key={ev.id} event={ev} />
-            ))}
-          </div>
+          <>
+            <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
+              {filtered.length} vé
+            </p>
+            {filtered.length === 0 ? (
+              <div className="page-placeholder">
+                <Ticket size={48} className="page-placeholder-icon" />
+                <p className="page-placeholder-label">
+                  {tickets.length === 0
+                    ? "Bạn chưa đăng ký sự kiện nào."
+                    : "Không tìm thấy kết quả."}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+                {filtered.map((ev) => (
+                  <EventCard key={ev.id} event={ev} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

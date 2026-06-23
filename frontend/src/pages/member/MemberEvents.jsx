@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import EventCard from "../../components/events/EventCard";
-import { EVENTS } from "../../constants/mockData";
-import { useEvents } from "../../contexts/EventsContext";
+import eventService from "../../services/api/events/eventService";
+import clubService from "../../services/api/clubs/clubService";
 
 const ALL_TAGS = ["Tất cả", "Công nghệ", "Âm nhạc", "Thể thao", "Hội thảo", "Cộng đồng", "Giải trí"];
 
@@ -11,14 +11,27 @@ export default function MemberEvents() {
   const [activeTag, setActiveTag]   = useState("Tất cả");
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef                   = useRef(null);
-  const { approvedEvents }          = useEvents();
+  const [events, setEvents]         = useState([]);
+  const [clubs, setClubs]           = useState([]);
+  const [loading, setLoading]       = useState(true);
 
-  // Base events (có id) + approved events từ ICPDP (không trùng)
-  const baseEvents  = EVENTS.filter((e) => e.id != null);
-  const MOCK_EVENTS = [
-    ...approvedEvents.filter((a) => !baseEvents.some((b) => b.id === a.id)),
-    ...baseEvents,
-  ];
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [eventRes, clubRes] = await Promise.all([
+          eventService.getApprovedEvents(),
+          clubService.getAll(),
+        ]);
+        setEvents(Array.isArray(eventRes) ? eventRes : (eventRes.data || []));
+        setClubs(Array.isArray(clubRes) ? clubRes : (clubRes.data || []));
+      } catch (err) {
+        console.error("Lỗi khi tải sự kiện/CLB:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -30,7 +43,26 @@ export default function MemberEvents() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filtered = MOCK_EVENTS.filter((e) => {
+  const mappedEvents = events.map((e) => {
+    const clubObj = clubs.find((c) => c.clubID === e.clubID);
+    return {
+      id: e.eventID,
+      title: e.eventName,
+      club: clubObj ? clubObj.name : "CLB FPTU",
+      emoji: clubObj ? clubObj.emoji : "🏛️",
+      color: clubObj ? clubObj.color : "#E6430A",
+      tag: clubObj ? (clubObj.tag || "") : "",
+      date: e.startDate ? new Date(e.startDate).toLocaleDateString("vi-VN") : "",
+      time: e.startDate ? new Date(e.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
+      venue: e.location || "Chưa xếp phòng",
+      desc: e.description,
+      badgeType: e.eventStatus === "Ongoing" ? "upcoming" : "open",
+      maxParticipants: 100,
+      currentParticipants: 0,
+    };
+  });
+
+  const filtered = mappedEvents.filter((e) => {
     const matchSearch = e.title.toLowerCase().includes(search.toLowerCase()) ||
                         e.club.toLowerCase().includes(search.toLowerCase());
     const matchTag    = activeTag === "Tất cả" || e.tag === activeTag;
@@ -97,20 +129,24 @@ export default function MemberEvents() {
           </div>
         </div>
 
-        <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
-          {filtered.length} sự kiện
-        </p>
-
-        {/* Grid */}
-        <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
-          {filtered.length === 0 ? (
-            <p className="col-span-full text-center py-10 text-gray-400 text-sm m-0">
-              Không tìm thấy sự kiện phù hợp.
+        {loading ? (
+          <p className="text-center py-10 text-sm text-gray-400">Đang tải sự kiện...</p>
+        ) : (
+          <>
+            <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
+              {filtered.length} sự kiện
             </p>
-          ) : (
-            filtered.map((ev) => <EventCard key={ev.id} event={ev} />)
-          )}
-        </div>
+            <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+              {filtered.length === 0 ? (
+                <p className="col-span-full text-center py-10 text-gray-400 text-sm m-0">
+                  Không tìm thấy sự kiện phù hợp.
+                </p>
+              ) : (
+                filtered.map((ev) => <EventCard key={ev.id} event={ev} />)
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

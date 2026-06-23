@@ -152,7 +152,7 @@ export default function ClubDetailCard({ club, clubEvents = [], primaryAction, o
                     </div>
                     <button
                       className="shrink-0 px-[18px] py-[7px] bg-transparent text-[#374151] border border-[#D1D5DB] rounded-lg text-[13px] font-semibold cursor-pointer transition-all hover:border-[#F37021] hover:text-[#F37021] font-[inherit]"
-                      onClick={() => navigate(`/events/${encodeURIComponent(event.title)}`)}
+                      onClick={() => navigate(`/events/${event.id ?? encodeURIComponent(event.title)}`)}
                     >
                       Chi tiết
                     </button>

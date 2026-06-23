@@ -15,6 +15,7 @@ export default function ClubDetailPage() {
   const { user, profile }  = useAuth();
 
   const [club, setClub]               = useState(null);
+  const [clubEvents, setClubEvents]   = useState([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState("");
   const [showApply, setShowApply]     = useState(false);
@@ -25,8 +26,36 @@ export default function ClubDetailPage() {
     setLoading(true);
     setError("");
     setAlreadyApplied(false);
+    setClubEvents([]);
     clubService.getByIdPublic(decodeURIComponent(abbr))
-      .then((res) => setClub(normalizeClub(res)))
+      .then((res) => {
+        const normalized = normalizeClub(res);
+        setClub(normalized);
+        // Fetch events sau khi có clubId
+        if (normalized?.id) {
+          clubService.getAllEvents(normalized.id)
+            .then((evRes) => {
+              const raw = Array.isArray(evRes) ? evRes
+                : (evRes?.content ?? evRes?.data ?? []);
+              // Chỉ hiện events đã được ICPDP duyệt trở lên
+              const SHOW = new Set(["Approved", "APPROVED", "UPCOMING", "Upcoming", "ONGOING", "Ongoing", "COMPLETED", "Completed", "CLOSED", "Closed"]);
+              const mapped = raw
+                .filter((e) => SHOW.has(e.eventStatus))
+                .map((e) => ({
+                  id:       e.eventID,
+                  title:    e.eventName ?? "",
+                  color:    normalized.color ?? "#F37021",
+                  emoji:    normalized.emoji ?? "🎉",
+                  date:     e.startDate
+                    ? new Date(e.startDate).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })
+                    : "",
+                  location: e.location ?? "",
+                }));
+              setClubEvents(mapped);
+            })
+            .catch((err) => console.error("[ClubDetail] Lỗi tải events:", err));
+        }
+      })
       .catch((err) => {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
         setClub(null);
@@ -138,7 +167,7 @@ export default function ClubDetailPage() {
       <div className="max-w-[1100px] mx-auto">
         <ClubDetailCard
           club={club}
-          clubEvents={[]}
+          clubEvents={clubEvents}
           primaryAction={getPrimaryAction()}
         />
       </div>

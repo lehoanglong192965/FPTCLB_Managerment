@@ -1,21 +1,90 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationsContext';
 import eventService from '../../services/api/events/eventService';
 
 const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
-    const { user, isMember } = useAuth();
+    const { user } = useAuth();
     const { addNotification } = useNotifications();
-    const [isLoading, setIsLoading] = useState(false);
+    const navigate = useNavigate();
+    const [isLoading, setIsLoading]     = useState(false);
     const [isRegistered, setIsRegistered] = useState(false);
+    const [isAssigned, setIsAssigned]   = useState(false);
+    const [statusLoading, setStatusLoading] = useState(true);
 
-    // Chỉ hiển thị cho Member hoặc Guest hợp lệ. Nếu là Leader/ICPDP thì không hiển thị.
-    if (user?.role === 'Leader' || user?.role === 'ICPDP' || user?.role === 'Admin') {
+    const isExcludedRole = user?.role === 'Leader' || user?.role === 'ICPDP' || user?.role === 'Admin';
+
+    useEffect(() => {
+        if (isExcludedRole || !eventId || !user) {
+            setStatusLoading(false);
+            return;
+        }
+        eventService.getMyEventStatus(eventId)
+            .then(res => {
+                const data = res.data || res;
+                setIsRegistered(!!data.registered);
+                setIsAssigned(!!data.assigned);
+            })
+            .catch(err => {
+                console.error("Lỗi kiểm tra trạng thái sự kiện:", err);
+            })
+            .finally(() => {
+                setStatusLoading(false);
+            });
+    }, [eventId, user, isExcludedRole]);
+
+    if (isExcludedRole) return null;
+
+    if (eventStatus !== 'Approved' && eventStatus !== 'Upcoming' && eventStatus !== 'Ongoing') {
         return null;
     }
 
-    if (eventStatus !== 'Approved' && eventStatus !== 'Upcoming') {
-        return null; // Chỉ cho đăng ký khi sự kiện sắp diễn ra
+    if (!user) {
+        return (
+            <button
+                onClick={() => navigate('/login')}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 text-white cursor-pointer border-none"
+                style={{ background: "#F37021" }}
+                onMouseEnter={e => e.currentTarget.style.background = "#e05c0a"}
+                onMouseLeave={e => e.currentTarget.style.background = "#F37021"}
+            >
+                <i className="fas fa-sign-in-alt"></i> Đăng nhập để đăng ký
+            </button>
+        );
+    }
+
+    if (statusLoading) {
+        return (
+            <button
+                className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-medium bg-gray-100 text-gray-400 cursor-default border-none"
+                disabled
+            >
+                Đang kiểm tra...
+            </button>
+        );
+    }
+
+    if (isAssigned) {
+        return (
+            <button
+                className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 bg-blue-100 text-blue-700 cursor-default border-none"
+                disabled
+            >
+                <i className="fas fa-user-shield"></i> Ban Tổ Chức / Hỗ Trợ
+            </button>
+        );
+    }
+
+    if (isRegistered) {
+        return (
+            <button
+                className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 bg-green-100 text-green-700 cursor-default border-none"
+                disabled
+            >
+                <i className="fas fa-check-circle"></i> Đã Đăng Ký
+            </button>
+        );
     }
 
     const handleRegister = async () => {
@@ -32,22 +101,14 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
         }
     };
 
-    if (isRegistered) {
-        return (
-            <button 
-                className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2 bg-green-100 text-green-700 cursor-default"
-                disabled
-            >
-                <i className="fas fa-check-circle"></i> Đã Đăng Ký
-            </button>
-        );
-    }
-
     return (
-        <button 
+        <button
             onClick={handleRegister}
             disabled={isLoading}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 text-white disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-none"
+            style={{ background: "#F37021" }}
+            onMouseEnter={e => { if (!isLoading) e.currentTarget.style.background = "#e05c0a"; }}
+            onMouseLeave={e => { if (!isLoading) e.currentTarget.style.background = "#F37021"; }}
         >
             {isLoading ? (
                 <><i className="fas fa-spinner fa-spin"></i> Đang xử lý...</>
