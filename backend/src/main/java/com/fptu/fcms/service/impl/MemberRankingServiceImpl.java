@@ -7,6 +7,7 @@ import com.fptu.fcms.entity.ClubRole;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventRegistration;
 import com.fptu.fcms.entity.MemberPerformance;
+import com.fptu.fcms.entity.MemberRankingSnapshot;
 import com.fptu.fcms.entity.Semester;
 import com.fptu.fcms.entity.SystemConfig;
 import com.fptu.fcms.entity.UserAccount;
@@ -17,6 +18,7 @@ import com.fptu.fcms.repository.ClubRoleRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.MemberPerformanceRepository;
+import com.fptu.fcms.repository.MemberRankingSnapshotRepository;
 import com.fptu.fcms.repository.SemesterRepository;
 import com.fptu.fcms.repository.SystemConfigRepository;
 import com.fptu.fcms.repository.UserRepository;
@@ -56,6 +58,7 @@ public class MemberRankingServiceImpl implements MemberRankingService {
     private final EventRepository eventRepository;
     private final EventRegistrationRepository eventRegistrationRepository;
     private final MemberPerformanceRepository memberPerformanceRepository;
+    private final MemberRankingSnapshotRepository rankingSnapshotRepository;
     private final SystemConfigRepository systemConfigRepository;
 
     /**
@@ -71,6 +74,7 @@ public class MemberRankingServiceImpl implements MemberRankingService {
                 .orElseThrow(() -> new BusinessRuleException("CLB không tồn tại.", HttpStatus.NOT_FOUND));
 
         Semester activeSemester = getActiveSemester();
+
         List<Integer> allowedRoleIds = getAllowedMemberRoleIds();
 
         boolean isAllowedMember = membershipRepository
@@ -101,6 +105,16 @@ public class MemberRankingServiceImpl implements MemberRankingService {
                 .orElseThrow(() -> new BusinessRuleException("CLB không tồn tại.", HttpStatus.NOT_FOUND));
 
         Semester activeSemester = getActiveSemester();
+        List<MemberRankingSnapshot> finalizedRanking = rankingSnapshotRepository
+                .findBySemesterIDAndClubIDAndIsDeletedFalseOrderByRankAscUserIDAsc(
+                        activeSemester.getSemesterID(),
+                        clubId
+                );
+        if (!finalizedRanking.isEmpty()) {
+            return finalizedRanking.stream()
+                    .map(snapshot -> mapSnapshotToDTO(snapshot, club))
+                    .toList();
+        }
         List<Integer> allowedRoleIds = getAllowedMemberRoleIds();
         List<ClubMembership> memberships = membershipRepository
                 .findByClubIDAndSemesterIDAndClubRoleIDInAndIsDeletedFalse(
@@ -122,8 +136,9 @@ public class MemberRankingServiceImpl implements MemberRankingService {
                 .stream()
                 .collect(Collectors.toMap(UserAccount::getUserID, Function.identity()));
 
-        Map<Integer, Integer> performancePoints = calculatePerformancePoints(clubId, userIds);
-        Map<Integer, Integer> participationPoints = calculateEventParticipationPoints(clubId, userIds);
+        List<Integer> semesterEventIds = getSemesterEventIds(clubId, activeSemester.getSemesterID());
+        Map<Integer, Integer> performancePoints = calculatePerformancePoints(clubId, semesterEventIds, userIds);
+        Map<Integer, Integer> participationPoints = calculateEventParticipationPoints(semesterEventIds, userIds);
 
         List<MemberRankingDTO> ranking = new ArrayList<>();
         for (Integer userId : userIds) {
@@ -173,11 +188,26 @@ public class MemberRankingServiceImpl implements MemberRankingService {
                 .toList();
     }
 
+    private List<Integer> getSemesterEventIds(Integer clubId, Integer semesterId) {
+        return eventRepository.findByClubIDAndSemesterIDAndIsDeletedFalse(clubId, semesterId)
+                .stream()
+                .map(Event::getEventID)
+                .toList();
+    }
     /**
      * performancePoint lấy từ MemberPerformance.finalPoints của các thành viên active trong CLB.
      */
-    private Map<Integer, Integer> calculatePerformancePoints(Integer clubId, List<Integer> userIds) {
-        return memberPerformanceRepository.findByClubIDAndUserIDInAndIsDeletedFalse(clubId, userIds)
+    private Map<Integer, Integer> calculatePerformancePoints(
+            Integer clubId,
+            List<Integer> semesterEventIds,
+            List<Integer> userIds
+    ) {
+        if (semesterEventIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return memberPerformanceRepository
+                .findByClubIDAndEventIDInAndUserIDInAndIsDeletedFalse(clubId, semesterEventIds, userIds)
                 .stream()
                 .collect(Collectors.groupingBy(
                         MemberPerformance::getUserID,
@@ -188,12 +218,7 @@ public class MemberRankingServiceImpl implements MemberRankingService {
     /**
      * eventParticipationPoint tính từ EventRegistration Registered của event thuộc CLB.
      */
-    private Map<Integer, Integer> calculateEventParticipationPoints(Integer clubId, List<Integer> userIds) {
-        List<Integer> eventIds = eventRepository.findByClubIDAndIsDeletedFalse(clubId)
-                .stream()
-                .map(Event::getEventID)
-                .toList();
-
+    private Map<Integer, Integer> calculateEventParticipationPoints(List<Integer> eventIds, List<Integer> userIds) {
         if (eventIds.isEmpty()) {
             return Map.of();
         }
@@ -240,6 +265,21 @@ public class MemberRankingServiceImpl implements MemberRankingService {
         }
     }
 
+
+    private MemberRankingDTO mapSnapshotToDTO(MemberRankingSnapshot snapshot, Club club) {
+        return new MemberRankingDTO(
+                snapshot.getRank(),
+                snapshot.getUserID(),
+                snapshot.getFullName(),
+                snapshot.getEmail(),
+                club.getClubID(),
+                club.getClubName(),
+                snapshot.getTotalScore(),
+                snapshot.getContributionPoint(),
+                snapshot.getEventParticipationPoint(),
+                snapshot.getPerformancePoint()
+        );
+    }
     /**
      * Thành viên cùng totalScore nhận cùng rank; rank tiếp theo giữ đúng vị trí thực tế.
      */

@@ -36,8 +36,8 @@ public class SemesterController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('Admin', 'ICPDP')")
-    @Operation(summary = "Tạo mới học kỳ", description = "Yêu cầu quyền Admin hoặc ICPDP")
+    @PreAuthorize("hasRole('Admin')")
+    @Operation(summary = "Tạo mới học kỳ", description = "Yêu cầu quyền Admin")
     public ResponseEntity<SemesterDTO> createSemester(@Valid @RequestBody SemesterDTO semesterDTO) {
         return ResponseEntity.ok(semesterService.createSemester(semesterDTO));
     }

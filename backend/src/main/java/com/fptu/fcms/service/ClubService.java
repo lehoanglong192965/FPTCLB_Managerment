@@ -9,4 +9,5 @@ public interface ClubService {
     ClubResponseDTO getClubByCode(String clubCode);
     ClubResponseDTO getClubById(Integer clubId);
     ClubResponseDTO updateClub(Integer clubId, UpdateClubRequest request);
+    void updateClubStatus(Integer clubId, String status, String reason);
 }

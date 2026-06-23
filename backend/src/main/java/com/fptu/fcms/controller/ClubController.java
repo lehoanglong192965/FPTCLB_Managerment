@@ -1,8 +1,11 @@
 package com.fptu.fcms.controller;
 
 import com.fptu.fcms.dto.request.UpdateClubRequest;
+import com.fptu.fcms.dto.request.ClubStatusUpdateRequestDTO;
 import com.fptu.fcms.dto.response.ClubResponseDTO;
+import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.service.ClubService;
+import com.fptu.fcms.service.EventService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,6 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/clubs")
@@ -21,6 +25,7 @@ import java.util.List;
 public class ClubController {
 
     private final ClubService clubService;
+    private final EventService eventService;
 
     @GetMapping
     @Operation(summary = "Lấy danh sách các câu lạc bộ đang hoạt động")
@@ -53,5 +58,22 @@ public class ClubController {
             @Valid @RequestBody UpdateClubRequest request
     ) {
         return ResponseEntity.ok(clubService.updateClub(clubId, request));
+    } 
+
+    @GetMapping("/{clubId}/events")
+    @Operation(summary = "Lấy danh sách sự kiện của câu lạc bộ")
+    public ResponseEntity<List<Event>> getEventsByClubId(@PathVariable Integer clubId) {
+        return ResponseEntity.ok(eventService.getEventsByClubId(clubId));
+    }
+
+    @PatchMapping("/{clubId}/review")
+    @PreAuthorize("hasAnyRole('Admin', 'ICPDP')")
+    @SecurityRequirement(name = "bearerAuth") // Thêm để Swagger hiện ổ khóa JWT
+    @Operation(summary = "Duyệt trạng thái câu lạc bộ (Active, Suspended, Dissolved)")
+    public ResponseEntity<Map<String, String>> reviewClub(
+            @PathVariable Integer clubId,
+            @RequestBody ClubStatusUpdateRequestDTO request) {
+        clubService.updateClubStatus(clubId, request.getStatus(), request.getReason());
+        return ResponseEntity.ok(Map.of("message", "Cập nhật trạng thái thành công"));
     }
 }

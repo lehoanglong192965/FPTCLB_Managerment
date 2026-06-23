@@ -70,6 +70,19 @@ public class ClubServiceImpl implements ClubService {
         }
         clubRepository.save(club);
         return convertToDTO(club);
+    } // <-- Đã thêm dấu đóng ngoặc bị thiếu ở đây
+
+    @Override
+    @Transactional // Nên thêm Transactional đối với các thao tác update trạng thái dữ liệu
+    public void updateClubStatus(Integer clubId, String status, String reason) {
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new RuntimeException("Club not found"));
+        club.setClubStatus(status);
+        
+        // TODO: Nếu entity Club có trường lưu lý do duyệt/từ chối, hãy set tại đây:
+        // club.setStatusReason(reason); 
+        
+        clubRepository.save(club);
     }
 
     private ClubResponseDTO convertToDTO(Club club) {
