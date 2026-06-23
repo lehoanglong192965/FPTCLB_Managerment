@@ -43,6 +43,21 @@ public class EventServiceImpl implements EventService {
     private final EmailService emailService;
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
+    private final MemberPerformanceRepository memberPerformanceRepository;
+
+    @Override
+    public boolean isUserAssigned(Integer eventId, Integer userId) {
+        return eventAssignmentRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId).isPresent();
+    }
+
+    @Override
+    public List<Event> getEventsByUserAssigned(Integer userId) {
+        List<EventAssignment> assignments = eventAssignmentRepository.findByUserIDAndIsDeletedFalse(userId);
+        return assignments.stream()
+                .map(assignment -> eventRepository.findById(assignment.getEventID()).orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+    }
 
     @Override
     @Transactional
@@ -346,7 +361,57 @@ public class EventServiceImpl implements EventService {
         if ("CLOSED".equals(event.getEventStatus())) {
             throw new IllegalArgumentException("Sự kiện đã đóng, không thể thay đổi dữ liệu.");
         }
-        // Logic to save official contributions
+        
+        AttendanceSession session = attendanceSessionRepository.findByEventID(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Phiên điểm danh không tồn tại."));
+
+        for (ContributionDTO dto : contributions) {
+            Integer userId = dto.getUserID();
+            String type = dto.getContributionType();
+
+            // Update Performance
+            MemberPerformance performance = memberPerformanceRepository
+                    .findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
+                    .orElse(new MemberPerformance());
+            
+            performance.setClubID(event.getClubID());
+            performance.setEventID(eventId);
+            performance.setUserID(userId);
+            performance.setBonusPoints(calculateScore(type));
+            memberPerformanceRepository.save(performance);
+
+            // Update Assignment
+            EventAssignment assignment = eventAssignmentRepository
+                    .findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
+                    .orElse(new EventAssignment());
+            
+            assignment.setEventID(eventId);
+            assignment.setUserID(userId);
+            // Assuming 1 = CORE_TEAM, 2 = SUPPORT_ORGANIZER
+            assignment.setEventRoleID("CORE_TEAM".equals(type) ? 1 : ("SUPPORT_ORGANIZER".equals(type) ? 2 : null));
+            assignment.setAssignedAt(LocalDateTime.now());
+            assignment.setIsDeleted(!"CORE_TEAM".equals(type) && !"SUPPORT_ORGANIZER".equals(type));
+            eventAssignmentRepository.save(assignment);
+
+            // Update Attendance
+            AttendanceRecord record = attendanceRecordRepository
+                    .findBySessionIDAndUserID(session.getSessionID(), userId)
+                    .orElse(new AttendanceRecord());
+            
+            record.setSessionID(session.getSessionID());
+            record.setUserID(userId);
+            record.setAttendanceStatus("PARTICIPANT".equals(type) ? "Present" : ("ABSENT".equals(type) ? "Absent" : "Present"));
+            attendanceRecordRepository.save(record);
+        }
+    }
+
+    private int calculateScore(String type) {
+        switch (type) {
+            case "CORE_TEAM": return 50;
+            case "SUPPORT_ORGANIZER": return 30;
+            case "PARTICIPANT": return 20;
+            default: return 0; // ABSENT or others
+        }
     }
 
 

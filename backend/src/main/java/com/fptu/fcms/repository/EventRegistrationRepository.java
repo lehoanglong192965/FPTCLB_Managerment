@@ -12,6 +12,7 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     boolean existsByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
     Optional<EventRegistration> findByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
     java.util.List<EventRegistration> findByEventIDAndIsDeletedFalse(Integer eventID);
+    java.util.List<EventRegistration> findByUserIDAndIsDeletedFalse(Integer userID);
     List<EventRegistration> findByEventIDInAndUserIDInAndStatusAndIsDeletedFalse(
             Collection<Integer> eventIDs,
             Collection<Integer> userIDs,

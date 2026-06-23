@@ -43,4 +43,10 @@ public class EventRegistrationController {
         eventRegistrationService.unregisterEvent(eventId, userID);
         return ResponseEntity.ok(Map.of("message", "Hủy đăng ký sự kiện thành công!"));
     }
+
+    @GetMapping("/my-registrations")
+    @PreAuthorize("hasAnyRole('Member')")
+    public ResponseEntity<?> getMyRegistrations(@AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(eventRegistrationService.getEventsByUserRegistered(currentUser.getUserId()));
+    }
 }
