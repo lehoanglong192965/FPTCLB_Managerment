@@ -15,14 +15,21 @@ export default function ClubOverview() {
   const { profile } = useAuth();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const clubId = TokenService.getClubId();
   const name = profile?.fullName?.split(" ").pop() ?? "bạn";
 
   useEffect(() => {
     if (!clubId) { setLoading(false); return; }
     clubBoardApi.getBoard(clubId)
-      .then((data) => setMembers(Array.isArray(data) ? data : []))
-      .catch(() => {})
+      .then((data) => {
+        setMembers(Array.isArray(data) ? data : []);
+        setError(null);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch club board:", err);
+        setError("Không thể tải dữ liệu thành viên.");
+      })
       .finally(() => setLoading(false));
   }, [clubId]);
 
@@ -49,6 +56,12 @@ export default function ClubOverview() {
           Theo dõi hoạt động và số liệu của câu lạc bộ
         </p>
       </div>
+
+      {error && (
+        <div style={{ color: "#b91c1c", padding: "1rem", background: "#fee2e2", borderRadius: 10, marginBottom: "1.5rem", border: "1px solid #fecaca" }}>
+          {error}
+        </div>
+      )}
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.5rem" }}>

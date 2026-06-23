@@ -52,7 +52,16 @@ public class Event {
     private LocalDateTime endDate;
 
     @Column(name = "eventStatus")
-    private String eventStatus;
+    private String eventStatus; // DRAFT, UPCOMING, ONGOING, COMPLETED, CLOSED
+
+    // Thêm phương thức helper để kiểm tra trạng thái
+    public boolean isEditable() {
+        return "DRAFT".equals(this.eventStatus) || "UPCOMING".equals(this.eventStatus);
+    }
+    
+    public boolean isReportable() {
+        return "COMPLETED".equals(this.eventStatus);
+    }
 
     @org.hibernate.annotations.Nationalized
     @Column(name = "pdpFeedback")
