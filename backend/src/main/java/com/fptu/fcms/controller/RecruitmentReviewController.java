@@ -2,6 +2,7 @@ package com.fptu.fcms.controller;
 
 import com.fptu.fcms.dto.request.ApplicationReviewRequest;
 import com.fptu.fcms.dto.request.InterviewGradingRequest;
+import com.fptu.fcms.dto.response.ClubApplicationSummaryResponse;
 import com.fptu.fcms.dto.response.RecruitmentDecisionResponse;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.RecruitmentReviewService;
@@ -16,7 +17,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+
+import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,6 +35,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class RecruitmentReviewController {
 
     private final RecruitmentReviewService recruitmentReviewService;
+
+    @GetMapping("/applications/club/{clubId}")
+    @PreAuthorize("hasRole('Leader')")
+    @Operation(
+            summary = "Lấy danh sách đơn ứng tuyển của CLB",
+            description = "Trả về tất cả đơn ứng tuyển của CLB trong học kỳ Active."
+    )
+    @ApiResponse(responseCode = "200", description = "Danh sách đơn ứng tuyển")
+    public ResponseEntity<List<ClubApplicationSummaryResponse>> getClubApplications(
+            @PathVariable Integer clubId
+    ) {
+        return ResponseEntity.ok(recruitmentReviewService.getClubApplications(clubId));
+    }
 
     @PostMapping("/applications/review")
     @PreAuthorize("hasRole('Leader')")

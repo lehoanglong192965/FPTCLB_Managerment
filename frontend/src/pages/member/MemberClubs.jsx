@@ -1,42 +1,68 @@
-import { useState, useRef, useEffect } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Search, SlidersHorizontal, Loader2 } from "lucide-react";
 import ClubCard from "../../components/clubs/ClubCard";
 import ClubDetailCard from "../../components/clubs/ClubDetailCard";
 import ApplyClubModal from "../../components/clubs/ApplyClubModal";
-import { useApplications } from "../../contexts/ApplicationsContext";
+import { usePublicClubs, CATEGORY_LABEL } from "../../hooks/usePublicClubs";
+import { useAuth } from "../../contexts/AuthContext";
+import applicationApi from "../../services/api/member/applicationApi";
 
-const ALL_TAGS = ["Tất cả", "Âm nhạc", "Nghệ thuật", "Ngoại ngữ", "Thể thao", "STEM", "Cộng đồng", "Truyền thông"];
+const ACTIVE_STATUSES = new Set(["Submitted", "Reviewing", "ACCEPTED"]);
 
-const mockOtherClubs = [
-  { id: 2, name: "FPTU Music Club",     abbr: "music",     tag: "Âm nhạc",    color: "#7c3aed", emoji: "🎵", desc: "Nơi kết nối những người yêu âm nhạc tại FPTU, tổ chức biểu diễn và workshop âm nhạc.", members: 85,  recruiting: true  },
-  { id: 3, name: "FPTU Art Club",       abbr: "art",       tag: "Nghệ thuật", color: "#db2777", emoji: "🎨", desc: "Sáng tạo không giới hạn — vẽ, thiết kế và triển lãm nghệ thuật định kỳ.", members: 64,  recruiting: false },
-  { id: 4, name: "FPTU English Club",   abbr: "english",   tag: "Ngoại ngữ",  color: "#059669", emoji: "🌍", desc: "Luyện tiếng Anh qua các buổi debate, storytelling và giao lưu quốc tế.", members: 110, recruiting: true  },
-  { id: 5, name: "FPTU Sport Club",     abbr: "sport",     tag: "Thể thao",   color: "#d97706", emoji: "⚽", desc: "Tổ chức các giải đấu thể thao và hoạt động rèn luyện sức khoẻ cho sinh viên.", members: 97,  recruiting: true  },
-  { id: 6, name: "FPTU Dance Club",     abbr: "dance",     tag: "Nghệ thuật", color: "#e11d48", emoji: "💃", desc: "Học và biểu diễn các thể loại nhảy: hip-hop, contemporary, kpop cover.", members: 73,  recruiting: false },
-  { id: 7, name: "FPTU Science Club",   abbr: "science",   tag: "STEM",       color: "#0284c7", emoji: "🔬", desc: "Nghiên cứu khoa học, tham gia hội thảo và cuộc thi STEM cấp quốc gia.", members: 48,  recruiting: true  },
-  { id: 8, name: "FPTU Volunteer Club", abbr: "volunteer", tag: "Cộng đồng",  color: "#16a34a", emoji: "🤝", desc: "Hoạt động tình nguyện, kết nối cộng đồng và các chiến dịch xã hội.", members: 156, recruiting: false },
-  { id: 9, name: "FPTU Media Club",     abbr: "media",     tag: "Truyền thông",color: "#9333ea",emoji: "📹", desc: "Sản xuất nội dung, quay phim, chụp ảnh và truyền thông sự kiện.", members: 62,  recruiting: true  },
+const ALL_TAGS = [
+  { value: "Tất cả",    label: "Tất cả" },
+  { value: "Công nghệ", label: "Công nghệ" },
+  { value: "Thiết kế",  label: "Thiết kế" },
+  { value: "Kỹ năng",   label: "Kỹ năng" },
+  { value: "AI & Data", label: "AI & Dữ liệu" },
+  { value: "Business",  label: "Kinh doanh" },
+  { value: "Ngôn ngữ",  label: "Ngôn ngữ" },
+  { value: "Nghệ thuật",label: "Nghệ thuật" },
+  { value: "Thể thao",  label: "Thể thao" },
 ];
 
 export default function MemberClubs() {
-  const { addApplication }          = useApplications();
-  const [search, setSearch]         = useState("");
-  const [activeTag, setActiveTag]   = useState("Tất cả");
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [viewingClub, setViewingClub]   = useState(null);
-  const [applyClub, setApplyClub]       = useState(null);
-  const [toast, setToast]               = useState(null);
-  const filterRef                   = useRef(null);
+  const { clubs, loading, error } = usePublicClubs();
+  const { user }                  = useAuth();
+  const [search, setSearch]       = useState("");
+  const [activeTag, setActiveTag] = useState("Tất cả");
+  const [filterOpen, setFilterOpen]   = useState(false);
+  const [viewingClub, setViewingClub] = useState(null);
+  const [applyClub, setApplyClub]     = useState(null);
+  const [alreadyApplied, setAlreadyApplied] = useState(false);
+  const [toast, setToast]             = useState(null);
+  const filterRef = useRef(null);
 
-  const showToast = (msg) => {
-    setToast(msg);
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleApplySubmitted = (payload) => {
-    addApplication(payload);
+  // Khi chọn xem CLB, kiểm tra member đã nộp đơn chưa
+  useEffect(() => {
+    if (!user || !viewingClub?.id) { setAlreadyApplied(false); return; }
+    applicationApi.getMyApplications()
+      .then((data) => {
+        const arr = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
+        setAlreadyApplied(arr.some((a) => a.clubID === viewingClub.id && ACTIVE_STATUSES.has(a.status)));
+      })
+      .catch(() => setAlreadyApplied(false));
+  }, [user, viewingClub?.id]);
+
+  const handleApplySubmitted = async (payload) => {
     setApplyClub(null);
-    showToast(`Nộp đơn ứng tuyển vào ${payload.clubName} thành công!`);
+    try {
+      await applicationApi.apply({
+        clubID: viewingClub.id,
+        introduction: payload.introduction,
+        cvUrl: payload.cvUrl ?? "",
+      });
+      setAlreadyApplied(true);
+      showToast(`Nộp đơn vào ${viewingClub.name} thành công!`);
+    } catch (err) {
+      const msg = err?.response?.data?.message ?? "Không thể nộp đơn. Vui lòng thử lại.";
+      showToast(msg, "error");
+    }
   };
 
   useEffect(() => {
@@ -49,15 +75,17 @@ export default function MemberClubs() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const filtered = mockOtherClubs.filter((c) => {
+  const filtered = clubs.filter((c) => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase());
     const matchTag    = activeTag === "Tất cả" || c.tag === activeTag;
     return matchSearch && matchTag;
   });
 
   const toastEl = toast && (
-    <div className="fixed top-5 right-7 z-[999] px-5 py-3 rounded-lg text-[13.5px] font-medium shadow-lg bg-emerald-100 text-emerald-900">
-      {toast}
+    <div className={`fixed top-5 right-7 z-[999] px-5 py-3 rounded-lg text-[13.5px] font-medium shadow-lg ${
+      toast.type === "error" ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-900"
+    }`}>
+      {toast.msg}
     </div>
   );
 
@@ -68,11 +96,13 @@ export default function MemberClubs() {
         <ClubDetailCard
           club={viewingClub}
           clubEvents={[]}
-          onBack={() => setViewingClub(null)}
+          onBack={() => { setViewingClub(null); setAlreadyApplied(false); }}
           primaryAction={
-            viewingClub.recruiting
-              ? { label: "Nộp đơn ứng tuyển", onClick: () => setApplyClub(viewingClub) }
-              : null
+            !viewingClub.recruiting
+              ? null
+              : alreadyApplied
+              ? { label: "Đã nộp đơn — đang chờ duyệt", onClick: () => {} }
+              : { label: "Nộp đơn ứng tuyển", onClick: () => setApplyClub(viewingClub) }
           }
         />
         {applyClub && (
@@ -94,7 +124,6 @@ export default function MemberClubs() {
         <p className="page-subtitle">Tìm và đăng ký tham gia câu lạc bộ phù hợp với bạn</p>
       </div>
 
-      {/* Danh sách câu lạc bộ */}
       <div className="bg-white rounded-[14px] px-6 py-[22px] shadow-[0_1px_4px_rgba(0,0,0,0.06)] mb-6">
         <div className="flex items-center justify-between mb-[18px]">
           <h2 className="text-[15px] font-semibold text-gray-900 m-0">Tất cả câu lạc bộ</h2>
@@ -136,16 +165,16 @@ export default function MemberClubs() {
                 </p>
                 {ALL_TAGS.map((tag) => (
                   <button
-                    key={tag}
+                    key={tag.value}
                     className={`flex items-center gap-2 w-full px-2.5 py-2 border-none bg-none text-[13.5px] cursor-pointer rounded-lg font-[inherit] text-left transition-all hover:bg-[#fef3ed] hover:text-[#e6430a] ${
-                      activeTag === tag ? "text-[#e6430a] font-semibold" : "text-gray-700"
+                      activeTag === tag.value ? "text-[#e6430a] font-semibold" : "text-gray-700"
                     }`}
-                    onClick={() => { setActiveTag(tag); setFilterOpen(false); }}
+                    onClick={() => { setActiveTag(tag.value); setFilterOpen(false); }}
                   >
                     <span className="w-4 text-[13px] text-[#e6430a] flex-shrink-0">
-                      {activeTag === tag && "✓"}
+                      {activeTag === tag.value && "✓"}
                     </span>
-                    {tag}
+                    {tag.label}
                   </button>
                 ))}
               </div>
@@ -154,17 +183,26 @@ export default function MemberClubs() {
         </div>
 
         {/* Grid */}
-        <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
-          {filtered.length === 0 ? (
-            <p className="col-span-full text-center py-10 text-gray-400 text-sm m-0">
-              Không tìm thấy câu lạc bộ phù hợp.
-            </p>
-          ) : (
-            filtered.map((club) => (
-              <ClubCard key={club.id} club={club} onSelect={() => setViewingClub(club)} />
-            ))
-          )}
-        </div>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-400">
+            <Loader2 size={28} className="animate-spin" />
+            <p className="text-[13px] m-0">Đang tải danh sách câu lạc bộ...</p>
+          </div>
+        ) : error ? (
+          <p className="text-center py-10 text-red-400 text-sm m-0">{error}</p>
+        ) : (
+          <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+            {filtered.length === 0 ? (
+              <p className="col-span-full text-center py-10 text-gray-400 text-sm m-0">
+                Không tìm thấy câu lạc bộ phù hợp.
+              </p>
+            ) : (
+              filtered.map((club) => (
+                <ClubCard key={club.abbr ?? club.id} club={club} onSelect={() => setViewingClub(club)} />
+              ))
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

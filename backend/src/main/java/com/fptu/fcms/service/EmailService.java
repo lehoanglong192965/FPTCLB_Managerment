@@ -22,7 +22,7 @@ public interface EmailService {
             String clubName
     );
 
-    void sendApplicationRejectedEmail(String email, String clubName);
+    void sendApplicationRejectedEmail(String email, String clubName, String reason);
 
     void sendInterviewPassedEmail(String email, String clubName);
 

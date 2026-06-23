@@ -1,14 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
-export const NAV_ITEMS = [
-  { label: "Trang Chủ",  href: "home"     },
-  { label: "Câu Lạc Bộ", href: "clubs"   },
-  { label: "Sự Kiện",    href: "events"  },
-  { label: "Tính Năng",  href: "features" },
-];
-
-export default function Header({ activeSection }) {
+export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const navigate = useNavigate();
 
@@ -17,18 +10,6 @@ export default function Header({ activeSection }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  const handleNav = (href) => {
-    if (href === "home") {
-      navigate("/");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-    navigate("/");
-    setTimeout(() => {
-      document.getElementById(href)?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
-  };
 
   return (
     <header
@@ -52,24 +33,7 @@ export default function Header({ activeSection }) {
         </div>
       </a>
 
-      <nav className="hidden md:flex items-center gap-1">
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item.href}
-            className={[
-              "relative px-4 py-2 rounded-sm text-[14px] font-semibold bg-transparent border-0 cursor-pointer font-[inherit] transition-all duration-200",
-              activeSection === item.href
-                ? "text-[#F37021] bg-[rgba(240,228,215,0.815)]"
-                : "text-[rgba(114,114,114,0.75)] hover:text-[#F37021] hover:bg-[rgba(240,228,215,0.815)]",
-            ].join(" ")}
-            onClick={() => handleNav(item.href)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
-
-      <div className="flex items-center gap-[10px]">
+<div className="flex items-center gap-[10px]">
         <button
           className="px-[18px] py-2 rounded-sm text-[14px] font-semibold bg-transparent border cursor-pointer font-[inherit] transition-all duration-200"
           style={{ color: "#9ca3af", borderColor: "#9ca3af" }}

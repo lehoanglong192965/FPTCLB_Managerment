@@ -1,20 +1,30 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import clubService from "../../services/api/clubs/clubService";
+import applicationApi from "../../services/api/member/applicationApi";
 import { normalizeClub } from "../../hooks/usePublicClubs";
 import ClubDetailCard from "../../components/clubs/ClubDetailCard";
+import ApplyClubModal from "../../components/clubs/ApplyClubModal";
+import { useAuth } from "../../contexts/AuthContext";
+
+const ACTIVE_STATUSES = new Set(["Submitted", "Reviewing", "ACCEPTED"]);
 
 export default function ClubDetailPage() {
   const { abbr } = useParams();
   const navigate  = useNavigate();
+  const { user, profile }  = useAuth();
 
-  const [club, setClub]       = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState("");
+  const [club, setClub]               = useState(null);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState("");
+  const [showApply, setShowApply]     = useState(false);
+  const [toast, setToast]             = useState(null);
+  const [alreadyApplied, setAlreadyApplied] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     setError("");
+    setAlreadyApplied(false);
     clubService.getByIdPublic(decodeURIComponent(abbr))
       .then((res) => setClub(normalizeClub(res)))
       .catch((err) => {
@@ -26,6 +36,53 @@ export default function ClubDetailPage() {
       })
       .finally(() => setLoading(false));
   }, [abbr]);
+
+  // Kiểm tra member đã nộp đơn vào CLB này chưa (dùng API thật)
+  // normalizeClub map raw.clubID → club.id (không phải club.clubID)
+  useEffect(() => {
+    if (!user || !club?.id) return;
+    applicationApi.getMyApplications()
+      .then((data) => {
+        const arr = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
+        const hasActive = arr.some(
+          (a) => a.clubID === club.id && ACTIVE_STATUSES.has(a.status)
+        );
+        setAlreadyApplied(hasActive);
+      })
+      .catch(() => setAlreadyApplied(false));
+  }, [user, club?.id]);
+
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleApplySubmitted = async (payload) => {
+    setShowApply(false);
+    try {
+      await applicationApi.apply({
+        clubID: club.id,
+        introduction: payload.introduction,
+        cvUrl: payload.cvUrl ?? "",
+      });
+      setAlreadyApplied(true);
+      showToast(`Nộp đơn vào ${club.name} thành công!`);
+    } catch (err) {
+      const msg = err?.response?.data?.message ?? "Không thể nộp đơn. Vui lòng thử lại.";
+      showToast(msg, "error");
+    }
+  };
+
+  const getPrimaryAction = () => {
+    if (!user) {
+      return { label: "Đăng ký tài khoản để tham gia", onClick: () => navigate("/register") };
+    }
+    if (!club?.recruiting) return null;
+    if (alreadyApplied) {
+      return { label: "Đã nộp đơn — đang chờ duyệt", onClick: () => navigate("/member/apply"), disabled: false };
+    }
+    return { label: "Nộp đơn ứng tuyển", onClick: () => setShowApply(true) };
+  };
 
   if (loading) {
     return (
@@ -66,13 +123,34 @@ export default function ClubDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#F2F4F7] pt-[calc(68px+28px)] px-[5%] pb-15 font-['Be_Vietnam_Pro','Inter',sans-serif]">
+      {toast && (
+        <div
+          className={`fixed top-5 right-7 z-[999] px-5 py-3 rounded-lg text-[13.5px] font-medium shadow-lg ${
+            toast.type === "error"
+              ? "bg-red-100 text-red-800"
+              : "bg-emerald-100 text-emerald-900"
+          }`}
+        >
+          {toast.msg}
+        </div>
+      )}
+
       <div className="max-w-[1100px] mx-auto">
         <ClubDetailCard
           club={club}
           clubEvents={[]}
-          primaryAction={{ label: "Đăng ký tài khoản để tham gia", onClick: () => navigate("/register") }}
+          primaryAction={getPrimaryAction()}
         />
       </div>
+
+      {showApply && (
+        <ApplyClubModal
+          club={club}
+          clubId={club.abbr ?? abbr}
+          onClose={() => setShowApply(false)}
+          onSubmitted={handleApplySubmitted}
+        />
+      )}
     </div>
   );
 }

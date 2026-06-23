@@ -4,7 +4,10 @@ import com.fptu.fcms.service.*;
 
 import com.fptu.fcms.dto.request.ApplicationReviewRequest;
 import com.fptu.fcms.dto.request.InterviewGradingRequest;
+import com.fptu.fcms.dto.response.ClubApplicationSummaryResponse;
 import com.fptu.fcms.dto.response.RecruitmentDecisionResponse;
+import com.fptu.fcms.entity.Semester;
+import com.fptu.fcms.repository.SemesterRepository;
 import com.fptu.fcms.entity.AuditLog;
 import com.fptu.fcms.entity.ClubMembership;
 import com.fptu.fcms.entity.ClubRole;
@@ -30,9 +33,10 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,7 +45,6 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
     private static final String MEMBER_ROLE = "Member";
     private static final String LEADER_ROLE = "Leader";
     private static final int MAX_ACTIVE_CLUBS_PER_STUDENT = 3;
-    private static final BigDecimal PASSING_THRESHOLD = BigDecimal.valueOf(5.0);
     private static final String APPLICATION_TABLE = "RecruitmentApplication";
     private static final String MEMBERSHIP_TABLE = "ClubMembership";
 
@@ -59,6 +62,32 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
     private final AuditLogRepository auditLogRepository;
     private final EmailService emailService;
     private final ClubRepository clubRepository;
+    private final SemesterRepository semesterRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClubApplicationSummaryResponse> getClubApplications(Integer clubId) {
+        Semester activeSemester = semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
+                .orElseThrow(() -> new BusinessRuleException("Không tìm thấy học kỳ Active.", HttpStatus.CONFLICT));
+
+        List<RecruitmentApplication> apps = applicationRepository
+                .findByClubIDAndSemesterIDAndIsDeletedFalse(clubId, activeSemester.getSemesterID());
+
+        return apps.stream().map(app -> {
+            UserAccount user = userRepository.findByUserIDAndIsDeletedFalse(app.getUserID()).orElse(null);
+            return ClubApplicationSummaryResponse.builder()
+                    .applicationId(app.getApplicationID())
+                    .userID(app.getUserID())
+                    .memberName(user != null ? user.getFullName() : "Không rõ")
+                    .memberEmail(user != null ? user.getEmail() : "")
+                    .studentCode(user != null ? user.getStudentId() : "")
+                    .introduction(app.getIntroduction())
+                    .cvUrl(app.getCvUrl())
+                    .status(app.getStatus())
+                    .createdAt(app.getCreatedAt())
+                    .build();
+        }).collect(Collectors.toList());
+    }
 
     @Override
     @Transactional
@@ -118,7 +147,8 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
         );
 
         String clubName = getClubName(application.getClubID());
-        sendAfterCommit(() -> emailService.sendApplicationRejectedEmail(student.getEmail(), clubName));
+        String reason = request.getReason();
+        sendAfterCommit(() -> emailService.sendApplicationRejectedEmail(student.getEmail(), clubName, reason));
 
         return buildResponse(savedApplication, student, null);
     }
@@ -135,10 +165,7 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
         UserAccount student = findStudent(application.getUserID());
         String oldStatus = application.getStatus();
 
-        BigDecimal interviewScore = BigDecimal.valueOf(request.getInterviewScore());
-        application.setInterviewScore(interviewScore);
-
-        boolean passed = interviewScore.compareTo(PASSING_THRESHOLD) >= 0;
+        boolean passed = Boolean.TRUE.equals(request.getIsPassed());
         application.setStatus(passed ? STATUS_PASSED : STATUS_FAILED);
         RecruitmentApplication savedApplication = applicationRepository.save(application);
 
@@ -358,7 +385,6 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
                 .studentName(student.getFullName())
                 .studentEmail(student.getEmail())
                 .status(application.getStatus())
-                .interviewScore(application.getInterviewScore())
                 .interviewTime(schedule != null ? schedule.getScheduledTime() : null)
                 .interviewLocation(schedule != null ? schedule.getLocation() : null)
                 .build();

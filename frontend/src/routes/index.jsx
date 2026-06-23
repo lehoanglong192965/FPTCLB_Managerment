@@ -40,6 +40,7 @@ import ClubReports from "../pages/club-leader/ClubReports";
 import ClubApplicationsMgmt from "../pages/club-leader/ClubApplicationsMgmt";
 import ClubBlacklist from "../pages/club-leader/ClubBlacklist";
 import CreateEventPage from "../pages/club-leader/CreateEventPage";
+import ClubInfoPage from "../pages/club-leader/ClubInfoPage";
 import { ClubDataProvider } from "../contexts/ClubDataContext";
 
 // Member pages
@@ -111,6 +112,7 @@ export default function AppRoutes() {
         <Route path="notifications" element={<ClubNotifications />} />
         <Route path="reports" element={<ClubReports />} />
         <Route path="blacklist" element={<ClubBlacklist />} />
+        <Route path="club-info" element={<ClubInfoPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 

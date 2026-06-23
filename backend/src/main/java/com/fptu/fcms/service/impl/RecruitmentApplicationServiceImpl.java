@@ -5,11 +5,15 @@ import com.fptu.fcms.service.*;
 import com.fptu.fcms.dto.request.ApplyClubRequestDTO;
 import com.fptu.fcms.dto.response.RecruitmentApplicationResponseDTO;
 import com.fptu.fcms.entity.RecruitmentApplication;
+import com.fptu.fcms.entity.Semester;
 import com.fptu.fcms.entity.WithdrawLog;
 import com.fptu.fcms.exception.BusinessRuleException;
+import com.fptu.fcms.entity.Club;
 import com.fptu.fcms.repository.ClubBlacklistRepository;
 import com.fptu.fcms.repository.ClubMembershipRepository;
+import com.fptu.fcms.repository.ClubRepository;
 import com.fptu.fcms.repository.RecruitmentApplicationRepository;
+import com.fptu.fcms.repository.SemesterRepository;
 import com.fptu.fcms.repository.WithdrawLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -37,10 +43,9 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
     private final RecruitmentApplicationRepository recruitmentRepository;
     private final ClubMembershipRepository membershipRepository;
     private final ClubBlacklistRepository blacklistRepository;
-
-    // [BR-R08 - MỚI]
-    // Repository thao tác với bảng WithdrawLog để check quota + cooldown
+    private final SemesterRepository semesterRepository;
     private final WithdrawLogRepository withdrawLogRepository;
+    private final ClubRepository clubRepository;
 
     @Override
     @Transactional(isolation = Isolation.SERIALIZABLE)
@@ -49,6 +54,10 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
             Integer currentUserID,
             Integer currentSemesterID
     ) {
+        // Luôn dùng học kỳ Active từ DB để đảm bảo đơn được lưu đúng học kỳ
+        Semester activeSemester = semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
+                .orElseThrow(() -> new BusinessRuleException("Không tìm thấy học kỳ Active."));
+        currentSemesterID = activeSemester.getSemesterID();
 
         // 1. Kiểm tra Blacklist (BR-B07/Validate 2)
         boolean isBlacklisted = blacklistRepository.existsByClubIDAndUserIDAndIsDeletedFalse(request.getClubID(), currentUserID);
@@ -286,8 +295,23 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
      * - withdrawApplication dùng lại được.
      * - Code gọn và dễ maintain hơn.
      */
+    @Override
+    public List<RecruitmentApplicationResponseDTO> getMyApplications(Integer userID) {
+        return recruitmentRepository
+                .findByUserIDAndIsDeletedFalseOrderByCreatedAtDesc(userID)
+                .stream()
+                .map(app -> {
+                    RecruitmentApplicationResponseDTO dto = mapToResponse(app);
+                    String clubName = clubRepository.findById(app.getClubID())
+                            .map(Club::getClubName)
+                            .orElse("Câu lạc bộ");
+                    dto.setClubName(clubName);
+                    return dto;
+                })
+                .collect(Collectors.toList());
+    }
+
     private RecruitmentApplicationResponseDTO mapToResponse(RecruitmentApplication savedEntity) {
-        // Map to Response DTO to avoid Entity leakage
         RecruitmentApplicationResponseDTO response = new RecruitmentApplicationResponseDTO();
         response.setApplicationID(savedEntity.getApplicationID());
         response.setClubID(savedEntity.getClubID());
@@ -297,10 +321,8 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
         response.setIntroduction(savedEntity.getIntroduction());
         response.setAnswersJson(savedEntity.getAnswersJson());
         response.setStatus(savedEntity.getStatus());
-        response.setInterviewScore(savedEntity.getInterviewScore());
         response.setSubmittedAt(savedEntity.getSubmittedAt());
         response.setCreatedAt(savedEntity.getCreatedAt());
-
         return response;
     }
 }

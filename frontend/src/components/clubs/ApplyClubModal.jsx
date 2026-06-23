@@ -11,7 +11,7 @@ const inputStyle = {
  * Popup form đăng ký ứng tuyển vào một CLB cụ thể.
  * Không gọi API thật — tạo đơn qua ApplicationsContext (mock).
  */
-export default function ApplyClubModal({ club, onClose, onSubmitted }) {
+export default function ApplyClubModal({ club, clubId, onClose, onSubmitted }) {
   const [introduction, setIntroduction] = useState("");
   const [cvUrl, setCvUrl]               = useState("");
   const [error, setError]               = useState("");
@@ -24,6 +24,7 @@ export default function ApplyClubModal({ club, onClose, onSubmitted }) {
     }
     setSubmitting(true);
     onSubmitted({
+      clubId: clubId ?? club.abbr ?? club.id,
       clubName: club.name,
       clubEmoji: club.emoji,
       clubColor: club.color,

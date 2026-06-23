@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, Mail, Search, X, Phone, BookOpen, Calendar, Hash, ShieldOff, ChevronRight, Ban } from "lucide-react";
+import { Users, Mail, Search, X, Phone, BookOpen, Calendar, Hash, ShieldOff, ChevronRight, Ban, Loader2 } from "lucide-react";
 import { useClubData } from "../../contexts/ClubDataContext";
 
 const ROLE_BADGE = {
@@ -22,14 +22,16 @@ export function RoleBadge({ role }) {
 }
 
 export function Avatar({ name, size = 38 }) {
+  const initial = name?.split(" ").pop()?.[0]?.toUpperCase() ?? "?";
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%", flexShrink: 0,
-      background: "#FFF3EE", color: "#E6430A",
+      background: "#f04e23", color: "#fff",
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontWeight: 700, fontSize: size * 0.4,
+      fontWeight: 800, fontSize: size * 0.4,
+      boxShadow: "0 4px 10px rgba(240,78,35,0.2)",
     }}>
-      {name?.[0]?.toUpperCase() ?? "?"}
+      {initial}
     </div>
   );
 }
@@ -210,10 +212,10 @@ function MemberModal({ member, isBlacklisted, onClose, onExpel, onBlacklist }) {
 }
 
 export default function ClubMemberMgmt() {
-  const { members, blacklist, expelMember, addToBlacklist } = useClubData();
-  const [search, setSearch]   = useState("");
+  const { members, blacklist, loading, error, expelMember, addToBlacklist } = useClubData();
+  const [search, setSearch]     = useState("");
   const [selected, setSelected] = useState(null);
-  const [toast, setToast]     = useState(null);
+  const [toast, setToast]       = useState(null);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -250,6 +252,16 @@ export default function ClubMemberMgmt() {
       {toast && <div className={`co-toast co-toast-${toast.type}`}>{toast.msg}</div>}
 
       <div className="content-card">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-400">
+            <Loader2 size={28} className="animate-spin" />
+            <p className="text-[13px] m-0">Đang tải danh sách thành viên...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-2">
+            <p className="text-red-400 text-[13px] m-0">{error}</p>
+          </div>
+        ) : (<>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: "1rem", flexWrap: "wrap" }}>
           <div style={{ position: "relative", flex: "1 1 220px", maxWidth: 320 }}>
             <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
@@ -305,6 +317,7 @@ export default function ClubMemberMgmt() {
             ))}
           </div>
         )}
+        </>)}
       </div>
 
       {selected && (

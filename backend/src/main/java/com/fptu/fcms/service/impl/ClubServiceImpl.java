@@ -1,12 +1,15 @@
 package com.fptu.fcms.service.impl;
 
+import com.fptu.fcms.dto.request.UpdateClubRequest;
 import com.fptu.fcms.dto.response.ClubResponseDTO;
 import com.fptu.fcms.entity.Club;
+import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.ClubRepository;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.service.ClubService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,6 +33,43 @@ public class ClubServiceImpl implements ClubService {
         return clubRepository.findByClubCodeAndIsDeletedFalse(clubCode)
                 .map(this::convertToDTO)
                 .orElse(null);
+    }
+
+    @Override
+    public ClubResponseDTO getClubById(Integer clubId) {
+        return clubRepository.findByClubIDAndIsDeletedFalse(clubId)
+                .map(this::convertToDTO)
+                .orElseThrow(() -> new BusinessRuleException("Không tìm thấy câu lạc bộ."));
+    }
+
+    @Override
+    @Transactional
+    public ClubResponseDTO updateClub(Integer clubId, UpdateClubRequest request) {
+        Club club = clubRepository.findByClubIDAndIsDeletedFalse(clubId)
+                .orElseThrow(() -> new BusinessRuleException("Không tìm thấy câu lạc bộ."));
+        if (request.getClubName() != null && !request.getClubName().isBlank()) {
+            club.setClubName(request.getClubName());
+        }
+        if (request.getDescription() != null) {
+            club.setDescription(request.getDescription());
+        }
+        if (request.getCategory() != null && !request.getCategory().isBlank()) {
+            club.setCategory(request.getCategory());
+        }
+        if (request.getClubImage() != null) {
+            club.setClubImage(request.getClubImage().isBlank() ? null : request.getClubImage());
+        }
+        if (request.getContactEmail() != null) {
+            club.setContactEmail(request.getContactEmail().isBlank() ? null : request.getContactEmail());
+        }
+        if (request.getContactPhone() != null) {
+            club.setContactPhone(request.getContactPhone().isBlank() ? null : request.getContactPhone());
+        }
+        if (request.getFacebookUrl() != null) {
+            club.setFacebookUrl(request.getFacebookUrl().isBlank() ? null : request.getFacebookUrl());
+        }
+        clubRepository.save(club);
+        return convertToDTO(club);
     }
 
     private ClubResponseDTO convertToDTO(Club club) {
@@ -58,6 +98,9 @@ public class ClubServiceImpl implements ClubService {
         // Default recruiting = true for active clubs
         dto.setRecruiting(true);
         dto.setClubImage(club.getClubImage());
+        dto.setContactEmail(club.getContactEmail());
+        dto.setContactPhone(club.getContactPhone());
+        dto.setFacebookUrl(club.getFacebookUrl());
 
         return dto;
     }

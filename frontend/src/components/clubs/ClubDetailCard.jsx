@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { displayCategory } from "../../hooks/usePublicClubs";
 
 function UsersIcon() {
   return (
@@ -85,7 +86,7 @@ export default function ClubDetailCard({ club, clubEvents = [], primaryAction, o
               className="inline-flex items-center text-[12px] font-bold px-2.5 py-[3px] rounded-md leading-[1.5]"
               style={{ background: club.color + "18", color: club.color, border: `1px solid ${club.color}44` }}
             >
-              {club.tag}
+              {displayCategory(club.tag)}
             </span>
             {club.recruiting && (
               <span className="inline-flex items-center text-[12px] font-bold px-2.5 py-[3px] rounded-md leading-[1.5] bg-[#DCFCE7] text-[#16A34A] border border-[#BBF7D0]">
@@ -94,7 +95,6 @@ export default function ClubDetailCard({ club, clubEvents = [], primaryAction, o
             )}
           </div>
           <h1 className="text-[1.75rem] font-extrabold text-[#111827] mb-1.5 tracking-[-0.5px]">{club.name}</h1>
-          <p className="text-sm text-[#6B7280] mb-2.5 leading-[1.5]">{club.desc}</p>
           <div className="flex items-center gap-1.5 text-sm font-medium text-[#F37021]">
             <UsersIcon />
             {club.members.toLocaleString()} thành viên
@@ -167,7 +167,36 @@ export default function ClubDetailCard({ club, clubEvents = [], primaryAction, o
         <aside>
           <div className="bg-white rounded-[14px] border border-[#EBEBEB] px-6 py-[22px]">
             <h3 className="text-[15px] font-bold text-[#111827] mb-3">Thông tin liên hệ</h3>
-            <p className="text-[13px] text-[#9CA3AF] italic">Chưa có thông tin liên hệ.</p>
+            {!club.contactEmail && !club.contactPhone && !club.facebookUrl ? (
+              <p className="text-[13px] text-[#9CA3AF] italic">Chưa có thông tin liên hệ.</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {club.contactEmail && (
+                  <div className="flex flex-col gap-0.5 text-[13px]">
+                    <span className="text-[#6B7280] font-semibold">Email:</span>
+                    <a href={`mailto:${club.contactEmail}`} className="text-[#1d4ed8] hover:underline break-all">
+                      {club.contactEmail}
+                    </a>
+                  </div>
+                )}
+                {club.contactPhone && (
+                  <div className="flex flex-col gap-0.5 text-[13px]">
+                    <span className="text-[#6B7280] font-semibold">Số điện thoại:</span>
+                    <a href={`tel:${club.contactPhone}`} className="text-[#111827]">
+                      {club.contactPhone}
+                    </a>
+                  </div>
+                )}
+                {club.facebookUrl && (
+                  <div className="flex flex-col gap-0.5 text-[13px]">
+                    <span className="text-[#6B7280] font-semibold">Trang xã hội:</span>
+                    <a href={club.facebookUrl} target="_blank" rel="noreferrer" className="text-[#1d4ed8] hover:underline break-all">
+                      {club.facebookUrl}
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </aside>
 

@@ -1,11 +1,15 @@
 package com.fptu.fcms.controller;
 
+import com.fptu.fcms.dto.request.UpdateClubRequest;
 import com.fptu.fcms.dto.response.ClubResponseDTO;
 import com.fptu.fcms.service.ClubService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,6 +28,12 @@ public class ClubController {
         return ResponseEntity.ok(clubService.getAllActiveClubs());
     }
 
+    @GetMapping("/id/{clubId}")
+    @Operation(summary = "Lấy thông tin chi tiết câu lạc bộ theo ID")
+    public ResponseEntity<ClubResponseDTO> getClubById(@PathVariable Integer clubId) {
+        return ResponseEntity.ok(clubService.getClubById(clubId));
+    }
+
     @GetMapping("/{clubCode}")
     @Operation(summary = "Lấy thông tin chi tiết câu lạc bộ theo mã code viết tắt")
     public ResponseEntity<ClubResponseDTO> getClubByCode(@PathVariable String clubCode) {
@@ -32,5 +42,16 @@ public class ClubController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(club);
+    }
+
+    @PutMapping("/{clubId}")
+    @PreAuthorize("hasRole('Leader')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Cập nhật thông tin câu lạc bộ (chỉ Leader)")
+    public ResponseEntity<ClubResponseDTO> updateClub(
+            @PathVariable Integer clubId,
+            @Valid @RequestBody UpdateClubRequest request
+    ) {
+        return ResponseEntity.ok(clubService.updateClub(clubId, request));
     }
 }

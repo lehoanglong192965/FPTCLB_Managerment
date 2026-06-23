@@ -51,6 +51,15 @@ public class Club {
     @Column(name = "isDeleted")
     private Boolean isDeleted;
 
+    @Column(name = "contactEmail")
+    private String contactEmail;
+
+    @Column(name = "contactPhone")
+    private String contactPhone;
+
+    @Column(name = "facebookUrl")
+    private String facebookUrl;
+
     // =========================================================
     // [NEW]
     // Trạng thái hoạt động của CLB
