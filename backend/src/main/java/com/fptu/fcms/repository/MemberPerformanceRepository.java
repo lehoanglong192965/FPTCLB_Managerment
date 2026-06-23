@@ -12,6 +12,12 @@ import java.util.List;
 public interface MemberPerformanceRepository extends JpaRepository<MemberPerformance, Integer> {
     List<MemberPerformance> findByClubIDAndUserIDInAndIsDeletedFalse(Integer clubID, Collection<Integer> userIDs);
 
+    List<MemberPerformance> findByClubIDAndEventIDInAndUserIDInAndIsDeletedFalse(
+            Integer clubID,
+            Collection<Integer> eventIDs,
+            Collection<Integer> userIDs
+    );
+
     @Override
     @CacheEvict(value = "memberRanking", allEntries = true)
     <S extends MemberPerformance> S save(S entity);

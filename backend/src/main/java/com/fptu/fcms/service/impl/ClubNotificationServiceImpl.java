@@ -182,8 +182,8 @@ public class ClubNotificationServiceImpl implements ClubNotificationService {
         return new MyNotificationResponse(
                 notification.getNotificationID(),
                 recipient.getRecipientID(),
-                club.getClubID(),
-                club.getClubName(),
+                club == null ? null : club.getClubID(),
+                club == null ? "Hệ thống" : club.getClubName(),
                 resolveResponseTitle(notification, club),
                 resolveResponseType(notification),
                 notification.getContent(),
@@ -209,7 +209,7 @@ public class ClubNotificationServiceImpl implements ClubNotificationService {
 
     private String normalizeTitle(CreateNotificationRequest request, Club club) {
         if (request == null || request.getTitle() == null || request.getTitle().trim().isEmpty()) {
-            return "Thông báo từ " + club.getClubName();
+            return club == null ? "Thông báo hệ thống" : "Thông báo từ " + club.getClubName();
         }
         String title = request.getTitle().trim();
         if (title.length() > 255) {
@@ -246,7 +246,7 @@ public class ClubNotificationServiceImpl implements ClubNotificationService {
 
     private String resolveResponseTitle(Notification notification, Club club) {
         if (notification.getTitle() == null || notification.getTitle().trim().isEmpty()) {
-            return "Thông báo từ " + club.getClubName();
+            return club == null ? "Thông báo hệ thống" : "Thông báo từ " + club.getClubName();
         }
         return notification.getTitle();
     }
