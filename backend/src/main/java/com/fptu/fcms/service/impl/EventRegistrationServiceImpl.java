@@ -64,4 +64,18 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setIsDeleted(true);
         registrationRepo.save(registration);
     }
+
+    @Override
+    public boolean isUserRegistered(Integer eventId, Integer userId) {
+        return registrationRepo.existsByEventIDAndUserIDAndIsDeletedFalse(eventId, userId);
+    }
+
+    @Override
+    public java.util.List<Event> getEventsByUserRegistered(Integer userId) {
+        java.util.List<EventRegistration> registrations = registrationRepo.findByUserIDAndIsDeletedFalse(userId);
+        return registrations.stream()
+                .map(reg -> eventRepository.findById(reg.getEventID()).orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toList());
+    }
 }

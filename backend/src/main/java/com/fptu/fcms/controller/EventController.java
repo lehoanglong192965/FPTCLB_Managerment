@@ -8,6 +8,7 @@ import com.fptu.fcms.dto.response.EventApprovalResponse;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventAssignment;
 import com.fptu.fcms.security.UserPrincipal;
+import com.fptu.fcms.service.EventRegistrationService;
 import com.fptu.fcms.service.EventService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ import com.fptu.fcms.dto.response.ContributionDTO;
 public class EventController {
 
     private final EventService eventService;
+    private final EventRegistrationService eventRegistrationService;
 
     @GetMapping("/approved")
     public ResponseEntity<List<Event>> getApprovedEvents() {
@@ -39,6 +41,22 @@ public class EventController {
         System.out.println("DEBUG: Fetching event with ID: " + eventId);
         Event event = eventService.getEventById(eventId);
         return ResponseEntity.ok(event);
+    }
+
+    @GetMapping("/{eventId}/my-status")
+    @PreAuthorize("hasAnyRole('Member', 'Leader', 'ViceLeader')")
+    public ResponseEntity<Map<String, Boolean>> getMyStatus(
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        boolean registered = eventRegistrationService.isUserRegistered(eventId, currentUser.getUserId());
+        boolean assigned = eventService.isUserAssigned(eventId, currentUser.getUserId());
+        return ResponseEntity.ok(Map.of("registered", registered, "assigned", assigned));
+    }
+
+    @GetMapping("/my-assignments")
+    @PreAuthorize("hasAnyRole('Member', 'Leader', 'ViceLeader')")
+    public ResponseEntity<List<Event>> getMyAssignments(@AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(eventService.getEventsByUserAssigned(currentUser.getUserId()));
     }
 
     @PostMapping("/registerEvent")
