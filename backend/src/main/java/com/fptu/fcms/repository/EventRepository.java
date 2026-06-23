@@ -38,7 +38,7 @@ public interface EventRepository extends JpaRepository<Event, Integer> {
     List<Event> findByEventStatusAndCreatedAtBeforeAndIsDeletedFalse(String status, LocalDateTime date);
 
     List<Event> findByEventStatus(String completed);
-}
+
     @Query("""
             SELECT COUNT(e)
             FROM Event e
