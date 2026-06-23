@@ -27,6 +27,9 @@ public class ApplicationReviewRequest {
     @Size(max = 200, message = "interviewLocation must not exceed 200 characters")
     private String interviewLocation;
 
+    @Size(max = 500, message = "reason must not exceed 500 characters")
+    private String reason;
+
     @AssertTrue(message = "interviewTime and interviewLocation are required when isAccepted is true")
     public boolean isAcceptedScheduleValid() {
         if (!Boolean.TRUE.equals(isAccepted)) {
@@ -35,5 +38,13 @@ public class ApplicationReviewRequest {
         return interviewTime != null
                 && interviewLocation != null
                 && !interviewLocation.isBlank();
+    }
+
+    @AssertTrue(message = "reason is required when isAccepted is false")
+    public boolean isRejectionReasonValid() {
+        if (Boolean.TRUE.equals(isAccepted)) {
+            return true;
+        }
+        return reason != null && !reason.isBlank();
     }
 }

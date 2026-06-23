@@ -4,6 +4,7 @@ import com.fptu.fcms.service.*;
 
 import com.fptu.fcms.dto.request.ClubBoardChangeRequest;
 import com.fptu.fcms.dto.response.ClubBoardMemberResponse;
+import com.fptu.fcms.dto.response.ClubMemberResponse;
 import com.fptu.fcms.entity.*;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.*;
@@ -211,6 +212,39 @@ public class ClubBoardServiceImpl implements ClubBoardService {
         membershipRepo.save(membership);
 
         return buildResponse(membership, targetUser, currentRole, activeSemester);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClubMemberResponse> getAllMembers(Integer clubID) {
+        Semester activeSemester = semesterRepo.findByIsActiveTrueAndIsDeletedFalse()
+                .orElseThrow(() -> new BusinessRuleException(
+                        "Không tìm thấy học kỳ Active.",
+                        HttpStatus.CONFLICT
+                ));
+
+        List<ClubMembership> memberships = membershipRepo
+                .findByClubIDAndSemesterIDAndIsDeletedFalse(clubID, activeSemester.getSemesterID());
+
+        return memberships.stream()
+                .map(m -> {
+                    UserAccount user = userRepo.findById(m.getUserID()).orElse(null);
+                    ClubRole role    = clubRoleRepo.findById(m.getClubRoleID()).orElse(null);
+                    return ClubMemberResponse.builder()
+                            .membershipID(m.getMembershipID())
+                            .userID(user != null ? user.getUserID() : null)
+                            .fullName(user != null ? user.getFullName() : "Unknown")
+                            .email(user != null ? user.getEmail() : "")
+                            .phone(user != null ? user.getPhoneNumber() : "")
+                            .studentCode(user != null ? user.getStudentId() : "")
+                            .major(user != null ? user.getMajor() : "")
+                            .clubRoleName(role != null ? role.getRoleName() : "Member")
+                            .semesterID(activeSemester.getSemesterID())
+                            .semesterCode(activeSemester.getSemesterCode())
+                            .joinedDate(m.getJoinedDate())
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 
     @Override

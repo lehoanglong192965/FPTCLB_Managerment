@@ -1,11 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePublicClubs } from "../../hooks/usePublicClubs";
+import { usePublicClubs, CATEGORY_LABEL } from "../../hooks/usePublicClubs";
 import ClubCard from "../../components/clubs/ClubCard";
 
+// value = giá trị DB dùng để filter, label = nhãn hiển thị tiếng Việt
 const CATEGORIES = [
-  "Tất cả", "Công nghệ", "Thiết kế", "Kỹ năng",
-  "AI & Data", "Business", "Ngôn ngữ", "Nghệ thuật", "Thể thao",
+  { value: "Tất cả",    label: "Tất cả" },
+  { value: "Công nghệ", label: "Công nghệ" },
+  { value: "Thiết kế",  label: "Thiết kế" },
+  { value: "Kỹ năng",   label: "Kỹ năng" },
+  { value: "AI & Data", label: "AI & Dữ liệu" },
+  { value: "Business",  label: "Kinh doanh" },
+  { value: "Ngôn ngữ",  label: "Ngôn ngữ" },
+  { value: "Nghệ thuật",label: "Nghệ thuật" },
+  { value: "Thể thao",  label: "Thể thao" },
 ];
 
 export default function ClubListPage() {
@@ -14,6 +22,7 @@ export default function ClubListPage() {
   const [search, setSearch]       = useState("");
   const [activeTag, setActiveTag] = useState("Tất cả");
 
+  // Lọc danh sách câu lạc bộ dựa trên tag và từ khóa tìm kiếm.
   const filtered = clubs.filter((club) => {
     const matchTag    = activeTag === "Tất cả" || club.tag === activeTag;
     const matchSearch = club.name.toLowerCase().includes(search.toLowerCase());
@@ -22,6 +31,7 @@ export default function ClubListPage() {
 
   return (
     <div className="max-w-[1200px] mx-auto px-[5%] pt-[calc(var(--header-h,68px)+48px)] pb-20">
+      
       <button
         className="inline-flex items-center gap-1.5 mb-7 px-4 py-2 rounded-lg border border-gray-200 bg-white text-[#4B5674] text-sm font-semibold cursor-pointer hover:border-[#FF6B00] hover:text-[#FF6B00] transition-all"
         onClick={() => navigate("/")}
@@ -44,23 +54,26 @@ export default function ClubListPage() {
           <input
             className="flex-1 border-none outline-none text-sm text-[#0D1B3E] bg-transparent placeholder-gray-400"
             placeholder="Tìm kiếm câu lạc bộ..."
-            value={search}
+            // hiển thị giá trị state
+            value={search} 
+            // mỗi lần gõ ký tự → cập nhật search → React re-render → lọc lại danh sách
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
         <div className="flex gap-2 flex-wrap">
+          
           {CATEGORIES.map((cat) => (
             <button
-              key={cat}
+              key={cat.value}
               className={`px-[18px] py-2 rounded-full border text-[13px] font-semibold cursor-pointer transition-all font-[inherit] ${
-                activeTag === cat
+                activeTag === cat.value
                   ? "bg-[#FF6B00] border-[#FF6B00] text-white shadow-[0_2px_8px_rgba(255,107,0,0.35)]"
                   : "border-gray-200 bg-white text-[#4B5674] hover:border-[#FF6B00] hover:text-[#FF6B00]"
               }`}
-              onClick={() => setActiveTag(cat)}
+              onClick={() => setActiveTag(cat.value)}
             >
-              {cat}
+              {cat.label}
             </button>
           ))}
         </div>

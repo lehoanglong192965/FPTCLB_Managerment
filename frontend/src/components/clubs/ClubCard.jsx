@@ -1,18 +1,21 @@
 import { useNavigate } from "react-router-dom";
-
+// Hàm resolveImg để xử lý URL hình ảnh của câu lạc bộ.
 const resolveImg = (url) => {
   if (!url) return null;
   if (url.startsWith("http") || url.startsWith("data:")) return url;
   const base = (import.meta.env.VITE_API_URL || "http://localhost:8080/api").replace(/\/api\/?$/, "");
   return `${base}${url}`;
 };
-
+// Component ClubCard hiển thị thông tin cơ bản của một câu lạc bộ.
 export default function ClubCard({ club, onSelect }) {
   const navigate = useNavigate();
+  // Nếu onSelect được truyền vào, sử dụng nó; nếu không, điều hướng đến trang chi tiết câu lạc bộ.
   const toDetail = onSelect ?? (() => navigate(`/clubs/${encodeURIComponent(club.abbr)}`));
+  // Lấy URL hình ảnh của câu lạc bộ, nếu không có thì trả về null.
   const imgSrc   = resolveImg(club.clubImage ?? club.image ?? club.logoUrl ?? null);
 
   return (
+    // Thẻ div chứa toàn bộ thông tin của câu lạc bộ, có thể click để xem chi tiết.
     <div
       onClick={toDetail}
       className="bg-white rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-1.5 group"
@@ -20,6 +23,7 @@ export default function ClubCard({ club, onSelect }) {
       onMouseEnter={e => e.currentTarget.style.boxShadow = "0 12px 32px rgba(13,27,62,0.12)"}
       onMouseLeave={e => e.currentTarget.style.boxShadow = "0 2px 8px rgba(13,27,62,0.05)"}
     >
+      
       {/* Banner */}
       <div
         className="relative h-[150px] flex flex-col items-center justify-center overflow-hidden text-center px-4"
@@ -40,9 +44,6 @@ export default function ClubCard({ club, onSelect }) {
             }}
           />
         )}
-        <span className="relative text-[18px] font-extrabold text-white uppercase tracking-[-0.2px] leading-tight mb-2">
-          {club.tag}
-        </span>
         {!imgSrc && (
           <span className="relative text-[40px] opacity-90 select-none leading-none">{club.emoji}</span>
         )}

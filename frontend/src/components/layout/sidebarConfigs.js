@@ -66,6 +66,7 @@ export const SIDEBAR_CONFIGS = {
 
   CLUB_LEADER: [
     { key: "overview",      label: "Tổng Quan CLB",        icon: Home,            path: "/club-leader",              exact: true },
+    { key: "club-info",     label: "Thông Tin CLB",        icon: Building2,       path: "/club-leader/club-info" },
     { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/club-leader/members" },
     { key: "applications",  label: "Đơn Ứng Tuyển",        icon: ClipboardList,   path: "/club-leader/applications" },
     { key: "event-create",  label: "Tạo Sự Kiện",          icon: PlusCircle,      path: "/club-leader/event-create" },

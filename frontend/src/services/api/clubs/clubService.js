@@ -7,7 +7,7 @@ const clubService = {
   // Backend: GET /api/clubs/{clubCode}
   getByIdPublic: (clubCode) => axiosClient.get(`/clubs/${clubCode}`),
   getAll: (params) => axiosClient.get("/clubs", { params }),
-  getById: (clubId) => axiosClient.get(`/clubs/${clubId}`),
+  getById: (clubId) => axiosClient.get(`/clubs/id/${clubId}`),
   getPublicEvents: (clubId, params) =>
     axiosClient.get(`/clubs/${clubId}/events/public`, { params }),
 
@@ -15,6 +15,15 @@ const clubService = {
   join: (clubId) => axiosClient.post(`/clubs/${clubId}/join`),
   leave: (clubId) => axiosClient.post(`/clubs/${clubId}/leave`),
   getMyClubs: () => axiosClient.get("/clubs/my"),
+
+  // ── UPLOAD ──────────────────────────────────────────────────────
+  uploadImage: (file) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return axiosClient.post("/uploads/card-image", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 
   // ── CLUB_LEADER / VICE_LEADER / CORE_TEAM ───────────────────────
   create: (payload) => axiosClient.post("/clubs", payload),

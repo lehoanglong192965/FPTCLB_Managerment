@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -20,7 +19,6 @@ public class RecruitmentDecisionResponse {
     private String studentName;
     private String studentEmail;
     private String status;
-    private BigDecimal interviewScore;
     private LocalDateTime interviewTime;
     private String interviewLocation;
 }

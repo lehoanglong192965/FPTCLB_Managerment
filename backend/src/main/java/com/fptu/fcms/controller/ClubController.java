@@ -1,12 +1,15 @@
 package com.fptu.fcms.controller;
 
+import com.fptu.fcms.dto.request.UpdateClubRequest;
 import com.fptu.fcms.dto.request.ClubStatusUpdateRequestDTO;
 import com.fptu.fcms.dto.response.ClubResponseDTO;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.service.ClubService;
 import com.fptu.fcms.service.EventService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,6 +33,12 @@ public class ClubController {
         return ResponseEntity.ok(clubService.getAllActiveClubs());
     }
 
+    @GetMapping("/id/{clubId}")
+    @Operation(summary = "Lấy thông tin chi tiết câu lạc bộ theo ID")
+    public ResponseEntity<ClubResponseDTO> getClubById(@PathVariable Integer clubId) {
+        return ResponseEntity.ok(clubService.getClubById(clubId));
+    }
+
     @GetMapping("/{clubCode}")
     @Operation(summary = "Lấy thông tin chi tiết câu lạc bộ theo mã code viết tắt")
     public ResponseEntity<ClubResponseDTO> getClubByCode(@PathVariable String clubCode) {
@@ -40,6 +49,17 @@ public class ClubController {
         return ResponseEntity.ok(club);
     }
 
+    @PutMapping("/{clubId}")
+    @PreAuthorize("hasRole('Leader')")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Cập nhật thông tin câu lạc bộ (chỉ Leader)")
+    public ResponseEntity<ClubResponseDTO> updateClub(
+            @PathVariable Integer clubId,
+            @Valid @RequestBody UpdateClubRequest request
+    ) {
+        return ResponseEntity.ok(clubService.updateClub(clubId, request));
+    } 
+
     @GetMapping("/{clubId}/events")
     @Operation(summary = "Lấy danh sách sự kiện của câu lạc bộ")
     public ResponseEntity<List<Event>> getEventsByClubId(@PathVariable Integer clubId) {
@@ -48,6 +68,7 @@ public class ClubController {
 
     @PatchMapping("/{clubId}/review")
     @PreAuthorize("hasAnyRole('Admin', 'ICPDP')")
+    @SecurityRequirement(name = "bearerAuth") // Thêm để Swagger hiện ổ khóa JWT
     @Operation(summary = "Duyệt trạng thái câu lạc bộ (Active, Suspended, Dissolved)")
     public ResponseEntity<Map<String, String>> reviewClub(
             @PathVariable Integer clubId,

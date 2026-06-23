@@ -101,9 +101,10 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     @Async
-    public void sendApplicationRejectedEmail(String email, String clubName) {
+    public void sendApplicationRejectedEmail(String email, String clubName, String reason) {
         String text = "Cảm ơn bạn đã quan tâm tới " + clubName + ".\n"
                 + "Rất tiếc hồ sơ của bạn chưa phù hợp với đợt tuyển này.\n"
+                + "Lý do: " + (reason != null ? reason : "Không đủ tiêu chí tuyển dụng") + "\n"
                 + "Chúc bạn thành công trong những cơ hội tiếp theo.";
 
         sendPlainTextEmail(

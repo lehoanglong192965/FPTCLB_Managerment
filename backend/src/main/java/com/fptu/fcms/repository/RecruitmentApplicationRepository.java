@@ -67,6 +67,19 @@ public interface RecruitmentApplicationRepository
     );
 
     /*
+     * Lấy danh sách đơn ứng tuyển của một CLB trong học kỳ cụ thể
+     */
+    List<RecruitmentApplication> findByClubIDAndSemesterIDAndIsDeletedFalse(
+            Integer clubID,
+            Integer semesterID
+    );
+
+    /*
+     * Member xem tất cả đơn của mình
+     */
+    List<RecruitmentApplication> findByUserIDAndIsDeletedFalseOrderByCreatedAtDesc(Integer userID);
+
+    /*
      * Scheduler quét draft quá hạn
      */
     List<RecruitmentApplication>

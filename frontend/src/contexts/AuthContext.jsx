@@ -3,7 +3,7 @@ import authService from "../services/api/auth/authService";
 import { TokenService } from "../services/api/axiosClient";
 
 export const AuthContext = createContext();
-
+// Lấy thông tin user từ localStorage, nếu có lỗi thì trả về null.
 const getUserFromStorage = () => {
   try {
     const userString = localStorage.getItem("user");
@@ -13,20 +13,20 @@ const getUserFromStorage = () => {
   }
   return null;
 };
-
+// Lưu thông tin user vào localStorage.
 const saveUserToStorage = (userData) => {
   localStorage.setItem("user", JSON.stringify(userData));
 };
-
+// Xóa thông tin user khỏi localStorage.
 const removeUserFromStorage = () => {
   localStorage.removeItem("user");
 };
-
+// Context provider để quản lý thông tin xác thực người dùng.
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
-
+  // Hàm fetchProfile để lấy thông tin profile của user từ backend.
   const fetchProfile = useCallback(async () => {
     setProfileLoading(true);
     try {

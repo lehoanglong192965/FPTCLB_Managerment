@@ -19,4 +19,7 @@ public class ClubResponseDTO {
     private Boolean recruiting;// Mặc định true
     private String clubImage;
     private String clubStatus;
+    private String contactEmail;
+    private String contactPhone;
+    private String facebookUrl;
 }

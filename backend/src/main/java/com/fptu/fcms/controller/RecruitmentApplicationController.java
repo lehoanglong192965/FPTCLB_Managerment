@@ -17,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+
+import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,6 +30,16 @@ import org.springframework.web.bind.annotation.*;
 public class RecruitmentApplicationController {
 
     private final RecruitmentApplicationService recruitmentService;
+
+    @GetMapping("/my")
+    @PreAuthorize("hasAnyRole('Student', 'Admin', 'ICPDP')")
+    @Operation(summary = "Xem danh sách đơn ứng tuyển của tôi", description = "Member xem tất cả đơn mình đã nộp.")
+    @ApiResponse(responseCode = "200", description = "Danh sách đơn ứng tuyển")
+    public ResponseEntity<List<RecruitmentApplicationResponseDTO>> getMyApplications(
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        return ResponseEntity.ok(recruitmentService.getMyApplications(currentUser.getUserId()));
+    }
 
     @PostMapping("/apply")
     @PreAuthorize("hasAnyRole('Student', 'Admin', 'ICPDP')")
