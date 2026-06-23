@@ -1,7 +1,9 @@
 package com.fptu.fcms.repository;
 
 import com.fptu.fcms.entity.Semester;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.stereotype.Repository;
 
 import org.springframework.data.jpa.repository.Query;
@@ -32,8 +34,12 @@ public interface SemesterRepository extends JpaRepository<Semester, Integer> {
      * @return Optional<Semester> — rỗng nếu hệ thống chưa có kỳ Active nào
      */
     Optional<Semester> findByIsActiveTrueAndIsDeletedFalse();
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Semester> findBySemesterIDAndIsDeletedFalse(Integer semesterID);
 
     List<Semester> findByIsActiveTrue();
+
+    List<Semester> findByEndDateAndIsActiveTrueAndIsDeletedFalse(LocalDate endDate);
 
     @Query("SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END FROM Semester s " +
            "WHERE s.startDate <= :endDate AND s.endDate >= :startDate " +
