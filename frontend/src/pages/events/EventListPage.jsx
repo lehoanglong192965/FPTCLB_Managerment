@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { EVENTS } from "../../constants/mockData";
 import EventCard from "../../components/events/EventCard";
-import { useEvents } from "../../contexts/EventsContext";
+import eventService from "../../services/api/events/eventService";
 
 const BADGE_FILTERS = ["Tất cả", "Đăng ký mở", "Sắp diễn ra", "Hết chỗ"];
 
@@ -10,12 +9,40 @@ export default function EventListPage() {
   const navigate = useNavigate();
   const [search, setSearch]             = useState("");
   const [activeFilter, setActiveFilter] = useState("Tất cả");
-  const { approvedEvents }              = useEvents();
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const allEvents = [
-    ...approvedEvents,
-    ...EVENTS.filter((e) => !approvedEvents.some((a) => a.id === e.id)),
-  ];
+  useEffect(() => {
+    const fetchEvents = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await eventService.getApprovedEvents();
+        console.log("Response API:", response); // Debug log
+        setEvents(Array.isArray(response) ? response : (response.data || []));
+      } catch (error) {
+        console.error("Lỗi khi tải danh sách sự kiện:", error);
+        setError("Không thể tải danh sách sự kiện.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEvents();
+  }, []);
+
+  // Map lại dữ liệu từ backend sang format frontend yêu cầu (nếu cần)
+  const allEvents = events.map(e => ({
+      id: e.eventID,
+      title: e.eventName,
+      club: "CLB", // Cần API lấy tên CLB
+      date: e.startDate ? new Date(e.startDate).toLocaleDateString() : "",
+      time: e.startDate ? new Date(e.startDate).toLocaleTimeString() : "",
+      venue: e.location,
+      desc: e.description,
+      badge: "Đăng ký mở", // Cần logic mapping trạng thái
+      badgeType: "open"
+  }));
 
   const filtered = allEvents.filter((event) => {
     const matchFilter = activeFilter === "Tất cả" || event.badge === activeFilter;
@@ -72,10 +99,15 @@ export default function EventListPage() {
       </div>
 
       <div className="flex flex-col gap-4">
-        {filtered.length > 0
-          ? filtered.map((event) => <EventCard key={event.id ?? event.title} event={event} />)
-          : <p className="text-center text-gray-400 text-[15px] py-16">Không tìm thấy sự kiện nào.</p>
-        }
+        {loading ? (
+          <p className="text-center py-16">Đang tải sự kiện...</p>
+        ) : error ? (
+          <p className="text-center py-16 text-red-500">{error}</p>
+        ) : filtered.length > 0 ? (
+          filtered.map((event) => <EventCard key={event.id} event={event} />)
+        ) : (
+          <p className="text-center text-gray-400 text-[15px] py-16">Không tìm thấy sự kiện nào.</p>
+        )}
       </div>
     </div>
   );

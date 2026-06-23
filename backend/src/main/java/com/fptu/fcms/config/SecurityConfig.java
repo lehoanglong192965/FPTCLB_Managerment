@@ -74,7 +74,9 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/oauth2/**",
                                 "/login/**",
-                                "/api/uploads/**"
+                                "/api/uploads/**",
+                                "/api/events/approved",
+                                "/api/events/*"
                         ).permitAll()
                         // Cho phép đọc thông tin danh sách và chi tiết CLB công khai
                         .requestMatchers(HttpMethod.GET, "/api/clubs", "/api/clubs/*").permitAll()

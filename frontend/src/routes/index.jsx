@@ -71,7 +71,7 @@ export default function AppRoutes() {
       <Route path="/clubs" element={<ClubListPage />} />
       <Route path="/clubs/:abbr" element={<ClubDetailPage />} />
       <Route path="/events" element={<EventListPage />} />
-      <Route path="/events/:title" element={<EventDetailPage />} />
+      <Route path="/events/:eventId" element={<EventDetailPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-otp" element={<VerifyOTP />} />

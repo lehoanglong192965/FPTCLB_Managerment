@@ -1,6 +1,13 @@
 import axiosClient from "../axiosClient";
 
 const eventService = {
+  // ── PUBLIC ────────────────────────────────────────────────────────────────
+  // GET /api/events/approved
+  getApprovedEvents: () => axiosClient.get("/events/approved"),
+
+  // GET /api/events/{eventId}
+  getEventById: (eventId) => axiosClient.get(`/events/${eventId}`),
+
   // ── CLUB_LEADER / VICE_LEADER ─────────────────────────────────────────────
   // POST /api/events/registerEvent
   propose: (payload) => axiosClient.post("/events/registerEvent", payload),

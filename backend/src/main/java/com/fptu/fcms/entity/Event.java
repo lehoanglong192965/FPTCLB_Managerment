@@ -64,7 +64,7 @@ public class Event {
     @Column(name = "approvedAt")
     private LocalDateTime approvedAt;
 
-    @org.hibernate.annotations.Nationalized
+
     @Column(name = "rejectionReason")
     private String rejectionReason;
 

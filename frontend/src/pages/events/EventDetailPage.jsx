@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { EVENTS } from "../../constants/mockData";
-import { useEvents } from "../../contexts/EventsContext";
+import eventService from "../../services/api/events/eventService";
 
 const BADGE_LABEL = {
   open:     "Đăng ký mở",
@@ -69,80 +68,68 @@ const saveCancel   = (t) => {
 };
 
 export default function EventDetailPage() {
-  const { title }    = useParams();
+  const { eventId }    = useParams();
   const navigate     = useNavigate();
   const location     = useLocation();
   const fromTickets  = location.state?.fromTickets ?? false;
   const ticketStatus = location.state?.ticketStatus ?? null;
-  const eventTitle   = decodeURIComponent(title);
-
+  
+  const [event, setEvent] = useState(null);
   const [cancelConfirm, setCancelConfirm] = useState(false);
-  const [cancelled, setCancelled]         = useState(() => getCancelled().has(eventTitle));
+  const [cancelled, setCancelled]         = useState(false);
 
-  const { approvedEvents } = useEvents();
-  const allEvents = [...approvedEvents, ...EVENTS.filter((e) => !approvedEvents.some((a) => a.id === e.id))];
-  const event = allEvents.find((e) => e.title === eventTitle);
+  useEffect(() => {
+    if (!eventId) return;
+    const fetchEvent = async () => {
+      try {
+        const response = await eventService.getEventById(eventId);
+        setEvent(response.data || response);
+      } catch (error) {
+        console.error("Lỗi khi tải sự kiện:", error);
+      }
+    };
+    fetchEvent();
+  }, [eventId]);
 
   if (!event) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-base text-[#6B7280]">
-        <p>Không tìm thấy sự kiện.</p>
-        <button
-          className="px-5 py-2.5 bg-[#F37021] text-white border-none rounded-lg cursor-pointer font-semibold"
-          onClick={() => navigate("/events")}
-        >
-          ← Quay lại
-        </button>
-      </div>
-    );
+    return <div className="text-center py-20">Đang tải...</div>;
   }
 
-  const heroBg      = event.bannerUrl
-    ? undefined
-    : `linear-gradient(135deg, ${event.color}ee, ${event.color}99)`;
-  const fillPct     = Math.round((event.currentParticipants / event.maxParticipants) * 100);
-  const isFull      = event.badgeType === "full";
+  // Map lại dữ liệu
+  const mappedEvent = {
+      id: event.eventID,
+      title: event.eventName,
+      club: "CLB", // Cần API lấy tên CLB
+      date: event.startDate ? new Date(event.startDate).toLocaleDateString() : "",
+      time: event.startDate ? new Date(event.startDate).toLocaleTimeString() : "",
+      venue: event.location,
+      desc: event.description,
+      longDesc: event.description,
+      currentParticipants: 0, // Cần API tính
+      maxParticipants: 100, // Cần API lấy
+      badgeType: "open"
+  };
+
+  const fillPct     = Math.round((mappedEvent.currentParticipants / mappedEvent.maxParticipants) * 100);
+  const isFull      = mappedEvent.badgeType === "full";
 
   return (
     <div className="min-h-screen bg-[#F2F4F7] pt-[calc(68px+28px)] px-[5%] pb-[60px] font-['Be_Vietnam_Pro','Inter',sans-serif]">
       <div className="max-w-[1100px] mx-auto flex flex-col gap-7">
 
         {/* Hero banner */}
-        <div
-          className="relative rounded-[18px] overflow-hidden h-[340px] flex items-center justify-center max-md:h-[240px]"
-          style={
-            event.bannerUrl
-              ? { backgroundImage: `url(${event.bannerUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
-              : { background: heroBg }
-          }
-        >
-          {!event.bannerUrl && (
-            <span className="text-[120px] opacity-[0.18] select-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 leading-none">
-              {event.emoji}
-            </span>
-          )}
+        <div className="relative rounded-[18px] overflow-hidden h-[340px] flex items-center justify-center max-md:h-[240px] bg-gradient-to-t from-gray-500 to-gray-300">
           <div className="absolute inset-0 bg-gradient-to-t from-black/72 to-transparent flex flex-col justify-end px-9 py-8">
-            {fromTickets ? (() => {
-              const key = cancelled ? "cancelled" : ticketStatus;
-              const tb  = TICKET_BADGE[key] ?? TICKET_BADGE.registered;
-              return (
-                <span className="inline-flex items-center text-[12px] font-bold px-3 py-1 rounded-full mb-2.5 w-fit"
-                  style={{ background: tb.bg, color: tb.color }}>
-                  {tb.label}
-                </span>
-              );
-            })() : (
-              <span className={`inline-flex items-center text-[12px] font-bold px-3 py-1 rounded-full mb-2.5 w-fit ${
-                event.badgeType === "full" ? "bg-[#6B7280] text-white" : "bg-[#F37021] text-white"
+            <span className={`inline-flex items-center text-[12px] font-bold px-3 py-1 rounded-full mb-2.5 w-fit ${
+                mappedEvent.badgeType === "full" ? "bg-[#6B7280] text-white" : "bg-[#F37021] text-white"
               }`}>
-                {BADGE_LABEL[event.badgeType]}
-              </span>
-            )}
+                {BADGE_LABEL[mappedEvent.badgeType]}
+            </span>
             <h1 className="text-[clamp(1.6rem,3.5vw,2.4rem)] font-black text-white tracking-[-0.5px] mb-2 leading-[1.15]">
-              {event.title}
+              {mappedEvent.title}
             </h1>
             <p className="text-sm text-white/80">
-              Tổ chức bởi <strong className="text-white font-bold">{event.club}</strong>
+              Tổ chức bởi <strong className="text-white font-bold">{mappedEvent.club}</strong>
             </p>
           </div>
         </div>
@@ -156,111 +143,15 @@ export default function EventDetailPage() {
               <h2 className="flex items-center gap-2.5 text-[1.1rem] font-extrabold text-[#111827] mb-4">
                 <InfoIcon /> Thông tin chi tiết
               </h2>
-              <p className="text-sm text-[#4B5563] leading-[1.75] mb-3 last:mb-0">{event.desc}</p>
-              {event.longDesc && (
-                <p className="text-sm text-[#4B5563] leading-[1.75] mb-3 last:mb-0">{event.longDesc}</p>
-              )}
+              <p className="text-sm text-[#4B5563] leading-[1.75] mb-3 last:mb-0">{mappedEvent.desc}</p>
             </div>
           </div>
 
           {/* Sidebar */}
           <aside>
             <div className="bg-white rounded-[14px] border border-[#EBEBEB] px-5 py-6 flex flex-col gap-5">
-
-              {/* Time */}
-              <div className="flex items-start gap-3.5">
-                <div className="w-[42px] h-[42px] rounded-[10px] bg-[#FEF0E6] text-[#F37021] flex items-center justify-center shrink-0">
-                  <CalendarIcon />
-                </div>
-                <div>
-                  <p className="text-[12px] text-[#9CA3AF] font-medium mb-0.5">Thời gian</p>
-                  <p className="text-[15px] font-bold text-[#111827] mb-px">{event.date}</p>
-                  {event.time && <p className="text-[12px] text-[#6B7280]">{event.time}</p>}
-                </div>
-              </div>
-
-              {/* Venue */}
-              <div className="flex items-start gap-3.5">
-                <div className="w-[42px] h-[42px] rounded-[10px] bg-[#FEF0E6] text-[#F37021] flex items-center justify-center shrink-0">
-                  <MapPinIcon />
-                </div>
-                <div>
-                  <p className="text-[12px] text-[#9CA3AF] font-medium mb-0.5">Địa điểm</p>
-                  <p className="text-[15px] font-bold text-[#111827] mb-px">{event.venue ?? "—"}</p>
-                  {event.venueDetail && (
-                    <p className="text-[12px] text-[#6B7280]">{event.venueDetail}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Participants + progress bar */}
-              <div className="flex items-start gap-3.5">
-                <div className="w-[42px] h-[42px] rounded-[10px] bg-[#FEF0E6] text-[#F37021] flex items-center justify-center shrink-0">
-                  <UsersIcon />
-                </div>
-                <div className="flex-1">
-                  <p className="text-[12px] text-[#9CA3AF] font-medium mb-0.5">Số lượng</p>
-                  <p className="text-[15px] font-bold text-[#111827] mb-px">
-                    {event.currentParticipants} / {event.maxParticipants}
-                  </p>
-                  <div className="h-2 rounded-full overflow-hidden mt-2 border border-[#E5E7EB]">
-                    <div
-                      className="h-full bg-[#F37021] rounded-full transition-[width] duration-300"
-                      style={{ width: `${fillPct}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Action button — đổi theo context (ticket vs. explore) */}
-              {fromTickets ? (
-                ticketStatus === "registered" ? (
-                  cancelled ? (
-                    <div className="w-full py-[13px] mt-1 rounded-[10px] text-[15px] font-bold text-center"
-                      style={{ background: "#F3F4F6", color: "#6B7280" }}>
-                      Đã hủy đăng ký
-                    </div>
-                  ) : cancelConfirm ? (
-                    <div className="flex flex-col gap-2 mt-1">
-                      <p className="text-[13px] text-center text-[#6B7280] m-0">Xác nhận hủy đăng ký sự kiện này?</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setCancelConfirm(false)}
-                          className="flex-1 py-2.5 rounded-[10px] border-[1.5px] border-gray-200 text-[13.5px] font-semibold text-gray-600 bg-white cursor-pointer font-[inherit]"
-                        >
-                          Giữ lại
-                        </button>
-                        <button
-                          onClick={() => { saveCancel(eventTitle); setCancelled(true); setCancelConfirm(false); }}
-                          className="flex-1 py-2.5 rounded-[10px] border-none text-[13.5px] font-semibold text-white cursor-pointer font-[inherit]"
-                          style={{ background: "#e11d48" }}
-                        >
-                          Xác nhận
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setCancelConfirm(true)}
-                      className="w-full py-[13px] mt-1 border-none rounded-[10px] text-[15px] font-bold font-[inherit] cursor-pointer transition-all hover:-translate-y-px"
-                      style={{ background: "#e11d48", color: "#fff" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "#be123c"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "#e11d48"; }}
-                    >
-                      Hủy đăng ký
-                    </button>
-                  )
-                ) : (
-                  <button
-                    disabled
-                    className="w-full py-[13px] mt-1 border-none rounded-[10px] text-[15px] font-bold font-[inherit] cursor-not-allowed"
-                    style={{ background: "#F3F4F6", color: "#6B7280" }}
-                  >
-                    {ticketStatus === "ongoing" ? "Đang diễn ra" : "Đã kết thúc"}
-                  </button>
-                )
-              ) : (
-                <button
+              
+              <button
                   className={`w-full py-[13px] mt-1 border-none rounded-[10px] text-[15px] font-bold font-[inherit] transition-all ${
                     isFull
                       ? "bg-[#D1D5DB] text-[#9CA3AF] cursor-not-allowed"
@@ -271,8 +162,6 @@ export default function EventDetailPage() {
                 >
                   {isFull ? "Đã hết chỗ" : "Đăng ký tham gia"}
                 </button>
-              )}
-
             </div>
           </aside>
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, Clock, MapPin, Search, X, AlertTriangle } from "lucide-react";
 import { TokenService } from "../../services/api/axiosClient";
+import clubService from "../../services/api/clubs/clubService";
 
 function loadEvents(clubId) {
   if (!clubId) return [];
@@ -18,11 +19,11 @@ function saveEvents(clubId, events) {
 }
 
 const STATUS_CFG = {
-  pending:   { label: "Chờ phê duyệt", color: "#d97706", bg: "#fffbeb" },
-  upcoming:  { label: "Sắp diễn ra",   color: "#059669", bg: "#ecfdf5" },
-  approved:  { label: "Đã phê duyệt",  color: "#2563eb", bg: "#eff6ff" },
-  cancelled: { label: "Đã hủy",        color: "#dc2626", bg: "#fef2f2" },
-  done:      { label: "Đã kết thúc",   color: "#6b7280", bg: "#f3f4f6" },
+  Pending:   { label: "Chờ phê duyệt", color: "#d97706", bg: "#fffbeb" },
+  Upcoming:  { label: "Sắp diễn ra",   color: "#059669", bg: "#ecfdf5" },
+  Approved:  { label: "Đã phê duyệt",  color: "#2563eb", bg: "#eff6ff" },
+  Cancelled: { label: "Đã hủy",        color: "#dc2626", bg: "#fef2f2" },
+  Done:      { label: "Đã kết thúc",   color: "#6b7280", bg: "#f3f4f6" },
 };
 
 const REASON_MIN = 20;
@@ -138,7 +139,17 @@ export default function ClubEventsMgmt() {
   const [cancelTarget, setCancelTarget] = useState(null);
 
   useEffect(() => {
-    setEvents(loadEvents(clubId));
+    const fetchEvents = async () => {
+      try {
+        const response = await clubService.getAllEvents(clubId);
+        setEvents(response.data);
+        saveEvents(clubId, response.data);
+      } catch (error) {
+        console.error("Lỗi khi tải sự kiện:", error);
+      }
+    };
+
+    fetchEvents();
   }, [clubId]);
 
   const filtered = events.filter((e) =>
@@ -147,7 +158,7 @@ export default function ClubEventsMgmt() {
 
   const handleCancelConfirm = (id, reason) => {
     const updated = events.map((e) =>
-      e.id === id ? { ...e, status: "cancelled", cancelReason: reason } : e
+      e.id === id ? { ...e, status: "Cancelled", cancelReason: reason } : e
     );
     setEvents(updated);
     saveEvents(clubId, updated);
@@ -206,8 +217,8 @@ export default function ClubEventsMgmt() {
                 <div key={ev.id} style={{
                   display: "flex", alignItems: "center", gap: "1rem",
                   padding: "0.875rem 1.25rem", borderRadius: 12,
-                  border: ev.status === "cancelled" ? "1.5px solid #fecaca" : "1.5px solid #f0f0f0",
-                  background: ev.status === "cancelled" ? "#fff8f8" : "#fff",
+                  border: ev.status === "Cancelled" ? "1.5px solid #fecaca" : "1.5px solid #f0f0f0",
+                  background: ev.status === "Cancelled" ? "#fff8f8" : "#fff",
                 }}>
                   <div style={{ width: 48, height: 48, borderRadius: 12, background: "#FFF3EE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <Calendar size={20} color="#E6430A" />
@@ -219,7 +230,7 @@ export default function ClubEventsMgmt() {
                       <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Clock size={11} /> {ev.date} {ev.time}</span>
                       <span style={{ display: "flex", alignItems: "center", gap: 3 }}><MapPin size={11} /> {ev.location}</span>
                     </p>
-                    {ev.status === "cancelled" && ev.cancelReason && (
+                    {ev.status === "Cancelled" && ev.cancelReason && (
                       <p style={{ fontSize: 11.5, color: "#dc2626", margin: "5px 0 0", fontStyle: "italic" }}>
                         Lý do hủy: {ev.cancelReason}
                       </p>
@@ -228,10 +239,12 @@ export default function ClubEventsMgmt() {
 
                   <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
                     <span style={{ fontSize: 12, color: "#6b7280" }}>{ev.attendees} người</span>
-                    <span style={{ padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600, color: cfg.color, background: cfg.bg }}>
-                      {cfg.label}
-                    </span>
-                    {ev.status === "approved" && (
+                    {cfg && (
+                      <span style={{ padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600, color: cfg.color, background: cfg.bg }}>
+                        {cfg.label}
+                      </span>
+                    )}
+                    {ev.status === "Approved" && (
                       <button
                         onClick={() => setCancelTarget(ev)}
                         style={{

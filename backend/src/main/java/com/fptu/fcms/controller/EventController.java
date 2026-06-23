@@ -4,6 +4,7 @@ import com.fptu.fcms.dto.request.CancelEventRequest;
 import com.fptu.fcms.dto.request.CreateEventProposalRequest;
 import com.fptu.fcms.dto.request.EventApprovalRequest;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
+import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EventService;
 import jakarta.validation.Valid;
@@ -14,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -22,6 +24,16 @@ import java.util.Map;
 public class EventController {
 
     private final EventService eventService;
+
+    @GetMapping("/approved")
+    public ResponseEntity<List<Event>> getApprovedEvents() {
+        return ResponseEntity.ok(eventService.getApprovedEvents());
+    }
+
+    @GetMapping("/{eventId}")
+    public ResponseEntity<Event> getEventById(@PathVariable Integer eventId) {
+        return ResponseEntity.ok(eventService.getEventById(eventId));
+    }
 
     @PostMapping("/registerEvent")
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')") // Chỉ Leader/Vice Leader mới được đề xuất

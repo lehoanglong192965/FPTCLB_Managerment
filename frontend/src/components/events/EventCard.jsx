@@ -23,7 +23,7 @@ export default function EventCard({ event }) {
   const navigate     = useNavigate();
   const isTicketMode = !!event.ticketStatus;
   const toDetail     = () => navigate(
-    `/events/${encodeURIComponent(event.title)}`,
+    `/events/${event.id}`,
     isTicketMode ? { state: { fromTickets: true, ticketStatus: event.ticketStatus } } : undefined
   );
 

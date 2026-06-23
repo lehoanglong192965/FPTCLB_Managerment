@@ -14,6 +14,7 @@ public interface EventService {
     void cancelEvent(Integer clubID, Integer eventId, CancelEventRequest request);
     EventApprovalResponse approveEvent(Integer eventId, EventApprovalRequest request, UserPrincipal currentUser);
     List<Event> getPendingEvents();
+    List<Event> getApprovedEvents();
     Event getEventById(Integer eventId);
     void approveEvent(Integer eventId);
     void rejectEvent(Integer eventId, String reason);

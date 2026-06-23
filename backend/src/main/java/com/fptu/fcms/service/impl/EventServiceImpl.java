@@ -182,6 +182,12 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<Event> getApprovedEvents() {
+        return eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_APPROVED);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Event getEventById(Integer eventId) {
         return eventRepository.findByEventIDAndIsDeletedFalse(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
