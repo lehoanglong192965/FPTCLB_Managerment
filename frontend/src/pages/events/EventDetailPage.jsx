@@ -1,161 +1,141 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { Calendar, MapPin, Clock, ArrowLeft } from "lucide-react";
 import eventService from "../../services/api/events/eventService";
+import clubService from "../../services/api/clubs/clubService";
 import EventRegistrationBtn from "../../components/events/EventRegistrationBtn";
 
-const BADGE_LABEL = {
-  open:     "Đăng ký mở",
-  upcoming: "Sắp diễn ra",
-  full:     "Hết chỗ",
-};
-
-const TICKET_BADGE = {
-  registered: { label: "Đã đăng ký",   bg: "#DCFCE7", color: "#15803D" },
-  ongoing:    { label: "Đang diễn ra", bg: "#DBEAFE", color: "#1D4ED8" },
-  completed:  { label: "Đã kết thúc",  bg: "#F3F4F6", color: "#6B7280" },
-  cancelled:  { label: "Đã hủy",       bg: "#FEE2E2", color: "#DC2626" },
-};
-
-function CalendarIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  );
-}
-
-function MapPinIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
-  );
-}
-
-function UsersIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-
-function InfoIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-      stroke="#F37021" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  );
-}
-
-const LS_KEY = "fptclb_cancelled_tickets";
-const getCancelled = () => new Set(JSON.parse(localStorage.getItem(LS_KEY) ?? "[]"));
-const saveCancel   = (t) => {
-  const s = getCancelled(); s.add(t);
-  localStorage.setItem(LS_KEY, JSON.stringify([...s]));
+const STATUS_BADGE = {
+  Approved:  { label: "Đăng ký mở",    bg: "#F37021" },
+  Upcoming:  { label: "Sắp diễn ra",   bg: "#F37021" },
+  Ongoing:   { label: "Đang diễn ra",  bg: "#16A34A" },
+  Completed: { label: "Đã kết thúc",   bg: "#6B7280" },
+  Closed:    { label: "Đã đóng",       bg: "#6B7280" },
+  Cancelled: { label: "Đã hủy",        bg: "#DC2626" },
 };
 
 export default function EventDetailPage() {
-  const { eventId }    = useParams();
-  const navigate     = useNavigate();
-  const location     = useLocation();
-  const fromTickets  = location.state?.fromTickets ?? false;
-  const ticketStatus = location.state?.ticketStatus ?? null;
-  
+  const { eventId } = useParams();
+  const navigate    = useNavigate();
+
   const [event, setEvent] = useState(null);
-  const [cancelConfirm, setCancelConfirm] = useState(false);
-  const [cancelled, setCancelled]         = useState(false);
+  const [clubs, setClubs] = useState([]);
 
   useEffect(() => {
     if (!eventId) return;
-    const fetchEvent = async () => {
+    const fetchData = async () => {
       try {
-        const response = await eventService.getEventById(eventId);
-        setEvent(response.data || response);
+        const [eventRes, clubRes] = await Promise.all([
+          eventService.getEventById(eventId),
+          clubService.getAll(),
+        ]);
+        setEvent(eventRes.data || eventRes);
+        setClubs(Array.isArray(clubRes) ? clubRes : (clubRes.data || []));
       } catch (error) {
         console.error("Lỗi khi tải sự kiện:", error);
       }
     };
-    fetchEvent();
+    fetchData();
   }, [eventId]);
 
   if (!event) {
-    return <div className="text-center py-20">Đang tải...</div>;
+    return <div className="text-center py-20 text-gray-400">Đang tải...</div>;
   }
 
-  // Map lại dữ liệu
-  const mappedEvent = {
-      id: event.eventID,
-      title: event.eventName,
-      club: "CLB", // Cần API lấy tên CLB
-      date: event.startDate ? new Date(event.startDate).toLocaleDateString() : "",
-      time: event.startDate ? new Date(event.startDate).toLocaleTimeString() : "",
-      venue: event.location,
-      desc: event.description,
-      longDesc: event.description,
-      currentParticipants: 0, // Cần API tính
-      maxParticipants: 100, // Cần API lấy
-      badgeType: "open"
-  };
+  const clubObj  = clubs.find((c) => c.clubID === event.clubID);
+  const clubName = clubObj ? clubObj.name : "CLB FPTU";
+  const badge    = STATUS_BADGE[event.eventStatus] ?? { label: event.eventStatus, bg: "#6B7280" };
 
-  const fillPct     = Math.round((mappedEvent.currentParticipants / mappedEvent.maxParticipants) * 100);
-  const isFull      = mappedEvent.badgeType === "full";
+  const dateStr = event.startDate
+    ? new Date(event.startDate).toLocaleDateString("vi-VN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+    : "Chưa xác định";
+  const timeStr = event.startDate
+    ? new Date(event.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
+    : "";
 
   return (
     <div className="min-h-screen bg-[#F2F4F7] pt-[calc(68px+28px)] px-[5%] pb-[60px] font-['Be_Vietnam_Pro','Inter',sans-serif]">
-      <div className="max-w-[1100px] mx-auto flex flex-col gap-7">
+      <div className="max-w-[1100px] mx-auto flex flex-col gap-6">
+
+        {/* Back button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1.5 self-start px-4 py-2 rounded-lg border border-gray-200 bg-white text-[#4B5674] text-sm font-semibold cursor-pointer hover:border-[#F37021] hover:text-[#F37021] transition-all font-[inherit]"
+        >
+          <ArrowLeft size={15} /> Quay lại
+        </button>
 
         {/* Hero banner */}
-        <div className="relative rounded-[18px] overflow-hidden h-[340px] flex items-center justify-center max-md:h-[240px] bg-gradient-to-t from-gray-500 to-gray-300">
-          <div className="absolute inset-0 bg-gradient-to-t from-black/72 to-transparent flex flex-col justify-end px-9 py-8">
-            <span className={`inline-flex items-center text-[12px] font-bold px-3 py-1 rounded-full mb-2.5 w-fit ${
-                mappedEvent.badgeType === "full" ? "bg-[#6B7280] text-white" : "bg-[#F37021] text-white"
-              }`}>
-                {BADGE_LABEL[mappedEvent.badgeType]}
+        <div className="relative rounded-[18px] overflow-hidden h-[300px] flex items-end max-md:h-[220px]"
+          style={{ background: clubObj ? `linear-gradient(135deg, ${clubObj.color}cc, ${clubObj.color}66)` : "linear-gradient(135deg, #1A6FC4cc, #1A6FC466)" }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+          <div className="relative z-10 px-9 py-8 w-full">
+            <span className="inline-flex items-center text-[12px] font-bold px-3 py-1 rounded-full mb-3 text-white"
+              style={{ background: badge.bg }}>
+              {badge.label}
             </span>
-            <h1 className="text-[clamp(1.6rem,3.5vw,2.4rem)] font-black text-white tracking-[-0.5px] mb-2 leading-[1.15]">
-              {mappedEvent.title}
+            <h1 className="text-[clamp(1.5rem,3vw,2.2rem)] font-black text-white tracking-[-0.5px] mb-1.5 leading-[1.2]">
+              {event.eventName}
             </h1>
-            <p className="text-sm text-white/80">
-              Tổ chức bởi <strong className="text-white font-bold">{mappedEvent.club}</strong>
+            <p className="text-sm text-white/80 m-0">
+              Tổ chức bởi <strong className="text-white font-bold">{clubName}</strong>
             </p>
           </div>
         </div>
 
-        {/* Two-column body */}
-        <div className="grid grid-cols-[1fr_320px] gap-6 items-start max-md:grid-cols-1">
+        {/* Body */}
+        <div className="grid grid-cols-[1fr_300px] gap-5 items-start max-md:grid-cols-1">
 
-          {/* Main */}
-          <div>
-            <div className="bg-white rounded-[14px] border border-[#EBEBEB] px-8 py-7">
-              <h2 className="flex items-center gap-2.5 text-[1.1rem] font-extrabold text-[#111827] mb-4">
-                <InfoIcon /> Thông tin chi tiết
-              </h2>
-              <p className="text-sm text-[#4B5563] leading-[1.75] mb-3 last:mb-0">{mappedEvent.desc}</p>
-            </div>
+          {/* Main — mô tả */}
+          <div className="bg-white rounded-[14px] border border-[#EBEBEB] px-8 py-7">
+            <h2 className="text-[1.05rem] font-extrabold text-[#111827] mb-4">Giới thiệu sự kiện</h2>
+            {event.description ? (
+              <p className="text-sm text-[#4B5563] leading-[1.8] whitespace-pre-line">{event.description}</p>
+            ) : (
+              <p className="text-sm text-[#9CA3AF] italic">Chưa có mô tả.</p>
+            )}
           </div>
 
           {/* Sidebar */}
-          <aside>
-            <div className="bg-white rounded-[14px] border border-[#EBEBEB] px-5 py-6 flex flex-col gap-5">
-              
-              <EventRegistrationBtn 
-                  eventId={mappedEvent.id} 
-                  eventStatus={event.status || mappedEvent.badgeType === "open" ? "Upcoming" : ""}
-                  onRegisterSuccess={() => window.location.reload()} 
+          <aside className="flex flex-col gap-4">
+            {/* Thông tin */}
+            <div className="bg-white rounded-[14px] border border-[#EBEBEB] px-5 py-5 flex flex-col gap-4">
+              <h3 className="text-[15px] font-bold text-[#111827] m-0">Thông tin sự kiện</h3>
+
+              <div className="flex items-start gap-3 text-sm text-[#374151]">
+                <Calendar size={16} className="text-[#F37021] shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold m-0 mb-0.5">Ngày tổ chức</p>
+                  <p className="text-[#6B7280] m-0">{dateStr}</p>
+                </div>
+              </div>
+
+              {timeStr && (
+                <div className="flex items-start gap-3 text-sm text-[#374151]">
+                  <Clock size={16} className="text-[#F37021] shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold m-0 mb-0.5">Thời gian</p>
+                    <p className="text-[#6B7280] m-0">{timeStr}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-start gap-3 text-sm text-[#374151]">
+                <MapPin size={16} className="text-[#F37021] shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold m-0 mb-0.5">Địa điểm</p>
+                  <p className="text-[#6B7280] m-0">{event.location || "Chưa xếp phòng"}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Nút đăng ký */}
+            <div className="bg-white rounded-[14px] border border-[#EBEBEB] px-5 py-5">
+              <EventRegistrationBtn
+                eventId={event.eventID}
+                eventStatus={event.eventStatus}
+                onRegisterSuccess={() => window.location.reload()}
               />
             </div>
           </aside>
