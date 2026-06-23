@@ -6,9 +6,19 @@ import com.fptu.fcms.dto.request.EventApprovalRequest;
 import com.fptu.fcms.dto.request.EventAssignmentRequest;
 import com.fptu.fcms.dto.response.ContributionDTO;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
-import com.fptu.fcms.entity.*;
+import com.fptu.fcms.entity.AuditLog;
+import com.fptu.fcms.entity.Event;
+import com.fptu.fcms.entity.EventAssignment;
+import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.Semester;
+import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.exception.BusinessRuleException;
-import com.fptu.fcms.repository.*;
+import com.fptu.fcms.repository.AuditLogRepository;
+import com.fptu.fcms.repository.EventAssignmentRepository;
+import com.fptu.fcms.repository.EventRegistrationRepository;
+import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.SemesterRepository;
+import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.EventService;
@@ -19,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -34,6 +45,7 @@ public class EventServiceImpl implements EventService {
     private static final BigDecimal HIGH_BUDGET_THRESHOLD = new BigDecimal("5000000");
 
     private final EventRepository eventRepository;
+    private final SemesterRepository semesterRepository;
     private final EventAssignmentRepository eventAssignmentRepository;
     private final EventRegistrationRepository registrationRepository;
     private final UserRepository userRepository;
@@ -191,6 +203,7 @@ public class EventServiceImpl implements EventService {
 
         if (STATUS_APPROVED.equals(decision)) {
             validateHighBudgetFeedback(event, feedback);
+            validateEventBeforeSemesterSettlement(event);
             validateScheduleConflict(event);
         }
 
@@ -353,6 +366,7 @@ public class EventServiceImpl implements EventService {
             throw new IllegalArgumentException("Chỉ có thể phê duyệt sự kiện đang ở trạng thái chờ duyệt (Pending).");
         }
 
+        validateEventBeforeSemesterSettlement(event);
         validateScheduleConflict(event);
         event.setEventStatus(STATUS_APPROVED);
         event.setApprovedAt(LocalDateTime.now());
@@ -421,6 +435,24 @@ public class EventServiceImpl implements EventService {
     /**
      * AuditLog dùng lại bảng hiện có để lưu vết quyết định EVENT_APPROVED/EVENT_REJECTED.
      */
+
+    /**
+     * Event được duyệt phải kết thúc không muộn hơn ngày kết toán học kỳ (endDate - 1 ngày)
+     * để hệ thống có đủ thời gian chốt ranking và trao thưởng.
+     */
+    private void validateEventBeforeSemesterSettlement(Event event) {
+        Semester semester = semesterRepository.findById(event.getSemesterID())
+                .orElseThrow(() -> new BusinessRuleException("Học kỳ của sự kiện không tồn tại.", HttpStatus.NOT_FOUND));
+
+        LocalDate settlementDate = semester.getEndDate().minusDays(1);
+        LocalDate eventEndDate = event.getEndDate().toLocalDate();
+        if (eventEndDate.isAfter(settlementDate)) {
+            throw new BusinessRuleException(
+                    "Không thể duyệt sự kiện kết thúc sau ngày kết toán học kỳ " + settlementDate + ".",
+                    HttpStatus.CONFLICT
+            );
+        }
+    }
     private void saveApprovalAuditLog(
             Integer actorId,
             Event event,

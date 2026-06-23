@@ -33,7 +33,7 @@ public class Notification {
     private Integer notificationID;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "clubID", nullable = false)
+    @JoinColumn(name = "clubID")
     private Club club;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -4,6 +4,7 @@ import com.fptu.fcms.entity.UserAccount;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -16,5 +17,6 @@ public interface UserRepository extends JpaRepository<UserAccount, Integer> {
     Optional<UserAccount> findByStudentIdAndIsDeletedFalse(String studentId);
 
     Optional<UserAccount> findByUserIDAndIsDeletedFalse(Integer userID);
-    java.util.List<UserAccount> findAllByUserIDIn(java.util.List<Integer> userIDs);
+    List<UserAccount> findAllByUserIDIn(List<Integer> userIDs);
+    List<UserAccount> findByRoleIDAndIsDeletedFalse(Integer roleID);
 }

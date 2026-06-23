@@ -35,6 +35,20 @@ public class GlobalExceptionHandler {
      * Bắt BusinessRuleException ném từ Service layer (vi phạm quy tắc nghiệp vụ).
      * Trả về HTTP status được chỉ định trong exception (mặc định 422).
      */
+    @ExceptionHandler(SemesterClosureBlockedException.class)
+    public ResponseEntity<Map<String, Object>> handleSemesterClosureBlocked(SemesterClosureBlockedException ex) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("success", false);
+        body.put("timestamp", LocalDateTime.now().toString());
+        body.put("status", ex.getStatus().value());
+        body.put("error", ex.getStatus().getReasonPhrase());
+        body.put("message", ex.getMessage());
+        body.put("semesterId", ex.getSemesterId());
+        body.put("unfinishedEventCount", ex.getUnfinishedEventCount());
+        body.put("lockedScoreCount", ex.getLockedScoreCount());
+        body.put("blockers", ex.getBlockers());
+        return ResponseEntity.status(ex.getStatus()).body(body);
+    }
     @ExceptionHandler(BusinessRuleException.class)
     public ResponseEntity<Map<String, Object>> handleBusinessRuleException(BusinessRuleException ex) {
         return buildErrorResponse(ex.getStatus(), ex.getMessage());
@@ -112,6 +126,7 @@ public class GlobalExceptionHandler {
      */
     private ResponseEntity<Map<String, Object>> buildErrorResponse(HttpStatus status, String message) {
         Map<String, Object> body = new LinkedHashMap<>();
+        body.put("success", false);
         body.put("timestamp", LocalDateTime.now().toString());
         body.put("status", status.value());
         body.put("error", status.getReasonPhrase());
