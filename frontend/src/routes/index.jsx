@@ -35,6 +35,7 @@ import SystemConfigPage from "../pages/admin/SystemConfigPage";
 import ClubOverview from "../pages/club-leader/ClubOverview";
 import ClubMemberMgmt from "../pages/club-leader/ClubMemberMgmt";
 import ClubEventsMgmt from "../pages/club-leader/ClubEventsMgmt";
+import PersonnelAssignmentPage from "../pages/club-leader/PersonnelAssignmentPage";
 import ClubNotifications from "../pages/club-leader/ClubNotifications";
 import ClubReports from "../pages/club-leader/ClubReports";
 import ClubApplicationsMgmt from "../pages/club-leader/ClubApplicationsMgmt";
@@ -109,6 +110,7 @@ export default function AppRoutes() {
         <Route path="applications" element={<ClubApplicationsMgmt />} />
         <Route path="event-create" element={<CreateEventPage />} />
         <Route path="events" element={<ClubEventsMgmt />} />
+        <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
         <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
         <Route path="notifications" element={<ClubNotifications />} />
         <Route path="reports" element={<ClubReports />} />
@@ -137,6 +139,7 @@ export default function AppRoutes() {
         <Route path="members" element={<ClubMemberMgmt />} />
         <Route path="event-create" element={<CreateEventPage />} />
         <Route path="events" element={<ClubEventsMgmt />} />
+        <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
         <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
         <Route path="notifications" element={<ClubNotifications />} />
         <Route path="profile" element={<ProfilePage />} />

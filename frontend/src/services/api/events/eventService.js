@@ -12,6 +12,18 @@ const eventService = {
   // POST /api/events/registerEvent
   propose: (payload) => axiosClient.post("/events/registerEvent", payload),
 
+  // POST /api/events/{eventId}/assignments
+  addAssignment: (eventId, assignment) => axiosClient.post(`/events/${eventId}/assignments`, assignment),
+
+  // GET /api/events/{eventId}/assignments
+  getAssignments: (eventId) => axiosClient.get(`/events/${eventId}/assignments`),
+
+  // DELETE /api/events/{eventId}/assignments/{userId}
+  removeAssignment: (eventId, userId) => axiosClient.delete(`/events/${eventId}/assignments/${userId}`),
+
+  // PATCH /api/events/{eventId}/submit
+  submit: (eventId) => axiosClient.patch(`/events/${eventId}/submit`),
+
   // PATCH /api/events/{clubId}/{eventId}/cancel   body: { reason }
   cancel: (clubId, eventId, reason) =>
     axiosClient.patch(`/events/${clubId}/${eventId}/cancel`, { reason }),
@@ -46,12 +58,12 @@ const eventService = {
   // PATCH /api/events/{eventId}/close
   close: (eventId) => axiosClient.patch(`/events/${eventId}/close`),
 
-  // GET /api/events/{eventId}/contributions
-  getContributions: (eventId) => axiosClient.get(`/events/${eventId}/contributions`),
+  // GET /api/events/{eventId}/report/default-contributions
+  getContributions: (eventId) => axiosClient.get(`/events/${eventId}/report/default-contributions`),
 
-  // POST /api/events/{eventId}/contributions
+  // POST /api/events/{eventId}/report
   saveContributions: (eventId, contributions) =>
-    axiosClient.post(`/events/${eventId}/contributions`, contributions),
+    axiosClient.post(`/events/${eventId}/report`, contributions),
 };
 
 export default eventService;

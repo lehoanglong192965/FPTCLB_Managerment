@@ -3,6 +3,7 @@ package com.fptu.fcms.service.impl;
 import com.fptu.fcms.dto.request.CancelEventRequest;
 import com.fptu.fcms.dto.request.CreateEventProposalRequest;
 import com.fptu.fcms.dto.request.EventApprovalRequest;
+import com.fptu.fcms.dto.request.EventAssignmentRequest;
 import com.fptu.fcms.dto.response.ContributionDTO;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
 import com.fptu.fcms.entity.*;
@@ -45,11 +46,11 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public void createEventProposal(CreateEventProposalRequest request) {
         LocalDateTime now = LocalDateTime.now();
+        // [BR-G02] Validate mốc thời gian tối thiểu
         long daysUntilEvent = ChronoUnit.DAYS.between(now, request.getStartDate());
 
         boolean isResubmit = request.getIsResubmitted() != null && request.getIsResubmitted();
 
-        // [BR-G02] Validate mốc thời gian tối thiểu
         if (isResubmit) {
             if (daysUntilEvent < 7) {
                 throw new IllegalArgumentException("Đề xuất lại (Resubmit) phải được gửi trước ít nhất 7 ngày.");
@@ -70,7 +71,7 @@ public class EventServiceImpl implements EventService {
         event.setBudget(request.getBudget());
         event.setStartDate(request.getStartDate());
         event.setEndDate(request.getEndDate());
-        event.setEventStatus(STATUS_PENDING);
+        event.setEventStatus("DRAFT");
         event.setIsResubmitted(isResubmit);
         event.setIsInternal(request.getIsInternal() != null && request.getIsInternal());
         event.setIsScoreLocked(false);
@@ -93,6 +94,53 @@ public class EventServiceImpl implements EventService {
 
             eventAssignmentRepository.saveAll(assignments);
         }
+    }
+
+    @Override
+    @Transactional
+    public void submitEventProposal(Integer eventId) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
+        
+        if (!"DRAFT".equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Chỉ có thể gửi đề xuất cho sự kiện ở trạng thái DRAFT.");
+        }
+
+        event.setEventStatus(STATUS_PENDING);
+        eventRepository.save(event);
+    }
+
+    @Override
+    @Transactional
+    public void addAssignment(Integer eventId, EventAssignmentRequest request) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
+        
+        EventAssignment assignment = new EventAssignment();
+        assignment.setEventID(eventId);
+        assignment.setUserID(request.getUserID());
+        assignment.setEventRoleID(request.getEventRoleID());
+        assignment.setAssignedAt(LocalDateTime.now());
+        assignment.setIsDeleted(false);
+        eventAssignmentRepository.save(assignment);
+    }
+
+    @Override
+    @Transactional
+    public void removeAssignment(Integer eventId, Integer userId) {
+        List<EventAssignment> assignments = eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId);
+        assignments.stream()
+                .filter(a -> a.getUserID().equals(userId))
+                .forEach(a -> {
+                    a.setIsDeleted(true);
+                    eventAssignmentRepository.save(a);
+                });
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EventAssignment> getAssignments(Integer eventId) {
+        return eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId);
     }
 
     @Override

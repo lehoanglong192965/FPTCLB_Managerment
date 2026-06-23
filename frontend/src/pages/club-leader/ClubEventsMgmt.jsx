@@ -253,24 +253,39 @@ export default function ClubEventsMgmt() {
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
-                    <span style={{ fontSize: 12, color: "#6b7280" }}>{ev.attendees} người</span>
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>{ev.attendees || 0} người tham gia</span>
                     {cfg && (
                       <span style={{ padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600, color: cfg.color, background: cfg.bg }}>
                         {cfg.label}
                       </span>
                     )}
 
-                    {(normalizedStatus === 'DRAFT' || normalizedStatus === 'UPCOMING') && (
+                    {/* Actions based on normalized status */}
+                    {(normalizedStatus === 'DRAFT') && (
+                        <button onClick={async () => {
+                          try {
+                            await eventService.submit(ev.id);
+                            window.location.reload();
+                          } catch (e) {
+                            alert("Lỗi gửi đề xuất: " + e.message);
+                          }
+                        }}
+                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#059669", color: "#fff", border: "none", cursor: "pointer" }}>
+                          Gửi đề xuất
+                        </button>
+                    )}
+
+                    {(normalizedStatus === 'DRAFT' || normalizedStatus === 'UPCOMING' || normalizedStatus === 'APPROVED') && (
                         <button onClick={() => setCancelTarget(ev)}
                           style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#dc2626", color: "#fff", border: "none", cursor: "pointer" }}>
                           Hủy
                         </button>
                     )}
 
-                    {normalizedStatus === 'ONGOING' && (
+                    {(normalizedStatus === 'ONGOING' || normalizedStatus === 'APPROVED') && (
                       <button onClick={() => eventService.finish(ev.id).then(() => window.location.reload()).catch(e => alert("Lỗi kết thúc: " + e.message))}
                         style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#7c3aed", color: "#fff", border: "none", cursor: "pointer" }}>
-                          Kết thúc
+                          {normalizedStatus === 'APPROVED' ? "Bắt đầu & Kết thúc" : "Kết thúc"}
                       </button>
                     )}
 

@@ -3,8 +3,10 @@ package com.fptu.fcms.controller;
 import com.fptu.fcms.dto.request.CancelEventRequest;
 import com.fptu.fcms.dto.request.CreateEventProposalRequest;
 import com.fptu.fcms.dto.request.EventApprovalRequest;
+import com.fptu.fcms.dto.request.EventAssignmentRequest;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
 import com.fptu.fcms.entity.Event;
+import com.fptu.fcms.entity.EventAssignment;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EventService;
 import jakarta.validation.Valid;
@@ -78,6 +80,33 @@ public class EventController {
     public ResponseEntity<Map<String, String>> finishEvent(@PathVariable Integer eventId) {
         eventService.finishEvent(eventId);
         return ResponseEntity.ok(Map.of("message", "Sự kiện đã kết thúc."));
+    }
+
+    @PatchMapping("/{eventId}/submit")
+    public ResponseEntity<Map<String, String>> submitEventProposal(@PathVariable Integer eventId) {
+        eventService.submitEventProposal(eventId);
+        return ResponseEntity.ok(Map.of("message", "Đề xuất sự kiện đã được gửi."));
+    }
+
+    @PostMapping("/{eventId}/assignments")
+    public ResponseEntity<Map<String, String>> addAssignment(
+            @PathVariable Integer eventId,
+            @RequestBody EventAssignmentRequest request) {
+        eventService.addAssignment(eventId, request);
+        return ResponseEntity.ok(Map.of("message", "Đã phân công thành viên."));
+    }
+
+    @GetMapping("/{eventId}/assignments")
+    public ResponseEntity<List<EventAssignment>> getAssignments(@PathVariable Integer eventId) {
+        return ResponseEntity.ok(eventService.getAssignments(eventId));
+    }
+
+    @DeleteMapping("/{eventId}/assignments/{userId}")
+    public ResponseEntity<Map<String, String>> removeAssignment(
+            @PathVariable Integer eventId,
+            @PathVariable Integer userId) {
+        eventService.removeAssignment(eventId, userId);
+        return ResponseEntity.ok(Map.of("message", "Đã xóa phân công thành viên."));
     }
 
     @PatchMapping("/{eventId}/close")
