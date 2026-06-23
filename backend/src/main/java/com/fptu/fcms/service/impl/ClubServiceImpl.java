@@ -32,6 +32,14 @@ public class ClubServiceImpl implements ClubService {
                 .orElse(null);
     }
 
+    @Override
+    public void updateClubStatus(Integer clubId, String status, String reason) {
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new RuntimeException("Club not found"));
+        club.setClubStatus(status);
+        clubRepository.save(club);
+    }
+
     private ClubResponseDTO convertToDTO(Club club) {
         ClubResponseDTO dto = new ClubResponseDTO();
         dto.setClubID(club.getClubID());

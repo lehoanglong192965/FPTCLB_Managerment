@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Clock, MapPin, Search, X, AlertTriangle } from "lucide-react";
+import { Calendar, Clock, MapPin, Search, X, AlertTriangle, CheckCircle, Lock } from "lucide-react";
 import { TokenService } from "../../services/api/axiosClient";
 import clubService from "../../services/api/clubs/clubService";
+import eventService from "../../services/api/events/eventService";
 
 function loadEvents(clubId) {
-  if (!clubId) return [];
   try {
     return JSON.parse(localStorage.getItem(`club_events_${clubId}`) || "[]");
   } catch {
@@ -19,11 +19,12 @@ function saveEvents(clubId, events) {
 }
 
 const STATUS_CFG = {
-  Pending:   { label: "Chờ phê duyệt", color: "#d97706", bg: "#fffbeb" },
+  Draft:     { label: "Bản nháp",      color: "#6b7280", bg: "#f3f4f6" },
   Upcoming:  { label: "Sắp diễn ra",   color: "#059669", bg: "#ecfdf5" },
-  Approved:  { label: "Đã phê duyệt",  color: "#2563eb", bg: "#eff6ff" },
+  Ongoing:   { label: "Đang diễn ra",  color: "#2563eb", bg: "#eff6ff" },
+  Completed: { label: "Đã kết thúc",   color: "#7c3aed", bg: "#f5f3ff" },
+  Closed:    { label: "Đã đóng",       color: "#374151", bg: "#e5e7eb" },
   Cancelled: { label: "Đã hủy",        color: "#dc2626", bg: "#fef2f2" },
-  Done:      { label: "Đã kết thúc",   color: "#6b7280", bg: "#f3f4f6" },
 };
 
 const REASON_MIN = 20;
@@ -130,6 +131,9 @@ function CancelModal({ event, onConfirm, onClose }) {
   );
 }
 
+// Helper to normalize status for comparison
+const normalizeStatus = (status) => status?.toUpperCase();
+
 export default function ClubEventsMgmt() {
   const clubId  = TokenService.getClubId();
   const navigate = useNavigate();
@@ -142,8 +146,10 @@ export default function ClubEventsMgmt() {
     const fetchEvents = async () => {
       try {
         const response = await clubService.getAllEvents(clubId);
-        setEvents(response.data);
-        saveEvents(clubId, response.data);
+        // Safely extract array from response, which might be the response itself or response.data
+        const data = Array.isArray(response) ? response : (response.data || []);
+        setEvents(data);
+        saveEvents(clubId, data);
       } catch (error) {
         console.error("Lỗi khi tải sự kiện:", error);
       }
@@ -153,16 +159,21 @@ export default function ClubEventsMgmt() {
   }, [clubId]);
 
   const filtered = events.filter((e) =>
-    e.name.toLowerCase().includes(search.toLowerCase())
+    (e.name || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleCancelConfirm = (id, reason) => {
-    const updated = events.map((e) =>
-      e.id === id ? { ...e, status: "Cancelled", cancelReason: reason } : e
-    );
-    setEvents(updated);
-    saveEvents(clubId, updated);
-    setCancelTarget(null);
+  const handleCancelConfirm = async (id, reason) => {
+    try {
+        await eventService.cancel(clubId, id, reason);
+        const updated = events.map((e) =>
+          e.id === id ? { ...e, status: "Cancelled", cancelReason: reason } : e
+        );
+        setEvents(updated);
+        saveEvents(clubId, updated);
+        setCancelTarget(null);
+    } catch (error) {
+        alert("Lỗi khi hủy sự kiện: " + error.message);
+    }
   };
 
   return (
@@ -209,16 +220,20 @@ export default function ClubEventsMgmt() {
             )}
           </div>
         ) : (
-
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
             {filtered.map((ev) => {
-              const cfg = STATUS_CFG[ev.status];
+              // Add defensive check for ev.status
+              const statusValue = ev.status || 'Draft'; 
+              const normalizedStatus = normalizeStatus(statusValue);
+              const cfgKey = normalizedStatus.charAt(0) + normalizedStatus.slice(1).toLowerCase();
+              const cfg = STATUS_CFG[cfgKey] || STATUS_CFG[normalizedStatus] || STATUS_CFG['Draft'];
+
               return (
                 <div key={ev.id} style={{
                   display: "flex", alignItems: "center", gap: "1rem",
                   padding: "0.875rem 1.25rem", borderRadius: 12,
-                  border: ev.status === "Cancelled" ? "1.5px solid #fecaca" : "1.5px solid #f0f0f0",
-                  background: ev.status === "Cancelled" ? "#fff8f8" : "#fff",
+                  border: normalizedStatus === "CANCELLED" ? "1.5px solid #fecaca" : "1.5px solid #f0f0f0",
+                  background: normalizedStatus === "CANCELLED" ? "#fff8f8" : "#fff",
                 }}>
                   <div style={{ width: 48, height: 48, borderRadius: 12, background: "#FFF3EE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <Calendar size={20} color="#E6430A" />
@@ -230,7 +245,7 @@ export default function ClubEventsMgmt() {
                       <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Clock size={11} /> {ev.date} {ev.time}</span>
                       <span style={{ display: "flex", alignItems: "center", gap: 3 }}><MapPin size={11} /> {ev.location}</span>
                     </p>
-                    {ev.status === "Cancelled" && ev.cancelReason && (
+                    {normalizedStatus === "CANCELLED" && ev.cancelReason && (
                       <p style={{ fontSize: 11.5, color: "#dc2626", margin: "5px 0 0", fontStyle: "italic" }}>
                         Lý do hủy: {ev.cancelReason}
                       </p>
@@ -244,20 +259,32 @@ export default function ClubEventsMgmt() {
                         {cfg.label}
                       </span>
                     )}
-                    {ev.status === "Approved" && (
-                      <button
-                        onClick={() => setCancelTarget(ev)}
-                        style={{
-                          padding: "4px 14px", borderRadius: 8, fontSize: 12.5, fontWeight: 600,
-                          color: "#dc2626", background: "#fff", border: "1.5px solid #fca5a5",
-                          cursor: "pointer", transition: "background 0.15s, border-color 0.15s",
-                          whiteSpace: "nowrap",
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "#fef2f2"; e.currentTarget.style.borderColor = "#ef4444"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "#fca5a5"; }}
-                      >
-                        Hủy
+
+                    {(normalizedStatus === 'DRAFT' || normalizedStatus === 'UPCOMING') && (
+                        <button onClick={() => setCancelTarget(ev)}
+                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#dc2626", color: "#fff", border: "none", cursor: "pointer" }}>
+                          Hủy
+                        </button>
+                    )}
+
+                    {normalizedStatus === 'ONGOING' && (
+                      <button onClick={() => eventService.finish(ev.id).then(() => window.location.reload()).catch(e => alert("Lỗi kết thúc: " + e.message))}
+                        style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#7c3aed", color: "#fff", border: "none", cursor: "pointer" }}>
+                          Kết thúc
                       </button>
+                    )}
+
+                    {normalizedStatus === 'COMPLETED' && (
+                      <>
+                        <button onClick={() => navigate(`../contributions/${ev.id}`, { relative: "path" })}
+                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#2563eb", color: "#fff", border: "none", cursor: "pointer" }}>
+                          Báo cáo
+                        </button>
+                        <button onClick={() => eventService.close(ev.id).then(() => window.location.reload()).catch(e => alert("Lỗi đóng: " + e.message))}
+                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#374151", color: "#fff", border: "none", cursor: "pointer" }}>
+                          Đóng sự kiện
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>

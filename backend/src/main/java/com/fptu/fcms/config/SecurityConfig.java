@@ -75,11 +75,10 @@ public class SecurityConfig {
                                 "/oauth2/**",
                                 "/login/**",
                                 "/api/uploads/**",
-                                "/api/events/approved",
-                                "/api/events/*"
+                                "/api/events/**",
+                                "/api/clubs/**",
+                                "/api/semesters/**"
                         ).permitAll()
-                        // Cho phép đọc thông tin danh sách và chi tiết CLB công khai
-                        .requestMatchers(HttpMethod.GET, "/api/clubs", "/api/clubs/*").permitAll()
                         // Cho phép truy cập Swagger UI
                         .requestMatchers(
                                 "/v3/api-docs/**",

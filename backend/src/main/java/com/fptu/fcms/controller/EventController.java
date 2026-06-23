@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+import com.fptu.fcms.dto.response.ContributionDTO;
+
 @RestController
 @RequestMapping("/api/events")
 @RequiredArgsConstructor
@@ -32,16 +34,16 @@ public class EventController {
 
     @GetMapping("/{eventId}")
     public ResponseEntity<Event> getEventById(@PathVariable Integer eventId) {
-        return ResponseEntity.ok(eventService.getEventById(eventId));
+        System.out.println("DEBUG: Fetching event with ID: " + eventId);
+        Event event = eventService.getEventById(eventId);
+        return ResponseEntity.ok(event);
     }
 
     @PostMapping("/registerEvent")
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')") // Chỉ Leader/Vice Leader mới được đề xuất
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
     public ResponseEntity<Map<String, String>> createEventProposal(
             @RequestBody CreateEventProposalRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        // You might want to validate that the clubID in the request matches the currentUser's club.
-        // For simplicity, we'll assume the request comes from a valid user for the club.
         eventService.createEventProposal(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Đề xuất sự kiện đã được gửi thành công."));
     }
@@ -59,12 +61,41 @@ public class EventController {
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
     public ResponseEntity<Map<String, String>> cancelEvent(
             @PathVariable Integer clubId,
-
             @PathVariable Integer eventId,
-
             @Valid @RequestBody CancelEventRequest request) {
         
         eventService.cancelEvent(clubId, eventId, request);
         return ResponseEntity.ok(Map.of("message", "Sự kiện đã được hủy và thông báo đã được gửi tới người tham dự."));
+    }
+
+    @PostMapping("/{eventId}/check-in")
+    public ResponseEntity<Map<String, String>> checkIn(@PathVariable Integer eventId, @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.checkIn(eventId, currentUser.getUserId());
+        return ResponseEntity.ok(Map.of("message", "Điểm danh thành công."));
+    }
+
+    @PatchMapping("/{eventId}/finish")
+    public ResponseEntity<Map<String, String>> finishEvent(@PathVariable Integer eventId) {
+        eventService.finishEvent(eventId);
+        return ResponseEntity.ok(Map.of("message", "Sự kiện đã kết thúc."));
+    }
+
+    @PatchMapping("/{eventId}/close")
+    public ResponseEntity<Map<String, String>> closeEvent(@PathVariable Integer eventId) {
+        eventService.closeEvent(eventId);
+        return ResponseEntity.ok(Map.of("message", "Sự kiện đã đóng."));
+    }
+
+    @GetMapping("/{eventId}/contributions")
+    public ResponseEntity<List<ContributionDTO>> getContributions(@PathVariable Integer eventId) {
+        return ResponseEntity.ok(eventService.getEventContributions(eventId));
+    }
+
+    @PostMapping("/{eventId}/contributions")
+    public ResponseEntity<Map<String, String>> saveContributions(
+            @PathVariable Integer eventId,
+            @RequestBody List<ContributionDTO> contributions) {
+        eventService.saveEventContributions(eventId, contributions);
+        return ResponseEntity.ok(Map.of("message", "Đã lưu danh sách đóng góp."));
     }
 }

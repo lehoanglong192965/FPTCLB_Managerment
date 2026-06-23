@@ -36,6 +36,22 @@ const eventService = {
 
   // DELETE /api/event-registrations/unregister/{eventId}
   unregister: (eventId) => axiosClient.delete(`/event-registrations/unregister/${eventId}`),
+  // ── CLUB_LEADER / ACTIONS ─────────────────────────────────────────────
+  // POST /api/events/{eventId}/check-in
+  checkIn: (eventId) => axiosClient.post(`/events/${eventId}/check-in`),
+
+  // PATCH /api/events/{eventId}/finish
+  finish: (eventId) => axiosClient.patch(`/events/${eventId}/finish`),
+
+  // PATCH /api/events/{eventId}/close
+  close: (eventId) => axiosClient.patch(`/events/${eventId}/close`),
+
+  // GET /api/events/{eventId}/contributions
+  getContributions: (eventId) => axiosClient.get(`/events/${eventId}/contributions`),
+
+  // POST /api/events/{eventId}/contributions
+  saveContributions: (eventId, contributions) =>
+    axiosClient.post(`/events/${eventId}/contributions`, contributions),
 };
 
 export default eventService;

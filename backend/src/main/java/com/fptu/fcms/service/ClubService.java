@@ -6,4 +6,5 @@ import java.util.List;
 public interface ClubService {
     List<ClubResponseDTO> getAllActiveClubs();
     ClubResponseDTO getClubByCode(String clubCode);
+    void updateClubStatus(Integer clubId, String status, String reason);
 }
