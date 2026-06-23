@@ -48,16 +48,6 @@ const eventService = {
 
   // DELETE /api/event-registrations/unregister/{eventId}
   unregister: (eventId) => axiosClient.delete(`/event-registrations/unregister/${eventId}`),
-
-  // GET /api/event-registrations/my-registrations
-  getMyRegistrations: () => axiosClient.get("/event-registrations/my-registrations"),
-
-  // GET /api/events/{eventId}/my-status
-  getMyStatus: (eventId) => axiosClient.get(`/events/${eventId}/my-status`),
-
-  // GET /api/events/my-assignments
-  getMyAssignments: () => axiosClient.get("/events/my-assignments"),
-
   // ── CLUB_LEADER / ACTIONS ─────────────────────────────────────────────
   // POST /api/events/{eventId}/check-in/{studentId}
   checkIn: (eventId, studentId) => axiosClient.post(`/events/${eventId}/check-in/${studentId}`),
@@ -74,6 +64,15 @@ const eventService = {
   // POST /api/events/{eventId}/contributions
   saveContributions: (eventId, contributions) =>
     axiosClient.post(`/events/${eventId}/contributions`, contributions),
+
+  // GET /api/events/{eventId}/my-status
+  getMyEventStatus: (eventId) => axiosClient.get(`/events/${eventId}/my-status`),
+
+  // GET /api/events/my-assignments
+  getMyAssignments: () => axiosClient.get("/events/my-assignments"),
+
+  // GET /api/event-registrations/my-registrations
+  getMyRegistrations: () => axiosClient.get("/event-registrations/my-registrations"),
 };
 
 export default eventService;

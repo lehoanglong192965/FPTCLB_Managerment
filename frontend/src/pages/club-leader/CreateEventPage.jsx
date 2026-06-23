@@ -502,10 +502,17 @@ export default function CreateEventPage() {
             <Check size={40} color="#16a34a" strokeWidth={2.5} />
           </div>
           <div style={{ textAlign: "center" }}>
-            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#111827" }}>Đề xuất đã được gửi!</h3>
+            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#111827" }}>Sự kiện đã được lưu!</h3>
             <p style={{ margin: "10px 0 0", fontSize: 14, color: "#6b7280", lineHeight: 1.7 }}>
-              Sự kiện <strong>"{form.name}"</strong> đã được gửi đến ICPDP để phê duyệt.<br />
-              Bạn có thể theo dõi trạng thái trong mục Quản Lý Sự Kiện.
+              Sự kiện <strong>"{form.name}"</strong> đã được lưu ở trạng thái <strong>Bản nháp</strong>.<br />
+              Vào <strong>Quản Lý Sự Kiện</strong> và nhấn <strong>"Gửi đề xuất"</strong> để gửi lên ICPDP phê duyệt.
+            </p>
+          </div>
+          {/* Hướng dẫn bước tiếp theo */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "12px 18px", maxWidth: 440 }}>
+            <span style={{ fontSize: 20 }}>💡</span>
+            <p style={{ margin: 0, fontSize: 13, color: "#92400e", lineHeight: 1.6 }}>
+              Bước tiếp theo: vào <strong>Quản Lý Sự Kiện</strong> → tìm sự kiện → nhấn <strong>"Gửi đề xuất"</strong> → ICPDP sẽ nhận được yêu cầu.
             </p>
           </div>
           <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
@@ -525,7 +532,7 @@ export default function CreateEventPage() {
                 background: "#E6430A", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
               }}
             >
-              Xem Quản Lý Sự Kiện →
+              Gửi đề xuất ngay →
             </button>
           </div>
         </div>

@@ -1,25 +1,61 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import EventCard from "./EventCard";
-
-function loadApprovedEvents() {
-  try {
-    return JSON.parse(localStorage.getItem("public_approved_events") || "[]");
-  } catch {
-    return [];
-  }
-}
+import eventService from "../../services/api/events/eventService";
+import clubService from "../../services/api/clubs/clubService";
 
 export default function EventsSection() {
   const navigate = useNavigate();
-  const [events, setEvents] = useState(loadApprovedEvents);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const onStorage = (e) => {
-      if (e.key === "public_approved_events") setEvents(loadApprovedEvents());
+    let cancelled = false;
+
+    const fetchEvents = async () => {
+      try {
+        // Lấy events trước; đợi 50ms rồi mới lấy clubs
+        // để tránh dedup cancel với ClubsSection đang gọi /clubs cùng lúc
+        const evRes = await eventService.getApprovedEvents();
+        if (cancelled) return;
+
+        await new Promise((r) => setTimeout(r, 50));
+        const clubRes = await clubService.getAll();
+
+        if (cancelled) return;
+
+        const evList   = Array.isArray(evRes)   ? evRes   : (evRes?.content   ?? evRes?.data   ?? []);
+        const clubList = Array.isArray(clubRes)  ? clubRes : (clubRes?.content ?? clubRes?.data ?? []);
+
+        const mapped = evList.map((e) => {
+          const clubObj = clubList.find((c) => c.clubID === e.clubID);
+          const startDt = e.startDate ? new Date(e.startDate) : null;
+          return {
+            id:                  e.eventID,
+            title:               e.eventName ?? "",
+            club:                clubObj?.name ?? "CLB FPTU",
+            emoji:               clubObj?.emoji ?? "🎉",
+            color:               clubObj?.color ?? "#F37021",
+            date:                startDt ? startDt.toLocaleDateString("vi-VN") : "",
+            time:                startDt ? startDt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
+            location:            e.location ?? "",
+            badgeType:           "open",
+            maxParticipants:     e.maxParticipants     ?? 0,
+            currentParticipants: e.currentParticipants ?? 0,
+          };
+        });
+
+        setEvents(mapped);
+      } catch (err) {
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        console.error("[EventsSection] Lỗi tải sự kiện:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+
+    fetchEvents();
+    return () => { cancelled = true; };
   }, []);
 
   return (
@@ -68,7 +104,13 @@ export default function EventsSection() {
         className="relative z-10 grid gap-5 max-w-[1200px] mx-auto"
         style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}
       >
-        {events.length > 0 ? (
+        {loading ? (
+          <div className="col-span-full text-center py-10">
+            <p className="text-[15px] font-semibold" style={{ color: "rgba(255,255,255,0.5)" }}>
+              Đang tải sự kiện...
+            </p>
+          </div>
+        ) : events.length > 0 ? (
           events.map((event) => (
             <EventCard key={event.id} event={event} />
           ))
