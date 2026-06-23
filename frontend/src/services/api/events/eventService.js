@@ -49,8 +49,8 @@ const eventService = {
   // DELETE /api/event-registrations/unregister/{eventId}
   unregister: (eventId) => axiosClient.delete(`/event-registrations/unregister/${eventId}`),
   // ── CLUB_LEADER / ACTIONS ─────────────────────────────────────────────
-  // POST /api/events/{eventId}/check-in
-  checkIn: (eventId) => axiosClient.post(`/events/${eventId}/check-in`),
+  // POST /api/events/{eventId}/check-in/{studentId}
+  checkIn: (eventId, studentId) => axiosClient.post(`/events/${eventId}/check-in/${studentId}`),
 
   // PATCH /api/events/{eventId}/finish
   finish: (eventId) => axiosClient.patch(`/events/${eventId}/finish`),

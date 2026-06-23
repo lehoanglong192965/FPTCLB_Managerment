@@ -244,13 +244,17 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void checkIn(Integer eventId, Integer userId) {
+    public void checkIn(Integer eventId, String studentId) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
 
         if (!"ONGOING".equals(event.getEventStatus())) {
             throw new IllegalArgumentException("Sự kiện không trong trạng thái đang diễn ra (ONGOING).");
         }
+
+        UserAccount user = userRepository.findByStudentId(studentId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sinh viên với mã: " + studentId));
+        Integer userId = user.getUserID();
 
         if (!registrationRepository.existsByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)) {
             throw new IllegalArgumentException("Người dùng chưa đăng ký sự kiện này.");

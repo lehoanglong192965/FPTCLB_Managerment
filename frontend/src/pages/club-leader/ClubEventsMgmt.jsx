@@ -4,6 +4,8 @@ import { Calendar, Clock, MapPin, Search, X, AlertTriangle, CheckCircle, Lock } 
 import { TokenService } from "../../services/api/axiosClient";
 import clubService from "../../services/api/clubs/clubService";
 import eventService from "../../services/api/events/eventService";
+import FinishEventModal from "../../components/events/FinishEventModal";
+import CloseEventButton from "../icpdp/CloseEventButton";
 
 function loadEvents(clubId) {
   try {
@@ -141,6 +143,7 @@ export default function ClubEventsMgmt() {
   const [search, setSearch]             = useState("");
   const [events, setEvents]             = useState(() => loadEvents(clubId));
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [finishTarget, setFinishTarget] = useState(null);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -283,7 +286,7 @@ export default function ClubEventsMgmt() {
                     )}
 
                     {(normalizedStatus === 'ONGOING' || normalizedStatus === 'APPROVED') && (
-                      <button onClick={() => eventService.finish(ev.id).then(() => window.location.reload()).catch(e => alert("Lỗi kết thúc: " + e.message))}
+                      <button onClick={() => setFinishTarget(ev.id)}
                         style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#7c3aed", color: "#fff", border: "none", cursor: "pointer" }}>
                           {normalizedStatus === 'APPROVED' ? "Bắt đầu & Kết thúc" : "Kết thúc"}
                       </button>
@@ -295,10 +298,11 @@ export default function ClubEventsMgmt() {
                           style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#2563eb", color: "#fff", border: "none", cursor: "pointer" }}>
                           Báo cáo
                         </button>
-                        <button onClick={() => eventService.close(ev.id).then(() => window.location.reload()).catch(e => alert("Lỗi đóng: " + e.message))}
-                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#374151", color: "#fff", border: "none", cursor: "pointer" }}>
-                          Đóng sự kiện
-                        </button>
+                        <CloseEventButton 
+                          eventId={ev.id} 
+                          eventStatus={normalizedStatus === 'COMPLETED' ? 'Completed' : ''} 
+                          onCloseSuccess={() => window.location.reload()} 
+                        />
                       </>
                     )}
                   </div>
@@ -314,6 +318,15 @@ export default function ClubEventsMgmt() {
           event={cancelTarget}
           onConfirm={handleCancelConfirm}
           onClose={() => setCancelTarget(null)}
+        />
+      )}
+
+      {finishTarget && (
+        <FinishEventModal
+          eventId={finishTarget}
+          isOpen={true}
+          onClose={() => setFinishTarget(null)}
+          onFinishSuccess={() => window.location.reload()}
         />
       )}
     </div>

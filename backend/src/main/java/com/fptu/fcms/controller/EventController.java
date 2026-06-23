@@ -70,9 +70,9 @@ public class EventController {
         return ResponseEntity.ok(Map.of("message", "Sự kiện đã được hủy và thông báo đã được gửi tới người tham dự."));
     }
 
-    @PostMapping("/{eventId}/check-in")
-    public ResponseEntity<Map<String, String>> checkIn(@PathVariable Integer eventId, @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventService.checkIn(eventId, currentUser.getUserId());
+    @PostMapping("/{eventId}/check-in/{studentId}")
+    public ResponseEntity<Map<String, String>> checkIn(@PathVariable Integer eventId, @PathVariable String studentId) {
+        eventService.checkIn(eventId, studentId);
         return ResponseEntity.ok(Map.of("message", "Điểm danh thành công."));
     }
 
