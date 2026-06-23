@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
 import eventService from "../../services/api/events/eventService";
 import { useClubData } from "../../contexts/ClubDataContext";
 
-const MOCK_ROLES = [
-  { id: 1, name: "Trưởng ban tổ chức (Core)" },
-  { id: 2, name: "Thành viên hỗ trợ (Support)" },
-  { id: 3, name: "Truyền thông" },
-  { id: 4, name: "Hậu cần" },
+const EVENT_ROLES = [
+  { id: 1, label: "Trưởng ban tổ chức (Core)" },
+  { id: 2, label: "Thành viên hỗ trợ (Support)" },
+  { id: 3, label: "Truyền thông" },
+  { id: 4, label: "Hậu cần" },
 ];
 
 export default function PersonnelAssignmentPage() {
@@ -26,11 +26,33 @@ export default function PersonnelAssignmentPage() {
   const fetchAssignments = async () => {
     try {
       const response = await eventService.getAssignments(eventId);
-      setAssignments(Array.isArray(response) ? response : (response.data || []));
+      const data = Array.isArray(response) ? response : (response.data || []);
+      // Lọc các phân công chưa bị xóa mềm (isDeleted === false)
+      setAssignments(data.filter(a => !a.isDeleted));
     } catch (error) {
       console.error("Lỗi khi tải phân công:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const unassignedMembers = members?.filter(
+    m => !assignments.some(a => a.userID === m.userID)
+  );
+
+  const formatAssignedAt = (dateStr) => {
+    if (!dateStr) return "---";
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleString("vi-VN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (e) {
+      return dateStr;
     }
   };
 
@@ -81,38 +103,38 @@ export default function PersonnelAssignmentPage() {
       </div>
 
       <div className="content-card mt-6">
-        {/* Form Phân công (Giao diện mới) */}
+        {/* Form Phân công */}
         <div className="flex flex-col md:flex-row gap-4 mb-8 bg-gray-50 p-5 rounded-xl border border-gray-100 shadow-sm">
           <div className="flex-1">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Thành viên CLB</label>
-            <select 
-              value={newUserId} 
-              onChange={e => setNewUserId(e.target.value)} 
+            <select
+              value={newUserId}
+              onChange={e => setNewUserId(e.target.value)}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#E6430A] focus:border-[#E6430A] outline-none bg-white text-gray-800"
             >
               <option value="">-- Chọn thành viên --</option>
-              {members?.map(m => (
+              {unassignedMembers?.map(m => (
                 <option key={m.userID} value={m.userID}>{m.fullName} ({m.studentCode})</option>
               ))}
             </select>
           </div>
           <div className="flex-1">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Vai trò (Role)</label>
-            <select 
-              value={newRoleId} 
-              onChange={e => setNewRoleId(e.target.value)} 
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Vai trò trong Event</label>
+            <select
+              value={newRoleId}
+              onChange={e => setNewRoleId(e.target.value)}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#E6430A] focus:border-[#E6430A] outline-none bg-white text-gray-800"
             >
               <option value="">-- Chọn chức vụ --</option>
-              {MOCK_ROLES.map(r => (
-                <option key={r.id} value={r.id}>{r.name}</option>
+              {EVENT_ROLES.map(r => (
+                <option key={r.id} value={r.id}>{r.label}</option>
               ))}
             </select>
           </div>
           <div className="flex items-end">
-            <button 
-              onClick={handleAddAssignment} 
-              disabled={adding || !newUserId || !newRoleId} 
+            <button
+              onClick={handleAddAssignment}
+              disabled={adding || !newUserId || !newRoleId}
               className="w-full md:w-auto bg-[#E6430A] hover:bg-[#d13a08] text-white px-6 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-none"
             >
               {adding ? <Loader2 className="animate-spin" size={16} /> : <Plus size={16} />} Thêm
@@ -145,12 +167,12 @@ export default function PersonnelAssignmentPage() {
                     </td>
                     <td className="px-6 py-4">
                       <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full font-medium text-xs">
-                        {MOCK_ROLES.find(r => r.id === a.eventRoleID)?.name || `Role ${a.eventRoleID}`}
+                        {EVENT_ROLES.find(r => r.id === a.eventRoleID)?.label || `Role ${a.eventRoleID}`}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button 
-                        onClick={() => handleRemoveAssignment(a.userID)} 
+                      <button
+                        onClick={() => handleRemoveAssignment(a.userID)}
                         className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-full transition-colors cursor-pointer border-none bg-transparent"
                         title="Xóa phân công"
                       >

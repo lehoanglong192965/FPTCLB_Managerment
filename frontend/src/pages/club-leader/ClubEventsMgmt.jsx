@@ -263,7 +263,7 @@ export default function ClubEventsMgmt() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {filtered.map((ev) => {
+            {filtered.map((ev, index) => {
               const rawStatus = ev.eventStatus || "Draft";
               const status    = rawStatus.toUpperCase(); // chuẩn hóa để so sánh
               const cfg       = STATUS_CFG[rawStatus] || STATUS_CFG[status] || STATUS_CFG["Draft"];
@@ -277,7 +277,7 @@ export default function ClubEventsMgmt() {
 
               return (
                 <div
-                  key={ev.eventID ?? ev.date ?? Math.random()}
+                  key={ev.eventID ?? `${ev.eventName}-${ev.startDate ?? ev.date ?? index}`}
                   style={{
                     display: "flex", alignItems: "center", gap: "1rem",
                     padding: "0.875rem 1.25rem", borderRadius: 12,
@@ -341,7 +341,7 @@ export default function ClubEventsMgmt() {
                     {(status === "APPROVED" || status === "UPCOMING") && (
                       <>
                         <button
-                          onClick={() => navigate(`events/${ev.eventID}/assignments`, { relative: "path" })}
+                          onClick={() => navigate(`${ev.eventID}/assignments`, { relative: "path" })}
                           style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#2563eb", color: "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
                         >
                           <Users size={12} /> Phân công
@@ -369,7 +369,7 @@ export default function ClubEventsMgmt() {
                     {status === "COMPLETED" && (
                       <>
                         <button
-                          onClick={() => navigate(`contributions/${ev.eventID}`, { relative: "path" })}
+                          onClick={() => navigate(`../contributions/${ev.eventID}`, { relative: "path" })}
                           style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#2563eb", color: "#fff", border: "none", cursor: "pointer" }}
                         >
                           Báo cáo
