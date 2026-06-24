@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import eventService from "../../services/api/events/eventService";
@@ -14,9 +14,11 @@ export default function ContributionManagementPage() {
     const fetchContributions = async () => {
       try {
         const response = await eventService.getContributions(eventId);
-        setContributions(response.data);
+        const data = response?.data ?? response ?? [];
+        setContributions(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Lỗi khi tải danh sách đóng góp:", error);
+        setContributions([]);
       } finally {
         setLoading(false);
       }
@@ -25,8 +27,8 @@ export default function ContributionManagementPage() {
   }, [eventId]);
 
   const handleTypeChange = (userId, newType) => {
-    setContributions(prev => 
-      prev.map(c => c.userID === userId ? { ...c, contributionType: newType } : c)
+    setContributions((prev) =>
+      prev.map((c) => (c.userID === userId ? { ...c, contributionType: newType } : c))
     );
   };
 
@@ -37,7 +39,7 @@ export default function ContributionManagementPage() {
       alert("Đã lưu danh sách đóng góp!");
       navigate("../events", { relative: "path" });
     } catch (error) {
-      alert("Lỗi khi lưu: " + error.message);
+      alert("Lỗi khi lưu: " + (error.response?.data?.message || error.message));
     } finally {
       setSaving(false);
     }
@@ -66,11 +68,11 @@ export default function ContributionManagementPage() {
             </tr>
           </thead>
           <tbody>
-            {contributions.map(c => (
+            {contributions.map((c) => (
               <tr key={c.userID} className="bg-white border-b hover:bg-gray-50">
                 <td className="px-6 py-4 font-medium text-gray-900">{c.userName}</td>
                 <td className="px-6 py-4">
-                  <select 
+                  <select
                     value={c.contributionType}
                     onChange={(e) => handleTypeChange(c.userID, e.target.value)}
                     className="border rounded p-1.5 outline-none"

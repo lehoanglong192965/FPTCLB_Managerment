@@ -37,6 +37,7 @@ public class EventServiceImpl implements EventService {
     private final EventRepository eventRepository;
     private final SemesterRepository semesterRepository;
     private final EventAssignmentRepository eventAssignmentRepository;
+    private final EventRoleRepository eventRoleRepository;
     private final EventRegistrationRepository registrationRepository;
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
@@ -88,7 +89,7 @@ public class EventServiceImpl implements EventService {
         event.setBudget(request.getBudget());
         event.setStartDate(request.getStartDate());
         event.setEndDate(request.getEndDate());
-        event.setEventStatus("DRAFT");
+        event.setEventStatus("Draft");
         event.setIsResubmitted(isResubmit);
         event.setIsInternal(request.getIsInternal() != null && request.getIsInternal());
         event.setIsScoreLocked(false);
@@ -103,7 +104,7 @@ public class EventServiceImpl implements EventService {
                 EventAssignment assignment = new EventAssignment();
                 assignment.setEventID(savedEvent.getEventID());
                 assignment.setUserID(dto.getUserID());
-                assignment.setEventRoleID(dto.getEventRoleID());
+                assignment.setEventRoleID(resolveEventRoleId(dto.getEventRoleID()));
                 assignment.setAssignedAt(now);
                 assignment.setIsDeleted(false);
                 return assignment;
@@ -119,8 +120,8 @@ public class EventServiceImpl implements EventService {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
         
-        if (!"DRAFT".equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Chỉ có thể gửi đề xuất cho sự kiện ở trạng thái DRAFT.");
+        if (!"Draft".equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Chỉ có thể gửi đề xuất cho sự kiện ở trạng thái Draft.");
         }
 
         event.setEventStatus(STATUS_PENDING);
@@ -136,7 +137,7 @@ public class EventServiceImpl implements EventService {
         EventAssignment assignment = new EventAssignment();
         assignment.setEventID(eventId);
         assignment.setUserID(request.getUserID());
-        assignment.setEventRoleID(request.getEventRoleID());
+        assignment.setEventRoleID(resolveEventRoleId(request.getEventRoleID()));
         assignment.setAssignedAt(LocalDateTime.now());
         assignment.setIsDeleted(false);
         eventAssignmentRepository.save(assignment);
@@ -266,8 +267,8 @@ public class EventServiceImpl implements EventService {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
 
-        if (!"ONGOING".equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Sự kiện không trong trạng thái đang diễn ra (ONGOING).");
+        if (!"Ongoing".equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Sự kiện không trong trạng thái đang diễn ra (Ongoing).");
         }
 
         UserAccount user = userRepository.findByStudentId(studentId)
@@ -292,17 +293,44 @@ public class EventServiceImpl implements EventService {
         attendanceRecordRepository.save(record);
     }
 
+        @Override
+    @Transactional
+    public void startEvent(Integer eventId) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("S? ki?n kh�ng t?n t?i."));
+
+        if (!STATUS_APPROVED.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Ch? c� th? b?t d?u s? ki?n ? tr?ng th�i Approved.");
+        }
+
+        event.setEventStatus("Ongoing");
+        eventRepository.save(event);
+
+        AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElseGet(() -> {
+            AttendanceSession newSession = new AttendanceSession();
+            newSession.setEventID(eventId);
+            newSession.setSessionName(event.getEventName() + " - Attendance");
+            newSession.setCheckInTime(LocalDateTime.now());
+            newSession.setIsDeleted(false);
+            return attendanceSessionRepository.save(newSession);
+        });
+        if (session.getCheckInTime() == null) {
+            session.setCheckInTime(LocalDateTime.now());
+            attendanceSessionRepository.save(session);
+        }
+    }
+
     @Override
     @Transactional
     public void finishEvent(Integer eventId) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
 
-        if (!"ONGOING".equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Chỉ có thể kết thúc sự kiện đang ở trạng thái ONGOING.");
+        if (!"Ongoing".equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Chỉ có thể kết thúc sự kiện đang ở trạng thái Ongoing.");
         }
 
-        event.setEventStatus("COMPLETED");
+        event.setEventStatus("Completed");
         eventRepository.save(event);
     }
 
@@ -312,11 +340,11 @@ public class EventServiceImpl implements EventService {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
 
-        if (!"COMPLETED".equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Chỉ có thể đóng sự kiện đã hoàn thành (COMPLETED).");
+        if (!"Completed".equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Chỉ có thể đóng sự kiện đã hoàn thành (Completed).");
         }
 
-        event.setEventStatus("CLOSED");
+        event.setEventStatus("Closed");
         eventRepository.save(event);
         // TODO: Trigger Email Cảm ơn/Certificate tự động
     }
@@ -325,7 +353,7 @@ public class EventServiceImpl implements EventService {
     public List<ContributionDTO> getEventContributions(Integer eventId) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
-        if ("CLOSED".equals(event.getEventStatus())) {
+        if ("Closed".equals(event.getEventStatus())) {
              // Maybe allow read-only? The requirement says 'Closed - read only'.
              // Assuming read-only applies to changes, not reads.
         }
@@ -333,7 +361,7 @@ public class EventServiceImpl implements EventService {
         List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(eventId);
         List<EventAssignment> assignments = eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId);
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElse(null);
-        List<AttendanceRecord> attendanceRecords = (session != null) ? attendanceRecordRepository.findAll() : List.of(); 
+        List<AttendanceRecord> attendanceRecords = (session != null) ? attendanceRecordRepository.findBySessionID(session.getSessionID()) : List.of(); 
 
         return registrations.stream().map(reg -> {
             Integer userId = reg.getUserID();
@@ -358,7 +386,7 @@ public class EventServiceImpl implements EventService {
     public void saveEventContributions(Integer eventId, List<ContributionDTO> contributions) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
-        if ("CLOSED".equals(event.getEventStatus())) {
+        if ("Closed".equals(event.getEventStatus())) {
             throw new IllegalArgumentException("Sự kiện đã đóng, không thể thay đổi dữ liệu.");
         }
         
@@ -412,6 +440,15 @@ public class EventServiceImpl implements EventService {
             case "PARTICIPANT": return 20;
             default: return 0; // ABSENT or others
         }
+    }
+
+    private Integer resolveEventRoleId(Integer eventRoleId) {
+        if (eventRoleId == null) {
+            throw new IllegalArgumentException("Vui lòng chọn vai trò sự kiện hợp lệ.");
+        }
+        return eventRoleRepository.findByEventRoleIDAndIsDeletedFalse(eventRoleId)
+                .map(EventRole::getEventRoleID)
+                .orElseThrow(() -> new IllegalArgumentException("Vai trò sự kiện không tồn tại hoặc đã bị xoá."));
     }
 
 

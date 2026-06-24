@@ -46,7 +46,7 @@ public class MemberRankingServiceImpl implements MemberRankingService {
     private static final String ROLE_LEADER = "Leader";
     private static final String ROLE_VICE_LEADER = "ViceLeader";
     private static final String ROLE_MEMBER = "Member";
-    private static final String REGISTRATION_STATUS_REGISTERED = "Registered";
+    private static final String REGISTRATION_STATUS_REGISTERED = "REGISTERED";
     private static final String BASE_POINTS_ATTENDEE_CONFIG = "BASE_POINTS_ATTENDEE";
     private static final int DEFAULT_EVENT_PARTICIPATION_POINT = 20;
 

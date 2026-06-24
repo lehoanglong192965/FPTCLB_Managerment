@@ -38,7 +38,6 @@ public class EventController {
 
     @GetMapping("/{eventId}")
     public ResponseEntity<Event> getEventById(@PathVariable Integer eventId) {
-        System.out.println("DEBUG: Fetching event with ID: " + eventId);
         Event event = eventService.getEventById(eventId);
         return ResponseEntity.ok(event);
     }
@@ -92,6 +91,12 @@ public class EventController {
     public ResponseEntity<Map<String, String>> checkIn(@PathVariable Integer eventId, @PathVariable String studentId) {
         eventService.checkIn(eventId, studentId);
         return ResponseEntity.ok(Map.of("message", "Điểm danh thành công."));
+    }
+
+    @PatchMapping("/{eventId}/start")
+    public ResponseEntity<Map<String, String>> startEvent(@PathVariable Integer eventId) {
+        eventService.startEvent(eventId);
+        return ResponseEntity.ok(Map.of("message", "Sự kiện đã được bắt đầu."));
     }
 
     @PatchMapping("/{eventId}/finish")

@@ -25,6 +25,7 @@ public interface EventService {
     Event getEventById(Integer eventId);
     List<Event> getEventsByClubId(Integer clubId);
     void checkIn(Integer eventId, String studentId);
+    void startEvent(Integer eventId);
     void finishEvent(Integer eventId);
     void closeEvent(Integer eventId);
     List<ContributionDTO> getEventContributions(Integer eventId);

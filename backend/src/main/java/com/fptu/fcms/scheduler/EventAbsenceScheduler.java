@@ -27,7 +27,7 @@ public class EventAbsenceScheduler {
     @Scheduled(cron = "0 0 1 * * ?") // Chạy lúc 01:00 mỗi ngày
     @Transactional
     public void markAbsences() {
-        List<Event> completedEvents = eventRepository.findByEventStatus("COMPLETED");
+        List<Event> completedEvents = eventRepository.findByEventStatusAndIsDeletedFalse("Completed");
 
         for (Event event : completedEvents) {
             AttendanceSession session = attendanceSessionRepository.findByEventID(event.getEventID())
