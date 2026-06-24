@@ -16,21 +16,43 @@ export default function MemberEvents() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const load = async () => {
+    let cancelled = false;
+
+    const safeGet = async (fn, delayMs = 0) => {
+      if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
+      if (cancelled) return null;
       try {
-        const [eventRes, clubRes] = await Promise.all([
-          eventService.getApprovedEvents(),
-          clubService.getAll(),
-        ]);
-        setEvents(Array.isArray(eventRes) ? eventRes : (eventRes.data || []));
-        setClubs(Array.isArray(clubRes) ? clubRes : (clubRes.data || []));
+        return await fn();
       } catch (err) {
-        console.error("Lỗi khi tải sự kiện/CLB:", err);
-      } finally {
-        setLoading(false);
+        if (err?.code !== "ERR_CANCELED" && err?.name !== "CanceledError") throw err;
+        // Bị dedup-cancel, thử lại 1 lần sau 250ms
+        await new Promise((r) => setTimeout(r, 250));
+        if (cancelled) return null;
+        return await fn();
       }
     };
+
+    const load = async () => {
+      try {
+        const eventRes = await safeGet(() => eventService.getApprovedEvents());
+        if (cancelled || !eventRes) return;
+        // Hiện events ngay, không đợi clubs
+        setEvents(Array.isArray(eventRes) ? eventRes : (eventRes?.content ?? eventRes?.data ?? []));
+        setLoading(false);
+
+        const clubRes = await safeGet(() => clubService.getAll(), 100);
+        if (cancelled || !clubRes) return;
+        setClubs(Array.isArray(clubRes) ? clubRes : (clubRes?.content ?? clubRes?.data ?? []));
+      } catch (err) {
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        console.error("Lỗi khi tải sự kiện/CLB:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
     load();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {

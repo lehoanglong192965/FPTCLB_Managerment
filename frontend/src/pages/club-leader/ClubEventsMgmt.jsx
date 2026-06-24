@@ -173,6 +173,7 @@ export default function ClubEventsMgmt() {
   const [events, setEvents]             = useState(() => loadLocal(clubId));
   const [cancelTarget, setCancelTarget] = useState(null);
   const [finishTarget, setFinishTarget] = useState(null);
+  const [startingId, setStartingId]     = useState(null);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -337,7 +338,7 @@ export default function ClubEventsMgmt() {
                       </>
                     )}
 
-                    {/* Approved/Upcoming: Phân công + Hủy */}
+                    {/* Approved/Upcoming: Phân công + Bắt đầu + Hủy */}
                     {(status === "APPROVED" || status === "UPCOMING") && (
                       <>
                         <button
@@ -345,6 +346,25 @@ export default function ClubEventsMgmt() {
                           style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#2563eb", color: "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
                         >
                           <Users size={12} /> Phân công
+                        </button>
+                        <button
+                          disabled={startingId === ev.eventID}
+                          onClick={async () => {
+                            setStartingId(ev.eventID);
+                            try {
+                              await eventService.start(ev.eventID);
+                              setEvents((prev) =>
+                                prev.map((e) => e.eventID === ev.eventID ? { ...e, eventStatus: "ONGOING" } : e)
+                              );
+                            } catch (e) {
+                              alert("Lỗi bắt đầu sự kiện: " + (e.response?.data?.message || e.message));
+                            } finally {
+                              setStartingId(null);
+                            }
+                          }}
+                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: startingId === ev.eventID ? "#86efac" : "#059669", color: "#fff", border: "none", cursor: startingId === ev.eventID ? "not-allowed" : "pointer" }}
+                        >
+                          {startingId === ev.eventID ? "Đang xử lý..." : "Bắt đầu sự kiện"}
                         </button>
                         <button
                           onClick={() => setCancelTarget(ev)}
@@ -355,14 +375,22 @@ export default function ClubEventsMgmt() {
                       </>
                     )}
 
-                    {/* Ongoing: Kết thúc */}
+                    {/* Ongoing: Điểm danh + Kết thúc */}
                     {status === "ONGOING" && (
-                      <button
-                        onClick={() => setFinishTarget(ev.eventID)}
-                        style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#7c3aed", color: "#fff", border: "none", cursor: "pointer" }}
-                      >
-                        Kết thúc
-                      </button>
+                      <>
+                        <button
+                          onClick={() => navigate(`${ev.eventID}/checkin`, { relative: "path" })}
+                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#0891b2", color: "#fff", border: "none", cursor: "pointer" }}
+                        >
+                          Điểm danh
+                        </button>
+                        <button
+                          onClick={() => setFinishTarget(ev.eventID)}
+                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#7c3aed", color: "#fff", border: "none", cursor: "pointer" }}
+                        >
+                          Kết thúc
+                        </button>
+                      </>
                     )}
 
                     {/* Completed: Báo cáo + Đóng */}

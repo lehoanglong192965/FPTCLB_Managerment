@@ -12,20 +12,31 @@ export default function EventsSection() {
   useEffect(() => {
     let cancelled = false;
 
+    const safeGet = async (fn, delayMs = 0) => {
+      if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
+      if (cancelled) return null;
+      try {
+        return await fn();
+      } catch (err) {
+        if (err?.code !== "ERR_CANCELED" && err?.name !== "CanceledError") throw err;
+        await new Promise((r) => setTimeout(r, 250));
+        if (cancelled) return null;
+        return await fn();
+      }
+    };
+
     const fetchEvents = async () => {
       try {
-        // Lấy events trước; đợi 50ms rồi mới lấy clubs
-        // để tránh dedup cancel với ClubsSection đang gọi /clubs cùng lúc
-        const evRes = await eventService.getApprovedEvents();
-        if (cancelled) return;
+        const evRes = await safeGet(() => eventService.getApprovedEvents());
+        if (cancelled || !evRes) return;
 
-        await new Promise((r) => setTimeout(r, 50));
-        const clubRes = await clubService.getAll();
-
+        const clubRes = await safeGet(() => clubService.getAll(), 100);
         if (cancelled) return;
 
         const evList   = Array.isArray(evRes)   ? evRes   : (evRes?.content   ?? evRes?.data   ?? []);
-        const clubList = Array.isArray(clubRes)  ? clubRes : (clubRes?.content ?? clubRes?.data ?? []);
+        const clubList = clubRes
+          ? (Array.isArray(clubRes) ? clubRes : (clubRes?.content ?? clubRes?.data ?? []))
+          : [];
 
         const mapped = evList.map((e) => {
           const clubObj = clubList.find((c) => c.clubID === e.clubID);

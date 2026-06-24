@@ -1,48 +1,87 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import EventCard from "../../components/events/EventCard";
 import eventService from "../../services/api/events/eventService";
+import clubService from "../../services/api/clubs/clubService";
 
 const BADGE_FILTERS = ["Tất cả", "Đăng ký mở", "Sắp diễn ra", "Hết chỗ"];
+
+function getStatusBadge(status) {
+  const s = (status || "").toUpperCase();
+  if (s === "UPCOMING") return { badge: "Sắp diễn ra", badgeType: "upcoming" };
+  if (s === "ONGOING")  return { badge: "Đang diễn ra", badgeType: "ongoing" };
+  return { badge: "Đăng ký mở", badgeType: "open" };
+}
 
 export default function EventListPage() {
   const navigate = useNavigate();
   const [search, setSearch]             = useState("");
   const [activeFilter, setActiveFilter] = useState("Tất cả");
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [rawEvents, setRawEvents]       = useState([]);
+  const [clubs, setClubs]               = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState(null);
 
   useEffect(() => {
-    const fetchEvents = async () => {
+    let cancelled = false;
+
+    const safeGet = async (fn, delayMs = 0) => {
+      if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
+      if (cancelled) return null;
+      try {
+        return await fn();
+      } catch (err) {
+        if (err?.code !== "ERR_CANCELED" && err?.name !== "CanceledError") throw err;
+        await new Promise((r) => setTimeout(r, 250));
+        if (cancelled) return null;
+        return await fn();
+      }
+    };
+
+    const fetchAll = async () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await eventService.getApprovedEvents();
-        console.log("Response API:", response); // Debug log
-        setEvents(Array.isArray(response) ? response : (response.data || []));
-      } catch (error) {
-        console.error("Lỗi khi tải danh sách sự kiện:", error);
+        const evRes = await safeGet(() => eventService.getApprovedEvents());
+        if (cancelled || !evRes) return;
+        setRawEvents(Array.isArray(evRes) ? evRes : (evRes?.content ?? evRes?.data ?? []));
+        setLoading(false);
+
+        const clubRes = await safeGet(() => clubService.getAll(), 100);
+        if (cancelled || !clubRes) return;
+        setClubs(Array.isArray(clubRes) ? clubRes : (clubRes?.content ?? clubRes?.data ?? []));
+      } catch (err) {
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        console.error("Lỗi khi tải danh sách sự kiện:", err);
         setError("Không thể tải danh sách sự kiện.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    fetchEvents();
+    fetchAll();
+    return () => { cancelled = true; };
   }, []);
 
-  // Map lại dữ liệu từ backend sang format frontend yêu cầu (nếu cần)
-  const allEvents = events.map(e => ({
-      id: e.eventID,
-      title: e.eventName,
-      club: "CLB", // Cần API lấy tên CLB
-      date: e.startDate ? new Date(e.startDate).toLocaleDateString() : "",
-      time: e.startDate ? new Date(e.startDate).toLocaleTimeString() : "",
-      venue: e.location,
-      desc: e.description,
-      badge: "Đăng ký mở", // Cần logic mapping trạng thái
-      badgeType: "open"
-  }));
+  const allEvents = rawEvents.map((e) => {
+    const clubObj = clubs.find((c) => c.clubID === e.clubID);
+    const startDt = e.startDate ? new Date(e.startDate) : null;
+    const { badge, badgeType } = getStatusBadge(e.eventStatus);
+    return {
+      id:                  e.eventID,
+      title:               e.eventName ?? "",
+      club:                clubObj?.name ?? "CLB FPTU",
+      emoji:               clubObj?.emoji ?? "🎉",
+      color:               clubObj?.color ?? "#F37021",
+      date:                startDt ? startDt.toLocaleDateString("vi-VN") : "",
+      time:                startDt ? startDt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
+      location:            e.location ?? "",
+      desc:                e.description ?? "",
+      badge,
+      badgeType,
+      maxParticipants:     e.maxParticipants     ?? 0,
+      currentParticipants: e.currentParticipants ?? 0,
+    };
+  });
 
   const filtered = allEvents.filter((event) => {
     const matchFilter = activeFilter === "Tất cả" || event.badge === activeFilter;
