@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import EventCard from "../../components/events/EventCard";
 import eventService from "../../services/api/events/eventService";
@@ -7,13 +7,13 @@ import clubService from "../../services/api/clubs/clubService";
 const ALL_TAGS = ["Tất cả", "Công nghệ", "Âm nhạc", "Thể thao", "Hội thảo", "Cộng đồng", "Giải trí"];
 
 export default function MemberEvents() {
-  const [search, setSearch]         = useState("");
-  const [activeTag, setActiveTag]   = useState("Tất cả");
+  const [search, setSearch] = useState("");
+  const [activeTag, setActiveTag] = useState("Tất cả");
   const [filterOpen, setFilterOpen] = useState(false);
-  const filterRef                   = useRef(null);
-  const [events, setEvents]         = useState([]);
-  const [clubs, setClubs]           = useState([]);
-  const [loading, setLoading]       = useState(true);
+  const filterRef = useRef(null);
+  const [events, setEvents] = useState([]);
+  const [clubs, setClubs] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -48,7 +48,7 @@ export default function MemberEvents() {
     return {
       id: e.eventID,
       title: e.eventName,
-      club: clubObj ? clubObj.name : "CLB FPTU",
+      club: clubObj ? (clubObj.clubName || clubObj.name || clubObj.clubCode || "CLB FPTU") : "CLB FPTU",
       emoji: clubObj ? clubObj.emoji : "🏛️",
       color: clubObj ? clubObj.color : "#E6430A",
       tag: clubObj ? (clubObj.tag || "") : "",
@@ -57,15 +57,13 @@ export default function MemberEvents() {
       venue: e.location || "Chưa xếp phòng",
       desc: e.description,
       badgeType: e.eventStatus === "Ongoing" ? "upcoming" : "open",
-      maxParticipants: 100,
-      currentParticipants: 0,
     };
   });
 
   const filtered = mappedEvents.filter((e) => {
     const matchSearch = e.title.toLowerCase().includes(search.toLowerCase()) ||
                         e.club.toLowerCase().includes(search.toLowerCase());
-    const matchTag    = activeTag === "Tất cả" || e.tag === activeTag;
+    const matchTag = activeTag === "Tất cả" || e.tag === activeTag;
     return matchSearch && matchTag;
   });
 
@@ -77,7 +75,6 @@ export default function MemberEvents() {
       </div>
 
       <div className="content-card">
-        {/* Search + Filter */}
         <div className="flex gap-2.5 items-center mb-5">
           <div className="relative flex-1">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />

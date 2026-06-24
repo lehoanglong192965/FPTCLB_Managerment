@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import EventCard from "../../components/events/EventCard";
 import eventService from "../../services/api/events/eventService";

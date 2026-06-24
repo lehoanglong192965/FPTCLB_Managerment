@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class EventRegistrationServiceImpl implements EventRegistrationService {
 
+    private static final String REGISTRATION_STATUS_REGISTERED = "REGISTERED";
+
     private final EventRegistrationRepository registrationRepo;
     private final EventRepository eventRepository;
     private final ClubMembershipRepository membershipRepo;
@@ -47,7 +49,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setEventID(eventID);
         registration.setUserID(userID);
         registration.setRegisteredAt(LocalDateTime.now());
-        registration.setStatus("Registered");
+        registration.setStatus(REGISTRATION_STATUS_REGISTERED);
         registration.setIsDeleted(false);
 
         registrationRepo.save(registration);

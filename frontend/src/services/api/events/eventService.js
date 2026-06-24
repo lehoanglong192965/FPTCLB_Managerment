@@ -24,6 +24,9 @@ const eventService = {
   // PATCH /api/events/{eventId}/submit
   submit: (eventId) => axiosClient.patch(`/events/${eventId}/submit`),
 
+  // PATCH /api/events/{eventId}/start
+  start: (eventId) => axiosClient.patch(`/events/${eventId}/start`),
+
   // PATCH /api/events/{clubId}/{eventId}/cancel   body: { reason }
   cancel: (clubId, eventId, reason) =>
     axiosClient.patch(`/events/${clubId}/${eventId}/cancel`, { reason }),
