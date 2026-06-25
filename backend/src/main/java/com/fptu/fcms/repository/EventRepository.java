@@ -4,8 +4,10 @@ import com.fptu.fcms.entity.Event;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.stereotype.Repository;
 
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -18,6 +20,10 @@ public interface EventRepository extends JpaRepository<Event, Integer> {
     List<Event> findByClubIDAndSemesterIDAndIsDeletedFalse(Integer clubID, Integer semesterID);
 
     Optional<Event> findByEventIDAndIsDeletedFalse(Integer eventID);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT e FROM Event e WHERE e.eventID = :eventID AND e.isDeleted = false")
+    Optional<Event> findByEventIDAndIsDeletedFalseForUpdate(@Param("eventID") Integer eventID);
 
     boolean existsByLocationAndEventIDNotAndEventStatusAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
             String location,
@@ -33,6 +39,8 @@ public interface EventRepository extends JpaRepository<Event, Integer> {
     );
 
     List<Event> findByEventStatusAndIsDeletedFalse(String status);
+
+    List<Event> findByEventStatusInAndIsDeletedFalse(Collection<String> statuses);
 
     // [BR-G02] Tìm các event Pending lâu hơn một mốc thời gian
     List<Event> findByEventStatusAndCreatedAtBeforeAndIsDeletedFalse(String status, LocalDateTime date);

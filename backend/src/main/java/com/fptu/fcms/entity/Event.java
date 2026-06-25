@@ -45,6 +45,9 @@ public class Event {
     @Column(name = "budget")
     private BigDecimal budget;
 
+    @Column(name = "maxParticipants")
+    private Integer maxParticipants;
+
     @Column(name = "startDate")
     private LocalDateTime startDate;
 
@@ -88,6 +91,9 @@ public class Event {
 
     @Column(name = "createdAt")
     private LocalDateTime createdAt;
+
+    @Column(name = "createdBy")
+    private Integer createdBy;
 
     @Column(name = "isDeleted")
     private Boolean isDeleted;

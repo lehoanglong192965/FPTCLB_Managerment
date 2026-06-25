@@ -116,7 +116,7 @@ public class MembershipController {
      * @return 200 OK với thông tin membership sau khi thay đổi
      */
      @PutMapping
- //    @PreAuthorize("hasAnyRole('Admin', 'ICPDP')")
+     @PreAuthorize("hasAnyRole('Admin', 'ICPDP')")
      @Operation(
              summary = "Thay đổi Ban điều hành CLB (Bổ nhiệm / Bãi nhiệm)",
              description = "**Yêu cầu quyền:** Admin hoặc ICPDP\n\n" +

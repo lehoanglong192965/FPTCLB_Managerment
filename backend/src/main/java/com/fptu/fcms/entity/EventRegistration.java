@@ -27,6 +27,15 @@ public class EventRegistration {
     @Column(name = "userID")
     private Integer userID;
 
+    @Column(name = "guestFullName")
+    private String guestFullName;
+
+    @Column(name = "guestEmail")
+    private String guestEmail;
+
+    @Column(name = "guestPhone")
+    private String guestPhone;
+
     @Column(name = "registeredAt")
     private LocalDateTime registeredAt;
 

@@ -11,6 +11,7 @@ import java.util.Optional;
 public interface EventRegistrationRepository extends JpaRepository<EventRegistration, Integer> {
     boolean existsByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
     Optional<EventRegistration> findByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
+    boolean existsByEventIDAndGuestEmailAndIsDeletedFalse(Integer eventID, String guestEmail);
     java.util.List<EventRegistration> findByEventIDAndIsDeletedFalse(Integer eventID);
     java.util.List<EventRegistration> findByUserIDAndIsDeletedFalse(Integer userID);
     List<EventRegistration> findByEventIDInAndUserIDInAndStatusAndIsDeletedFalse(

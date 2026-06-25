@@ -13,8 +13,8 @@ import com.fptu.fcms.security.UserPrincipal;
 import java.util.List;
 
 public interface EventService {
-    void createEventProposal(CreateEventProposalRequest request);
-    void submitEventProposal(Integer eventId);
+    void createEventProposal(CreateEventProposalRequest request, UserPrincipal currentUser);
+    void submitEventProposal(Integer eventId, UserPrincipal currentUser);
     void addAssignment(Integer eventId, EventAssignmentRequest request);
     void removeAssignment(Integer eventId, Integer userId);
     List<EventAssignment> getAssignments(Integer eventId);
