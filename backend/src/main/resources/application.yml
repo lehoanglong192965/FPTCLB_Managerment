@@ -24,6 +24,7 @@ spring:
       hibernate:
         format_sql: true
         default_schema: dbo
+    defer-datasource-initialization: true
 
   servlet:
     multipart:
@@ -53,6 +54,12 @@ spring:
             scope:
               - email
               - profile
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
 
 jwt:
   secret: day-la-mot-chuoi-bi-mat-rat-dai-de-ky-jwt-token-fptu-2026

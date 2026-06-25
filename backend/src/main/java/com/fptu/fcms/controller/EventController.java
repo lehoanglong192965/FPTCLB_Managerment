@@ -16,15 +16,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
 
-import com.fptu.fcms.dto.response.ContributionDTO;
-
 @RestController
-@RequestMapping("/api/events")
+@RequestMapping("/api/v1/events")
 @RequiredArgsConstructor
 public class EventController {
 
@@ -38,8 +44,7 @@ public class EventController {
 
     @GetMapping("/{eventId}")
     public ResponseEntity<Event> getEventById(@PathVariable Integer eventId) {
-        Event event = eventService.getEventById(eventId);
-        return ResponseEntity.ok(event);
+        return ResponseEntity.ok(eventService.getEventById(eventId));
     }
 
     @GetMapping("/{eventId}/my-status")
@@ -58,17 +63,26 @@ public class EventController {
         return ResponseEntity.ok(eventService.getEventsByUserAssigned(currentUser.getUserId()));
     }
 
-    @PostMapping("/registerEvent")
+    @PostMapping
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
     public ResponseEntity<Map<String, String>> createEventProposal(
-            @RequestBody CreateEventProposalRequest request,
+            @RequestBody @Valid CreateEventProposalRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventService.createEventProposal(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Đề xuất sự kiện đã được gửi thành công."));
+        eventService.createEventProposal(request, currentUser);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Event proposal created successfully."));
     }
 
-    @PutMapping("/{eventId}/approval")
-    @PreAuthorize("hasAnyRole('ICPDP')")
+    @PutMapping("/{eventId}/submit")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    public ResponseEntity<Map<String, String>> submitEventProposal(
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.submitEventProposal(eventId, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Event proposal submitted successfully."));
+    }
+
+    @PutMapping("/{eventId}/approve")
+    @PreAuthorize("hasRole('ICPDP')")
     public ResponseEntity<EventApprovalResponse> approveEvent(
             @PathVariable Integer eventId,
             @Valid @RequestBody EventApprovalRequest request,
@@ -82,72 +96,31 @@ public class EventController {
             @PathVariable Integer clubId,
             @PathVariable Integer eventId,
             @Valid @RequestBody CancelEventRequest request) {
-        
         eventService.cancelEvent(clubId, eventId, request);
-        return ResponseEntity.ok(Map.of("message", "Sự kiện đã được hủy và thông báo đã được gửi tới người tham dự."));
-    }
-
-    @PostMapping("/{eventId}/check-in/{studentId}")
-    public ResponseEntity<Map<String, String>> checkIn(@PathVariable Integer eventId, @PathVariable String studentId) {
-        eventService.checkIn(eventId, studentId);
-        return ResponseEntity.ok(Map.of("message", "Điểm danh thành công."));
-    }
-
-    @PatchMapping("/{eventId}/start")
-    public ResponseEntity<Map<String, String>> startEvent(@PathVariable Integer eventId) {
-        eventService.startEvent(eventId);
-        return ResponseEntity.ok(Map.of("message", "Sự kiện đã được bắt đầu."));
-    }
-
-    @PatchMapping("/{eventId}/finish")
-    public ResponseEntity<Map<String, String>> finishEvent(@PathVariable Integer eventId) {
-        eventService.finishEvent(eventId);
-        return ResponseEntity.ok(Map.of("message", "Sự kiện đã kết thúc."));
-    }
-
-    @PatchMapping("/{eventId}/submit")
-    public ResponseEntity<Map<String, String>> submitEventProposal(@PathVariable Integer eventId) {
-        eventService.submitEventProposal(eventId);
-        return ResponseEntity.ok(Map.of("message", "Đề xuất sự kiện đã được gửi."));
+        return ResponseEntity.ok(Map.of("message", "Event cancelled successfully."));
     }
 
     @PostMapping("/{eventId}/assignments")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     public ResponseEntity<Map<String, String>> addAssignment(
             @PathVariable Integer eventId,
             @RequestBody EventAssignmentRequest request) {
         eventService.addAssignment(eventId, request);
-        return ResponseEntity.ok(Map.of("message", "Đã phân công thành viên."));
+        return ResponseEntity.ok(Map.of("message", "Assignment created successfully."));
     }
 
     @GetMapping("/{eventId}/assignments")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     public ResponseEntity<List<EventAssignment>> getAssignments(@PathVariable Integer eventId) {
         return ResponseEntity.ok(eventService.getAssignments(eventId));
     }
 
     @DeleteMapping("/{eventId}/assignments/{userId}")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     public ResponseEntity<Map<String, String>> removeAssignment(
             @PathVariable Integer eventId,
             @PathVariable Integer userId) {
         eventService.removeAssignment(eventId, userId);
-        return ResponseEntity.ok(Map.of("message", "Đã xóa phân công thành viên."));
-    }
-
-    @PatchMapping("/{eventId}/close")
-    public ResponseEntity<Map<String, String>> closeEvent(@PathVariable Integer eventId) {
-        eventService.closeEvent(eventId);
-        return ResponseEntity.ok(Map.of("message", "Sự kiện đã đóng."));
-    }
-
-    @GetMapping("/{eventId}/contributions")
-    public ResponseEntity<List<ContributionDTO>> getContributions(@PathVariable Integer eventId) {
-        return ResponseEntity.ok(eventService.getEventContributions(eventId));
-    }
-
-    @PostMapping("/{eventId}/contributions")
-    public ResponseEntity<Map<String, String>> saveContributions(
-            @PathVariable Integer eventId,
-            @RequestBody List<ContributionDTO> contributions) {
-        eventService.saveEventContributions(eventId, contributions);
-        return ResponseEntity.ok(Map.of("message", "Đã lưu danh sách đóng góp."));
+        return ResponseEntity.ok(Map.of("message", "Assignment removed successfully."));
     }
 }

@@ -5,22 +5,17 @@ import com.fptu.fcms.security.jwt.JwtAuthenticationFilter;
 import com.fptu.fcms.security.oauth2.CustomOAuth2UserService;
 import com.fptu.fcms.security.oauth2.OAuth2FailureHandler;
 import com.fptu.fcms.security.oauth2.OAuth2SuccessHandler;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.http.HttpMethod;
-
 import org.springframework.security.config.http.SessionCreationPolicy;
-
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -38,7 +33,6 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AccountStatusFilter accountStatusFilter;
 
-    // Bỏ accountStatusFilter1 thừa ở Constructor
     public SecurityConfig(
             CustomOAuth2UserService customOAuth2UserService,
             OAuth2SuccessHandler oAuth2SuccessHandler,
@@ -55,65 +49,38 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-
         http
                 .csrf(csrf -> csrf.disable())
-
-                // 1. Kích hoạt CORS (Rất quan trọng để Frontend gọi được API)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-                // 2. Tắt Session vì dùng JWT (Stateless)
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-
-                // 3. Phân quyền các API
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Cho phép truy cập tự do vào các API Auth, đăng nhập OAuth2
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/oauth2/**",
                                 "/login/**",
                                 "/api/uploads/**",
-                                "/api/events/**",
-                                "/api/clubs/**",
-                                "/api/semesters/**"
-                        ).permitAll()
-                        // Cho phép truy cập Swagger UI
-                        .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
-                        // Tất cả các request khác đều bắt buộc phải có Token hợp lệ
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reports").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/attendance/checkin").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events/approved").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events/**").authenticated()
+                        .requestMatchers("/api/v1/events/**", "/api/icpdp/events/**").authenticated()
                         .anyRequest().authenticated()
                 )
-
-                // 4. Cấu hình luồng Google OAuth2
                 .oauth2Login(oauth2 -> oauth2
-                        .userInfoEndpoint(userInfo ->
-                                userInfo.userService(customOAuth2UserService) // Lấy & chặn user
-                        )
-                        .successHandler(oAuth2SuccessHandler) // Thành công -> Phát JWT Token
-                        .failureHandler(oAuth2FailureHandler) // Thất bại (sai email, lỗi...) -> Bắn về trang lỗi
+                        .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+                        .successHandler(oAuth2SuccessHandler)
+                        .failureHandler(oAuth2FailureHandler)
                 );
 
-        // 5. Chèn bộ lọc JWT vào trước bộ lọc UsernamePassword tiêu chuẩn
-        http.addFilterBefore(
-                jwtAuthenticationFilter,
-                UsernamePasswordAuthenticationFilter.class
-        );
-
-        // 6. Chèn bộ lọc chặn Account Suspended ngay sau JWT Filter
-        http.addFilterAfter(
-                accountStatusFilter,
-                JwtAuthenticationFilter.class
-        );
-
+        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterAfter(accountStatusFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 
-    // Cấu hình CORS (Cho phép mọi nguồn truy cập - Thích hợp khi đang Dev)
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -127,7 +94,6 @@ public class SecurityConfig {
         return source;
     }
 
-    // Bean mã hóa mật khẩu BCrypt
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

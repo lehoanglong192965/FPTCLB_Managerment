@@ -6,14 +6,35 @@ import com.fptu.fcms.dto.request.EventApprovalRequest;
 import com.fptu.fcms.dto.request.EventAssignmentRequest;
 import com.fptu.fcms.dto.response.ContributionDTO;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
-import com.fptu.fcms.entity.*;
+import com.fptu.fcms.entity.AttendanceRecord;
+import com.fptu.fcms.entity.AttendanceSession;
+import com.fptu.fcms.entity.AuditLog;
+import com.fptu.fcms.entity.Event;
+import com.fptu.fcms.entity.EventAssignment;
+import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.EventRole;
+import com.fptu.fcms.entity.MemberPerformance;
+import com.fptu.fcms.entity.Semester;
+import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.exception.BusinessRuleException;
-import com.fptu.fcms.repository.*;
+import com.fptu.fcms.repository.AttendanceRecordRepository;
+import com.fptu.fcms.repository.AttendanceSessionRepository;
+import com.fptu.fcms.repository.AuditLogRepository;
+import com.fptu.fcms.repository.EventAssignmentRepository;
+import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.EventRegistrationRepository;
+import com.fptu.fcms.repository.EventRoleRepository;
+import com.fptu.fcms.repository.MemberPerformanceRepository;
+import com.fptu.fcms.repository.SemesterRepository;
+import com.fptu.fcms.repository.SystemRoleRepository;
+import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.event.EventLifecycleChangedEvent;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.EventService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -23,15 +44,22 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class EventServiceImpl implements EventService {
 
+    private static final String STATUS_DRAFT = "Draft";
     private static final String STATUS_PENDING = "Pending";
+    private static final String STATUS_PENDING_APPROVAL = "PendingApproval";
     private static final String STATUS_APPROVED = "Approved";
     private static final String STATUS_REJECTED = "Rejected";
+    private static final String STATUS_CANCELLED = "Cancelled";
+    private static final String STATUS_ONGOING = "Ongoing";
+    private static final String STATUS_COMPLETED = "Completed";
+    private static final String STATUS_CLOSED = "Closed";
     private static final BigDecimal HIGH_BUDGET_THRESHOLD = new BigDecimal("5000000");
 
     private final EventRepository eventRepository;
@@ -42,6 +70,7 @@ public class EventServiceImpl implements EventService {
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
     private final EmailService emailService;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final MemberPerformanceRepository memberPerformanceRepository;
@@ -53,52 +82,48 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public List<Event> getEventsByUserAssigned(Integer userId) {
-        List<EventAssignment> assignments = eventAssignmentRepository.findByUserIDAndIsDeletedFalse(userId);
-        return assignments.stream()
-                .map(assignment -> eventRepository.findById(assignment.getEventID()).orElse(null))
-                .filter(java.util.Objects::nonNull)
+        return eventAssignmentRepository.findByUserIDAndIsDeletedFalse(userId).stream()
+                .map(a -> eventRepository.findById(a.getEventID()).orElse(null))
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
     @Override
     @Transactional
-    public void createEventProposal(CreateEventProposalRequest request) {
+    public void createEventProposal(CreateEventProposalRequest request, UserPrincipal currentUser) {
+        validateCreateRequest(request);
+
         LocalDateTime now = LocalDateTime.now();
-        // [BR-G02] Validate mốc thời gian tối thiểu
+        boolean isResubmit = Boolean.TRUE.equals(request.getIsResubmitted());
         long daysUntilEvent = ChronoUnit.DAYS.between(now, request.getStartDate());
-
-        boolean isResubmit = request.getIsResubmitted() != null && request.getIsResubmitted();
-
-        if (isResubmit) {
-            if (daysUntilEvent < 7) {
-                throw new IllegalArgumentException("Đề xuất lại (Resubmit) phải được gửi trước ít nhất 7 ngày.");
-            }
-        } else {
-            if (daysUntilEvent < 14) {
-                throw new IllegalArgumentException("Đề xuất sự kiện mới phải được gửi trước ít nhất 14 ngày.");
-            }
+        long minDays = isResubmit ? 7 : 14;
+        if (daysUntilEvent < minDays) {
+            throw new IllegalArgumentException(isResubmit
+                    ? "Resubmitted events must be created at least 7 days before start date."
+                    : "New events must be created at least 14 days before start date.");
         }
 
         Event event = new Event();
         event.setClubID(request.getClubID());
         event.setSemesterID(request.getSemesterID());
         event.setEventCode(request.getEventCode());
-        event.setEventName(request.getEventName());
+        event.setEventName(request.getEventName().trim());
         event.setDescription(request.getDescription());
         event.setLocation(request.getLocation());
         event.setBudget(request.getBudget());
+        event.setMaxParticipants(request.getMaxParticipants());
         event.setStartDate(request.getStartDate());
         event.setEndDate(request.getEndDate());
-        event.setEventStatus("Draft");
+        event.setEventStatus(STATUS_DRAFT);
         event.setIsResubmitted(isResubmit);
-        event.setIsInternal(request.getIsInternal() != null && request.getIsInternal());
+        event.setIsInternal(Boolean.TRUE.equals(request.getIsInternal()));
         event.setIsScoreLocked(false);
         event.setCreatedAt(now);
+        event.setCreatedBy(currentUser.getUserId());
         event.setIsDeleted(false);
 
         Event savedEvent = eventRepository.save(event);
 
-        // [BR-E03] Gán danh sách Ban tổ chức
         if (request.getAssignments() != null && !request.getAssignments().isEmpty()) {
             List<EventAssignment> assignments = request.getAssignments().stream().map(dto -> {
                 EventAssignment assignment = new EventAssignment();
@@ -109,31 +134,29 @@ public class EventServiceImpl implements EventService {
                 assignment.setIsDeleted(false);
                 return assignment;
             }).collect(Collectors.toList());
-
             eventAssignmentRepository.saveAll(assignments);
         }
     }
 
     @Override
     @Transactional
-    public void submitEventProposal(Integer eventId) {
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
-        
-        if (!"Draft".equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Chỉ có thể gửi đề xuất cho sự kiện ở trạng thái Draft.");
+    public void submitEventProposal(Integer eventId, UserPrincipal currentUser) {
+        Event event = getActiveEventOrThrow(eventId);
+        assertCanModifyDraft(event, currentUser);
+
+        if (!STATUS_DRAFT.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Only Draft events can be submitted.");
         }
 
-        event.setEventStatus(STATUS_PENDING);
+        validateEventBeforeSubmission(event);
+        event.setEventStatus(STATUS_PENDING_APPROVAL);
         eventRepository.save(event);
     }
 
     @Override
     @Transactional
     public void addAssignment(Integer eventId, EventAssignmentRequest request) {
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
-        
+        getActiveEventOrThrow(eventId);
         EventAssignment assignment = new EventAssignment();
         assignment.setEventID(eventId);
         assignment.setUserID(request.getUserID());
@@ -146,8 +169,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void removeAssignment(Integer eventId, Integer userId) {
-        List<EventAssignment> assignments = eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId);
-        assignments.stream()
+        eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
                 .filter(a -> a.getUserID().equals(userId))
                 .forEach(a -> {
                     a.setIsDeleted(true);
@@ -166,48 +188,41 @@ public class EventServiceImpl implements EventService {
     public void cancelEvent(Integer clubID, Integer eventId, CancelEventRequest request) {
         Event event = eventRepository.findById(eventId)
                 .filter(e -> e.getClubID().equals(clubID))
-                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại hoặc không thuộc CLB của bạn."));
+                .orElseThrow(() -> new IllegalArgumentException("Event not found or not owned by club."));
+        String oldStatus = event.getEventStatus();
 
-        if (!STATUS_APPROVED.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Chỉ có thể hủy sự kiện đã được phê duyệt (Approved).");
+        if (!STATUS_APPROVED.equals(event.getEventStatus()) && !STATUS_ONGOING.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Only Approved or Ongoing events can be cancelled.");
         }
 
-        event.setEventStatus("Cancelled");
-        eventRepository.save(event);
+        event.setEventStatus(STATUS_CANCELLED);
+        Event savedEvent = eventRepository.save(event);
+        publishLifecycleEvent(savedEvent, oldStatus, STATUS_CANCELLED, null, request.getReason());
 
-        // Gửi thông báo cho người tham dự (BR-E06)
         List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(eventId);
         if (!registrations.isEmpty()) {
-            List<Integer> userIds = registrations.stream()
-                    .map(EventRegistration::getUserID)
-                    .collect(Collectors.toList());
-
+            List<Integer> userIds = registrations.stream().map(EventRegistration::getUserID).collect(Collectors.toList());
             List<UserAccount> users = userRepository.findAllByUserIDIn(userIds);
-
-            String subject = "Thông báo hủy sự kiện: " + event.getEventName();
-            String content = "Sự kiện " + event.getEventName() + " đã bị hủy với lý do:\n" + request.getReason();
-
+            String subject = "Event cancelled: " + event.getEventName();
+            String content = "Event " + event.getEventName() + " was cancelled. Reason:\n" + request.getReason();
             for (UserAccount user : users) {
                 emailService.sendSimpleEmail(user.getEmail(), subject, content);
             }
         }
     }
 
-    /**
-     * BR-E07: PDP/Admin phê duyệt hoặc từ chối đề xuất sự kiện.
-     * Khi duyệt sẽ kiểm tra ngân sách lớn, trùng lịch/địa điểm và ghi audit log.
-     */
     @Override
     @Transactional
     public EventApprovalResponse approveEvent(Integer eventId, EventApprovalRequest request, UserPrincipal currentUser) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
-                .orElseThrow(() -> new BusinessRuleException("Sự kiện không tồn tại.", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new BusinessRuleException("Event not found.", HttpStatus.NOT_FOUND));
 
         String decision = normalizeDecision(request.getDecision());
         String oldStatus = event.getEventStatus();
         String feedback = request.getPdpFeedback();
 
         if (STATUS_APPROVED.equals(decision)) {
+            assertApproverCannotBeCreator(event, currentUser);
             validateHighBudgetFeedback(event, feedback);
             validateEventBeforeSemesterSettlement(event);
             validateScheduleConflict(event);
@@ -222,10 +237,11 @@ public class EventServiceImpl implements EventService {
         Event savedEvent = eventRepository.save(event);
 
         saveApprovalAuditLog(currentUser.getUserId(), savedEvent, oldStatus, decision, feedback, now);
+        publishLifecycleEvent(savedEvent, oldStatus, decision, currentUser.getUserId(), feedback);
 
         String message = STATUS_APPROVED.equals(decision)
-                ? "Sự kiện đã được phê duyệt."
-                : "Sự kiện đã bị từ chối.";
+                ? "Event has been approved."
+                : "Event has been rejected.";
 
         return new EventApprovalResponse(
                 savedEvent.getEventID(),
@@ -239,7 +255,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public List<Event> getPendingEvents() {
-        return eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_PENDING);
+        return eventRepository.findByEventStatusInAndIsDeletedFalse(List.of(STATUS_PENDING, STATUS_PENDING_APPROVAL));
     }
 
     @Override
@@ -251,8 +267,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public Event getEventById(Integer eventId) {
-        return eventRepository.findByEventIDAndIsDeletedFalse(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
+        return getActiveEventOrThrow(eventId);
     }
 
     @Override
@@ -264,26 +279,24 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void checkIn(Integer eventId, String studentId) {
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
-
-        if (!"Ongoing".equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Sự kiện không trong trạng thái đang diễn ra (Ongoing).");
+        Event event = getActiveEventOrThrow(eventId);
+        if (!STATUS_ONGOING.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Event must be Ongoing for check-in.");
         }
 
         UserAccount user = userRepository.findByStudentId(studentId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sinh viên với mã: " + studentId));
-        Integer userId = user.getUserID();
+                .orElseThrow(() -> new IllegalArgumentException("Student not found: " + studentId));
 
+        Integer userId = user.getUserID();
         if (!registrationRepository.existsByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)) {
-            throw new IllegalArgumentException("Người dùng chưa đăng ký sự kiện này.");
+            throw new IllegalArgumentException("User is not registered for this event.");
         }
 
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Phiên điểm danh không tồn tại."));
+                .orElseThrow(() -> new IllegalArgumentException("Attendance session not found."));
 
         if (attendanceRecordRepository.findBySessionIDAndUserID(session.getSessionID(), userId).isPresent()) {
-            throw new IllegalArgumentException("Người dùng đã được điểm danh trước đó.");
+            throw new IllegalArgumentException("User already checked in.");
         }
 
         AttendanceRecord record = new AttendanceRecord();
@@ -293,17 +306,15 @@ public class EventServiceImpl implements EventService {
         attendanceRecordRepository.save(record);
     }
 
-        @Override
+    @Override
     @Transactional
     public void startEvent(Integer eventId) {
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("S? ki?n kh�ng t?n t?i."));
-
-        if (!STATUS_APPROVED.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Ch? c� th? b?t d?u s? ki?n ? tr?ng th�i Approved.");
+        Event event = getActiveEventOrThrow(eventId);
+        if (!STATUS_APPROVED.equals(event.getEventStatus()) && !STATUS_PENDING_APPROVAL.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Event must be Approved or PendingApproval to start.");
         }
 
-        event.setEventStatus("Ongoing");
+        event.setEventStatus(STATUS_ONGOING);
         eventRepository.save(event);
 
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElseGet(() -> {
@@ -323,45 +334,34 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void finishEvent(Integer eventId) {
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
-
-        if (!"Ongoing".equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Chỉ có thể kết thúc sự kiện đang ở trạng thái Ongoing.");
+        Event event = getActiveEventOrThrow(eventId);
+        if (!STATUS_ONGOING.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Event must be Ongoing to finish.");
         }
-
-        event.setEventStatus("Completed");
+        event.setEventStatus(STATUS_COMPLETED);
         eventRepository.save(event);
     }
 
     @Override
     @Transactional
     public void closeEvent(Integer eventId) {
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
-
-        if (!"Completed".equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Chỉ có thể đóng sự kiện đã hoàn thành (Completed).");
+        Event event = getActiveEventOrThrow(eventId);
+        if (!STATUS_COMPLETED.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Event must be Completed to close.");
         }
-
-        event.setEventStatus("Closed");
+        event.setEventStatus(STATUS_CLOSED);
         eventRepository.save(event);
-        // TODO: Trigger Email Cảm ơn/Certificate tự động
     }
 
     @Override
     public List<ContributionDTO> getEventContributions(Integer eventId) {
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
-        if ("Closed".equals(event.getEventStatus())) {
-             // Maybe allow read-only? The requirement says 'Closed - read only'.
-             // Assuming read-only applies to changes, not reads.
-        }
-        
+        Event event = getActiveEventOrThrow(eventId);
         List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(eventId);
         List<EventAssignment> assignments = eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId);
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElse(null);
-        List<AttendanceRecord> attendanceRecords = (session != null) ? attendanceRecordRepository.findBySessionID(session.getSessionID()) : List.of(); 
+        List<AttendanceRecord> attendanceRecords = session == null
+                ? List.of()
+                : attendanceRecordRepository.findBySessionID(session.getSessionID());
 
         return registrations.stream().map(reg -> {
             Integer userId = reg.getUserID();
@@ -370,7 +370,7 @@ public class EventServiceImpl implements EventService {
             String contributionType = assignments.stream()
                     .filter(a -> a.getUserID().equals(userId))
                     .findFirst()
-                    .map(a -> a.getEventRoleID() == 1 ? "CORE_TEAM" : "SUPPORT_ORGANIZER")
+                    .map(a -> a.getEventRoleID() != null && a.getEventRoleID() == 1 ? "CORE_TEAM" : "SUPPORT_ORGANIZER")
                     .orElseGet(() -> {
                         boolean present = attendanceRecords.stream()
                                 .anyMatch(ar -> ar.getUserID().equals(userId) && "Present".equals(ar.getAttendanceStatus()));
@@ -384,48 +384,40 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void saveEventContributions(Integer eventId, List<ContributionDTO> contributions) {
-        Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
-        if ("Closed".equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Sự kiện đã đóng, không thể thay đổi dữ liệu.");
+        Event event = getActiveEventOrThrow(eventId);
+        if (STATUS_CLOSED.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Event is closed and cannot be modified.");
         }
-        
+
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Phiên điểm danh không tồn tại."));
+                .orElseThrow(() -> new IllegalArgumentException("Attendance session not found."));
 
         for (ContributionDTO dto : contributions) {
             Integer userId = dto.getUserID();
             String type = dto.getContributionType();
 
-            // Update Performance
             MemberPerformance performance = memberPerformanceRepository
                     .findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
                     .orElse(new MemberPerformance());
-            
             performance.setClubID(event.getClubID());
             performance.setEventID(eventId);
             performance.setUserID(userId);
             performance.setBonusPoints(calculateScore(type));
             memberPerformanceRepository.save(performance);
 
-            // Update Assignment
             EventAssignment assignment = eventAssignmentRepository
                     .findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
                     .orElse(new EventAssignment());
-            
             assignment.setEventID(eventId);
             assignment.setUserID(userId);
-            // Assuming 1 = CORE_TEAM, 2 = SUPPORT_ORGANIZER
             assignment.setEventRoleID("CORE_TEAM".equals(type) ? 1 : ("SUPPORT_ORGANIZER".equals(type) ? 2 : null));
             assignment.setAssignedAt(LocalDateTime.now());
             assignment.setIsDeleted(!"CORE_TEAM".equals(type) && !"SUPPORT_ORGANIZER".equals(type));
             eventAssignmentRepository.save(assignment);
 
-            // Update Attendance
             AttendanceRecord record = attendanceRecordRepository
                     .findBySessionIDAndUserID(session.getSessionID(), userId)
                     .orElse(new AttendanceRecord());
-            
             record.setSessionID(session.getSessionID());
             record.setUserID(userId);
             record.setAttendanceStatus("PARTICIPANT".equals(type) ? "Present" : ("ABSENT".equals(type) ? "Absent" : "Present"));
@@ -433,33 +425,14 @@ public class EventServiceImpl implements EventService {
         }
     }
 
-    private int calculateScore(String type) {
-        switch (type) {
-            case "CORE_TEAM": return 50;
-            case "SUPPORT_ORGANIZER": return 30;
-            case "PARTICIPANT": return 20;
-            default: return 0; // ABSENT or others
-        }
-    }
-
-    private Integer resolveEventRoleId(Integer eventRoleId) {
-        if (eventRoleId == null) {
-            throw new IllegalArgumentException("Vui lòng chọn vai trò sự kiện hợp lệ.");
-        }
-        return eventRoleRepository.findByEventRoleIDAndIsDeletedFalse(eventRoleId)
-                .map(EventRole::getEventRoleID)
-                .orElseThrow(() -> new IllegalArgumentException("Vai trò sự kiện không tồn tại hoặc đã bị xoá."));
-    }
-
-
     @Override
     @Transactional
     public void approveEvent(Integer eventId) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
+                .orElseThrow(() -> new IllegalArgumentException("Event not found."));
 
-        if (!STATUS_PENDING.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Chỉ có thể phê duyệt sự kiện đang ở trạng thái chờ duyệt (Pending).");
+        if (!STATUS_PENDING.equals(event.getEventStatus()) && !STATUS_PENDING_APPROVAL.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Event must be Pending or PendingApproval before approval.");
         }
 
         validateEventBeforeSemesterSettlement(event);
@@ -474,81 +447,112 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public void rejectEvent(Integer eventId, String reason) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Sự kiện không tồn tại."));
+                .orElseThrow(() -> new IllegalArgumentException("Event not found."));
+        String oldStatus = event.getEventStatus();
 
-        if (!STATUS_PENDING.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Chỉ có thể từ chối sự kiện đang ở trạng thái chờ duyệt (Pending).");
+        if (!STATUS_PENDING.equals(event.getEventStatus()) && !STATUS_PENDING_APPROVAL.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Event must be Pending or PendingApproval before rejection.");
         }
 
         event.setEventStatus(STATUS_REJECTED);
         event.setPdpFeedback(reason);
         event.setRejectionReason(reason);
-        eventRepository.save(event);
+        Event savedEvent = eventRepository.save(event);
+        publishLifecycleEvent(savedEvent, oldStatus, STATUS_REJECTED, null, reason);
+    }
+
+    private Event getActiveEventOrThrow(Integer eventId) {
+        return eventRepository.findByEventIDAndIsDeletedFalse(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Event not found."));
+    }
+
+    private void validateCreateRequest(CreateEventProposalRequest request) {
+        if (request.getEventName() == null || request.getEventName().trim().length() < 5 || request.getEventName().trim().length() > 150) {
+            throw new IllegalArgumentException("eventName must be between 5 and 150 characters.");
+        }
+        if (request.getStartDate() == null || request.getEndDate() == null) {
+            throw new IllegalArgumentException("startDate and endDate are required.");
+        }
+        if (!request.getStartDate().isAfter(LocalDateTime.now())) {
+            throw new IllegalArgumentException("startDate must be in the future.");
+        }
+    }
+
+    private void validateEventBeforeSubmission(Event event) {
+        if (event.getStartDate() == null || event.getEndDate() == null) {
+            throw new IllegalArgumentException("Event dates are required before submit.");
+        }
+        if (!event.getEndDate().isAfter(event.getStartDate())) {
+            throw new IllegalArgumentException("endDate must be after startDate.");
+        }
+        if (!event.getStartDate().isAfter(LocalDateTime.now().plusDays(7))) {
+            throw new IllegalArgumentException("startDate must be at least 7 days from now before submit.");
+        }
+    }
+
+    private void assertCanModifyDraft(Event event, UserPrincipal currentUser) {
+        if (event.getCreatedBy() != null && currentUser != null && !event.getCreatedBy().equals(currentUser.getUserId())) {
+            throw new BusinessRuleException("Only the creator can modify this draft.", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    private void assertApproverCannotBeCreator(Event event, UserPrincipal currentUser) {
+        if (event.getCreatedBy() != null && currentUser != null && event.getCreatedBy().equals(currentUser.getUserId())) {
+            throw new BusinessRuleException("The creator cannot approve their own event.", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    private Integer resolveEventRoleId(Integer eventRoleId) {
+        if (eventRoleId == null) {
+            throw new IllegalArgumentException("Event role is required.");
+        }
+        return eventRoleRepository.findByEventRoleIDAndIsDeletedFalse(eventRoleId)
+                .map(EventRole::getEventRoleID)
+                .orElseThrow(() -> new IllegalArgumentException("Event role not found or deleted."));
     }
 
     private String normalizeDecision(String decision) {
         if (!StringUtils.hasText(decision)) {
-            throw new BusinessRuleException("decision chỉ được là Approved hoặc Rejected.", HttpStatus.BAD_REQUEST);
+            throw new BusinessRuleException("decision must be Approved or Rejected.", HttpStatus.BAD_REQUEST);
         }
-
         String normalized = decision.trim();
         if (!STATUS_APPROVED.equals(normalized) && !STATUS_REJECTED.equals(normalized)) {
-            throw new BusinessRuleException("decision chỉ được là Approved hoặc Rejected.", HttpStatus.BAD_REQUEST);
+            throw new BusinessRuleException("decision must be Approved or Rejected.", HttpStatus.BAD_REQUEST);
         }
         return normalized;
     }
 
-    /**
-     * Sự kiện ngân sách trên 5.000.000 VNĐ bắt buộc PDP nhập ghi chú phê duyệt.
-     */
     private void validateHighBudgetFeedback(Event event, String feedback) {
         BigDecimal budget = event.getBudget() == null ? BigDecimal.ZERO : event.getBudget();
         if (budget.compareTo(HIGH_BUDGET_THRESHOLD) > 0 && !StringUtils.hasText(feedback)) {
-            throw new BusinessRuleException(
-                    "Vui lòng nhập ghi chú phê duyệt cho sự kiện có ngân sách trên 5.000.000 VNĐ."
-            );
+            throw new BusinessRuleException("Feedback is required for events above the budget threshold.");
         }
     }
 
-    /**
-     * Check overlap theo công thức: current.start < other.end AND current.end > other.start.
-     */
     private void validateScheduleConflict(Event event) {
-        boolean hasConflict = eventRepository
-                .existsByLocationAndEventIDNotAndEventStatusAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
-                        event.getLocation(),
-                        event.getEventID(),
-                        STATUS_APPROVED,
-                        event.getEndDate(),
-                        event.getStartDate()
-                );
-
+        boolean hasConflict = eventRepository.existsByLocationAndEventIDNotAndEventStatusAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
+                event.getLocation(),
+                event.getEventID(),
+                STATUS_APPROVED,
+                event.getEndDate(),
+                event.getStartDate()
+        );
         if (hasConflict) {
-            throw new BusinessRuleException("Sự kiện bị trùng lịch hoặc địa điểm.", HttpStatus.CONFLICT);
+            throw new BusinessRuleException("Event conflicts with another approved event.", HttpStatus.CONFLICT);
         }
     }
 
-    /**
-     * AuditLog dùng lại bảng hiện có để lưu vết quyết định EVENT_APPROVED/EVENT_REJECTED.
-     */
-
-    /**
-     * Event được duyệt phải kết thúc không muộn hơn ngày kết toán học kỳ (endDate - 1 ngày)
-     * để hệ thống có đủ thời gian chốt ranking và trao thưởng.
-     */
     private void validateEventBeforeSemesterSettlement(Event event) {
         Semester semester = semesterRepository.findById(event.getSemesterID())
-                .orElseThrow(() -> new BusinessRuleException("Học kỳ của sự kiện không tồn tại.", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new BusinessRuleException("Semester not found.", HttpStatus.NOT_FOUND));
 
         LocalDate settlementDate = semester.getEndDate().minusDays(1);
         LocalDate eventEndDate = event.getEndDate().toLocalDate();
         if (eventEndDate.isAfter(settlementDate)) {
-            throw new BusinessRuleException(
-                    "Không thể duyệt sự kiện kết thúc sau ngày kết toán học kỳ " + settlementDate + ".",
-                    HttpStatus.CONFLICT
-            );
+            throw new BusinessRuleException("Event must end before semester settlement date " + settlementDate + ".", HttpStatus.CONFLICT);
         }
     }
+
     private void saveApprovalAuditLog(
             Integer actorId,
             Event event,
@@ -568,4 +572,26 @@ public class EventServiceImpl implements EventService {
         auditLog.setExecutedAt(executedAt);
         auditLogRepository.save(auditLog);
     }
+
+    private void publishLifecycleEvent(Event event, String oldStatus, String newStatus, Integer actorId, String reason) {
+        applicationEventPublisher.publishEvent(new EventLifecycleChangedEvent(
+                event.getEventID(),
+                event.getClubID(),
+                event.getCreatedBy(),
+                oldStatus,
+                newStatus,
+                actorId,
+                reason
+        ));
+    }
+
+    private int calculateScore(String type) {
+        return switch (type) {
+            case "CORE_TEAM" -> 50;
+            case "SUPPORT_ORGANIZER" -> 30;
+            case "PARTICIPANT" -> 20;
+            default -> 0;
+        };
+    }
 }
+
