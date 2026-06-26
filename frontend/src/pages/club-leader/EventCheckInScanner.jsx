@@ -19,11 +19,6 @@ const EventCheckInScanner = ({ eventId, eventStatus }) => {
         try {
             // Gọi API check-in với studentId
             await eventService.checkIn(eventId, searchQuery);
-            
-            // Play success sound
-            const audio = new Audio('/success-bell.mp3'); // Mock sound
-            audio.play().catch(e => console.log('Audio play failed', e));
-
             addNotification(`Điểm danh thành công cho ${searchQuery}`, 'success');
             setSearchQuery('');
         } catch (error) {

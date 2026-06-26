@@ -91,6 +91,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void createEventProposal(CreateEventProposalRequest request, UserPrincipal currentUser) {
+        System.out.println("[DEBUG] bannerUrl received: " + (request.getBannerUrl() != null ? "length=" + request.getBannerUrl().length() : "NULL"));
         validateCreateRequest(request);
 
         LocalDateTime now = LocalDateTime.now();
@@ -118,6 +119,7 @@ public class EventServiceImpl implements EventService {
         event.setIsResubmitted(isResubmit);
         event.setIsInternal(Boolean.TRUE.equals(request.getIsInternal()));
         event.setIsScoreLocked(false);
+        event.setBannerUrl(request.getBannerUrl());
         event.setCreatedAt(now);
         event.setCreatedBy(currentUser.getUserId());
         event.setIsDeleted(false);
@@ -261,7 +263,8 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public List<Event> getApprovedEvents() {
-        return eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_APPROVED);
+        return eventRepository.findByEventStatusInAndIsDeletedFalse(
+                List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_ONGOING));
     }
 
     @Override
@@ -281,37 +284,44 @@ public class EventServiceImpl implements EventService {
     public void checkIn(Integer eventId, String studentId) {
         Event event = getActiveEventOrThrow(eventId);
         if (!STATUS_ONGOING.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event must be Ongoing for check-in.");
+            throw new IllegalArgumentException("Sự kiện chưa bắt đầu, không thể điểm danh.");
         }
 
         UserAccount user = userRepository.findByStudentId(studentId)
-                .orElseThrow(() -> new IllegalArgumentException("Student not found: " + studentId));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sinh viên với mã: " + studentId));
 
         Integer userId = user.getUserID();
         if (!registrationRepository.existsByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)) {
-            throw new IllegalArgumentException("User is not registered for this event.");
+            throw new IllegalArgumentException("Sinh viên chưa đăng ký sự kiện này.");
         }
 
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Attendance session not found."));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phiên điểm danh cho sự kiện này."));
 
         if (attendanceRecordRepository.findBySessionIDAndUserID(session.getSessionID(), userId).isPresent()) {
-            throw new IllegalArgumentException("User already checked in.");
+            throw new IllegalArgumentException("Sinh viên đã được điểm danh rồi.");
         }
 
         AttendanceRecord record = new AttendanceRecord();
         record.setSessionID(session.getSessionID());
         record.setUserID(userId);
         record.setAttendanceStatus("Present");
+        record.setMarkedAt(LocalDateTime.now());
+        record.setIsVerifiedByAI(false);
+        record.setIsDeleted(false);
         attendanceRecordRepository.save(record);
     }
+
+    private static final String STATUS_REGISTRATION_OPEN = "RegistrationOpen";
 
     @Override
     @Transactional
     public void startEvent(Integer eventId) {
         Event event = getActiveEventOrThrow(eventId);
-        if (!STATUS_APPROVED.equals(event.getEventStatus()) && !STATUS_PENDING_APPROVAL.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event must be Approved or PendingApproval to start.");
+        if (!STATUS_APPROVED.equals(event.getEventStatus())
+                && !STATUS_PENDING_APPROVAL.equals(event.getEventStatus())
+                && !STATUS_REGISTRATION_OPEN.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Event must be Approved, PendingApproval, or RegistrationOpen to start.");
         }
 
         event.setEventStatus(STATUS_ONGOING);
@@ -423,6 +433,17 @@ public class EventServiceImpl implements EventService {
             record.setAttendanceStatus("PARTICIPANT".equals(type) ? "Present" : ("ABSENT".equals(type) ? "Absent" : "Present"));
             attendanceRecordRepository.save(record);
         }
+    }
+
+    @Override
+    @Transactional
+    public void openRegistration(Integer eventId) {
+        Event event = getActiveEventOrThrow(eventId);
+        if (!STATUS_APPROVED.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Event must be Approved to open registration.");
+        }
+        event.setEventStatus("RegistrationOpen");
+        eventRepository.save(event);
     }
 
     @Override

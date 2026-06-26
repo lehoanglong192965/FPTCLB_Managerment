@@ -494,6 +494,7 @@ export default function EventProposalForm({ onClose, onSubmit }) {
         endDate,
         isResubmitted: false,
         isInternal:    form.isInternal,
+        bannerUrl:     form.banner || null,
         assignments:   null,
       });
 

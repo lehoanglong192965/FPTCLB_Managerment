@@ -95,6 +95,9 @@ public class Event {
     @Column(name = "createdBy")
     private Integer createdBy;
 
+    @Column(name = "bannerUrl", columnDefinition = "NVARCHAR(MAX)")
+    private String bannerUrl;
+
     @Column(name = "isDeleted")
     private Boolean isDeleted;
 

@@ -32,4 +32,5 @@ public class CreateEventProposalRequest {
     private Boolean isResubmitted;
     private Boolean isInternal;
     private List<EventAssignmentDto> assignments;
+    private String bannerUrl;
 }

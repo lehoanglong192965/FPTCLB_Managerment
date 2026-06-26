@@ -8,26 +8,34 @@ import FinishEventModal from "../../components/events/FinishEventModal";
 import CloseEventButton from "../icpdp/CloseEventButton";
 
 const STATUS_CFG = {
-  // Title case (localStorage / frontend)
-  Draft:     { label: "Bản nháp",      color: "#6b7280", bg: "#f3f4f6" },
-  Pending:   { label: "Chờ duyệt",     color: "#d97706", bg: "#fffbeb" },
-  Approved:  { label: "Đã duyệt",      color: "#059669", bg: "#ecfdf5" },
-  Upcoming:  { label: "Sắp diễn ra",   color: "#059669", bg: "#ecfdf5" },
-  Ongoing:   { label: "Đang diễn ra",  color: "#2563eb", bg: "#eff6ff" },
-  Completed: { label: "Đã kết thúc",   color: "#7c3aed", bg: "#f5f3ff" },
-  Closed:    { label: "Đã đóng",       color: "#374151", bg: "#e5e7eb" },
-  Cancelled: { label: "Đã hủy",        color: "#dc2626", bg: "#fef2f2" },
-  // UPPERCASE (trực tiếp từ backend DB)
-  DRAFT:     { label: "Bản nháp",      color: "#6b7280", bg: "#f3f4f6" },
-  PENDING:   { label: "Chờ duyệt",     color: "#d97706", bg: "#fffbeb" },
-  APPROVED:  { label: "Đã duyệt",      color: "#059669", bg: "#ecfdf5" },
-  UPCOMING:  { label: "Sắp diễn ra",   color: "#059669", bg: "#ecfdf5" },
-  ONGOING:   { label: "Đang diễn ra",  color: "#2563eb", bg: "#eff6ff" },
-  COMPLETED: { label: "Đã kết thúc",   color: "#7c3aed", bg: "#f5f3ff" },
-  CLOSED:    { label: "Đã đóng",       color: "#374151", bg: "#e5e7eb" },
-  CANCELLED: { label: "Đã hủy",        color: "#dc2626", bg: "#fef2f2" },
+  // Title case (từ backend API)
+  Draft:            { label: "Bản nháp",         color: "#6b7280", bg: "#f3f4f6" },
+  Pending:          { label: "Chờ duyệt",         color: "#d97706", bg: "#fffbeb" },
+  PendingApproval:  { label: "Chờ ICPDP duyệt",  color: "#d97706", bg: "#fffbeb" },
+  Approved:         { label: "Đã duyệt",          color: "#059669", bg: "#ecfdf5" },
+  RegistrationOpen: { label: "Mở đăng ký",        color: "#0891b2", bg: "#e0f2fe" },
+  Upcoming:         { label: "Sắp diễn ra",        color: "#059669", bg: "#ecfdf5" },
+  Ongoing:          { label: "Đang diễn ra",       color: "#2563eb", bg: "#eff6ff" },
+  Completed:        { label: "Đã kết thúc",        color: "#7c3aed", bg: "#f5f3ff" },
+  ReportUploaded:   { label: "Đã nộp báo cáo",    color: "#9333ea", bg: "#faf5ff" },
+  Closed:           { label: "Đã đóng",            color: "#374151", bg: "#e5e7eb" },
+  Cancelled:        { label: "Đã hủy",             color: "#dc2626", bg: "#fef2f2" },
+  Rejected:         { label: "Bị từ chối",         color: "#b91c1c", bg: "#fff1f2" },
+  // UPPERCASE fallback
+  DRAFT:            { label: "Bản nháp",           color: "#6b7280", bg: "#f3f4f6" },
+  PENDING:          { label: "Chờ duyệt",          color: "#d97706", bg: "#fffbeb" },
+  PENDINGAPPROVAL:  { label: "Chờ ICPDP duyệt",   color: "#d97706", bg: "#fffbeb" },
+  APPROVED:         { label: "Đã duyệt",           color: "#059669", bg: "#ecfdf5" },
+  REGISTRATIONOPEN: { label: "Mở đăng ký",         color: "#0891b2", bg: "#e0f2fe" },
+  UPCOMING:         { label: "Sắp diễn ra",         color: "#059669", bg: "#ecfdf5" },
+  ONGOING:          { label: "Đang diễn ra",        color: "#2563eb", bg: "#eff6ff" },
+  COMPLETED:        { label: "Đã kết thúc",         color: "#7c3aed", bg: "#f5f3ff" },
+  REPORTUPLOADED:   { label: "Đã nộp báo cáo",     color: "#9333ea", bg: "#faf5ff" },
+  CLOSED:           { label: "Đã đóng",             color: "#374151", bg: "#e5e7eb" },
+  CANCELLED:        { label: "Đã hủy",              color: "#dc2626", bg: "#fef2f2" },
+  REJECTED:         { label: "Bị từ chối",          color: "#b91c1c", bg: "#fff1f2" },
   // lowercase (CreateEventPage saveToLocal)
-  pending:   { label: "Chờ duyệt",     color: "#d97706", bg: "#fffbeb" },
+  pending:          { label: "Chờ duyệt",          color: "#d97706", bg: "#fffbeb" },
 };
 
 const REASON_MIN = 20;
@@ -171,9 +179,10 @@ export default function ClubEventsMgmt() {
 
   const [search, setSearch]             = useState("");
   const [events, setEvents]             = useState(() => loadLocal(clubId));
-  const [cancelTarget, setCancelTarget] = useState(null);
-  const [finishTarget, setFinishTarget] = useState(null);
-  const [startingId, setStartingId]     = useState(null);
+  const [cancelTarget, setCancelTarget]         = useState(null);
+  const [finishTarget, setFinishTarget]         = useState(null);
+  const [startingId, setStartingId]             = useState(null);
+  const [openingRegId, setOpeningRegId]         = useState(null);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -311,23 +320,52 @@ export default function ClubEventsMgmt() {
                       {cfg.label}
                     </span>
 
-                    {/* Draft/DRAFT: Gửi đề xuất + Hủy */}
+                    {/* Draft: chỉ Gửi đề xuất (không Hủy — backend từ chối cancel từ Draft) */}
                     {status === "DRAFT" && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await eventService.submit(ev.eventID);
+                            setEvents((prev) =>
+                              prev.map((e) => e.eventID === ev.eventID ? { ...e, eventStatus: "PendingApproval" } : e)
+                            );
+                          } catch (e) {
+                            alert("Lỗi gửi đề xuất: " + (e.response?.data?.message || e.message));
+                          }
+                        }}
+                        style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#059669", color: "#fff", border: "none", cursor: "pointer" }}
+                      >
+                        Gửi đề xuất
+                      </button>
+                    )}
+
+                    {/* Approved/Upcoming: Phân công + Mở đăng ký + Hủy */}
+                    {(status === "APPROVED" || status === "UPCOMING") && (
                       <>
                         <button
+                          onClick={() => navigate(`${ev.eventID}/assignments`, { relative: "path" })}
+                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#2563eb", color: "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+                        >
+                          <Users size={12} /> Phân công
+                        </button>
+                        <button
+                          disabled={openingRegId === ev.eventID}
                           onClick={async () => {
+                            setOpeningRegId(ev.eventID);
                             try {
-                              await eventService.submit(ev.eventID);
+                              await eventService.openRegistration(ev.eventID);
                               setEvents((prev) =>
-                                prev.map((e) => e.eventID === ev.eventID ? { ...e, eventStatus: "PENDING" } : e)
+                                prev.map((e) => e.eventID === ev.eventID ? { ...e, eventStatus: "RegistrationOpen" } : e)
                               );
                             } catch (e) {
-                              alert("Lỗi gửi đề xuất: " + e.message);
+                              alert("Lỗi mở đăng ký: " + (e.response?.data?.message || e.message));
+                            } finally {
+                              setOpeningRegId(null);
                             }
                           }}
-                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#059669", color: "#fff", border: "none", cursor: "pointer" }}
+                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: openingRegId === ev.eventID ? "#67e8f9" : "#0891b2", color: "#fff", border: "none", cursor: openingRegId === ev.eventID ? "not-allowed" : "pointer" }}
                         >
-                          Gửi đề xuất
+                          {openingRegId === ev.eventID ? "Đang xử lý..." : "Mở đăng ký"}
                         </button>
                         <button
                           onClick={() => setCancelTarget(ev)}
@@ -338,8 +376,8 @@ export default function ClubEventsMgmt() {
                       </>
                     )}
 
-                    {/* Approved/Upcoming: Phân công + Bắt đầu + Hủy */}
-                    {(status === "APPROVED" || status === "UPCOMING") && (
+                    {/* RegistrationOpen: Phân công + Bắt đầu + Hủy */}
+                    {status === "REGISTRATIONOPEN" && (
                       <>
                         <button
                           onClick={() => navigate(`${ev.eventID}/assignments`, { relative: "path" })}
@@ -354,7 +392,7 @@ export default function ClubEventsMgmt() {
                             try {
                               await eventService.start(ev.eventID);
                               setEvents((prev) =>
-                                prev.map((e) => e.eventID === ev.eventID ? { ...e, eventStatus: "ONGOING" } : e)
+                                prev.map((e) => e.eventID === ev.eventID ? { ...e, eventStatus: "Ongoing" } : e)
                               );
                             } catch (e) {
                               alert("Lỗi bắt đầu sự kiện: " + (e.response?.data?.message || e.message));
@@ -393,18 +431,18 @@ export default function ClubEventsMgmt() {
                       </>
                     )}
 
-                    {/* Completed: Báo cáo + Đóng */}
-                    {status === "COMPLETED" && (
+                    {/* Completed/ReportUploaded: Chốt đóng góp + Đóng sự kiện */}
+                    {(status === "COMPLETED" || status === "REPORTUPLOADED") && (
                       <>
                         <button
                           onClick={() => navigate(`../contributions/${ev.eventID}`, { relative: "path" })}
                           style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#2563eb", color: "#fff", border: "none", cursor: "pointer" }}
                         >
-                          Báo cáo
+                          Chốt đóng góp
                         </button>
                         <CloseEventButton
                           eventId={ev.eventID}
-                          eventStatus="Completed"
+                          eventStatus={ev.eventStatus}
                           onCloseSuccess={() => window.location.reload()}
                         />
                       </>

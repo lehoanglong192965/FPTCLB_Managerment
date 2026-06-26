@@ -30,6 +30,8 @@ public class ReportUploadServiceImpl implements ReportUploadService {
     private static final long MAX_PDF_SIZE_BYTES = 10L * 1024 * 1024;
     private static final byte[] PDF_MAGIC = new byte[] {'%', 'P', 'D', 'F', '-'};
 
+    private static final String STATUS_REPORT_UPLOADED = "ReportUploaded";
+
     private final EventRepository eventRepository;
     private final EventReportRepository eventReportRepository;
     private final ClamAvScanService clamAvScanService;
@@ -42,6 +44,10 @@ public class ReportUploadServiceImpl implements ReportUploadService {
     public Map<String, String> uploadEventReport(CreateEventReportRequest request) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(request.getEventID())
                 .orElseThrow(() -> new IllegalArgumentException("Event not found."));
+
+        if (!"Completed".equals(event.getEventStatus()) && !"Ongoing".equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Only Completed or Ongoing events can have reports uploaded.");
+        }
 
         MultipartFile file = request.getFile();
         validatePdf(file);
@@ -61,6 +67,9 @@ public class ReportUploadServiceImpl implements ReportUploadService {
             report.setUploadedAt(LocalDateTime.now());
             report.setIsDeleted(false);
             eventReportRepository.save(report);
+
+            event.setEventStatus(STATUS_REPORT_UPLOADED);
+            eventRepository.save(event);
 
             return Map.of(
                     "reportID", String.valueOf(report.getReportID()),

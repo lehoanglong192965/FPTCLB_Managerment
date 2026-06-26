@@ -67,6 +67,9 @@ jwt:
 
 server:
   port: 8080
+  tomcat:
+    max-http-form-post-size: -1
+    max-swallow-size: -1
 
 # OTP Configuration
 otp:

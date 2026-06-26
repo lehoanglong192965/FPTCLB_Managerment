@@ -6,8 +6,8 @@ const CloseEventButton = ({ eventId, eventStatus, onCloseSuccess }) => {
     const { addNotification } = useNotifications();
     const [isLoading, setIsLoading] = useState(false);
 
-    // Chỉ hiển thị nút Đóng sự kiện nếu trạng thái là REPORTED (hoặc COMPLETED tùy theo luồng thực tế)
-    if (eventStatus !== 'Reported' && eventStatus !== 'Completed') {
+    const normalizedStatus = (eventStatus || "").toUpperCase();
+    if (!["COMPLETED", "REPORTUPLOADED", "REPORTED"].includes(normalizedStatus)) {
         return null;
     }
 

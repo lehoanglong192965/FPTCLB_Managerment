@@ -3,46 +3,38 @@ import { Search, SlidersHorizontal } from "lucide-react";
 import EventCard from "../../components/events/EventCard";
 import eventService from "../../services/api/events/eventService";
 import clubService from "../../services/api/clubs/clubService";
+import { useAuth } from "../../contexts/AuthContext";
 
 const ALL_TAGS = ["Tất cả", "Công nghệ", "Âm nhạc", "Thể thao", "Hội thảo", "Cộng đồng", "Giải trí"];
 
 export default function MemberEvents() {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState("Tất cả");
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef(null);
   const [events, setEvents] = useState([]);
   const [clubs, setClubs] = useState([]);
+  const [registeredIds, setRegisteredIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
-    const safeGet = async (fn, delayMs = 0) => {
-      if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
-      if (cancelled) return null;
-      try {
-        return await fn();
-      } catch (err) {
-        if (err?.code !== "ERR_CANCELED" && err?.name !== "CanceledError") throw err;
-        // Bị dedup-cancel, thử lại 1 lần sau 250ms
-        await new Promise((r) => setTimeout(r, 250));
-        if (cancelled) return null;
-        return await fn();
-      }
-    };
-
     const load = async () => {
       try {
-        const eventRes = await safeGet(() => eventService.getApprovedEvents());
-        if (cancelled || !eventRes) return;
-        // Hiện events ngay, không đợi clubs
-        setEvents(Array.isArray(eventRes) ? eventRes : (eventRes?.content ?? eventRes?.data ?? []));
-        setLoading(false);
+        const [eventRes, clubRes, regRes] = await Promise.all([
+          eventService.getApprovedEvents().catch(() => []),
+          clubService.getAll().catch(() => []),
+          user ? eventService.getMyRegistrations().catch(() => []) : Promise.resolve([]),
+        ]);
+        if (cancelled) return;
 
-        const clubRes = await safeGet(() => clubService.getAll(), 100);
-        if (cancelled || !clubRes) return;
+        setEvents(Array.isArray(eventRes) ? eventRes : (eventRes?.content ?? eventRes?.data ?? []));
         setClubs(Array.isArray(clubRes) ? clubRes : (clubRes?.content ?? clubRes?.data ?? []));
+
+        const regList = Array.isArray(regRes) ? regRes : [];
+        setRegisteredIds(new Set(regList.map((r) => Number(r.eventID))));
       } catch (err) {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
         console.error("Lỗi khi tải sự kiện/CLB:", err);
@@ -53,7 +45,7 @@ export default function MemberEvents() {
 
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -79,10 +71,12 @@ export default function MemberEvents() {
       venue: e.location || "Chưa xếp phòng",
       desc: e.description,
       badgeType: e.eventStatus === "Ongoing" ? "upcoming" : "open",
+      bannerUrl: e.bannerUrl ?? null,
     };
   });
 
   const filtered = mappedEvents.filter((e) => {
+    if (registeredIds.has(Number(e.id))) return false;
     const matchSearch = e.title.toLowerCase().includes(search.toLowerCase()) ||
                         e.club.toLowerCase().includes(search.toLowerCase());
     const matchTag = activeTag === "Tất cả" || e.tag === activeTag;

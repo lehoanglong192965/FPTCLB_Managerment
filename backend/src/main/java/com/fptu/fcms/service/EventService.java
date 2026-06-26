@@ -32,6 +32,7 @@ public interface EventService {
     void saveEventContributions(Integer eventId, List<ContributionDTO> contributions);
     void approveEvent(Integer eventId);
     void rejectEvent(Integer eventId, String reason);
+    void openRegistration(Integer eventId);
     boolean isUserAssigned(Integer eventId, Integer userId);
     List<Event> getEventsByUserAssigned(Integer userId);
 }

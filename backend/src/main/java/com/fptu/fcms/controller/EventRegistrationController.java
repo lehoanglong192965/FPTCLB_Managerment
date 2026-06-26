@@ -47,7 +47,7 @@ public class EventRegistrationController {
     }
 
     @DeleteMapping("/unregister/{eventId}")
-    @PreAuthorize("hasAnyRole('Member')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, String>> unregisterEvent(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
@@ -58,7 +58,7 @@ public class EventRegistrationController {
     }
 
     @GetMapping("/my-registrations")
-    @PreAuthorize("hasAnyRole('Member')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getMyRegistrations(@AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.ok(eventRegistrationService.getEventsByUserRegistered(currentUser.getUserId()));
     }

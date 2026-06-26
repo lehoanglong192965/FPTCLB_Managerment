@@ -4,19 +4,24 @@ import { Calendar, MapPin, Clock, ArrowLeft } from "lucide-react";
 import eventService from "../../services/api/events/eventService";
 import clubService from "../../services/api/clubs/clubService";
 import EventRegistrationBtn from "../../components/events/EventRegistrationBtn";
+import { useAuth } from "../../contexts/AuthContext";
 
 const STATUS_BADGE = {
-  Approved:  { label: "Đăng ký mở",    bg: "#F37021" },
-  Upcoming:  { label: "Sắp diễn ra",   bg: "#F37021" },
-  Ongoing:   { label: "Đang diễn ra",  bg: "#16A34A" },
-  Completed: { label: "Đã kết thúc",   bg: "#6B7280" },
-  Closed:    { label: "Đã đóng",       bg: "#6B7280" },
-  Cancelled: { label: "Đã hủy",        bg: "#DC2626" },
+  Approved:         { label: "Đăng ký mở",       bg: "#F37021" },
+  RegistrationOpen: { label: "Đăng ký mở",       bg: "#F37021" },
+  Upcoming:         { label: "Sắp diễn ra",       bg: "#F37021" },
+  Ongoing:          { label: "Đang diễn ra",      bg: "#16A34A" },
+  Completed:        { label: "Đã kết thúc",       bg: "#6B7280" },
+  ReportUploaded:   { label: "Đã nộp báo cáo",   bg: "#6B7280" },
+  Closed:           { label: "Đã đóng",           bg: "#374151" },
+  Cancelled:        { label: "Đã hủy",            bg: "#DC2626" },
+  Rejected:         { label: "Bị từ chối",        bg: "#DC2626" },
 };
 
 export default function EventDetailPage() {
   const { eventId } = useParams();
   const navigate    = useNavigate();
+  const { user }    = useAuth();
 
   const [event, setEvent] = useState(null);
   const [clubs, setClubs] = useState([]);
@@ -32,6 +37,7 @@ export default function EventDetailPage() {
         setEvent(eventRes.data || eventRes);
         setClubs(Array.isArray(clubRes) ? clubRes : (clubRes.data || []));
       } catch (error) {
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError") return;
         console.error("Lỗi khi tải sự kiện:", error);
       }
     };
@@ -54,7 +60,7 @@ export default function EventDetailPage() {
     : "";
 
   return (
-    <div className="min-h-screen bg-[#F2F4F7] pt-[calc(68px+28px)] px-[5%] pb-[60px] font-['Be_Vietnam_Pro','Inter',sans-serif]">
+    <div className={`min-h-screen bg-[#F2F4F7] ${user ? "pt-[calc(68px+28px)]" : "pt-8"} px-[5%] pb-[60px] font-['Be_Vietnam_Pro','Inter',sans-serif]`}>
       <div className="max-w-[1100px] mx-auto flex flex-col gap-6">
 
         {/* Back button */}

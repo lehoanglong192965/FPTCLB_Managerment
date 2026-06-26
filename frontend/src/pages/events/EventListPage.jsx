@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import EventCard from "../../components/events/EventCard";
 import eventService from "../../services/api/events/eventService";
 import clubService from "../../services/api/clubs/clubService";
+import { useAuth } from "../../contexts/AuthContext";
 
 const BADGE_FILTERS = ["Tất cả", "Đăng ký mở", "Sắp diễn ra", "Hết chỗ"];
 
@@ -15,12 +16,14 @@ function getStatusBadge(status) {
 
 export default function EventListPage() {
   const navigate = useNavigate();
-  const [search, setSearch]             = useState("");
-  const [activeFilter, setActiveFilter] = useState("Tất cả");
-  const [rawEvents, setRawEvents]       = useState([]);
-  const [clubs, setClubs]               = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState(null);
+  const { user } = useAuth();
+  const [search, setSearch]               = useState("");
+  const [activeFilter, setActiveFilter]   = useState("Tất cả");
+  const [rawEvents, setRawEvents]         = useState([]);
+  const [clubs, setClubs]                 = useState([]);
+  const [registeredIds, setRegisteredIds] = useState(new Set());
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,14 +45,19 @@ export default function EventListPage() {
       setLoading(true);
       setError(null);
       try {
-        const evRes = await safeGet(() => eventService.getApprovedEvents());
-        if (cancelled || !evRes) return;
-        setRawEvents(Array.isArray(evRes) ? evRes : (evRes?.content ?? evRes?.data ?? []));
-        setLoading(false);
+        const requests = [
+          safeGet(() => eventService.getApprovedEvents()),
+          safeGet(() => clubService.getAll()),
+          user ? eventService.getMyRegistrations().catch(() => []) : Promise.resolve([]),
+        ];
+        const [evRes, clubRes, regRes] = await Promise.all(requests);
+        if (cancelled) return;
 
-        const clubRes = await safeGet(() => clubService.getAll(), 100);
-        if (cancelled || !clubRes) return;
-        setClubs(Array.isArray(clubRes) ? clubRes : (clubRes?.content ?? clubRes?.data ?? []));
+        if (evRes) setRawEvents(Array.isArray(evRes) ? evRes : (evRes?.content ?? evRes?.data ?? []));
+        if (clubRes) setClubs(Array.isArray(clubRes) ? clubRes : (clubRes?.content ?? clubRes?.data ?? []));
+
+        const regList = Array.isArray(regRes) ? regRes : [];
+        setRegisteredIds(new Set(regList.map((r) => Number(r.eventID))));
       } catch (err) {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
         console.error("Lỗi khi tải danh sách sự kiện:", err);
@@ -60,7 +68,7 @@ export default function EventListPage() {
     };
     fetchAll();
     return () => { cancelled = true; };
-  }, []);
+  }, [user]);
 
   const allEvents = rawEvents.map((e) => {
     const clubObj = clubs.find((c) => c.clubID === e.clubID);
@@ -80,10 +88,12 @@ export default function EventListPage() {
       badgeType,
       maxParticipants:     e.maxParticipants     ?? 0,
       currentParticipants: e.currentParticipants ?? 0,
+      bannerUrl:           e.bannerUrl ?? null,
     };
   });
 
   const filtered = allEvents.filter((event) => {
+    if (registeredIds.has(Number(event.id))) return false;
     const matchFilter = activeFilter === "Tất cả" || event.badge === activeFilter;
     const matchSearch =
       event.title.toLowerCase().includes(search.toLowerCase()) ||

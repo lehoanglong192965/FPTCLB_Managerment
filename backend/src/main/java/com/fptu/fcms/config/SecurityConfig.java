@@ -63,12 +63,18 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/clubs", "/api/clubs/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/reports").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/attendance/checkin").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/events/approved").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events/{eventId}").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/events/**").authenticated()
                         .requestMatchers("/api/v1/events/**", "/api/icpdp/events/**").authenticated()
                         .anyRequest().authenticated()
+                )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))

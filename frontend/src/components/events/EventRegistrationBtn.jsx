@@ -27,6 +27,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
                 setIsAssigned(!!data.assigned);
             })
             .catch(err => {
+                if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
                 console.error("Lỗi kiểm tra trạng thái sự kiện:", err);
             })
             .finally(() => {
@@ -36,7 +37,8 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
 
     if (isExcludedRole) return null;
 
-    if (eventStatus !== 'Approved' && eventStatus !== 'Upcoming' && eventStatus !== 'Ongoing') {
+    const REGISTERABLE_STATUSES = ['Approved', 'RegistrationOpen', 'Upcoming', 'Ongoing'];
+    if (!REGISTERABLE_STATUSES.includes(eventStatus)) {
         return null;
     }
 
@@ -49,7 +51,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
                 onMouseEnter={e => e.currentTarget.style.background = "#e05c0a"}
                 onMouseLeave={e => e.currentTarget.style.background = "#F37021"}
             >
-                <i className="fas fa-sign-in-alt"></i> Đăng nhập để đăng ký
+                <i className="fas fa-ticket-alt"></i> Đăng ký để tham gia
             </button>
         );
     }

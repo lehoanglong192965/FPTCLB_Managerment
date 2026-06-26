@@ -27,6 +27,7 @@ export default function ClubOverview() {
         setError(null);
       })
       .catch((err) => {
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
         console.error("Failed to fetch club board:", err);
         setError("Không thể tải dữ liệu thành viên.");
       })
