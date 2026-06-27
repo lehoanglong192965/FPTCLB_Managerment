@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileText,
@@ -11,7 +11,6 @@ import {
   Trash2,
   CheckCircle,
   AlertCircle,
-  HelpCircle,
   ShieldCheck,
 } from "lucide-react";
 import clubRegistrationApi from "../../services/api/clubs/clubRegistrationApi";
@@ -29,8 +28,9 @@ const getImageUrl = (url) => {
   return `${origin}${url}`;
 };
 
-export default function ClubRegistrationForm() {
+export default function ClubRegistrationForm({ mode = "member" }) {
   const navigate = useNavigate();
+  const isStaffMode = mode === "icpdp";
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -92,7 +92,7 @@ export default function ClubRegistrationForm() {
 
       setValidationSuccess((prev) => ({ ...prev, [key]: `Đã tìm thấy: ${user.fullName}` }));
       setValidationErrors((prev) => ({ ...prev, [key]: "" }));
-    } catch (err) {
+    } catch {
       setValidationErrors((prev) => ({
         ...prev,
         [key]: "MSSV chưa đăng ký tài khoản trên hệ thống.",
@@ -132,7 +132,7 @@ export default function ClubRegistrationForm() {
         next[memberIndex].cardImage = url;
         return next;
       });
-    } catch (err) {
+    } catch {
       setError("Không thể tải lên ảnh thẻ sinh viên. Vui lòng thử lại.");
     } finally {
       setLoading(false);
@@ -206,16 +206,19 @@ export default function ClubRegistrationForm() {
       <div className="max-w-[1000px] mx-auto px-5 py-10 text-center">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 flex flex-col items-center gap-4">
           <CheckCircle size={64} color="#10b981" />
-          <h2 className="text-2xl font-bold text-slate-900">Nộp Đơn Đăng Ký Thành Công!</h2>
+          <h2 className="text-2xl font-bold text-slate-900">
+            {isStaffMode ? "Tạo Câu Lạc Bộ Thành Công!" : "Nộp Đơn Đăng Ký Thành Công!"}
+          </h2>
           <p className="text-slate-500 max-w-[500px] leading-relaxed">
-            Đơn thành lập câu lạc bộ **{formData.clubName}** đã được gửi thành công đến phòng ICPDP.
-            Chúng tôi sẽ tiến hành kiểm định và phản hồi sớm nhất qua hòm thư của bạn.
+            {isStaffMode
+              ? `CLB ${formData.clubName} đã được tạo và kích hoạt với đội ngũ sáng lập.`
+              : `Đơn thành lập câu lạc bộ ${formData.clubName} đã được gửi thành công đến phòng ICPDP.`}
           </p>
           <button
             className="mt-4 inline-flex items-center gap-1.5 bg-blue-600 text-white border-none px-6 py-2.5 rounded-lg font-medium cursor-pointer transition-colors hover:bg-blue-700"
-            onClick={() => navigate("/member/clubs")}
+            onClick={() => navigate(isStaffMode ? "/icpdp/club-management" : "/member/clubs")}
           >
-            Về trang danh sách CLB
+            {isStaffMode ? "Về trang quản lý CLB" : "Về trang danh sách CLB"}
           </button>
         </div>
       </div>
@@ -225,8 +228,12 @@ export default function ClubRegistrationForm() {
   return (
     <div className="max-w-[1000px] mx-auto px-2.5">
       <div className="page-header mb-6">
-        <h1 className="page-title">Đăng Ký Thành Lập CLB</h1>
-        <p className="page-subtitle">Nộp đơn đăng ký thành lập câu lạc bộ mới trực tiếp lên ban quản lý ICPDP</p>
+        <h1 className="page-title">{isStaffMode ? "Tạo Câu Lạc Bộ" : "Đăng Ký Thành Lập CLB"}</h1>
+        <p className="page-subtitle">
+          {isStaffMode
+            ? "Tạo CLB mới và gán đội ngũ sáng lập trực tiếp"
+            : "Nộp đơn đăng ký thành lập câu lạc bộ mới trực tiếp lên ban quản lý ICPDP"}
+        </p>
       </div>
 
       {/* Progress Wizard */}
@@ -505,7 +512,7 @@ export default function ClubRegistrationForm() {
                 <div className="col-span-2">
                   <label className={labelCls}>
                     Minh chứng thẻ sinh viên (Mặt trước){" "}
-                    {member.proposedRole !== "Member" && <span className="text-red-500">*</span>}
+                    {!isStaffMode && member.proposedRole !== "Member" && <span className="text-red-500">*</span>}
                   </label>
                   {member.cardImage ? (
                     <div className="relative w-full max-w-[350px]">
@@ -555,7 +562,7 @@ export default function ClubRegistrationForm() {
                     setError(`Thành viên số ${i + 1} chưa điền đầy đủ thông tin bắt buộc.`);
                     return;
                   }
-                  if (m.proposedRole !== "Member" && !m.cardImage) {
+                  if (!isStaffMode && m.proposedRole !== "Member" && !m.cardImage) {
                     setError(`Chủ nhiệm/Phó chủ nhiệm (Thành viên ${i + 1}) phải có ảnh minh chứng thẻ sinh viên.`);
                     return;
                   }
@@ -658,7 +665,7 @@ export default function ClubRegistrationForm() {
               onClick={handleSubmit}
               disabled={loading}
             >
-              {loading ? "Đang gửi đơn..." : "Gửi đơn đăng ký"}
+              {loading ? (isStaffMode ? "Đang tạo CLB..." : "Đang gửi đơn...") : (isStaffMode ? "Tạo câu lạc bộ" : "Gửi đơn đăng ký")}
             </button>
           </div>
         </div>

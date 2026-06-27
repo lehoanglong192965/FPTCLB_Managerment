@@ -2,6 +2,10 @@ import axiosClient from "../axiosClient";
 
 const clubRegistrationApi = {
   submit: (data) => axiosClient.post("/clubs/registrations", data),
+  getRegistrations: (status) =>
+    axiosClient.get("/clubs/registrations", {
+      params: status ? { status } : {},
+    }),
   getMyRegistrations: () => axiosClient.get("/clubs/registrations/my"),
   getPending: () => axiosClient.get("/clubs/registrations/pending"),
   getById: (id) => axiosClient.get(`/clubs/registrations/${id}`),

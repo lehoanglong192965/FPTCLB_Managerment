@@ -25,12 +25,21 @@ public class ClubRegistrationController {
     private final ClubRegistrationService registrationService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('Admin', 'ICPDP')")
     public ResponseEntity<ClubRegistrationResponseDTO> submitRegistration(
             @Valid @RequestBody ClubRegistrationRequestDTO request,
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         ClubRegistrationResponseDTO response = registrationService.submitRegistration(request, currentUser.getUserId());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('Admin', 'ICPDP')")
+    public ResponseEntity<List<ClubRegistrationResponseDTO>> getRegistrations(
+            @RequestParam(required = false) String status
+    ) {
+        return ResponseEntity.ok(registrationService.getRegistrations(status));
     }
 
     @GetMapping("/my")
@@ -47,6 +56,7 @@ public class ClubRegistrationController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('Admin', 'ICPDP')")
     public ResponseEntity<ClubRegistrationResponseDTO> getRegistrationById(@PathVariable Integer id) {
         ClubRegistrationResponseDTO response = registrationService.getRegistrationById(id);
         return ResponseEntity.ok(response);
