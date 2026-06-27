@@ -25,6 +25,7 @@ import IcpdpDisciplineLog from "../pages/icpdp/IcpdpDisciplineLog";
 import IcpdpClubManagement from "../pages/icpdp/IcpdpClubManagement";
 import IcpdpRecruitment from "../pages/icpdp/IcpdpRecruitment";
 import IcpdpClubRequests from "../pages/icpdp/IcpdpClubRequests";
+import IcpdpReportReview from "../pages/icpdp/IcpdpReportReview";
 
 // Admin pages
 import SemesterManagement from "../pages/admin/SemesterManagement";
@@ -90,6 +91,7 @@ export default function AppRoutes() {
         <Route path="club-management" element={<IcpdpClubManagement />} />
         <Route path="club-requests" element={<IcpdpClubRequests />} />
         <Route path="event-approval" element={<IcpdpEventApproval />} />
+        <Route path="report-review" element={<IcpdpReportReview />} />
         <Route path="personnel-reassign" element={<IcpdpPersonnelReassign />} />
         <Route path="discipline-log" element={<IcpdpDisciplineLog />} />
         <Route path="recruitment" element={<IcpdpRecruitment />} />

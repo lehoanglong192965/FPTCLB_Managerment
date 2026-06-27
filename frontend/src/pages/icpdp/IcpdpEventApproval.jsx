@@ -1,13 +1,20 @@
 import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, Calendar, MapPin, Clock, ChevronRight } from "lucide-react";
 import eventService from "../../services/api/events/eventService";
+
+const getImageUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+  return apiBase.replace(/\/api\/?$/, "") + url;
+};
 
 const BUDGET_LIMIT = 5_000_000;
 
 const STATUS_BADGE = {
-  pending:  "bg-yellow-100 text-yellow-700",
-  approved: "bg-green-100 text-green-700",
-  rejected: "bg-red-100 text-red-700",
+  pending:  { cls: "bg-yellow-100 text-yellow-700", label: "Chờ IC-PDP duyệt" },
+  approved: { cls: "bg-green-100 text-green-700",   label: "Đã phê duyệt"     },
+  rejected: { cls: "bg-red-100 text-red-700",       label: "Đã từ chối"       },
 };
 
 const TABS = [
@@ -44,8 +51,8 @@ function RejectModal({ event, onConfirm, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.45)" }}
+      className="fixed inset-0 z-[60] flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.5)" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
@@ -92,6 +99,136 @@ function RejectModal({ event, onConfirm, onClose }) {
   );
 }
 
+/* ── Detail popup ─────────────────────────────────────── */
+function DetailPopup({ event, onClose, onApprove, onReject }) {
+  const hasBudgetWarning = parseBudget(event.budget) > BUDGET_LIMIT;
+  const badge = STATUS_BADGE[event.status] ?? STATUS_BADGE.pending;
+
+  const rows = [
+    { icon: <Calendar size={14} className="text-[#E6430A]" />, label: "Ngày tổ chức", value: event.eventDate },
+    { icon: <MapPin size={14} className="text-[#E6430A]" />,   label: "Địa điểm",    value: event.location },
+    {
+      icon: <span style={{ fontSize: 13, fontWeight: 700, color: "#E6430A", lineHeight: 1 }}>₫</span>,
+      label: "Ngân sách",
+      value: event.budget ? `${event.budget} đ` : null,
+      warn: hasBudgetWarning,
+    },
+    { icon: <Clock size={14} className="text-[#E6430A]" />,    label: "Nộp ngày",    value: event.submittedAt },
+  ].filter(r => r.value);
+
+  return (
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 520, maxHeight: "90vh",
+          background: "#fff", borderRadius: 16, overflowY: "auto",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+          display: "flex", flexDirection: "column",
+          margin: "0 16px",
+        }}
+      >
+        {/* Banner */}
+        {event.bannerUrl && (
+          <div style={{
+            height: 160, flexShrink: 0, borderRadius: "16px 16px 0 0",
+            backgroundImage: `url(${getImageUrl(event.bannerUrl)})`,
+            backgroundSize: "cover", backgroundPosition: "center",
+          }} />
+        )}
+
+        {/* Header */}
+        <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600, marginBottom: 8 }}
+              className={badge.cls}>
+              {badge.label}
+            </span>
+            {hasBudgetWarning && event.status === "pending" && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold ml-2">
+                ⚠ Ngân sách vượt 5 triệu
+              </span>
+            )}
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#111827", lineHeight: 1.35 }}>
+              {event.name}
+            </h2>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#E6430A", fontWeight: 600 }}>{event.club}</p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#6b7280", flexShrink: 0, borderRadius: 8 }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Info rows */}
+        <div style={{ padding: "16px 24px", borderBottom: "1px solid #f0f0f0", display: "flex", flexDirection: "column", gap: 12 }}>
+          {rows.map((r, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <div style={{ width: 20, display: "flex", justifyContent: "center", paddingTop: 1, flexShrink: 0 }}>{r.icon}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.4 }}>{r.label}</span>
+                <span style={{ fontSize: 13.5, color: r.warn ? "#dc2626" : "#111827", fontWeight: r.warn ? 700 : 400 }}>{r.value}</span>
+              </div>
+            </div>
+          ))}
+
+          {/* Description */}
+          {event.description && (
+            <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 10, marginTop: 2 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 6 }}>
+                Mô tả sự kiện
+              </span>
+              <p style={{ margin: 0, fontSize: 13, color: "#374151", lineHeight: 1.75, whiteSpace: "pre-line" }}>
+                {event.description}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Rejection reason */}
+        {event.status === "rejected" && event.rejectionReason && (
+          <div style={{ margin: "0 24px", marginTop: 16, padding: "14px 16px", borderRadius: 10, background: "#fef2f2", border: "1.5px solid #fecaca" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 11.5, fontWeight: 700, color: "#b91c1c", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Lý do từ chối
+            </p>
+            <p style={{ margin: 0, fontSize: 13.5, color: "#7f1d1d", lineHeight: 1.7 }}>
+              {event.rejectionReason}
+            </p>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {event.status === "pending" ? (<>
+            <button
+              onClick={() => { onApprove(event.id); onClose(); }}
+              style={{ padding: "11px 0", borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%" }}
+            >
+              Phê duyệt
+            </button>
+            <button
+              onClick={() => onReject(event)}
+              style={{ padding: "11px 0", borderRadius: 10, border: "none", background: "#dc2626", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%" }}
+            >
+              Từ chối
+            </button>
+          </>) : (
+            <p style={{ margin: 0, fontSize: 13, color: "#9ca3af", fontStyle: "italic" }}>
+              Không có thao tác khả dụng.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── localStorage helpers ──────────────────────────────── */
 const LS_KEY = "icpdp_processed_events";
 
 function loadProcessed() {
@@ -99,28 +236,17 @@ function loadProcessed() {
 }
 
 function saveProcessed(events) {
-  const processed = events.filter((e) => e.status !== "pending");
-  localStorage.setItem(LS_KEY, JSON.stringify(processed));
+  localStorage.setItem(LS_KEY, JSON.stringify(events.filter((e) => e.status !== "pending")));
 }
 
-const PUB_KEY = "public_approved_events";
-
 function savePublicApproved(events) {
-  const approved = events
-    .filter((e) => e.status === "approved")
-    .map((e) => ({
-      id:                  e.id,
-      title:               e.name,
-      club:                e.club,
-      emoji:               "🎉",
-      color:               "#E6430A",
-      badgeType:           "upcoming",
-      date:                e.eventDate,
-      location:            e.location ?? "",
-      maxParticipants:     0,
-      currentParticipants: 0,
-    }));
-  localStorage.setItem(PUB_KEY, JSON.stringify(approved));
+  localStorage.setItem("public_approved_events", JSON.stringify(
+    events.filter((e) => e.status === "approved").map((e) => ({
+      id: e.id, title: e.name, club: e.club, emoji: "🎉", color: "#E6430A",
+      badgeType: "upcoming", date: e.eventDate, location: e.location ?? "",
+      maxParticipants: 0, currentParticipants: 0,
+    }))
+  ));
 }
 
 /* ── Main ──────────────────────────────────────────────── */
@@ -128,6 +254,7 @@ export default function IcpdpEventApproval() {
   const [activeTab, setActiveTab]       = useState("pending");
   const [events, setEvents]             = useState([]);
   const [loading, setLoading]           = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
 
   const fetchEvents = () => {
@@ -136,7 +263,6 @@ export default function IcpdpEventApproval() {
       .then((res) => {
         const list = Array.isArray(res) ? res : res?.data ?? [];
         const pendingIds = new Set(list.map((e) => e.eventID));
-
         const fromApi = list.map((e) => ({
           id:               e.eventID,
           status:           "pending",
@@ -148,18 +274,13 @@ export default function IcpdpEventApproval() {
           budget:           formatBudget(e.budget),
           location:         e.location,
           submittedAt:      formatDate(e.createdAt),
+          bannerUrl:        e.bannerUrl ?? null,
           scheduleConflict: false,
         }));
-
-        // Merge: giữ lại các sự kiện đã xử lý từ localStorage (trừ những sự kiện vẫn còn pending từ API)
         const processed = loadProcessed().filter((e) => !pendingIds.has(e.id));
-
         setEvents([...fromApi, ...processed]);
       })
-      .catch(() => {
-        // Nếu API lỗi, vẫn load processed từ localStorage
-        setEvents(loadProcessed());
-      })
+      .catch(() => setEvents(loadProcessed()))
       .finally(() => setLoading(false));
   };
 
@@ -173,14 +294,6 @@ export default function IcpdpEventApproval() {
       return next;
     });
   };
-
-  const filtered = activeTab === "all"
-    ? events
-    : events.filter((e) => e.status === activeTab);
-
-  const countOf = (key) => key === "all"
-    ? events.length
-    : events.filter((e) => e.status === key).length;
 
   const approve = async (id) => {
     try {
@@ -197,15 +310,17 @@ export default function IcpdpEventApproval() {
     try {
       await eventService.rejectForIcpdp(id, reason);
       updateAndPersist((prev) =>
-        prev.map((e) => e.id === id
-          ? { ...e, status: "rejected", statusLabel: "Đã từ chối", rejectionReason: reason }
-          : e)
+        prev.map((e) => e.id === id ? { ...e, status: "rejected", statusLabel: "Đã từ chối", rejectionReason: reason } : e)
       );
     } catch (err) {
       alert(err?.response?.data?.message ?? "Từ chối thất bại.");
     }
     setRejectTarget(null);
+    setSelectedEvent(null);
   };
+
+  const filtered = activeTab === "all" ? events : events.filter((e) => e.status === activeTab);
+  const countOf  = (key) => key === "all" ? events.length : events.filter((e) => e.status === key).length;
 
   return (
     <div>
@@ -214,6 +329,7 @@ export default function IcpdpEventApproval() {
         <p className="page-subtitle">Xét duyệt đề xuất tổ chức sự kiện từ các câu lạc bộ</p>
       </div>
 
+      {/* Tabs */}
       <div className="flex gap-0 border-b-2 border-gray-200 mb-6">
         {TABS.map((tab) => {
           const count    = countOf(tab.key);
@@ -222,9 +338,7 @@ export default function IcpdpEventApproval() {
             <button
               key={tab.key}
               className={`flex items-center gap-1.5 px-[18px] py-2.5 text-sm font-medium border-b-2 -mb-0.5 cursor-pointer transition-colors duration-150 ${
-                isActive
-                  ? "text-[#e6430a] border-[#e6430a] font-semibold"
-                  : "text-gray-500 border-transparent hover:text-[#e6430a]"
+                isActive ? "text-[#e6430a] border-[#e6430a] font-semibold" : "text-gray-500 border-transparent hover:text-[#e6430a]"
               }`}
               onClick={() => setActiveTab(tab.key)}
             >
@@ -239,91 +353,71 @@ export default function IcpdpEventApproval() {
         })}
       </div>
 
+      {/* List */}
       <div className="flex flex-col gap-3.5">
-        {loading && (
-          <p className="text-center py-16 text-gray-400 text-sm">Đang tải...</p>
-        )}
+        {loading && <p className="text-center py-16 text-gray-400 text-sm">Đang tải...</p>}
         {!loading && filtered.length === 0 && (
           <p className="text-center py-16 text-gray-400 text-sm">Không có sự kiện nào.</p>
         )}
         {!loading && filtered.map((event) => {
           const hasBudgetWarning = parseBudget(event.budget) > BUDGET_LIMIT;
-          const hasConflict      = event.scheduleConflict === true;
+          const badge = STATUS_BADGE[event.status] ?? STATUS_BADGE.pending;
+          const isSelected = selectedEvent?.id === event.id;
 
           const borderColor =
             event.status === "approved" ? "#16a34a" :
             event.status === "rejected" ? "#dc2626" :
-            hasBudgetWarning || hasConflict ? "#ef4444" : "#e5e7eb";
+            hasBudgetWarning ? "#ef4444" : "#e5e7eb";
 
           const bgColor =
+            isSelected ? "#fff7f3" :
             event.status === "approved" ? "#f0fdf4" :
             event.status === "rejected" ? "#fef2f2" :
-            hasBudgetWarning || hasConflict ? "rgba(254,242,242,0.4)" : "#fff";
+            hasBudgetWarning ? "rgba(254,242,242,0.4)" : "#fff";
 
           return (
             <div
               key={event.id}
-              className="rounded-xl px-6 py-5 shadow-sm flex justify-between items-start gap-6 transition-all"
+              onClick={() => setSelectedEvent(event)}
+              className="rounded-xl px-6 py-5 shadow-sm flex justify-between items-center gap-6 transition-all cursor-pointer hover:shadow-md"
               style={{ borderLeft: `4px solid ${borderColor}`, background: bgColor }}
             >
               <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-2.5">
-                  <span className={`inline-block px-3 py-0.5 rounded-full text-xs font-semibold ${STATUS_BADGE[event.status] ?? STATUS_BADGE.pending}`}>
-                    {event.statusLabel}
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  <span className={`inline-block px-3 py-0.5 rounded-full text-xs font-semibold ${badge.cls}`}>
+                    {badge.label}
                   </span>
                   {hasBudgetWarning && event.status === "pending" && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">
                       ⚠ Ngân sách vượt 5 triệu
                     </span>
                   )}
-                  {hasConflict && event.status === "pending" && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">
-                      ⚠ Trùng lịch
-                    </span>
-                  )}
                 </div>
-
-                <h3 className="text-[17px] font-bold text-gray-900 m-0 mb-0.5">{event.name}</h3>
-                <p className="text-[13px] text-[#e6430a] font-medium m-0 mb-2">{event.club}</p>
-                <p className="text-[13.5px] text-gray-600 m-0 mb-3 leading-relaxed">{event.description}</p>
-
-                <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-[13px] text-gray-500">
-                  <span>Ngày tổ chức: <strong className={hasConflict ? "text-red-600" : "text-gray-900"}>{event.eventDate}</strong></span>
-                  <span>Ngân sách: <strong className={hasBudgetWarning ? "text-red-600" : "text-gray-900"}>{event.budget} đ</strong></span>
-                  {event.location && <span>Địa điểm: <strong className="text-gray-900">{event.location}</strong></span>}
-                </div>
-                <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-[13px] text-gray-500 mt-1.5">
-                  <span>Nộp ngày: {event.submittedAt}</span>
-                </div>
-
-                {event.status === "rejected" && event.rejectionReason && (
-                  <div className="mt-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-[12.5px] text-red-700 leading-relaxed">
-                    <span className="font-semibold">Lý do từ chối:</span> {event.rejectionReason}
-                  </div>
-                )}
+                <h3 className="text-[16px] font-bold text-gray-900 m-0 mb-0.5 truncate">{event.name}</h3>
+                <p className="text-[13px] text-[#e6430a] font-medium m-0">{event.club}</p>
+                <p className="text-[12.5px] text-gray-400 m-0 mt-1">
+                  {event.eventDate ? `Ngày tổ chức: ${event.eventDate}` : ""}
+                  {event.eventDate && event.submittedAt ? "  ·  " : ""}
+                  {event.submittedAt ? `Nộp ngày: ${event.submittedAt}` : ""}
+                </p>
               </div>
-
-              {event.status === "pending" && (
-                <div className="flex flex-col gap-2 flex-shrink-0">
-                  <button
-                    className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white border-none rounded-lg text-[13.5px] font-semibold cursor-pointer transition-colors duration-150 whitespace-nowrap"
-                    onClick={() => approve(event.id)}
-                  >
-                    Phê duyệt
-                  </button>
-                  <button
-                    className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white border-none rounded-lg text-[13.5px] font-semibold cursor-pointer transition-colors duration-150 whitespace-nowrap"
-                    onClick={() => setRejectTarget(event)}
-                  >
-                    Từ chối
-                  </button>
-                </div>
-              )}
+              <ChevronRight size={18} className="text-gray-300 shrink-0" />
             </div>
           );
         })}
       </div>
 
+      {/* Detail popup */}
+      {selectedEvent && (
+        <DetailPopup
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onApprove={approve}
+          onReject={(ev) => { setRejectTarget(ev); }}
+        />
+      )}
+
+      {/* Reject modal (on top of detail popup) */}
       {rejectTarget && (
         <RejectModal
           event={rejectTarget}

@@ -43,7 +43,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -57,6 +59,7 @@ public class EventServiceImpl implements EventService {
     private static final String STATUS_APPROVED = "Approved";
     private static final String STATUS_REJECTED = "Rejected";
     private static final String STATUS_CANCELLED = "Cancelled";
+    private static final String STATUS_REGISTRATION_CLOSED = "RegistrationClosed";
     private static final String STATUS_ONGOING = "Ongoing";
     private static final String STATUS_COMPLETED = "Completed";
     private static final String STATUS_CLOSED = "Closed";
@@ -264,7 +267,7 @@ public class EventServiceImpl implements EventService {
     @Transactional(readOnly = true)
     public List<Event> getApprovedEvents() {
         return eventRepository.findByEventStatusInAndIsDeletedFalse(
-                List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_ONGOING));
+                List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_REGISTRATION_CLOSED, STATUS_ONGOING));
     }
 
     @Override
@@ -281,7 +284,7 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void checkIn(Integer eventId, String studentId) {
+    public String checkIn(Integer eventId, String studentId) {
         Event event = getActiveEventOrThrow(eventId);
         if (!STATUS_ONGOING.equals(event.getEventStatus())) {
             throw new IllegalArgumentException("Sự kiện chưa bắt đầu, không thể điểm danh.");
@@ -310,9 +313,11 @@ public class EventServiceImpl implements EventService {
         record.setIsVerifiedByAI(false);
         record.setIsDeleted(false);
         attendanceRecordRepository.save(record);
+        return user.getFullName() != null ? user.getFullName() : studentId;
     }
 
     private static final String STATUS_REGISTRATION_OPEN = "RegistrationOpen";
+    private static final String STATUS_REPORT_UPLOADED = "ReportUploaded";
 
     @Override
     @Transactional
@@ -320,8 +325,9 @@ public class EventServiceImpl implements EventService {
         Event event = getActiveEventOrThrow(eventId);
         if (!STATUS_APPROVED.equals(event.getEventStatus())
                 && !STATUS_PENDING_APPROVAL.equals(event.getEventStatus())
-                && !STATUS_REGISTRATION_OPEN.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event must be Approved, PendingApproval, or RegistrationOpen to start.");
+                && !STATUS_REGISTRATION_OPEN.equals(event.getEventStatus())
+                && !STATUS_REGISTRATION_CLOSED.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Event must be Approved, RegistrationOpen, or RegistrationClosed to start.");
         }
 
         event.setEventStatus(STATUS_ONGOING);
@@ -356,11 +362,51 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public void closeEvent(Integer eventId) {
         Event event = getActiveEventOrThrow(eventId);
-        if (!STATUS_COMPLETED.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event must be Completed to close.");
+        if (!STATUS_COMPLETED.equals(event.getEventStatus()) && !STATUS_REPORT_UPLOADED.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Event must be Completed or ReportUploaded to close.");
         }
         event.setEventStatus(STATUS_CLOSED);
         eventRepository.save(event);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getReportUploadedEvents() {
+        return eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_REPORT_UPLOADED);
+    }
+
+    @Override
+    @Transactional
+    public void rejectReport(Integer eventId) {
+        Event event = getActiveEventOrThrow(eventId);
+        if (!STATUS_REPORT_UPLOADED.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Event must be in ReportUploaded status to reject report.");
+        }
+        event.setEventStatus(STATUS_COMPLETED);
+        eventRepository.save(event);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getCheckedInAttendees(Integer eventId) {
+        AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElse(null);
+        if (session == null) return List.of();
+
+        List<AttendanceRecord> records = attendanceRecordRepository.findBySessionID(session.getSessionID());
+        List<Integer> userIds = records.stream().map(AttendanceRecord::getUserID).collect(Collectors.toList());
+        List<UserAccount> users = userRepository.findAllByUserIDIn(userIds);
+        Map<Integer, UserAccount> userMap = users.stream()
+                .collect(Collectors.toMap(UserAccount::getUserID, u -> u));
+
+        return records.stream().map(r -> {
+            UserAccount u = userMap.get(r.getUserID());
+            Map<String, Object> row = new HashMap<>();
+            row.put("userId", r.getUserID());
+            row.put("fullName", u != null && u.getFullName() != null ? u.getFullName() : "");
+            row.put("studentId", u != null && u.getStudentId() != null ? u.getStudentId() : "");
+            row.put("markedAt", r.getMarkedAt() != null ? r.getMarkedAt().toString() : "");
+            return row;
+        }).collect(Collectors.toList());
     }
 
     @Override
@@ -443,6 +489,35 @@ public class EventServiceImpl implements EventService {
             throw new IllegalArgumentException("Event must be Approved to open registration.");
         }
         event.setEventStatus("RegistrationOpen");
+        eventRepository.save(event);
+    }
+
+    @Override
+    @Transactional
+    public void updateEvent(Integer eventId, com.fptu.fcms.dto.request.UpdateEventRequest request) {
+        Event event = getActiveEventOrThrow(eventId);
+        if (!STATUS_DRAFT.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Chỉ có thể chỉnh sửa sự kiện ở trạng thái Nháp.");
+        }
+        if (request.getEventName() != null)     event.setEventName(request.getEventName());
+        if (request.getDescription() != null)   event.setDescription(request.getDescription());
+        if (request.getLocation() != null)      event.setLocation(request.getLocation());
+        if (request.getStartDate() != null)     event.setStartDate(request.getStartDate());
+        if (request.getEndDate() != null)       event.setEndDate(request.getEndDate());
+        if (request.getMaxParticipants() != null) event.setMaxParticipants(request.getMaxParticipants());
+        if (request.getBudget() != null)        event.setBudget(request.getBudget());
+        if (request.getBannerUrl() != null)     event.setBannerUrl(request.getBannerUrl());
+        eventRepository.save(event);
+    }
+
+    @Override
+    @Transactional
+    public void closeRegistration(Integer eventId) {
+        Event event = getActiveEventOrThrow(eventId);
+        if (!STATUS_REGISTRATION_OPEN.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Event must be RegistrationOpen to close registration.");
+        }
+        event.setEventStatus(STATUS_REGISTRATION_CLOSED);
         eventRepository.save(event);
     }
 

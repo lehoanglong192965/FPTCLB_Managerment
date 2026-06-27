@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import authService from "../../services/api/auth/authService";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -47,8 +47,12 @@ const ROLE_REDIRECT = {
 };
 
 
+// Public pages that a member can be sent back to after login
+const PUBLIC_PATHS = ["/", "/events", "/clubs"];
+
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [email, setEmail]           = useState("");
   const [password, setPassword]     = useState("");
@@ -64,7 +68,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    //Kiểm tra bỏ trống
     const errs = { email: "", password: "" };
     if (!email.trim())  errs.email    = "Vui lòng nhập email.";
     if (!password)      errs.password = "Vui lòng nhập mật khẩu.";
@@ -72,13 +76,17 @@ export default function LoginPage() {
       setErrors(errs);
       return;
     }
-
+    
     setErrors({ email: "", password: "" });
     setLoading("email");
     try {
       const { role, email: userEmail } = await authService.login(email, password);
       login({ email: userEmail, role });
-      navigate(ROLE_REDIRECT[role] ?? "/member");
+      const from = location.state?.from;
+      const dest = (from && PUBLIC_PATHS.some((p) => from === p || from.startsWith(p + "/")))
+        ? from
+        : (ROLE_REDIRECT[role] ?? "/member");
+      navigate(dest, { replace: true });
     } catch (err) {
       const msg = err?.response?.data?.error ?? "";
       if (msg.includes("chấp nhận email")) {
@@ -131,13 +139,13 @@ export default function LoginPage() {
               ].join(" ")}
               type="email"
               placeholder="Email"
-              value={email}
+              value={email} //Hiển thị giá trị email đã nhập trong ô input.
               onChange={(e) => {
-                setEmail(e.target.value);
-                if (errors.email) setErrors((p) => ({ ...p, email: "" }));
+                setEmail(e.target.value); // Cập nhật state email khi người dùng nhập thêm.
+                if (errors.email) setErrors((p) => ({ ...p, email: "" }));  // Nếu trước đó có lỗi email, xóa lỗi khi người dùng bắt đầu sửa.
               }}
-              disabled={!!loading}
-              autoComplete="email"
+              disabled={!!loading} // Vô hiệu hóa input khi đang ở trạng thái loading 
+              autoComplete="email" // Gợi ý trình duyệt tự động điền email đã lưu
             />
             {errors.email && (
               <p className="text-[12px] text-[#D0453A] mt-[5px] pl-[2px] leading-[1.4]">{errors.email}</p>
@@ -169,7 +177,7 @@ export default function LoginPage() {
               onClick={() => setShowPass((v) => !v)}
               aria-label={showPass ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
             >
-              <EyeIcon open={showPass} />
+              <EyeIcon open={showPass} /> 
             </button>
             {errors.password && (
               <p className="text-[12px] text-[#D0453A] mt-[5px] pl-[2px] leading-[1.4]">{errors.password}</p>

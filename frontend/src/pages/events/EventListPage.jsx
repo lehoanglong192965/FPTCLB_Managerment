@@ -9,8 +9,10 @@ const BADGE_FILTERS = ["Tất cả", "Đăng ký mở", "Sắp diễn ra", "Hế
 
 function getStatusBadge(status) {
   const s = (status || "").toUpperCase();
-  if (s === "UPCOMING") return { badge: "Sắp diễn ra", badgeType: "upcoming" };
-  if (s === "ONGOING")  return { badge: "Đang diễn ra", badgeType: "ongoing" };
+  if (s === "APPROVED")             return { badge: "Sắp mở đăng ký",  badgeType: "upcoming" };
+  if (s === "REGISTRATIONCLOSED")   return { badge: "Đóng đăng ký",    badgeType: "closed" };
+  if (s === "UPCOMING")             return { badge: "Sắp diễn ra",     badgeType: "upcoming" };
+  if (s === "ONGOING")              return { badge: "Đang diễn ra",    badgeType: "ongoing" };
   return { badge: "Đăng ký mở", badgeType: "open" };
 }
 

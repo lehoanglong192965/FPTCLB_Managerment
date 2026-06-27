@@ -32,14 +32,14 @@ const CloseEventButton = ({ eventId, eventStatus, onCloseSuccess }) => {
         <button
             onClick={handleClose}
             disabled={isLoading}
-            className="w-full sm:w-auto px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2"
-            title="Đóng sự kiện để giải ngân điểm"
+            style={{
+                padding: "10px 16px", borderRadius: 10, fontSize: 13.5, fontWeight: 600,
+                background: isLoading ? "#9ca3af" : "#374151", color: "#fff", border: "none",
+                cursor: isLoading ? "not-allowed" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%",
+            }}
         >
-            {isLoading ? (
-                <><i className="fas fa-spinner fa-spin"></i> Đang xử lý...</>
-            ) : (
-                <><i className="fas fa-archive"></i> Đóng Sự Kiện</>
-            )}
+            {isLoading ? "Đang xử lý..." : "Đóng sự kiện"}
         </button>
     );
 };

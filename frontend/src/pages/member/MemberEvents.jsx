@@ -59,6 +59,7 @@ export default function MemberEvents() {
 
   const mappedEvents = events.map((e) => {
     const clubObj = clubs.find((c) => c.clubID === e.clubID);
+    const isRegistered = registeredIds.has(Number(e.eventID));
     return {
       id: e.eventID,
       title: e.eventName,
@@ -70,13 +71,15 @@ export default function MemberEvents() {
       time: e.startDate ? new Date(e.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
       venue: e.location || "Chưa xếp phòng",
       desc: e.description,
-      badgeType: e.eventStatus === "Ongoing" ? "upcoming" : "open",
+      badgeType: isRegistered ? "registered" : (e.eventStatus === "Ongoing" ? "upcoming" : "open"),
       bannerUrl: e.bannerUrl ?? null,
+      maxParticipants: e.maxParticipants ?? 0,
+      currentParticipants: e.currentParticipants ?? 0,
+      ticketStatus: isRegistered ? "registered" : undefined,
     };
   });
 
   const filtered = mappedEvents.filter((e) => {
-    if (registeredIds.has(Number(e.id))) return false;
     const matchSearch = e.title.toLowerCase().includes(search.toLowerCase()) ||
                         e.club.toLowerCase().includes(search.toLowerCase());
     const matchTag = activeTag === "Tất cả" || e.tag === activeTag;

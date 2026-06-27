@@ -42,6 +42,19 @@ public class EventController {
         return ResponseEntity.ok(eventService.getApprovedEvents());
     }
 
+    @GetMapping("/report-uploaded")
+    @PreAuthorize("hasRole('ICPDP')")
+    public ResponseEntity<List<Event>> getReportUploadedEvents() {
+        return ResponseEntity.ok(eventService.getReportUploadedEvents());
+    }
+
+    @PatchMapping("/{eventId}/reject-report")
+    @PreAuthorize("hasRole('ICPDP')")
+    public ResponseEntity<Map<String, String>> rejectReport(@PathVariable Integer eventId) {
+        eventService.rejectReport(eventId);
+        return ResponseEntity.ok(Map.of("message", "Report rejected, event returned to Completed."));
+    }
+
     @GetMapping("/{eventId}")
     public ResponseEntity<Event> getEventById(@PathVariable Integer eventId) {
         return ResponseEntity.ok(eventService.getEventById(eventId));
@@ -70,6 +83,15 @@ public class EventController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         eventService.createEventProposal(request, currentUser);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Event proposal created successfully."));
+    }
+
+    @PutMapping("/{eventId}")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    public ResponseEntity<Map<String, String>> updateEvent(
+            @PathVariable Integer eventId,
+            @RequestBody com.fptu.fcms.dto.request.UpdateEventRequest request) {
+        eventService.updateEvent(eventId, request);
+        return ResponseEntity.ok(Map.of("message", "Event updated successfully."));
     }
 
     @PatchMapping("/{eventId}/submit")
@@ -113,6 +135,14 @@ public class EventController {
         return ResponseEntity.ok(Map.of("message", "Registration opened successfully."));
     }
 
+    @PatchMapping("/{eventId}/close-registration")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
+    public ResponseEntity<Map<String, String>> closeRegistration(
+            @PathVariable Integer eventId) {
+        eventService.closeRegistration(eventId);
+        return ResponseEntity.ok(Map.of("message", "Registration closed successfully."));
+    }
+
     @PutMapping("/{eventId}/approve")
     @PreAuthorize("hasRole('ICPDP')")
     public ResponseEntity<EventApprovalResponse> approveEvent(
@@ -137,8 +167,14 @@ public class EventController {
     public ResponseEntity<Map<String, String>> checkIn(
             @PathVariable Integer eventId,
             @PathVariable String studentId) {
-        eventService.checkIn(eventId, studentId);
-        return ResponseEntity.ok(Map.of("message", "Check-in successful."));
+        String fullName = eventService.checkIn(eventId, studentId);
+        return ResponseEntity.ok(Map.of("message", "Check-in successful.", "fullName", fullName, "studentId", studentId));
+    }
+
+    @GetMapping("/{eventId}/check-in")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    public ResponseEntity<List<Map<String, Object>>> getCheckedInAttendees(@PathVariable Integer eventId) {
+        return ResponseEntity.ok(eventService.getCheckedInAttendees(eventId));
     }
 
     @GetMapping("/{eventId}/contributions")

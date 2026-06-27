@@ -77,7 +77,7 @@ public class Event {
     private LocalDateTime approvedAt;
 
 
-    @Column(name = "rejectionReason")
+    @Column(name = "rejectionReason", columnDefinition = "NVARCHAR(MAX)")
     private String rejectionReason;
 
     @Column(name = "isResubmitted")

@@ -47,6 +47,7 @@ export const SIDEBAR_CONFIGS = {
     { key: "club-management",    label: "Quản Lý CLB",         icon: Layers,         path: "/icpdp/club-management" },
     { key: "club-requests",      label: "Duyệt Đăng Ký CLB",   icon: FileText,       path: "/icpdp/club-requests" },
     { key: "event-approval",     label: "Phê Duyệt Sự Kiện",   icon: Calendar,       path: "/icpdp/event-approval" },
+    { key: "report-review",      label: "Duyệt Báo Cáo",        icon: ClipboardList,  path: "/icpdp/report-review" },
     { key: "personnel-reassign", label: "Điều Động Nhân Sự",   icon: ArrowRightLeft, path: "/icpdp/personnel-reassign" },
     { key: "discipline-log",     label: "Nhật Ký Kỷ Luật",     icon: ShieldAlert,    path: "/icpdp/discipline-log" },
     { key: "recruitment",        label: "Tuyển Dụng",          icon: UserPlus,       path: "/icpdp/recruitment" },

@@ -11,6 +11,7 @@ import com.fptu.fcms.entity.EventAssignment;
 import com.fptu.fcms.security.UserPrincipal;
 
 import java.util.List;
+import java.util.Map;
 
 public interface EventService {
     void createEventProposal(CreateEventProposalRequest request, UserPrincipal currentUser);
@@ -24,7 +25,7 @@ public interface EventService {
     List<Event> getApprovedEvents();
     Event getEventById(Integer eventId);
     List<Event> getEventsByClubId(Integer clubId);
-    void checkIn(Integer eventId, String studentId);
+    String checkIn(Integer eventId, String studentId);
     void startEvent(Integer eventId);
     void finishEvent(Integer eventId);
     void closeEvent(Integer eventId);
@@ -33,6 +34,11 @@ public interface EventService {
     void approveEvent(Integer eventId);
     void rejectEvent(Integer eventId, String reason);
     void openRegistration(Integer eventId);
+    void closeRegistration(Integer eventId);
+    void updateEvent(Integer eventId, com.fptu.fcms.dto.request.UpdateEventRequest request);
     boolean isUserAssigned(Integer eventId, Integer userId);
     List<Event> getEventsByUserAssigned(Integer userId);
+    List<Event> getReportUploadedEvents();
+    void rejectReport(Integer eventId);
+    List<Map<String, Object>> getCheckedInAttendees(Integer eventId);
 }

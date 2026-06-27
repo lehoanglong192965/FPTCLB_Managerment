@@ -1,9 +1,17 @@
 ﻿import { useNavigate } from "react-router-dom";
 
+const getImageUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+  return apiBase.replace(/\/api\/?$/, "") + url;
+};
+
 const BADGE = {
-  open: { bg: "#DCFCE7", color: "#16A34A", border: "#BBF7D0", label: "Đăng ký mở" },
+  open:    { bg: "#DCFCE7", color: "#16A34A", border: "#BBF7D0", label: "Đăng ký mở" },
   upcoming: { bg: "#DBEAFE", color: "#2563EB", border: "#BFDBFE", label: "Sắp diễn ra" },
-  full: { bg: "#FEE2E2", color: "#DC2626", border: "#FECACA", label: "Hết chỗ" },
+  full:    { bg: "#FEE2E2", color: "#DC2626", border: "#FECACA", label: "Hết chỗ" },
+  closed:  { bg: "#F3F4F6", color: "#6B7280", border: "#E5E7EB", label: "Đóng đăng ký" },
 };
 
 const TICKET_STATUS = {
@@ -38,7 +46,7 @@ export default function EventCard({ event }) {
         className="relative h-[150px] flex flex-col items-center justify-center overflow-hidden text-center px-4"
         style={
           event.bannerUrl
-            ? { backgroundImage: `url(${event.bannerUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
+            ? { backgroundImage: `url(${getImageUrl(event.bannerUrl)})`, backgroundSize: "cover", backgroundPosition: "center" }
             : { background: `linear-gradient(135deg, ${event.color || "#E6430A"}, ${(event.color || "#E6430A")}99)` }
         }
       >

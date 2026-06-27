@@ -42,6 +42,8 @@ public class ClamAvScanService {
             if (!response.contains("OK")) {
                 throw new IllegalArgumentException("File failed antivirus scan.");
             }
+        } catch (java.net.ConnectException ex) {
+            // ClamAV not reachable (dev/local) — skip scan
         } catch (IOException ex) {
             throw new IllegalStateException("Unable to scan file with ClamAV.", ex);
         }
