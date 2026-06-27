@@ -89,7 +89,6 @@ export default function AppRoutes() {
         <Route path="club-overview" element={<IcpdpClubOverview />} />
         <Route path="club-management" element={<IcpdpClubManagement />} />
         <Route path="clubs/create" element={<ClubRegistrationForm mode="icpdp" />} />
-        <Route path="club-requests" element={<IcpdpClubRequests />} />
         <Route path="event-approval" element={<IcpdpEventApproval />} />
         <Route path="personnel-reassign" element={<IcpdpPersonnelReassign />} />
         <Route path="discipline-log" element={<IcpdpDisciplineLog />} />
