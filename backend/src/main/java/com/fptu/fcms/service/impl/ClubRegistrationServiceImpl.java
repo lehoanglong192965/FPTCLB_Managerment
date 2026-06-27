@@ -4,19 +4,36 @@ import com.fptu.fcms.dto.request.ClubRegistrationRequestDTO;
 import com.fptu.fcms.dto.request.FoundingMemberDTO;
 import com.fptu.fcms.dto.request.ReviewRegistrationRequestDTO;
 import com.fptu.fcms.dto.response.ClubRegistrationResponseDTO;
-import com.fptu.fcms.entity.*;
+import com.fptu.fcms.entity.Club;
+import com.fptu.fcms.entity.ClubMembership;
+import com.fptu.fcms.entity.ClubRegistration;
+import com.fptu.fcms.entity.ClubRegistrationMember;
+import com.fptu.fcms.entity.ClubRole;
+import com.fptu.fcms.entity.Semester;
+import com.fptu.fcms.entity.SystemRole;
+import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.exception.BusinessRuleException;
-import com.fptu.fcms.repository.*;
+import com.fptu.fcms.repository.ClubMembershipRepository;
+import com.fptu.fcms.repository.ClubRegistrationRepository;
+import com.fptu.fcms.repository.ClubRepository;
+import com.fptu.fcms.repository.ClubRoleRepository;
+import com.fptu.fcms.repository.DisciplineLogRepository;
+import com.fptu.fcms.repository.SemesterRepository;
+import com.fptu.fcms.repository.SystemRoleRepository;
+import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.service.ClubRegistrationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -24,98 +41,48 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ClubRegistrationServiceImpl implements ClubRegistrationService {
 
+    private static final String STATUS_PENDING = "PENDING";
+    private static final String STATUS_APPROVED = "APPROVED";
+    private static final String STATUS_REJECTED = "REJECTED";
+    private static final String ROLE_LEADER = "Leader";
+    private static final String ROLE_VICE_LEADER = "ViceLeader";
+    private static final String ROLE_MEMBER = "Member";
+    private static final String SYSTEM_ROLE_STUDENT = "Student";
+    private static final String DISCIPLINE_ACTIVE = "Active";
+    private static final Set<String> ALLOWED_REGISTRATION_STATUSES =
+            Set.of(STATUS_PENDING, STATUS_APPROVED, STATUS_REJECTED);
+    private static final Set<String> ALLOWED_CLUB_ROLES =
+            Set.of(ROLE_LEADER, ROLE_VICE_LEADER, ROLE_MEMBER);
+
     private final ClubRegistrationRepository registrationRepository;
     private final UserRepository userRepository;
     private final ClubRepository clubRepository;
     private final ClubMembershipRepository clubMembershipRepository;
     private final ClubRoleRepository clubRoleRepository;
     private final SemesterRepository semesterRepository;
+    private final SystemRoleRepository systemRoleRepository;
+    private final DisciplineLogRepository disciplineLogRepository;
 
     @Override
     @Transactional
     public ClubRegistrationResponseDTO submitRegistration(ClubRegistrationRequestDTO request, Integer currentUserId) {
-        // Validate active semester
-        Semester activeSemester = semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
-                .orElseThrow(() -> new BusinessRuleException("Không có học kỳ nào đang hoạt động (Active)."));
+        Semester activeSemester = loadActiveSemester();
+        Map<String, ClubRole> clubRoles = loadRequiredClubRoles();
+        validateClubUnique(request.getClubCode(), request.getClubName());
+        FoundingMemberValidation validation = validateFoundingMembers(
+                fromRequestMembers(request.getFoundingMembers()),
+                activeSemester,
+                clubRoles
+        );
 
-        // Validation 1: Check club name and code uniqueness
-        if (clubRepository.existsByClubCode(request.getClubCode())) {
-            throw new BusinessRuleException("Mã câu lạc bộ đã tồn tại trong hệ thống.");
-        }
-        if (clubRepository.existsByClubName(request.getClubName())) {
-            throw new BusinessRuleException("Tên câu lạc bộ đã tồn tại trong hệ thống.");
-        }
+        ClubRegistration registration = buildRegistration(request, currentUserId, STATUS_APPROVED);
+        registration.setFoundingMembers(buildRegistrationMembers(registration, request.getFoundingMembers()));
 
-        // Ensure there is exactly 1 Leader and 1 ViceLeader
-        long leaderCount = request.getFoundingMembers().stream().filter(m -> "Leader".equals(m.getProposedRole())).count();
-        long viceLeaderCount = request.getFoundingMembers().stream().filter(m -> "ViceLeader".equals(m.getProposedRole())).count();
-        if (leaderCount != 1 || viceLeaderCount != 1) {
-            throw new BusinessRuleException("Câu lạc bộ phải có chính xác 1 Chủ nhiệm và 1 Phó chủ nhiệm trong danh sách thành viên sáng lập.");
-        }
+        ClubRegistration savedRegistration = registrationRepository.save(registration);
+        Club club = createActiveClub(savedRegistration);
+        createFoundingMemberships(validation, club, activeSemester, clubRoles);
 
-        // Gather all student IDs in the proposal
-        List<String> proposedStudentIds = request.getFoundingMembers().stream()
-                .map(FoundingMemberDTO::getStudentId)
-                .collect(Collectors.toList());
-
-        Set<String> uniqueStudentIds = new HashSet<>();
-
-        // Validation 2: Ensure all proposed members have registered user accounts and check club limits
-        for (String studentId : proposedStudentIds) {
-            if (!uniqueStudentIds.add(studentId)) {
-                throw new BusinessRuleException("Danh sách thành viên sáng lập có sinh viên bị trùng lặp (MSSV: " + studentId + ").");
-            }
-
-            UserAccount user = userRepository.findByStudentIdAndIsDeletedFalse(studentId)
-                    .orElseThrow(() -> new BusinessRuleException("Sinh viên có MSSV: " + studentId + " chưa đăng ký tài khoản trên hệ thống."));
-
-            // Check 4-club limit
-            int activeClubs = clubMembershipRepository.countByUserIDAndSemesterIDAndIsDeletedFalse(user.getUserID(), activeSemester.getSemesterID());
-            if (activeClubs >= 4) {
-                throw new BusinessRuleException("Sinh viên " + user.getFullName() + " (MSSV: " + studentId + ") đã tham gia tối đa 4 câu lạc bộ trong học kỳ này.");
-            }
-        }
-
-        // Map DTO to Entity
-        ClubRegistration registration = ClubRegistration.builder()
-                .clubCode(request.getClubCode())
-                .clubName(request.getClubName())
-                .clubNameEn(request.getClubNameEn())
-                .category(request.getCategory())
-                .clubImage(request.getClubImage())
-                .description(request.getDescription())
-                .mission(request.getMission())
-                .uniqueness(request.getUniqueness())
-                .orgStructure(request.getOrgStructure())
-                .meetingFrequency(request.getMeetingFrequency())
-                .meetingLocation(request.getMeetingLocation())
-                .financialPlan(request.getFinancialPlan())
-                .status("PENDING")
-                .createdBy(currentUserId)
-                .createdAt(LocalDateTime.now())
-                .isDeleted(false)
-                .build();
-
-        List<ClubRegistrationMember> members = request.getFoundingMembers().stream().map(fm -> 
-            ClubRegistrationMember.builder()
-                    .registration(registration)
-                    .studentId(fm.getStudentId())
-                    .proposedRole(fm.getProposedRole())
-                    .fullName(fm.getFullName())
-                    .email(fm.getEmail())
-                    .phoneNumber(fm.getPhoneNumber())
-                    .cohort(fm.getCohort())
-                    .clazz(fm.getClazz())
-                    .facebookLink(fm.getFacebookLink())
-                    .cardImage(fm.getCardImage())
-                    .isDeleted(false)
-                    .build()
-        ).collect(Collectors.toList());
-
-        registration.setFoundingMembers(members);
-
-        ClubRegistration saved = registrationRepository.save(registration);
-        return mapToResponse(saved);
+        return mapToResponse(savedRegistration);
     }
 
     @Override
@@ -128,10 +95,21 @@ public class ClubRegistrationServiceImpl implements ClubRegistrationService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ClubRegistrationResponseDTO> getPendingRegistrations() {
-        return registrationRepository.findByStatusAndIsDeletedFalse("PENDING").stream()
+    public List<ClubRegistrationResponseDTO> getRegistrations(String status) {
+        String normalizedStatus = normalizeStatus(status);
+        List<ClubRegistration> registrations = normalizedStatus == null
+                ? registrationRepository.findByIsDeletedFalse()
+                : registrationRepository.findByStatusAndIsDeletedFalse(normalizedStatus);
+
+        return registrations.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClubRegistrationResponseDTO> getPendingRegistrations() {
+        return getRegistrations(STATUS_PENDING);
     }
 
     @Override
@@ -139,7 +117,7 @@ public class ClubRegistrationServiceImpl implements ClubRegistrationService {
     public ClubRegistrationResponseDTO getRegistrationById(Integer id) {
         ClubRegistration registration = registrationRepository.findById(id)
                 .filter(r -> !r.getIsDeleted())
-                .orElseThrow(() -> new BusinessRuleException("Không tìm thấy đơn đăng ký thành lập CLB."));
+                .orElseThrow(() -> new BusinessRuleException("Club registration not found.", HttpStatus.NOT_FOUND));
         return mapToResponse(registration);
     }
 
@@ -148,96 +126,29 @@ public class ClubRegistrationServiceImpl implements ClubRegistrationService {
     public ClubRegistrationResponseDTO reviewRegistration(Integer id, ReviewRegistrationRequestDTO request, Integer reviewerId) {
         ClubRegistration registration = registrationRepository.findById(id)
                 .filter(r -> !r.getIsDeleted())
-                .orElseThrow(() -> new BusinessRuleException("Không tìm thấy đơn đăng ký thành lập CLB."));
+                .orElseThrow(() -> new BusinessRuleException("Club registration not found.", HttpStatus.NOT_FOUND));
 
-        if (!"PENDING".equals(registration.getStatus())) {
-            throw new BusinessRuleException("Đơn đăng ký này đã được phê duyệt hoặc từ chối từ trước.");
+        if (!STATUS_PENDING.equals(registration.getStatus())) {
+            throw new BusinessRuleException("This registration has already been reviewed.", HttpStatus.CONFLICT);
         }
 
-        Semester activeSemester = semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
-                .orElseThrow(() -> new BusinessRuleException("Không có học kỳ nào đang hoạt động (Active)."));
+        if (STATUS_APPROVED.equals(request.getStatus())) {
+            Semester activeSemester = loadActiveSemester();
+            Map<String, ClubRole> clubRoles = loadRequiredClubRoles();
+            validateClubUnique(registration.getClubCode(), registration.getClubName());
+            FoundingMemberValidation validation = validateFoundingMembers(
+                    fromRegistrationMembers(registration.getFoundingMembers()),
+                    activeSemester,
+                    clubRoles
+            );
 
-        if ("APPROVED".equals(request.getStatus())) {
-            // Re-verify club code/name uniqueness at approval time
-            if (clubRepository.existsByClubCode(registration.getClubCode())) {
-                throw new BusinessRuleException("Mã câu lạc bộ đã tồn tại trong hệ thống.");
-            }
-            if (clubRepository.existsByClubName(registration.getClubName())) {
-                throw new BusinessRuleException("Tên câu lạc bộ đã tồn tại trong hệ thống.");
-            }
-
-            // Re-verify all student IDs existence and 4-club limit
-            List<String> proposedStudentIds = registration.getFoundingMembers().stream()
-                .map(ClubRegistrationMember::getStudentId)
-                .collect(Collectors.toList());
-
-            Set<String> uniqueStudentIds = new HashSet<>();
-            List<UserAccount> membersToAssign = new ArrayList<>();
-            for (String studentId : proposedStudentIds) {
-                if (!uniqueStudentIds.add(studentId)) {
-                    throw new BusinessRuleException("Đơn đăng ký không hợp lệ: Danh sách thành viên sáng lập có sinh viên bị trùng lặp (MSSV: " + studentId + "). Vui lòng Từ chối đơn này.");
-                }
-
-                UserAccount user = userRepository.findByStudentIdAndIsDeletedFalse(studentId)
-                        .orElseThrow(() -> new BusinessRuleException("Sinh viên có MSSV: " + studentId + " chưa đăng ký tài khoản trên hệ thống."));
-
-                // Check 4-club limit
-                int activeClubs = clubMembershipRepository.countByUserIDAndSemesterIDAndIsDeletedFalse(user.getUserID(), activeSemester.getSemesterID());
-                if (activeClubs >= 4) {
-                    throw new BusinessRuleException("Sinh viên " + user.getFullName() + " (MSSV: " + studentId + ") đã tham gia tối đa 4 câu lạc bộ.");
-                }
-                membersToAssign.add(user);
-            }
-
-            // 1. Create the new Club
-            Club club = new Club();
-            club.setClubCode(registration.getClubCode());
-            club.setClubName(registration.getClubName());
-            club.setDescription(registration.getDescription());
-            club.setCategory(registration.getCategory());
-            club.setClubImage(registration.getClubImage());
-            club.setClubStatus("Active");
-            club.setCreatedAt(LocalDateTime.now());
-            club.setIsDeleted(false);
-            club = clubRepository.save(club);
-
-            // 2. Fetch roles
-            ClubRole leaderRole = clubRoleRepository.findByRoleNameAndIsDeletedFalse("Leader")
-                    .orElseThrow(() -> new BusinessRuleException("Không tìm thấy vai trò Leader trong hệ thống."));
-            ClubRole viceLeaderRole = clubRoleRepository.findByRoleNameAndIsDeletedFalse("ViceLeader")
-                    .orElseThrow(() -> new BusinessRuleException("Không tìm thấy vai trò ViceLeader trong hệ thống."));
-            ClubRole memberRole = clubRoleRepository.findByRoleNameAndIsDeletedFalse("Member")
-                    .orElseThrow(() -> new BusinessRuleException("Không tìm thấy vai trò Member trong hệ thống."));
-
-            // 3. Create memberships for all founding members
-            for (ClubRegistrationMember fm : registration.getFoundingMembers()) {
-                UserAccount fmUser = userRepository.findByStudentIdAndIsDeletedFalse(fm.getStudentId())
-                        .orElseThrow(() -> new BusinessRuleException("Thành viên sáng lập có MSSV: " + fm.getStudentId() + " chưa có tài khoản trên hệ thống."));
-                ClubMembership fmMembership = new ClubMembership();
-                fmMembership.setClubID(club.getClubID());
-                fmMembership.setUserID(fmUser.getUserID());
-                fmMembership.setSemesterID(activeSemester.getSemesterID());
-                
-                Integer roleId;
-                if ("Leader".equals(fm.getProposedRole())) {
-                    roleId = leaderRole.getClubRoleID();
-                } else if ("ViceLeader".equals(fm.getProposedRole())) {
-                    roleId = viceLeaderRole.getClubRoleID();
-                } else {
-                    roleId = memberRole.getClubRoleID();
-                }
-                fmMembership.setClubRoleID(roleId);
-                
-                fmMembership.setJoinedDate(LocalDate.now());
-                fmMembership.setIsDeleted(false);
-                clubMembershipRepository.save(fmMembership);
-            }
-
-            registration.setStatus("APPROVED");
-        } else if ("REJECTED".equals(request.getStatus())) {
-            registration.setStatus("REJECTED");
+            Club club = createActiveClub(registration);
+            createFoundingMemberships(validation, club, activeSemester, clubRoles);
+            registration.setStatus(STATUS_APPROVED);
+        } else if (STATUS_REJECTED.equals(request.getStatus())) {
+            registration.setStatus(STATUS_REJECTED);
         } else {
-            throw new BusinessRuleException("Trạng thái duyệt không hợp lệ (APPROVED hoặc REJECTED).");
+            throw new BusinessRuleException("Review status must be APPROVED or REJECTED.", HttpStatus.BAD_REQUEST);
         }
 
         registration.setIcpdpComment(request.getIcpdpComment());
@@ -245,6 +156,243 @@ public class ClubRegistrationServiceImpl implements ClubRegistrationService {
         ClubRegistration saved = registrationRepository.save(registration);
 
         return mapToResponse(saved);
+    }
+
+    private Semester loadActiveSemester() {
+        return semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
+                .orElseThrow(() -> new BusinessRuleException("No active semester is configured.", HttpStatus.CONFLICT));
+    }
+
+    private void validateClubUnique(String clubCode, String clubName) {
+        if (clubRepository.existsByClubCodeAndIsDeletedFalse(clubCode)) {
+            throw new BusinessRuleException("Club code already exists.", HttpStatus.CONFLICT);
+        }
+        if (clubRepository.existsByClubNameAndIsDeletedFalse(clubName)) {
+            throw new BusinessRuleException("Club name already exists.", HttpStatus.CONFLICT);
+        }
+    }
+
+    private Map<String, ClubRole> loadRequiredClubRoles() {
+        Map<String, ClubRole> roles = new HashMap<>();
+        roles.put(ROLE_LEADER, findClubRole(ROLE_LEADER));
+        roles.put(ROLE_VICE_LEADER, findClubRole(ROLE_VICE_LEADER));
+        roles.put(ROLE_MEMBER, findClubRole(ROLE_MEMBER));
+        return roles;
+    }
+
+    private ClubRole findClubRole(String roleName) {
+        return clubRoleRepository.findByRoleNameAndIsDeletedFalse(roleName)
+                .orElseThrow(() -> new BusinessRuleException(
+                        "Club role is not configured: " + roleName,
+                        HttpStatus.INTERNAL_SERVER_ERROR
+                ));
+    }
+
+    private FoundingMemberValidation validateFoundingMembers(
+            List<FounderCandidate> candidates,
+            Semester activeSemester,
+            Map<String, ClubRole> clubRoles
+    ) {
+        if (candidates.size() < 5) {
+            throw new BusinessRuleException("Founding team must include at least 5 students.");
+        }
+
+        for (FounderCandidate candidate : candidates) {
+            if (!ALLOWED_CLUB_ROLES.contains(candidate.proposedRole())) {
+                throw new BusinessRuleException("Founding member role must be Leader, ViceLeader, or Member.");
+            }
+        }
+
+        long leaderCount = candidates.stream().filter(candidate -> ROLE_LEADER.equals(candidate.proposedRole())).count();
+        long viceLeaderCount = candidates.stream().filter(candidate -> ROLE_VICE_LEADER.equals(candidate.proposedRole())).count();
+        long memberCount = candidates.stream().filter(candidate -> ROLE_MEMBER.equals(candidate.proposedRole())).count();
+
+        if (leaderCount != 1 || viceLeaderCount != 1 || memberCount < 3) {
+            throw new BusinessRuleException("Founding team must include exactly 1 Leader, exactly 1 ViceLeader, and at least 3 Members.");
+        }
+
+        SystemRole studentRole = systemRoleRepository.findByRoleName(SYSTEM_ROLE_STUDENT)
+                .orElseThrow(() -> new BusinessRuleException(
+                        "Student system role is not configured.",
+                        HttpStatus.INTERNAL_SERVER_ERROR
+                ));
+
+        Integer leaderRoleId = clubRoles.get(ROLE_LEADER).getClubRoleID();
+        Set<String> seenStudentIds = new HashSet<>();
+        Map<String, UserAccount> usersByStudentId = new HashMap<>();
+
+        for (FounderCandidate candidate : candidates) {
+            if (!seenStudentIds.add(candidate.studentId())) {
+                throw new BusinessRuleException("Duplicate founding member student ID: " + candidate.studentId());
+            }
+
+            UserAccount user = userRepository.findByStudentIdAndIsDeletedFalse(candidate.studentId())
+                    .orElseThrow(() -> new BusinessRuleException(
+                            "Student account does not exist for student ID: " + candidate.studentId()
+                    ));
+
+            if (!studentRole.getRoleID().equals(user.getRoleID())) {
+                throw new BusinessRuleException("Founding members must be student accounts.");
+            }
+
+            int activeClubCount = clubMembershipRepository.countByUserIDAndSemesterIDAndIsDeletedFalse(
+                    user.getUserID(),
+                    activeSemester.getSemesterID()
+            );
+            if (activeClubCount >= 4) {
+                throw new BusinessRuleException("Student has already reached the 4-club limit: " + candidate.studentId());
+            }
+
+            if (ROLE_LEADER.equals(candidate.proposedRole())) {
+                validateLeaderEligibility(user, activeSemester, leaderRoleId);
+            }
+
+            usersByStudentId.put(candidate.studentId(), user);
+        }
+
+        return new FoundingMemberValidation(candidates, usersByStudentId);
+    }
+
+    private void validateLeaderEligibility(UserAccount leader, Semester activeSemester, Integer leaderRoleId) {
+        boolean hasActiveDiscipline = disciplineLogRepository.hasActiveDiscipline(
+                leader.getUserID(),
+                activeSemester.getSemesterID(),
+                DISCIPLINE_ACTIVE
+        );
+        if (hasActiveDiscipline) {
+            throw new BusinessRuleException("Proposed Leader has an active discipline record.");
+        }
+
+        boolean alreadyLeader = clubMembershipRepository.existsByUserIDAndSemesterIDAndClubRoleIDAndIsDeletedFalse(
+                leader.getUserID(),
+                activeSemester.getSemesterID(),
+                leaderRoleId
+        );
+        if (alreadyLeader) {
+            throw new BusinessRuleException("Proposed Leader already leads another club in this semester.");
+        }
+    }
+
+    private ClubRegistration buildRegistration(
+            ClubRegistrationRequestDTO request,
+            Integer currentUserId,
+            String status
+    ) {
+        LocalDateTime now = LocalDateTime.now();
+        return ClubRegistration.builder()
+                .clubCode(request.getClubCode())
+                .clubName(request.getClubName())
+                .clubNameEn(request.getClubNameEn())
+                .category(request.getCategory())
+                .clubImage(request.getClubImage())
+                .description(request.getDescription())
+                .mission(request.getMission())
+                .uniqueness(request.getUniqueness())
+                .orgStructure(request.getOrgStructure())
+                .meetingFrequency(request.getMeetingFrequency())
+                .meetingLocation(request.getMeetingLocation())
+                .financialPlan(request.getFinancialPlan())
+                .status(status)
+                .createdBy(currentUserId)
+                .createdAt(now)
+                .updatedAt(STATUS_APPROVED.equals(status) ? now : null)
+                .isDeleted(false)
+                .build();
+    }
+
+    private List<ClubRegistrationMember> buildRegistrationMembers(
+            ClubRegistration registration,
+            List<FoundingMemberDTO> foundingMembers
+    ) {
+        return foundingMembers.stream()
+                .map(member -> ClubRegistrationMember.builder()
+                        .registration(registration)
+                        .studentId(normalizeStudentId(member.getStudentId()))
+                        .proposedRole(normalizeRole(member.getProposedRole()))
+                        .fullName(member.getFullName())
+                        .email(member.getEmail())
+                        .phoneNumber(member.getPhoneNumber())
+                        .cohort(member.getCohort())
+                        .clazz(member.getClazz())
+                        .facebookLink(member.getFacebookLink())
+                        .cardImage(member.getCardImage())
+                        .isDeleted(false)
+                        .build()
+                )
+                .collect(Collectors.toList());
+    }
+
+    private Club createActiveClub(ClubRegistration registration) {
+        Club club = new Club();
+        club.setClubCode(registration.getClubCode());
+        club.setClubName(registration.getClubName());
+        club.setDescription(registration.getDescription());
+        club.setCategory(registration.getCategory());
+        club.setClubImage(registration.getClubImage());
+        club.setClubStatus("Active");
+        club.setCreatedAt(LocalDateTime.now());
+        club.setIsDeleted(false);
+        return clubRepository.save(club);
+    }
+
+    private void createFoundingMemberships(
+            FoundingMemberValidation validation,
+            Club club,
+            Semester activeSemester,
+            Map<String, ClubRole> clubRoles
+    ) {
+        for (FounderCandidate candidate : validation.candidates()) {
+            UserAccount user = validation.usersByStudentId().get(candidate.studentId());
+            ClubMembership membership = new ClubMembership();
+            membership.setClubID(club.getClubID());
+            membership.setUserID(user.getUserID());
+            membership.setSemesterID(activeSemester.getSemesterID());
+            membership.setClubRoleID(clubRoles.get(candidate.proposedRole()).getClubRoleID());
+            membership.setJoinedDate(LocalDate.now());
+            membership.setIsDeleted(false);
+            clubMembershipRepository.save(membership);
+        }
+    }
+
+    private List<FounderCandidate> fromRequestMembers(List<FoundingMemberDTO> members) {
+        return members.stream()
+                .map(member -> new FounderCandidate(
+                        normalizeStudentId(member.getStudentId()),
+                        normalizeRole(member.getProposedRole())
+                ))
+                .collect(Collectors.toList());
+    }
+
+    private List<FounderCandidate> fromRegistrationMembers(List<ClubRegistrationMember> members) {
+        return members.stream()
+                .filter(member -> !Boolean.TRUE.equals(member.getIsDeleted()))
+                .map(member -> new FounderCandidate(
+                        normalizeStudentId(member.getStudentId()),
+                        normalizeRole(member.getProposedRole())
+                ))
+                .collect(Collectors.toList());
+    }
+
+    private String normalizeStudentId(String studentId) {
+        return studentId == null ? "" : studentId.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeRole(String role) {
+        return role == null ? "" : role.trim();
+    }
+
+    private String normalizeStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        String normalizedStatus = status.trim().toUpperCase(Locale.ROOT);
+        if (!ALLOWED_REGISTRATION_STATUSES.contains(normalizedStatus)) {
+            throw new BusinessRuleException(
+                    "Status must be PENDING, APPROVED, or REJECTED.",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+        return normalizedStatus;
     }
 
     private ClubRegistrationResponseDTO mapToResponse(ClubRegistration registration) {
@@ -269,27 +417,38 @@ public class ClubRegistrationServiceImpl implements ClubRegistrationService {
         dto.setCreatedAt(registration.getCreatedAt());
         dto.setUpdatedAt(registration.getUpdatedAt());
 
-        // Get creator name
         userRepository.findById(registration.getCreatedBy()).ifPresent(user -> dto.setCreatorName(user.getFullName()));
 
         if (registration.getFoundingMembers() != null) {
-            List<ClubRegistrationResponseDTO.FoundingMemberResponseDTO> membersList = registration.getFoundingMembers().stream().map(fm -> {
-                ClubRegistrationResponseDTO.FoundingMemberResponseDTO fmDto = new ClubRegistrationResponseDTO.FoundingMemberResponseDTO();
-                fmDto.setMemberID(fm.getMemberID());
-                fmDto.setStudentId(fm.getStudentId());
-                fmDto.setProposedRole(fm.getProposedRole());
-                fmDto.setFullName(fm.getFullName());
-                fmDto.setEmail(fm.getEmail());
-                fmDto.setPhoneNumber(fm.getPhoneNumber());
-                fmDto.setCohort(fm.getCohort());
-                fmDto.setClazz(fm.getClazz());
-                fmDto.setFacebookLink(fm.getFacebookLink());
-                fmDto.setCardImage(fm.getCardImage());
-                return fmDto;
-            }).collect(Collectors.toList());
+            List<ClubRegistrationResponseDTO.FoundingMemberResponseDTO> membersList = registration.getFoundingMembers().stream()
+                    .filter(member -> !Boolean.TRUE.equals(member.getIsDeleted()))
+                    .map(fm -> {
+                        ClubRegistrationResponseDTO.FoundingMemberResponseDTO fmDto = new ClubRegistrationResponseDTO.FoundingMemberResponseDTO();
+                        fmDto.setMemberID(fm.getMemberID());
+                        fmDto.setStudentId(fm.getStudentId());
+                        fmDto.setProposedRole(fm.getProposedRole());
+                        fmDto.setFullName(fm.getFullName());
+                        fmDto.setEmail(fm.getEmail());
+                        fmDto.setPhoneNumber(fm.getPhoneNumber());
+                        fmDto.setCohort(fm.getCohort());
+                        fmDto.setClazz(fm.getClazz());
+                        fmDto.setFacebookLink(fm.getFacebookLink());
+                        fmDto.setCardImage(fm.getCardImage());
+                        return fmDto;
+                    })
+                    .collect(Collectors.toList());
             dto.setFoundingMembers(membersList);
         }
 
         return dto;
+    }
+
+    private record FounderCandidate(String studentId, String proposedRole) {
+    }
+
+    private record FoundingMemberValidation(
+            List<FounderCandidate> candidates,
+            Map<String, UserAccount> usersByStudentId
+    ) {
     }
 }

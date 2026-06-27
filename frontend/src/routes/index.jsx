@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 // Public pages
 import LandingPage from "../pages/landing/LandingPage";
 import ClubListPage from "../pages/clubs/ClubListPage";
@@ -88,7 +88,7 @@ export default function AppRoutes() {
         <Route index element={<IcpdpOverview />} />
         <Route path="club-overview" element={<IcpdpClubOverview />} />
         <Route path="club-management" element={<IcpdpClubManagement />} />
-        <Route path="club-requests" element={<IcpdpClubRequests />} />
+        <Route path="clubs/create" element={<ClubRegistrationForm mode="icpdp" />} />
         <Route path="event-approval" element={<IcpdpEventApproval />} />
         <Route path="personnel-reassign" element={<IcpdpPersonnelReassign />} />
         <Route path="discipline-log" element={<IcpdpDisciplineLog />} />
@@ -127,7 +127,7 @@ export default function AppRoutes() {
         <Route index element={<MemberHome />} />
         <Route path="my-clubs" element={<MemberMyClubs />} />
         <Route path="clubs" element={<MemberClubs />} />
-        <Route path="club-register" element={<ClubRegistrationForm />} />
+        <Route path="club-register" element={<Navigate to="/member/clubs" replace />} />
         <Route path="club-register-history" element={<MemberRegistrationHistory />} />
         <Route path="events" element={<MemberEvents />} />
         <Route path="tickets" element={<MemberMyTickets />} />
