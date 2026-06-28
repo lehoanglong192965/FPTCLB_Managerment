@@ -19,12 +19,15 @@ import java.util.List;
 @RequiredArgsConstructor
 public class EventAbsenceScheduler {
 
+    private static final String REGISTRATION_STATUS_REGISTERED = "REGISTERED";
+    private static final String ATTENDANCE_STATUS_ABSENT = "Absent";
+
     private final EventRepository eventRepository;
     private final EventRegistrationRepository registrationRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceRecordRepository attendanceRecordRepository;
 
-    @Scheduled(cron = "0 0 1 * * ?") // Chạy lúc 01:00 mỗi ngày
+    @Scheduled(cron = "0 0 1 * * ?")
     @Transactional
     public void markAbsences() {
         List<Event> completedEvents = eventRepository.findByEventStatusAndIsDeletedFalse("Completed");
@@ -32,17 +35,24 @@ public class EventAbsenceScheduler {
         for (Event event : completedEvents) {
             AttendanceSession session = attendanceSessionRepository.findByEventID(event.getEventID())
                     .orElse(null);
-            if (session == null) continue;
+            if (session == null) {
+                continue;
+            }
 
             List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(event.getEventID());
             for (EventRegistration reg : registrations) {
-                if (attendanceRecordRepository.findBySessionIDAndUserID(session.getSessionID(), reg.getUserID()).isEmpty()) {
-                    AttendanceRecord absenceRecord = new AttendanceRecord();
-                    absenceRecord.setSessionID(session.getSessionID());
-                    absenceRecord.setUserID(reg.getUserID());
-                    absenceRecord.setAttendanceStatus("Absent");
-                    attendanceRecordRepository.save(absenceRecord);
+                if (reg.getUserID() == null || !REGISTRATION_STATUS_REGISTERED.equals(reg.getStatus())) {
+                    continue;
                 }
+                attendanceRecordRepository
+                        .findBySessionIDAndUserID(session.getSessionID(), reg.getUserID())
+                        .orElseGet(() -> {
+                            AttendanceRecord absenceRecord = new AttendanceRecord();
+                            absenceRecord.setSessionID(session.getSessionID());
+                            absenceRecord.setUserID(reg.getUserID());
+                            absenceRecord.setAttendanceStatus(ATTENDANCE_STATUS_ABSENT);
+                            return attendanceRecordRepository.save(absenceRecord);
+                        });
             }
         }
     }

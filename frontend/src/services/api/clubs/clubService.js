@@ -10,6 +10,8 @@ const clubService = {
   getById: (clubId) => axiosClient.get(`/clubs/id/${clubId}`),
   getPublicEvents: (clubId, params) =>
     axiosClient.get(`/clubs/${clubId}/events/public`, { params }),
+  getMemberRankings: (clubId) =>
+    axiosClient.get(`/clubs/${clubId}/rankings/members`),
 
   // ── MEMBER ──────────────────────────────────────────────────────
   join: (clubId) => axiosClient.post(`/clubs/${clubId}/join`),

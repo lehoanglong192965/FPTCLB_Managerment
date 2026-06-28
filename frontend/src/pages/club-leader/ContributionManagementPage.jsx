@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import eventService from "../../services/api/events/eventService";
@@ -29,6 +29,12 @@ export default function ContributionManagementPage() {
   const handleTypeChange = (userId, newType) => {
     setContributions((prev) =>
       prev.map((c) => (c.userID === userId ? { ...c, contributionType: newType } : c))
+    );
+  };
+
+  const handleEvaluationChange = (userId, newEvaluation) => {
+    setContributions((prev) =>
+      prev.map((c) => (c.userID === userId ? { ...c, leaderEvaluation: newEvaluation } : c))
     );
   };
 
@@ -65,6 +71,7 @@ export default function ContributionManagementPage() {
             <tr>
               <th className="px-6 py-3">Tên thành viên</th>
               <th className="px-6 py-3">Loại đóng góp</th>
+              <th className="px-6 py-3">Đánh giá role</th>
             </tr>
           </thead>
           <tbody>
@@ -81,6 +88,16 @@ export default function ContributionManagementPage() {
                     <option value="SUPPORT_ORGANIZER">Support</option>
                     <option value="PARTICIPANT">Participant</option>
                     <option value="ABSENT">Absent</option>
+                  </select>
+                </td>
+                <td className="px-6 py-4">
+                  <select
+                    value={c.leaderEvaluation || "GOOD"}
+                    onChange={(e) => handleEvaluationChange(c.userID, e.target.value)}
+                    className="border rounded p-1.5 outline-none"
+                  >
+                    <option value="GOOD">Good</option>
+                    <option value="NOT_GOOD">Not good (-10)</option>
                   </select>
                 </td>
               </tr>
