@@ -68,7 +68,8 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
     @Transactional(readOnly = true)
     public List<ClubApplicationSummaryResponse> getClubApplications(Integer clubId) {
         Semester activeSemester = semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
-                .orElseThrow(() -> new BusinessRuleException("Không tìm thấy học kỳ Active.", HttpStatus.CONFLICT));
+                .orElse(null);
+        if (activeSemester == null) return List.of();
 
         List<RecruitmentApplication> apps = applicationRepository
                 .findByClubIDAndSemesterIDAndIsDeletedFalse(clubId, activeSemester.getSemesterID());

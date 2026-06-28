@@ -42,13 +42,26 @@ public class EventController {
         return ResponseEntity.ok(eventService.getApprovedEvents());
     }
 
+    @GetMapping("/report-uploaded")
+    @PreAuthorize("hasRole('ICPDP')")
+    public ResponseEntity<List<Event>> getReportUploadedEvents() {
+        return ResponseEntity.ok(eventService.getReportUploadedEvents());
+    }
+
+    @PatchMapping("/{eventId}/reject-report")
+    @PreAuthorize("hasRole('ICPDP')")
+    public ResponseEntity<Map<String, String>> rejectReport(@PathVariable Integer eventId) {
+        eventService.rejectReport(eventId);
+        return ResponseEntity.ok(Map.of("message", "Report rejected, event returned to Completed."));
+    }
+
     @GetMapping("/{eventId}")
     public ResponseEntity<Event> getEventById(@PathVariable Integer eventId) {
         return ResponseEntity.ok(eventService.getEventById(eventId));
     }
 
     @GetMapping("/{eventId}/my-status")
-    @PreAuthorize("hasAnyRole('Member', 'Leader', 'ViceLeader')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Boolean>> getMyStatus(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
@@ -58,7 +71,7 @@ public class EventController {
     }
 
     @GetMapping("/my-assignments")
-    @PreAuthorize("hasAnyRole('Member', 'Leader', 'ViceLeader')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<Event>> getMyAssignments(@AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.ok(eventService.getEventsByUserAssigned(currentUser.getUserId()));
     }
@@ -72,13 +85,62 @@ public class EventController {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Event proposal created successfully."));
     }
 
-    @PutMapping("/{eventId}/submit")
+    @PutMapping("/{eventId}")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    public ResponseEntity<Map<String, String>> updateEvent(
+            @PathVariable Integer eventId,
+            @RequestBody com.fptu.fcms.dto.request.UpdateEventRequest request) {
+        eventService.updateEvent(eventId, request);
+        return ResponseEntity.ok(Map.of("message", "Event updated successfully."));
+    }
+
+    @PatchMapping("/{eventId}/submit")
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
     public ResponseEntity<Map<String, String>> submitEventProposal(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         eventService.submitEventProposal(eventId, currentUser);
         return ResponseEntity.ok(Map.of("message", "Event proposal submitted successfully."));
+    }
+
+    @PatchMapping("/{eventId}/start")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    public ResponseEntity<Map<String, String>> startEvent(
+            @PathVariable Integer eventId) {
+        eventService.startEvent(eventId);
+        return ResponseEntity.ok(Map.of("message", "Event started successfully."));
+    }
+
+    @PatchMapping("/{eventId}/finish")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    public ResponseEntity<Map<String, String>> finishEvent(
+            @PathVariable Integer eventId) {
+        eventService.finishEvent(eventId);
+        return ResponseEntity.ok(Map.of("message", "Event finished successfully."));
+    }
+
+    @PatchMapping("/{eventId}/close")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
+    public ResponseEntity<Map<String, String>> closeEvent(
+            @PathVariable Integer eventId) {
+        eventService.closeEvent(eventId);
+        return ResponseEntity.ok(Map.of("message", "Event closed successfully."));
+    }
+
+    @PatchMapping("/{eventId}/open-registration")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
+    public ResponseEntity<Map<String, String>> openRegistration(
+            @PathVariable Integer eventId) {
+        eventService.openRegistration(eventId);
+        return ResponseEntity.ok(Map.of("message", "Registration opened successfully."));
+    }
+
+    @PatchMapping("/{eventId}/close-registration")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
+    public ResponseEntity<Map<String, String>> closeRegistration(
+            @PathVariable Integer eventId) {
+        eventService.closeRegistration(eventId);
+        return ResponseEntity.ok(Map.of("message", "Registration closed successfully."));
     }
 
     @PutMapping("/{eventId}/approve")
@@ -98,6 +160,37 @@ public class EventController {
             @Valid @RequestBody CancelEventRequest request) {
         eventService.cancelEvent(clubId, eventId, request);
         return ResponseEntity.ok(Map.of("message", "Event cancelled successfully."));
+    }
+
+    @PostMapping("/{eventId}/check-in/{studentId}")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    public ResponseEntity<Map<String, String>> checkIn(
+            @PathVariable Integer eventId,
+            @PathVariable String studentId) {
+        String fullName = eventService.checkIn(eventId, studentId);
+        return ResponseEntity.ok(Map.of("message", "Check-in successful.", "fullName", fullName, "studentId", studentId));
+    }
+
+    @GetMapping("/{eventId}/check-in")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    public ResponseEntity<List<Map<String, Object>>> getCheckedInAttendees(@PathVariable Integer eventId) {
+        return ResponseEntity.ok(eventService.getCheckedInAttendees(eventId));
+    }
+
+    @GetMapping("/{eventId}/contributions")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    public ResponseEntity<List<com.fptu.fcms.dto.response.ContributionDTO>> getContributions(
+            @PathVariable Integer eventId) {
+        return ResponseEntity.ok(eventService.getEventContributions(eventId));
+    }
+
+    @PostMapping("/{eventId}/contributions")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    public ResponseEntity<Map<String, String>> saveContributions(
+            @PathVariable Integer eventId,
+            @RequestBody List<com.fptu.fcms.dto.response.ContributionDTO> contributions) {
+        eventService.saveEventContributions(eventId, contributions);
+        return ResponseEntity.ok(Map.of("message", "Contributions saved successfully."));
     }
 
     @PostMapping("/{eventId}/assignments")

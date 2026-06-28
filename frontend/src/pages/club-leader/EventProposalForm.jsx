@@ -6,6 +6,7 @@ import {
 import eventService from "../../services/api/events/eventService";
 import semesterApi from "../../services/api/admin/semesterApi";
 import { TokenService } from "../../services/api/axiosClient";
+import clubRegistrationApi from "../../services/api/clubs/clubRegistrationApi";
 
 /* ─── Constants ─────────────────────────────────────────────── */
 
@@ -99,24 +100,47 @@ function StepBar({ current }) {
 
 /* ─── Banner upload ──────────────────────────────────────────── */
 
+const getImageUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+  return apiBase.replace(/\/api\/?$/, "") + url;
+};
+
 function BannerUpload({ value, onChange }) {
   const fileRef = useRef(null);
   const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  const handleFile = (file) => {
-    if (!file || !file.type.startsWith("image/")) return;
+  const handleFile = async (file) => {
+    console.log("[BannerUpload] handleFile called:", file?.name, file?.type, file?.size);
+    if (!file || !file.type.startsWith("image/")) { console.log("[BannerUpload] invalid file"); return; }
     if (file.size > 5 * 1024 * 1024) { alert("Ảnh không được vượt quá 5MB."); return; }
-    const reader = new FileReader();
-    reader.onload = (e) => onChange(e.target.result);
-    reader.readAsDataURL(file);
+    setUploading(true);
+    console.log("[BannerUpload] uploading...");
+    try {
+      const res = await clubRegistrationApi.uploadCardImage(file);
+      console.log("[BannerUpload] upload result:", res);
+      onChange(res.url || res);
+    } catch (err) {
+      console.error("[BannerUpload] Upload thất bại:", err);
+      alert("Tải ảnh lên thất bại. Vui lòng thử lại.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
     <div>
       <Label>Banner sự kiện</Label>
-      {value ? (
+      {uploading ? (
+        <div style={{ borderRadius: 12, border: "1.5px solid #e5e7eb", height: 168, display: "flex", alignItems: "center", justifyContent: "center", background: "#fafafa", flexDirection: "column", gap: 8 }}>
+          <UploadCloud size={24} style={{ color: "#E6430A" }} />
+          <span style={{ fontSize: 13, color: "#6b7280" }}>Đang tải ảnh lên...</span>
+        </div>
+      ) : value ? (
         <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", border: "1.5px solid #e5e7eb" }}>
-          <img src={value} alt="Banner" style={{ width: "100%", height: 168, objectFit: "cover", display: "block" }} />
+          <img src={getImageUrl(value)} alt="Banner" style={{ width: "100%", height: 168, objectFit: "cover", display: "block" }} />
           <button
             type="button"
             onClick={() => { onChange(null); if (fileRef.current) fileRef.current.value = ""; }}
@@ -158,7 +182,7 @@ function BannerUpload({ value, onChange }) {
         </div>
       )}
       <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
-        onChange={(e) => handleFile(e.target.files[0])} />
+        onChange={(e) => { console.log("[BannerUpload] input onChange:", e.target.files); handleFile(e.target.files[0]); }} />
     </div>
   );
 }
@@ -339,7 +363,7 @@ function Step3({ form }) {
       {form.banner && (
         <SummaryCard icon={<ImagePlus size={15} color="#E6430A" />} title="Banner sự kiện">
           <div style={{ padding: "10px 0" }}>
-            <img src={form.banner} alt="Banner" style={{ width: "100%", height: 160, objectFit: "cover", borderRadius: 8, display: "block" }} />
+            <img src={getImageUrl(form.banner)} alt="Banner" style={{ width: "100%", height: 160, objectFit: "cover", borderRadius: 8, display: "block" }} />
           </div>
         </SummaryCard>
       )}
@@ -494,6 +518,7 @@ export default function EventProposalForm({ onClose, onSubmit }) {
         endDate,
         isResubmitted: false,
         isInternal:    form.isInternal,
+        bannerUrl:     form.banner || null,
         assignments:   null,
       });
 

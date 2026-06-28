@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationsContext';
 import eventService from '../../services/api/events/eventService';
@@ -8,6 +8,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
     const { user } = useAuth();
     const { addNotification } = useNotifications();
     const navigate = useNavigate();
+    const location = useLocation();
     const [isLoading, setIsLoading]     = useState(false);
     const [isRegistered, setIsRegistered] = useState(false);
     const [isAssigned, setIsAssigned]   = useState(false);
@@ -27,6 +28,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
                 setIsAssigned(!!data.assigned);
             })
             .catch(err => {
+                if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
                 console.error("Lỗi kiểm tra trạng thái sự kiện:", err);
             })
             .finally(() => {
@@ -36,20 +38,37 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
 
     if (isExcludedRole) return null;
 
-    if (eventStatus !== 'Approved' && eventStatus !== 'Upcoming' && eventStatus !== 'Ongoing') {
+    const REGISTERABLE_STATUSES = ['Approved', 'RegistrationOpen', 'RegistrationClosed', 'Upcoming', 'Ongoing'];
+    if (!REGISTERABLE_STATUSES.includes(eventStatus)) {
         return null;
+    }
+
+    if (eventStatus === 'Approved') {
+        return (
+            <button className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 bg-gray-100 text-gray-500 cursor-default border-none" disabled>
+                <i className="fas fa-clock"></i> Chưa mở đăng ký
+            </button>
+        );
+    }
+
+    if (eventStatus === 'RegistrationClosed') {
+        return (
+            <button className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 bg-gray-100 text-gray-500 cursor-default border-none" disabled>
+                <i className="fas fa-lock"></i> Đã đóng đăng ký
+            </button>
+        );
     }
 
     if (!user) {
         return (
             <button
-                onClick={() => navigate('/login')}
+                onClick={() => navigate('/login', { state: { from: location.pathname } })}
                 className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 text-white cursor-pointer border-none"
                 style={{ background: "#F37021" }}
                 onMouseEnter={e => e.currentTarget.style.background = "#e05c0a"}
                 onMouseLeave={e => e.currentTarget.style.background = "#F37021"}
             >
-                <i className="fas fa-sign-in-alt"></i> Đăng nhập để đăng ký
+                <i className="fas fa-ticket-alt"></i> Đăng ký để tham gia
             </button>
         );
     }

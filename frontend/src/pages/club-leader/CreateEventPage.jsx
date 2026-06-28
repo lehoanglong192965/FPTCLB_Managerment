@@ -7,6 +7,7 @@ import {
 import eventService from "../../services/api/events/eventService";
 import semesterApi from "../../services/api/admin/semesterApi";
 import { TokenService } from "../../services/api/axiosClient";
+import clubRegistrationApi from "../../services/api/clubs/clubRegistrationApi";
 
 /* ─── Constants ─────────────────────────────────────────────── */
 
@@ -18,7 +19,7 @@ const STEPS = [
 
 const EMPTY_FORM = {
   name: "", desc: "", budget: "", banner: null,
-  isInternal: false,
+  isInternal: false, maxParticipants: "",
   date: "", startTime: "", endTime: "", location: "",
 };
 
@@ -99,24 +100,44 @@ function StepBar({ current }) {
 
 /* ─── Banner upload ──────────────────────────────────────────── */
 
+const getImageUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+  return apiBase.replace(/\/api\/?$/, "") + url;
+};
+
 function BannerUpload({ value, onChange }) {
   const fileRef = useRef(null);
   const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  const handleFile = (file) => {
+  const handleFile = async (file) => {
     if (!file || !file.type.startsWith("image/")) return;
     if (file.size > 5 * 1024 * 1024) { alert("Ảnh không được vượt quá 5MB."); return; }
-    const reader = new FileReader();
-    reader.onload = (e) => onChange(e.target.result);
-    reader.readAsDataURL(file);
+    setUploading(true);
+    try {
+      const res = await clubRegistrationApi.uploadCardImage(file);
+      onChange(res.url || res);
+    } catch (err) {
+      console.error("[BannerUpload] Upload thất bại:", err);
+      alert("Tải ảnh lên thất bại. Vui lòng thử lại.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
     <div>
       <Label>Banner sự kiện</Label>
-      {value ? (
+      {uploading ? (
+        <div style={{ borderRadius: 12, border: "1.5px solid #e5e7eb", height: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "#fafafa", flexDirection: "column", gap: 8 }}>
+          <UploadCloud size={24} style={{ color: "#E6430A" }} />
+          <span style={{ fontSize: 13, color: "#6b7280" }}>Đang tải ảnh lên...</span>
+        </div>
+      ) : value ? (
         <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", border: "1.5px solid #e5e7eb" }}>
-          <img src={value} alt="Banner" style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }} />
+          <img src={getImageUrl(value)} alt="Banner" style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }} />
           <button
             type="button"
             onClick={() => { onChange(null); if (fileRef.current) fileRef.current.value = ""; }}
@@ -255,6 +276,18 @@ function Step1({ form, onChange, errors }) {
         </div>
       </div>
 
+      <div>
+        <Label required>Số người tham gia tối đa</Label>
+        <input
+          style={inputStyle(errors.maxParticipants)}
+          type="number" min="1"
+          placeholder="VD: 100"
+          value={form.maxParticipants}
+          onChange={(e) => onChange("maxParticipants", e.target.value)}
+        />
+        <FieldError msg={errors.maxParticipants} />
+      </div>
+
       <InternalToggle value={form.isInternal} onChange={onChange} />
     </div>
   );
@@ -348,7 +381,7 @@ function Step3({ form }) {
       {form.banner && (
         <SummaryCard icon={<ImagePlus size={15} color="#E6430A" />} title="Banner sự kiện">
           <div style={{ padding: "10px 0" }}>
-            <img src={form.banner} alt="Banner" style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 8, display: "block" }} />
+            <img src={getImageUrl(form.banner)} alt="Banner" style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 8, display: "block" }} />
           </div>
         </SummaryCard>
       )}
@@ -357,6 +390,7 @@ function Step3({ form }) {
         <SummaryRow label="Tên sự kiện" value={form.name} />
         <SummaryRow label="Mô tả"       value={form.desc} />
         <SummaryRow label="Phạm vi"     value={form.isInternal ? "Nội bộ CLB" : "Công khai"} />
+        <SummaryRow label="Số người tối đa" value={form.maxParticipants ? `${form.maxParticipants} người` : "Không giới hạn"} />
         <div style={{ display: "flex", gap: 12, padding: "8px 0", alignItems: "center" }}>
           <span style={{ fontSize: 12.5, color: "#6b7280", minWidth: 140, flexShrink: 0 }}>Ngân sách</span>
           <span style={{ fontSize: 13, color: Number(form.budget) > BUDGET_LIMIT ? "#dc2626" : "#111827", fontWeight: 600 }}>
@@ -388,6 +422,8 @@ function validate(step, form) {
       e.desc = "Mô tả phải có ít nhất 30 ký tự.";
     if (!form.budget || Number(form.budget) < 0)
       e.budget = "Vui lòng nhập ngân sách dự kiến (nhập 0 nếu không có).";
+    if (!form.maxParticipants || Number(form.maxParticipants) < 1)
+      e.maxParticipants = "Vui lòng nhập số người tham gia tối đa (ít nhất 1 người).";
   }
   if (step === 2) {
     if (!form.date) {
@@ -476,8 +512,10 @@ export default function CreateEventPage() {
         budget:        Number(form.budget) || 0,
         startDate:     `${form.date}T${form.startTime}:00`,
         endDate:       `${form.date}T${form.endTime}:00`,
+        maxParticipants: form.maxParticipants ? parseInt(form.maxParticipants) : null,
         isResubmitted: false,
         isInternal:    form.isInternal,
+        bannerUrl:     form.banner || null,
         assignments:   null,
       });
       saveToLocal();

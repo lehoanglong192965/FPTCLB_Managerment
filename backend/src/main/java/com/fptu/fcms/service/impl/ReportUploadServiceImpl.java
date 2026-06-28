@@ -30,6 +30,8 @@ public class ReportUploadServiceImpl implements ReportUploadService {
     private static final long MAX_PDF_SIZE_BYTES = 10L * 1024 * 1024;
     private static final byte[] PDF_MAGIC = new byte[] {'%', 'P', 'D', 'F', '-'};
 
+    private static final String STATUS_REPORT_UPLOADED = "ReportUploaded";
+
     private final EventRepository eventRepository;
     private final EventReportRepository eventReportRepository;
     private final ClamAvScanService clamAvScanService;
@@ -38,10 +40,20 @@ public class ReportUploadServiceImpl implements ReportUploadService {
     private String storageDir;
 
     @Override
+    public EventReport getReportByEventId(Integer eventId) {
+        return eventReportRepository.findByEventIDAndIsDeletedFalse(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Report not found for event " + eventId));
+    }
+
+    @Override
     @Transactional
-    public Map<String, String> uploadEventReport(CreateEventReportRequest request) {
+    public Map<String, String> uploadEventReport(CreateEventReportRequest request, Integer uploadedBy) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(request.getEventID())
                 .orElseThrow(() -> new IllegalArgumentException("Event not found."));
+
+        if (!"Completed".equals(event.getEventStatus()) && !"Ongoing".equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Only Completed or Ongoing events can have reports uploaded.");
+        }
 
         MultipartFile file = request.getFile();
         validatePdf(file);
@@ -58,9 +70,13 @@ public class ReportUploadServiceImpl implements ReportUploadService {
             report.setEventID(event.getEventID());
             report.setReportUrl("/api/uploads/" + fileName);
             report.setSummary(request.getSummary());
+            report.setUploadedBy(uploadedBy);
             report.setUploadedAt(LocalDateTime.now());
             report.setIsDeleted(false);
             eventReportRepository.save(report);
+
+            event.setEventStatus(STATUS_REPORT_UPLOADED);
+            eventRepository.save(event);
 
             return Map.of(
                     "reportID", String.valueOf(report.getReportID()),

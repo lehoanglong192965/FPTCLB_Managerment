@@ -77,7 +77,7 @@ public class Event {
     private LocalDateTime approvedAt;
 
 
-    @Column(name = "rejectionReason")
+    @Column(name = "rejectionReason", columnDefinition = "NVARCHAR(MAX)")
     private String rejectionReason;
 
     @Column(name = "isResubmitted")
@@ -94,6 +94,9 @@ public class Event {
 
     @Column(name = "createdBy")
     private Integer createdBy;
+
+    @Column(name = "bannerUrl", columnDefinition = "NVARCHAR(MAX)")
+    private String bannerUrl;
 
     @Column(name = "isDeleted")
     private Boolean isDeleted;

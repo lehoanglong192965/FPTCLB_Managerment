@@ -33,6 +33,7 @@ export const AuthProvider = ({ children }) => {
       const data = await authService.getProfile();
       setProfile(data);
     } catch (e) {
+      if (e?.code === "ERR_CANCELED" || e?.name === "CanceledError") return;
       console.error("Lỗi tải profile:", e);
     } finally {
       setProfileLoading(false);

@@ -53,6 +53,7 @@ export default function EventsSection() {
             badgeType:           "open",
             maxParticipants:     e.maxParticipants     ?? 0,
             currentParticipants: e.currentParticipants ?? 0,
+            bannerUrl:           e.bannerUrl ?? null,
           };
         });
 

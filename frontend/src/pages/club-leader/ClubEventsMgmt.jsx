@@ -1,33 +1,50 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Clock, MapPin, Search, X, AlertTriangle, Users } from "lucide-react";
+import { Calendar, Clock, MapPin, Search, X, AlertTriangle, Users, ChevronRight } from "lucide-react";
 import { TokenService } from "../../services/api/axiosClient";
 import clubService from "../../services/api/clubs/clubService";
 import eventService from "../../services/api/events/eventService";
 import FinishEventModal from "../../components/events/FinishEventModal";
 import CloseEventButton from "../icpdp/CloseEventButton";
 
+const getImageUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+  return apiBase.replace(/\/api\/?$/, "") + url;
+};
+
 const STATUS_CFG = {
-  // Title case (localStorage / frontend)
-  Draft:     { label: "Bản nháp",      color: "#6b7280", bg: "#f3f4f6" },
-  Pending:   { label: "Chờ duyệt",     color: "#d97706", bg: "#fffbeb" },
-  Approved:  { label: "Đã duyệt",      color: "#059669", bg: "#ecfdf5" },
-  Upcoming:  { label: "Sắp diễn ra",   color: "#059669", bg: "#ecfdf5" },
-  Ongoing:   { label: "Đang diễn ra",  color: "#2563eb", bg: "#eff6ff" },
-  Completed: { label: "Đã kết thúc",   color: "#7c3aed", bg: "#f5f3ff" },
-  Closed:    { label: "Đã đóng",       color: "#374151", bg: "#e5e7eb" },
-  Cancelled: { label: "Đã hủy",        color: "#dc2626", bg: "#fef2f2" },
-  // UPPERCASE (trực tiếp từ backend DB)
-  DRAFT:     { label: "Bản nháp",      color: "#6b7280", bg: "#f3f4f6" },
-  PENDING:   { label: "Chờ duyệt",     color: "#d97706", bg: "#fffbeb" },
-  APPROVED:  { label: "Đã duyệt",      color: "#059669", bg: "#ecfdf5" },
-  UPCOMING:  { label: "Sắp diễn ra",   color: "#059669", bg: "#ecfdf5" },
-  ONGOING:   { label: "Đang diễn ra",  color: "#2563eb", bg: "#eff6ff" },
-  COMPLETED: { label: "Đã kết thúc",   color: "#7c3aed", bg: "#f5f3ff" },
-  CLOSED:    { label: "Đã đóng",       color: "#374151", bg: "#e5e7eb" },
-  CANCELLED: { label: "Đã hủy",        color: "#dc2626", bg: "#fef2f2" },
+  // Title case (từ backend API)
+  Draft:            { label: "Bản nháp",         color: "#6b7280", bg: "#f3f4f6" },
+  Pending:          { label: "Chờ duyệt",         color: "#d97706", bg: "#fffbeb" },
+  PendingApproval:  { label: "Chờ ICPDP duyệt",  color: "#d97706", bg: "#fffbeb" },
+  Approved:         { label: "Đã duyệt",          color: "#059669", bg: "#ecfdf5" },
+  RegistrationOpen:   { label: "Mở đăng ký",        color: "#0891b2", bg: "#e0f2fe" },
+  RegistrationClosed: { label: "Đóng đăng ký",      color: "#6b7280", bg: "#f3f4f6" },
+  Upcoming:         { label: "Sắp diễn ra",        color: "#059669", bg: "#ecfdf5" },
+  Ongoing:          { label: "Đang diễn ra",       color: "#2563eb", bg: "#eff6ff" },
+  Completed:        { label: "Đã kết thúc",        color: "#7c3aed", bg: "#f5f3ff" },
+  ReportUploaded:   { label: "Đã nộp báo cáo",    color: "#9333ea", bg: "#faf5ff" },
+  Closed:           { label: "Đã đóng",            color: "#374151", bg: "#e5e7eb" },
+  Cancelled:        { label: "Đã hủy",             color: "#dc2626", bg: "#fef2f2" },
+  Rejected:         { label: "Bị từ chối",         color: "#b91c1c", bg: "#fff1f2" },
+  // UPPERCASE fallback
+  DRAFT:            { label: "Bản nháp",           color: "#6b7280", bg: "#f3f4f6" },
+  PENDING:          { label: "Chờ duyệt",          color: "#d97706", bg: "#fffbeb" },
+  PENDINGAPPROVAL:  { label: "Chờ ICPDP duyệt",   color: "#d97706", bg: "#fffbeb" },
+  APPROVED:         { label: "Đã duyệt",           color: "#059669", bg: "#ecfdf5" },
+  REGISTRATIONOPEN:   { label: "Mở đăng ký",         color: "#0891b2", bg: "#e0f2fe" },
+  REGISTRATIONCLOSED: { label: "Đóng đăng ký",       color: "#6b7280", bg: "#f3f4f6" },
+  UPCOMING:         { label: "Sắp diễn ra",         color: "#059669", bg: "#ecfdf5" },
+  ONGOING:          { label: "Đang diễn ra",        color: "#2563eb", bg: "#eff6ff" },
+  COMPLETED:        { label: "Đã kết thúc",         color: "#7c3aed", bg: "#f5f3ff" },
+  REPORTUPLOADED:   { label: "Đã nộp báo cáo",     color: "#9333ea", bg: "#faf5ff" },
+  CLOSED:           { label: "Đã đóng",             color: "#374151", bg: "#e5e7eb" },
+  CANCELLED:        { label: "Đã hủy",              color: "#dc2626", bg: "#fef2f2" },
+  REJECTED:         { label: "Bị từ chối",          color: "#b91c1c", bg: "#fff1f2" },
   // lowercase (CreateEventPage saveToLocal)
-  pending:   { label: "Chờ duyệt",     color: "#d97706", bg: "#fffbeb" },
+  pending:          { label: "Chờ duyệt",          color: "#d97706", bg: "#fffbeb" },
 };
 
 const REASON_MIN = 20;
@@ -146,13 +163,19 @@ function resolveClubId() {
 // Chuẩn hóa event từ cả 2 nguồn (localStorage format cũ & API format mới)
 function normalizeEvent(ev) {
   return {
-    eventID:     ev.eventID     ?? ev.id     ?? null,
-    eventName:   ev.eventName   ?? ev.name   ?? "",
-    eventStatus: ev.eventStatus ?? ev.status ?? "Draft",
-    startDate:   ev.startDate   ?? null,
-    date:        ev.date        ?? "",
-    time:        ev.time        ?? "",
-    location:    ev.location    ?? "",
+    eventID:         ev.eventID         ?? ev.id          ?? null,
+    eventName:       ev.eventName       ?? ev.name        ?? "",
+    eventStatus:     ev.eventStatus     ?? ev.status      ?? "Draft",
+    startDate:       ev.startDate       ?? null,
+    endDate:         ev.endDate         ?? null,
+    date:            ev.date            ?? "",
+    time:            ev.time            ?? "",
+    location:        ev.location        ?? "",
+    description:     ev.description     ?? "",
+    maxParticipants: ev.maxParticipants ?? null,
+    budget:          ev.budget          ?? null,
+    bannerUrl:        ev.bannerUrl        ?? null,
+    rejectionReason:  ev.rejectionReason  ?? null,
   };
 }
 
@@ -171,9 +194,16 @@ export default function ClubEventsMgmt() {
 
   const [search, setSearch]             = useState("");
   const [events, setEvents]             = useState(() => loadLocal(clubId));
-  const [cancelTarget, setCancelTarget] = useState(null);
-  const [finishTarget, setFinishTarget] = useState(null);
-  const [startingId, setStartingId]     = useState(null);
+  const [cancelTarget, setCancelTarget]         = useState(null);
+  const [finishTarget, setFinishTarget]         = useState(null);
+  const [startingId, setStartingId]             = useState(null);
+  const [openingRegId, setOpeningRegId]         = useState(null);
+  const [closingRegId, setClosingRegId]         = useState(null);
+  const [selectedEv, setSelectedEv]             = useState(null);
+  const [isEditing, setIsEditing]               = useState(false);
+  const [editForm, setEditForm]                 = useState({});
+  const [saving, setSaving]                     = useState(false);
+  const [reportModal, setReportModal]           = useState({ open: false, summary: "", file: null, uploading: false, error: null });
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -195,6 +225,7 @@ export default function ClubEventsMgmt() {
         setEvents(normalized);
         localStorage.setItem(`club_events_${clubId}`, JSON.stringify(raw));
       } catch (error) {
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError") return;
         console.error("[ClubEventsMgmt] Lỗi tải sự kiện:", error);
       }
     };
@@ -205,12 +236,70 @@ export default function ClubEventsMgmt() {
     (e.eventName || "").toLowerCase().includes(search.toLowerCase())
   );
 
+  const updateEvent = (eventID, patch) => {
+    setEvents((prev) => prev.map((e) => e.eventID === eventID ? { ...e, ...patch } : e));
+    setSelectedEv((prev) => prev?.eventID === eventID ? { ...prev, ...patch } : prev);
+  };
+
+  const openDetail = (ev) => {
+    setSelectedEv(ev);
+    setIsEditing(false);
+    setEditForm({});
+  };
+
+  const startEdit = (ev) => {
+    const dt = ev.startDate ? new Date(ev.startDate) : null;
+    const pad = (n) => String(n).padStart(2, "0");
+    setEditForm({
+      name:            ev.eventName || "",
+      date:            dt ? `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}` : "",
+      time:            dt ? `${pad(dt.getHours())}:${pad(dt.getMinutes())}` : "",
+      location:        ev.location || "",
+      description:     ev.description || "",
+      maxParticipants: ev.maxParticipants || "",
+    });
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    setSaving(true);
+    try {
+      const startDate = editForm.date && editForm.time
+        ? new Date(`${editForm.date}T${editForm.time}:00`).toISOString().slice(0, 19)
+        : null;
+      await eventService.update(selectedEv.eventID, {
+        eventName:       editForm.name || undefined,
+        description:     editForm.description || undefined,
+        location:        editForm.location || undefined,
+        startDate:       startDate || undefined,
+        endDate:         startDate || undefined,
+        maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : undefined,
+      });
+      updateEvent(selectedEv.eventID, {
+        eventName:       editForm.name,
+        description:     editForm.description,
+        location:        editForm.location,
+        startDate:       startDate ? `${editForm.date}T${editForm.time}:00` : selectedEv.startDate,
+        maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : selectedEv.maxParticipants,
+      });
+      setIsEditing(false);
+    } catch (e) {
+      alert("Lỗi lưu thay đổi: " + (e.response?.data?.message || e.message));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const btnStyle = (bg, disabled = false) => ({
+    padding: "10px 16px", borderRadius: 10, fontSize: 13.5, fontWeight: 600,
+    background: bg, color: "#fff", border: "none", cursor: disabled ? "not-allowed" : "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%",
+  });
+
   const handleCancelConfirm = async (eventID, reason) => {
     try {
       await eventService.cancel(clubId, eventID, reason);
-      setEvents((prev) =>
-        prev.map((e) => e.eventID === eventID ? { ...e, eventStatus: "Cancelled" } : e)
-      );
+      updateEvent(eventID, { eventStatus: "Cancelled" });
       setCancelTarget(null);
     } catch (error) {
       alert("Lỗi khi hủy sự kiện: " + (error.response?.data?.message || error.message));
@@ -263,152 +352,53 @@ export default function ClubEventsMgmt() {
             )}
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             {filtered.map((ev, index) => {
               const rawStatus = ev.eventStatus || "Draft";
-              const status    = rawStatus.toUpperCase(); // chuẩn hóa để so sánh
+              const status    = rawStatus.toUpperCase();
               const cfg       = STATUS_CFG[rawStatus] || STATUS_CFG[status] || STATUS_CFG["Draft"];
-
               const dateStr = ev.startDate
                 ? new Date(ev.startDate).toLocaleDateString("vi-VN")
                 : (ev.date || "Chưa xác định");
               const timeStr = ev.startDate
                 ? new Date(ev.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
                 : (ev.time || "");
-
+              const isSelected = selectedEv?.eventID === ev.eventID;
               return (
                 <div
                   key={ev.eventID ?? `${ev.eventName}-${ev.startDate ?? ev.date ?? index}`}
+                  onClick={() => openDetail(ev)}
                   style={{
                     display: "flex", alignItems: "center", gap: "1rem",
-                    padding: "0.875rem 1.25rem", borderRadius: 12,
-                    border: status === "CANCELLED" ? "1.5px solid #fecaca" : "1.5px solid #f0f0f0",
-                    background: status === "CANCELLED" ? "#fff8f8" : "#fff",
+                    padding: "0.875rem 1.25rem", borderRadius: 12, cursor: "pointer",
+                    border: isSelected ? "1.5px solid #F37021" : (status === "CANCELLED" ? "1.5px solid #fecaca" : "1.5px solid #f0f0f0"),
+                    background: isSelected ? "#fff7f3" : (status === "CANCELLED" ? "#fff8f8" : "#fff"),
+                    transition: "border-color 0.15s, background 0.15s",
                   }}
                 >
-                  <div style={{ width: 48, height: 48, borderRadius: 12, background: "#FFF3EE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Calendar size={20} color="#E6430A" />
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: "#FFF3EE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Calendar size={18} color="#E6430A" />
                   </div>
-
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontWeight: 600, fontSize: 14, color: "#111827", margin: "0 0 4px" }}>
+                    <p style={{ fontWeight: 600, fontSize: 13.5, color: "#111827", margin: "0 0 3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {ev.eventName}
                     </p>
-                    <p style={{ fontSize: 12, color: "#9ca3af", margin: 0, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <p style={{ fontSize: 12, color: "#9ca3af", margin: 0, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                       <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                        <Clock size={11} /> {dateStr} {timeStr}
+                        <Clock size={10} /> {dateStr}{timeStr ? ` · ${timeStr}` : ""}
                       </span>
                       {ev.location && (
                         <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                          <MapPin size={11} /> {ev.location}
+                          <MapPin size={10} /> {ev.location}
                         </span>
                       )}
                     </p>
                   </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    <span style={{ padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600, color: cfg.color, background: cfg.bg }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    <span style={{ padding: "2px 10px", borderRadius: 99, fontSize: 11.5, fontWeight: 600, color: cfg.color, background: cfg.bg }}>
                       {cfg.label}
                     </span>
-
-                    {/* Draft/DRAFT: Gửi đề xuất + Hủy */}
-                    {status === "DRAFT" && (
-                      <>
-                        <button
-                          onClick={async () => {
-                            try {
-                              await eventService.submit(ev.eventID);
-                              setEvents((prev) =>
-                                prev.map((e) => e.eventID === ev.eventID ? { ...e, eventStatus: "PENDING" } : e)
-                              );
-                            } catch (e) {
-                              alert("Lỗi gửi đề xuất: " + e.message);
-                            }
-                          }}
-                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#059669", color: "#fff", border: "none", cursor: "pointer" }}
-                        >
-                          Gửi đề xuất
-                        </button>
-                        <button
-                          onClick={() => setCancelTarget(ev)}
-                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#dc2626", color: "#fff", border: "none", cursor: "pointer" }}
-                        >
-                          Hủy
-                        </button>
-                      </>
-                    )}
-
-                    {/* Approved/Upcoming: Phân công + Bắt đầu + Hủy */}
-                    {(status === "APPROVED" || status === "UPCOMING") && (
-                      <>
-                        <button
-                          onClick={() => navigate(`${ev.eventID}/assignments`, { relative: "path" })}
-                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#2563eb", color: "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
-                        >
-                          <Users size={12} /> Phân công
-                        </button>
-                        <button
-                          disabled={startingId === ev.eventID}
-                          onClick={async () => {
-                            setStartingId(ev.eventID);
-                            try {
-                              await eventService.start(ev.eventID);
-                              setEvents((prev) =>
-                                prev.map((e) => e.eventID === ev.eventID ? { ...e, eventStatus: "ONGOING" } : e)
-                              );
-                            } catch (e) {
-                              alert("Lỗi bắt đầu sự kiện: " + (e.response?.data?.message || e.message));
-                            } finally {
-                              setStartingId(null);
-                            }
-                          }}
-                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: startingId === ev.eventID ? "#86efac" : "#059669", color: "#fff", border: "none", cursor: startingId === ev.eventID ? "not-allowed" : "pointer" }}
-                        >
-                          {startingId === ev.eventID ? "Đang xử lý..." : "Bắt đầu sự kiện"}
-                        </button>
-                        <button
-                          onClick={() => setCancelTarget(ev)}
-                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#dc2626", color: "#fff", border: "none", cursor: "pointer" }}
-                        >
-                          Hủy
-                        </button>
-                      </>
-                    )}
-
-                    {/* Ongoing: Điểm danh + Kết thúc */}
-                    {status === "ONGOING" && (
-                      <>
-                        <button
-                          onClick={() => navigate(`${ev.eventID}/checkin`, { relative: "path" })}
-                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#0891b2", color: "#fff", border: "none", cursor: "pointer" }}
-                        >
-                          Điểm danh
-                        </button>
-                        <button
-                          onClick={() => setFinishTarget(ev.eventID)}
-                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#7c3aed", color: "#fff", border: "none", cursor: "pointer" }}
-                        >
-                          Kết thúc
-                        </button>
-                      </>
-                    )}
-
-                    {/* Completed: Báo cáo + Đóng */}
-                    {status === "COMPLETED" && (
-                      <>
-                        <button
-                          onClick={() => navigate(`../contributions/${ev.eventID}`, { relative: "path" })}
-                          style={{ padding: "4px 10px", borderRadius: 8, fontSize: 12, background: "#2563eb", color: "#fff", border: "none", cursor: "pointer" }}
-                        >
-                          Báo cáo
-                        </button>
-                        <CloseEventButton
-                          eventId={ev.eventID}
-                          eventStatus="Completed"
-                          onCloseSuccess={() => window.location.reload()}
-                        />
-                      </>
-                    )}
+                    <ChevronRight size={15} color="#d1d5db" />
                   </div>
                 </div>
               );
@@ -416,6 +406,438 @@ export default function ClubEventsMgmt() {
           </div>
         )}
       </div>
+
+      {/* Drawer chi tiết sự kiện */}
+      {selectedEv && (() => {
+        const rawStatus = selectedEv.eventStatus || "Draft";
+        const status    = rawStatus.toUpperCase();
+        const cfg       = STATUS_CFG[rawStatus] || STATUS_CFG[status] || STATUS_CFG["Draft"];
+        const dateStr    = selectedEv.startDate
+          ? new Date(selectedEv.startDate).toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+          : (selectedEv.date || "Chưa xác định");
+        const timeStr    = selectedEv.startDate
+          ? new Date(selectedEv.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
+          : (selectedEv.time || "");
+        const endTimeStr = selectedEv.endDate
+          ? new Date(selectedEv.endDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
+          : "";
+        const fmtBudget = (val) => {
+          const n = Number(val);
+          return isNaN(n) || n === 0 ? null : n.toLocaleString("vi-VN") + " đ";
+        };
+
+        return (
+          <>
+            <div
+              onClick={() => setSelectedEv(null)}
+              style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%", maxWidth: 520, maxHeight: "90vh",
+                background: "#fff", borderRadius: 16, overflowY: "auto",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+                display: "flex", flexDirection: "column",
+                margin: "0 16px",
+              }}>
+              {/* Banner */}
+              {selectedEv.bannerUrl && (
+                <div style={{
+                  height: 160, flexShrink: 0,
+                  backgroundImage: `url(${getImageUrl(selectedEv.bannerUrl)})`,
+                  backgroundSize: "cover", backgroundPosition: "center",
+                }} />
+              )}
+
+              {/* Header */}
+              <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600, color: cfg.color, background: cfg.bg, marginBottom: 8 }}>
+                    {cfg.label}
+                  </span>
+                  {isEditing ? (
+                    <input
+                      value={editForm.name}
+                      onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                      style={{ width: "100%", fontSize: 16, fontWeight: 700, color: "#111827", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "6px 10px", boxSizing: "border-box", outline: "none" }}
+                    />
+                  ) : (
+                    <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#111827", lineHeight: 1.35 }}>
+                      {selectedEv.eventName}
+                    </h2>
+                  )}
+                </div>
+                <button
+                  onClick={() => { setSelectedEv(null); setIsEditing(false); }}
+                  style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#6b7280", flexShrink: 0, borderRadius: 8 }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Thông tin */}
+              <div style={{ padding: "16px 24px", borderBottom: "1px solid #f0f0f0", display: "flex", flexDirection: "column", gap: 12 }}>
+                {isEditing ? (<>
+                  <div>
+                    <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Ngày tổ chức</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input type="date" value={editForm.date} onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))}
+                        style={{ flex: 1, fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", outline: "none" }} />
+                      <input type="time" value={editForm.time} onChange={(e) => setEditForm((f) => ({ ...f, time: e.target.value }))}
+                        style={{ width: 110, fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", outline: "none" }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Địa điểm</label>
+                    <input value={editForm.location} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))}
+                      style={{ width: "100%", fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", boxSizing: "border-box", outline: "none" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Số người tối đa</label>
+                    <input type="number" min={1} value={editForm.maxParticipants} onChange={(e) => setEditForm((f) => ({ ...f, maxParticipants: e.target.value }))}
+                      style={{ width: "100%", fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", boxSizing: "border-box", outline: "none" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Mô tả</label>
+                    <textarea value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} rows={4}
+                      style={{ width: "100%", fontSize: 13, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", boxSizing: "border-box", outline: "none", resize: "vertical", lineHeight: 1.6 }} />
+                  </div>
+                </>) : (<>
+                  {(() => {
+                    const rows = [
+                      {
+                        icon: <Calendar size={14} color="#E6430A" />,
+                        label: "Ngày tổ chức",
+                        value: dateStr,
+                      },
+                      {
+                        icon: <Clock size={14} color="#E6430A" />,
+                        label: "Thời gian",
+                        value: timeStr ? (endTimeStr ? `${timeStr} – ${endTimeStr}` : timeStr) : null,
+                      },
+                      {
+                        icon: <MapPin size={14} color="#E6430A" />,
+                        label: "Địa điểm",
+                        value: selectedEv.location || null,
+                      },
+                      {
+                        icon: <Users size={14} color="#E6430A" />,
+                        label: "Số lượng",
+                        value: selectedEv.maxParticipants ? `${selectedEv.maxParticipants} người` : null,
+                      },
+                      {
+                        icon: <span style={{ fontSize: 13, fontWeight: 700, color: "#E6430A", lineHeight: 1 }}>₫</span>,
+                        label: "Quỹ dự kiến",
+                        value: fmtBudget(selectedEv.budget),
+                      },
+                    ];
+                    return rows.filter(r => r.value).map((r, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <div style={{ width: 20, display: "flex", justifyContent: "center", paddingTop: 1, flexShrink: 0 }}>{r.icon}</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.4 }}>{r.label}</span>
+                          <span style={{ fontSize: 13.5, color: "#111827" }}>{r.value}</span>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                  {selectedEv.description && (
+                    <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 10, marginTop: 2 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 6 }}>Mô tả sự kiện</span>
+                      <p style={{ margin: 0, fontSize: 13, color: "#374151", lineHeight: 1.75, whiteSpace: "pre-line" }}>
+                        {selectedEv.description}
+                      </p>
+                    </div>
+                  )}
+                </>)}
+              </div>
+
+              {/* Lý do từ chối */}
+              {status === "REJECTED" && selectedEv.rejectionReason && (
+                <div style={{ margin: "0 24px", padding: "14px 16px", borderRadius: 10, background: "#fef2f2", border: "1.5px solid #fecaca" }}>
+                  <p style={{ margin: "0 0 6px", fontSize: 11.5, fontWeight: 700, color: "#b91c1c", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Lý do từ chối (ICPDP)
+                  </p>
+                  <p style={{ margin: 0, fontSize: 13.5, color: "#7f1d1d", lineHeight: 1.7, whiteSpace: "pre-line" }}>
+                    {selectedEv.rejectionReason}
+                  </p>
+                </div>
+              )}
+
+              {/* Thao tác */}
+              <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+                {!isEditing && (
+                  <p style={{ margin: "0 0 4px", fontSize: 11.5, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.6 }}>
+                    Thao tác
+                  </p>
+                )}
+
+                {/* Draft */}
+                {status === "DRAFT" && !isEditing && (<>
+                  <button onClick={() => startEdit(selectedEv)} style={btnStyle("#f59e0b")}>
+                    Chỉnh sửa thông tin
+                  </button>
+                  <button onClick={async () => {
+                    try {
+                      await eventService.submit(selectedEv.eventID);
+                      updateEvent(selectedEv.eventID, { eventStatus: "PendingApproval" });
+                    } catch (e) {
+                      alert("Lỗi gửi đề xuất: " + (e.response?.data?.message || e.message));
+                    }
+                  }} style={btnStyle("#059669")}>
+                    Gửi đề xuất
+                  </button>
+                </>)}
+                {status === "DRAFT" && isEditing && (<>
+                  <button
+                    disabled={saving}
+                    onClick={handleSaveEdit}
+                    style={btnStyle(saving ? "#86efac" : "#059669", saving)}
+                  >
+                    {saving ? "Đang lưu..." : "Lưu thay đổi"}
+                  </button>
+                  <button onClick={() => setIsEditing(false)} style={btnStyle("#6b7280")}>
+                    Hủy chỉnh sửa
+                  </button>
+                </>)}
+
+                {/* Approved */}
+                {(status === "APPROVED" || status === "UPCOMING") && (<>
+                  <button onClick={() => navigate(`${selectedEv.eventID}/assignments`, { relative: "path" })} style={btnStyle("#2563eb")}>
+                    <Users size={14} /> Phân công
+                  </button>
+                  <button
+                    disabled={openingRegId === selectedEv.eventID}
+                    onClick={async () => {
+                      if (!window.confirm("Bạn có chắc muốn mở đăng ký? Thành viên sẽ thấy và có thể đăng ký tham gia.")) return;
+                      setOpeningRegId(selectedEv.eventID);
+                      try {
+                        await eventService.openRegistration(selectedEv.eventID);
+                        updateEvent(selectedEv.eventID, { eventStatus: "RegistrationOpen" });
+                      } catch (e) {
+                        alert("Lỗi mở đăng ký: " + (e.response?.data?.message || e.message));
+                      } finally { setOpeningRegId(null); }
+                    }}
+                    style={btnStyle(openingRegId === selectedEv.eventID ? "#67e8f9" : "#0891b2", openingRegId === selectedEv.eventID)}
+                  >
+                    {openingRegId === selectedEv.eventID ? "Đang xử lý..." : "Mở đăng ký"}
+                  </button>
+                  <button onClick={() => setCancelTarget(selectedEv)} style={btnStyle("#dc2626")}>
+                    Hủy sự kiện
+                  </button>
+                </>)}
+
+                {/* RegistrationOpen */}
+                {status === "REGISTRATIONOPEN" && (<>
+                  <button onClick={() => navigate(`${selectedEv.eventID}/assignments`, { relative: "path" })} style={btnStyle("#2563eb")}>
+                    <Users size={14} /> Phân công
+                  </button>
+                  <button
+                    disabled={closingRegId === selectedEv.eventID}
+                    onClick={async () => {
+                      if (!window.confirm("Bạn có chắc muốn đóng đăng ký? Thành viên sẽ không thể đăng ký thêm.")) return;
+                      setClosingRegId(selectedEv.eventID);
+                      try {
+                        await eventService.closeRegistration(selectedEv.eventID);
+                        updateEvent(selectedEv.eventID, { eventStatus: "RegistrationClosed" });
+                      } catch (e) {
+                        alert("Lỗi đóng đăng ký: " + (e.response?.data?.message || e.message));
+                      } finally { setClosingRegId(null); }
+                    }}
+                    style={btnStyle(closingRegId === selectedEv.eventID ? "#9ca3af" : "#f59e0b", closingRegId === selectedEv.eventID)}
+                  >
+                    {closingRegId === selectedEv.eventID ? "Đang xử lý..." : "Đóng đăng ký"}
+                  </button>
+                  <button onClick={() => setCancelTarget(selectedEv)} style={btnStyle("#dc2626")}>
+                    Hủy sự kiện
+                  </button>
+                </>)}
+
+                {/* RegistrationClosed */}
+                {status === "REGISTRATIONCLOSED" && (<>
+                  <button onClick={() => navigate(`${selectedEv.eventID}/assignments`, { relative: "path" })} style={btnStyle("#2563eb")}>
+                    <Users size={14} /> Phân công
+                  </button>
+                  <button
+                    disabled={startingId === selectedEv.eventID}
+                    onClick={async () => {
+                      setStartingId(selectedEv.eventID);
+                      try {
+                        await eventService.start(selectedEv.eventID);
+                        updateEvent(selectedEv.eventID, { eventStatus: "Ongoing" });
+                      } catch (e) {
+                        alert("Lỗi bắt đầu sự kiện: " + (e.response?.data?.message || e.message));
+                      } finally { setStartingId(null); }
+                    }}
+                    style={btnStyle(startingId === selectedEv.eventID ? "#86efac" : "#059669", startingId === selectedEv.eventID)}
+                  >
+                    {startingId === selectedEv.eventID ? "Đang xử lý..." : "Bắt đầu sự kiện"}
+                  </button>
+                </>)}
+
+                {/* Ongoing */}
+                {status === "ONGOING" && (<>
+                  <button onClick={() => navigate(`${selectedEv.eventID}/checkin`, { relative: "path" })} style={btnStyle("#0891b2")}>
+                    Điểm danh
+                  </button>
+                  <button onClick={() => setFinishTarget(selectedEv.eventID)} style={btnStyle("#7c3aed")}>
+                    Kết thúc sự kiện
+                  </button>
+                </>)}
+
+                {/* Completed — cần nộp báo cáo trước */}
+                {status === "COMPLETED" && (<>
+                  <button
+                    onClick={() => setReportModal({ open: true, summary: "", file: null, uploading: false, error: null })}
+                    style={btnStyle("#7c3aed")}
+                  >
+                    Nộp báo cáo sự kiện
+                  </button>
+                  <button onClick={() => navigate(`../contributions/${selectedEv.eventID}`, { relative: "path" })} style={btnStyle("#2563eb")}>
+                    Chốt đóng góp
+                  </button>
+                </>)}
+
+                {/* ReportUploaded — đã nộp, chờ ICPDP */}
+                {status === "REPORTUPLOADED" && (<>
+                  <div style={{ padding: "10px 14px", borderRadius: 10, background: "#f5f3ff", border: "1.5px solid #ddd6fe", fontSize: 13, color: "#6d28d9", fontWeight: 600 }}>
+                    ✓ Đã nộp báo cáo — đang chờ ICPDP duyệt
+                  </div>
+                  <button onClick={() => navigate(`../contributions/${selectedEv.eventID}`, { relative: "path" })} style={btnStyle("#2563eb")}>
+                    Chốt đóng góp
+                  </button>
+                  <CloseEventButton
+                    eventId={selectedEv.eventID}
+                    eventStatus={selectedEv.eventStatus}
+                    onCloseSuccess={() => window.location.reload()}
+                  />
+                </>)}
+
+                {/* Cancelled / Closed / Rejected / PendingApproval — không có thao tác */}
+                {["CANCELLED", "CLOSED", "REJECTED", "PENDINGAPPROVAL", "PENDING"].includes(status) && (
+                  <p style={{ margin: 0, fontSize: 13, color: "#9ca3af", fontStyle: "italic" }}>
+                    Không có thao tác khả dụng.
+                  </p>
+                )}
+              </div>
+            </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* Modal nộp báo cáo */}
+      {reportModal.open && selectedEv && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setReportModal((m) => ({ ...m, open: false }))}
+          style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <div style={{ width: "100%", maxWidth: 480, background: "#fff", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,0.25)", margin: "0 16px", overflow: "hidden" }}>
+            {/* Header */}
+            <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#111827" }}>Nộp báo cáo sự kiện</h3>
+              <button
+                onClick={() => setReportModal((m) => ({ ...m, open: false }))}
+                style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#6b7280", borderRadius: 8 }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                  Tóm tắt báo cáo <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <textarea
+                  value={reportModal.summary}
+                  onChange={(e) => setReportModal((m) => ({ ...m, summary: e.target.value, error: null }))}
+                  rows={4}
+                  placeholder="Mô tả ngắn gọn kết quả sự kiện..."
+                  style={{ width: "100%", fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "10px 12px", boxSizing: "border-box", resize: "vertical", outline: "none", lineHeight: 1.65 }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                  File báo cáo (PDF, tối đa 10MB) <span style={{ color: "#ef4444" }}>*</span>
+                </label>
+                <label style={{
+                  display: "flex", alignItems: "center", gap: 10, padding: "12px 14px",
+                  border: "1.5px dashed #d1d5db", borderRadius: 10, cursor: "pointer",
+                  background: reportModal.file ? "#f5f3ff" : "#fafafa",
+                  borderColor: reportModal.file ? "#a78bfa" : "#d1d5db",
+                }}>
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] || null;
+                      setReportModal((m) => ({ ...m, file: f, error: null }));
+                    }}
+                  />
+                  <span style={{ fontSize: 20 }}>📄</span>
+                  <span style={{ fontSize: 13.5, color: reportModal.file ? "#6d28d9" : "#9ca3af", fontWeight: reportModal.file ? 600 : 400 }}>
+                    {reportModal.file ? reportModal.file.name : "Chọn file PDF..."}
+                  </span>
+                </label>
+              </div>
+
+              {reportModal.error && (
+                <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", fontSize: 13, color: "#b91c1c" }}>
+                  {reportModal.error}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: "0 24px 20px", display: "flex", gap: 10 }}>
+              <button
+                onClick={() => setReportModal((m) => ({ ...m, open: false }))}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "1.5px solid #e5e7eb", background: "#fff", color: "#374151", fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}
+              >
+                Hủy
+              </button>
+              <button
+                disabled={reportModal.uploading}
+                onClick={async () => {
+                  if (!reportModal.summary.trim()) {
+                    setReportModal((m) => ({ ...m, error: "Vui lòng nhập tóm tắt báo cáo." }));
+                    return;
+                  }
+                  if (!reportModal.file) {
+                    setReportModal((m) => ({ ...m, error: "Vui lòng chọn file PDF." }));
+                    return;
+                  }
+                  setReportModal((m) => ({ ...m, uploading: true, error: null }));
+                  try {
+                    await eventService.uploadReport(selectedEv.eventID, reportModal.summary.trim(), reportModal.file);
+                    updateEvent(selectedEv.eventID, { eventStatus: "ReportUploaded" });
+                    setReportModal({ open: false, summary: "", file: null, uploading: false, error: null });
+                  } catch (e) {
+                    setReportModal((m) => ({
+                      ...m,
+                      uploading: false,
+                      error: e.response?.data?.message || e.message || "Lỗi khi nộp báo cáo.",
+                    }));
+                  }
+                }}
+                style={{
+                  flex: 1, padding: "10px 0", borderRadius: 10, border: "none",
+                  background: reportModal.uploading ? "#c4b5fd" : "#7c3aed",
+                  color: "#fff", fontSize: 13.5, fontWeight: 600,
+                  cursor: reportModal.uploading ? "not-allowed" : "pointer",
+                }}
+              >
+                {reportModal.uploading ? "Đang nộp..." : "Nộp báo cáo"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {cancelTarget && (
         <CancelModal

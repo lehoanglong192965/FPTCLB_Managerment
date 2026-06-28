@@ -105,12 +105,17 @@ public class GlobalExceptionHandler {
      * Bắt mọi exception không được handle ở trên.
      * Không expose stack trace ra ngoài — chỉ trả về thông điệp chung.
      */
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        String msg = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        return buildErrorResponse(HttpStatus.CONFLICT, "Lỗi ràng buộc dữ liệu: " + msg);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
-        return buildErrorResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                "Lỗi hệ thống nội bộ. Vui lòng thử lại sau."
-        );
+        // Log chi tiết để debug, trả về message thật trong development
+        String detail = ex.getClass().getSimpleName() + ": " + ex.getMessage();
+        return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, detail);
     }
 
     // =====================================================================

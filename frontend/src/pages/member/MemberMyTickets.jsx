@@ -40,6 +40,7 @@ export default function MemberMyTickets() {
             date: e.startDate ? new Date(e.startDate).toLocaleDateString("vi-VN") : "",
             time: e.startDate ? new Date(e.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
             location: e.location || "Chưa xếp phòng",
+            bannerUrl: e.bannerUrl ?? null,
             ticketStatus: "registered",
           };
         });
@@ -55,6 +56,7 @@ export default function MemberMyTickets() {
             date: e.startDate ? new Date(e.startDate).toLocaleDateString("vi-VN") : "",
             time: e.startDate ? new Date(e.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
             location: e.location || "Chưa xếp phòng",
+            bannerUrl: e.bannerUrl ?? null,
             ticketStatus: "ongoing",
           };
         });

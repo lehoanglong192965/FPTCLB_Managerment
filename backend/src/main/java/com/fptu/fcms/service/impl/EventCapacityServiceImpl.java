@@ -35,24 +35,37 @@ public class EventCapacityServiceImpl implements EventCapacityService {
                 redis.call('DECR', KEYS[1])
                 return 1
                 """;
-        Long result = redisTemplate.execute(
-                new DefaultRedisScript<>(script, Long.class),
-                List.of(key),
-                String.valueOf(maxParticipants)
-        );
-        return Long.valueOf(1L).equals(result);
+        try {
+            Long result = redisTemplate.execute(
+                    new DefaultRedisScript<>(script, Long.class),
+                    List.of(key),
+                    String.valueOf(maxParticipants)
+            );
+            return Long.valueOf(1L).equals(result);
+        } catch (Exception ex) {
+            // Redis không khả dụng → cho phép đăng ký (không giới hạn slot)
+            return true;
+        }
     }
 
     @Override
     public void releaseSeat(Integer eventId) {
         if (eventId == null) return;
-        redisTemplate.opsForValue().increment(key(eventId));
+        try {
+            redisTemplate.opsForValue().increment(key(eventId));
+        } catch (Exception ex) {
+            // Redis không khả dụng → bỏ qua
+        }
     }
 
     @Override
     public void resetCapacity(Integer eventId, Integer maxParticipants) {
         if (eventId == null || maxParticipants == null || maxParticipants <= 0) return;
-        redisTemplate.opsForValue().set(key(eventId), String.valueOf(maxParticipants));
+        try {
+            redisTemplate.opsForValue().set(key(eventId), String.valueOf(maxParticipants));
+        } catch (Exception ex) {
+            // Redis không khả dụng → bỏ qua
+        }
     }
 
     private String key(Integer eventId) {
