@@ -11,4 +11,5 @@ public class ContributionDTO {
     private Integer userID;
     private String userName;
     private String contributionType; // CORE_TEAM, SUPPORT_ORGANIZER, PARTICIPANT, ABSENT
+    private String leaderEvaluation; // GOOD, NOT_GOOD
 }

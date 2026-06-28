@@ -21,25 +21,27 @@ export default function MemberMyClubs() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError("");
 
-    Promise.all([authApi.getMyClubRole(), clubService.getAllPublic()])
-      .then(([roleRes, clubsRaw]) => {
+    authApi.getMyClubRole()
+      .then(async (roleRes) => {
         if (cancelled) return;
         const clubID = roleRes?.clubID;
         if (!clubID) {
           setJoinedClubs([]);
           return;
         }
+
+        const clubsRaw = await clubService.getAllPublic().catch(() => []);
         const allClubs = Array.isArray(clubsRaw)
           ? clubsRaw
           : (clubsRaw?.content ?? clubsRaw?.data ?? []);
-        const matched = allClubs.find((c) => c.clubID === clubID || c.id === clubID);
+        let matched = allClubs.find((c) => c.clubID === clubID || c.id === clubID);
+
         if (!matched) {
-          setJoinedClubs([]);
-          return;
+          matched = await clubService.getById(clubID);
         }
+
+        if (cancelled) return;
         const club = normalizeClub(matched);
         const roleLabel = ROLE_LABEL[roleRes.roleName] ?? roleRes.roleName ?? "Thành viên";
         setJoinedClubs([{ ...club, role: roleLabel }]);

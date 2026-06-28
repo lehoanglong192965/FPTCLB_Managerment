@@ -1,6 +1,7 @@
 package com.fptu.fcms.repository;
 
 import com.fptu.fcms.entity.Event;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +16,14 @@ import java.util.Optional;
 
 @Repository
 public interface EventRepository extends JpaRepository<Event, Integer> {
+    @Override
+    @CacheEvict(value = "memberRanking", allEntries = true)
+    <S extends Event> S save(S entity);
+
+    @Override
+    @CacheEvict(value = "memberRanking", allEntries = true)
+    <S extends Event> List<S> saveAll(Iterable<S> entities);
+
     List<Event> findByClubIDAndIsDeletedFalse(Integer clubID);
 
     List<Event> findByClubIDAndSemesterIDAndIsDeletedFalse(Integer clubID, Integer semesterID);

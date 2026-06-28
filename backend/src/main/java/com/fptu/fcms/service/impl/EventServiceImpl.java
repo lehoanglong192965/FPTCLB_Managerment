@@ -60,6 +60,13 @@ public class EventServiceImpl implements EventService {
     private static final String STATUS_ONGOING = "Ongoing";
     private static final String STATUS_COMPLETED = "Completed";
     private static final String STATUS_CLOSED = "Closed";
+    private static final String REGISTRATION_STATUS_REGISTERED = "REGISTERED";
+    private static final String ATTENDANCE_STATUS_PRESENT = "Present";
+    private static final String ATTENDANCE_STATUS_ABSENT = "Absent";
+    private static final String CONTRIBUTION_TYPE_ABSENT = "ABSENT";
+    private static final String LEADER_EVALUATION_GOOD = "GOOD";
+    private static final String LEADER_EVALUATION_NOT_GOOD = "NOT_GOOD";
+    private static final int NOT_GOOD_PENALTY_POINTS = 10;
     private static final BigDecimal HIGH_BUDGET_THRESHOLD = new BigDecimal("5000000");
 
     private final EventRepository eventRepository;
@@ -340,6 +347,7 @@ public class EventServiceImpl implements EventService {
         }
         event.setEventStatus(STATUS_COMPLETED);
         eventRepository.save(event);
+        markMissingAttendanceAsAbsent(event);
     }
 
     @Override
@@ -377,7 +385,13 @@ public class EventServiceImpl implements EventService {
                         return present ? "PARTICIPANT" : "ABSENT";
                     });
 
-            return new ContributionDTO(userId, userName, contributionType);
+            String leaderEvaluation = memberPerformanceRepository
+                    .findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
+                    .map(MemberPerformance::getLeaderEvaluation)
+                    .filter(StringUtils::hasText)
+                    .orElse(LEADER_EVALUATION_GOOD);
+
+            return new ContributionDTO(userId, userName, contributionType, leaderEvaluation);
         }).collect(Collectors.toList());
     }
 
@@ -402,7 +416,12 @@ public class EventServiceImpl implements EventService {
             performance.setClubID(event.getClubID());
             performance.setEventID(eventId);
             performance.setUserID(userId);
+            String leaderEvaluation = normalizeLeaderEvaluation(dto.getLeaderEvaluation());
             performance.setBonusPoints(calculateScore(type));
+            performance.setLeaderEvaluation(leaderEvaluation);
+            performance.setPenaltyPoints(LEADER_EVALUATION_NOT_GOOD.equals(leaderEvaluation) ? NOT_GOOD_PENALTY_POINTS : 0);
+            performance.setUpdatedAt(LocalDateTime.now());
+            performance.setIsDeleted(false);
             memberPerformanceRepository.save(performance);
 
             EventAssignment assignment = eventAssignmentRepository
@@ -420,7 +439,7 @@ public class EventServiceImpl implements EventService {
                     .orElse(new AttendanceRecord());
             record.setSessionID(session.getSessionID());
             record.setUserID(userId);
-            record.setAttendanceStatus("PARTICIPANT".equals(type) ? "Present" : ("ABSENT".equals(type) ? "Absent" : "Present"));
+            record.setAttendanceStatus("PARTICIPANT".equals(type) ? ATTENDANCE_STATUS_PRESENT : (CONTRIBUTION_TYPE_ABSENT.equals(type) ? ATTENDANCE_STATUS_ABSENT : ATTENDANCE_STATUS_PRESENT));
             attendanceRecordRepository.save(record);
         }
     }
@@ -459,6 +478,42 @@ public class EventServiceImpl implements EventService {
         event.setRejectionReason(reason);
         Event savedEvent = eventRepository.save(event);
         publishLifecycleEvent(savedEvent, oldStatus, STATUS_REJECTED, null, reason);
+    }
+
+    private void markMissingAttendanceAsAbsent(Event event) {
+        AttendanceSession session = attendanceSessionRepository.findByEventID(event.getEventID()).orElse(null);
+        if (session == null) {
+            return;
+        }
+
+        List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(event.getEventID());
+        for (EventRegistration registration : registrations) {
+            Integer userId = registration.getUserID();
+            if (userId == null || !REGISTRATION_STATUS_REGISTERED.equals(registration.getStatus())) {
+                continue;
+            }
+
+            attendanceRecordRepository
+                    .findBySessionIDAndUserID(session.getSessionID(), userId)
+                    .orElseGet(() -> {
+                        AttendanceRecord absenceRecord = new AttendanceRecord();
+                        absenceRecord.setSessionID(session.getSessionID());
+                        absenceRecord.setUserID(userId);
+                        absenceRecord.setAttendanceStatus(ATTENDANCE_STATUS_ABSENT);
+                        return attendanceRecordRepository.save(absenceRecord);
+                    });
+        }
+    }
+
+    private String normalizeLeaderEvaluation(String leaderEvaluation) {
+        if (!StringUtils.hasText(leaderEvaluation)) {
+            return LEADER_EVALUATION_GOOD;
+        }
+        String normalized = leaderEvaluation.trim().toUpperCase();
+        if (!LEADER_EVALUATION_GOOD.equals(normalized) && !LEADER_EVALUATION_NOT_GOOD.equals(normalized)) {
+            throw new IllegalArgumentException("leaderEvaluation must be GOOD or NOT_GOOD.");
+        }
+        return normalized;
     }
 
     private Event getActiveEventOrThrow(Integer eventId) {
@@ -594,4 +649,3 @@ public class EventServiceImpl implements EventService {
         };
     }
 }
-

@@ -10,6 +10,10 @@ public class MemberRankingDTO {
     private Integer userId;
     private String fullName;
     private String email;
+    private String studentId;
+    private String clubRoleName;
+    private String memberTier;
+    private String memberTierDescription;
     private Integer clubId;
     private String clubName;
     private Integer totalScore;
