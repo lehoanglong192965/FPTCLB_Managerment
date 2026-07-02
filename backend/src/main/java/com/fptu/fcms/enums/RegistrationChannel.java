@@ -9,7 +9,7 @@ import java.util.Locale;
 @Schema(description = "Registration channel")
 public enum RegistrationChannel {
     FPTU,
-    GUEST,
+    ONLINE,
     WALK_IN;
 
     @JsonValue
@@ -22,6 +22,10 @@ public enum RegistrationChannel {
         if (value == null) {
             return null;
         }
-        return RegistrationChannel.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        String normalized = value.trim().toUpperCase(Locale.ROOT);
+        if ("GUEST".equals(normalized)) {
+            return ONLINE;
+        }
+        return RegistrationChannel.valueOf(normalized);
     }
 }
