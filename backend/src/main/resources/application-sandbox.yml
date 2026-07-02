@@ -1,0 +1,19 @@
+spring:
+  config:
+    activate:
+      on-profile: sandbox
+
+  mail:
+    host: localhost
+    port: 1025 # Default port for MailHog/Mailtrap sandbox
+    username: ""
+    password: ""
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
+# To use this sandbox configuration, run the application with:
+# --spring.profiles.active=sandbox,local
