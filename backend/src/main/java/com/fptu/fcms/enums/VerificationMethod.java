@@ -2,14 +2,14 @@ package com.fptu.fcms.enums;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.Locale;
 
-@Schema(description = "Attendance status")
-public enum AttendanceStatus {
-    PRESENT,
-    ABSENT;
+public enum VerificationMethod {
+    STUDENT_CARD,
+    FPT_ACCOUNT,
+    PHONE_LAST4,
+    MANUAL_OVERRIDE;
 
     @JsonValue
     public String jsonValue() {
@@ -17,10 +17,10 @@ public enum AttendanceStatus {
     }
 
     @JsonCreator
-    public static AttendanceStatus fromValue(String value) {
+    public static VerificationMethod fromValue(String value) {
         if (value == null) {
             return null;
         }
-        return AttendanceStatus.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        return VerificationMethod.valueOf(value.trim().toUpperCase(Locale.ROOT));
     }
 }

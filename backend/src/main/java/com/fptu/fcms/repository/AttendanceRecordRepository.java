@@ -19,6 +19,7 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     <S extends AttendanceRecord> List<S> saveAll(Iterable<S> entities);
 
     Optional<AttendanceRecord> findBySessionIDAndRegistrationID(Integer sessionID, Integer registrationID);
+    boolean existsBySessionIDAndRegistrationIDAndIsDeletedFalse(Integer sessionID, Integer registrationID);
 
     Optional<AttendanceRecord> findBySessionIDAndUserID(Integer sessionID, Integer userID);
 
