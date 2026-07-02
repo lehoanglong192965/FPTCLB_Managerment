@@ -8,9 +8,11 @@ import java.util.Locale;
 
 @Schema(description = "Registration status")
 public enum RegistrationStatus {
+    PENDING_VERIFICATION,
     CONFIRMED,
     PENDING_APPROVAL,
     WAITLISTED,
+    PROMOTED,
     REJECTED,
     CANCELLED,
     REGISTERED;

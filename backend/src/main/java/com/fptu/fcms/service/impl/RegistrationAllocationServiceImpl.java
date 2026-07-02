@@ -52,7 +52,7 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
         }
 
         List<EventRegistration> waitlisted = registrationRepository
-                .findByEventIDAndStatusAndIsDeletedFalseOrderByRegisteredAtAsc(eventId, RegistrationLifecycle.STATUS_WAITLISTED);
+                .findByEventIDAndRegistrationStatusAndIsDeletedFalseOrderByRegisteredAtAsc(eventId, RegistrationLifecycle.STATUS_WAITLISTED);
 
         int promoted = 0;
         for (EventRegistration registration : waitlisted) {
@@ -60,6 +60,7 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
                 break;
             }
             registration.setStatus(RegistrationLifecycle.STATUS_CONFIRMED);
+            registration.setRegistrationStatus(RegistrationLifecycle.STATUS_CONFIRMED);
             registrationRepository.save(registration);
             confirmedCount++;
             promoted++;
@@ -76,7 +77,7 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
     }
 
     private long countConfirmedRegistrations(Integer eventId) {
-        return registrationRepository.countByEventIDAndStatusInAndIsDeletedFalse(
+        return registrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
                 eventId,
                 RegistrationLifecycle.CONFIRMED_STATUSES
         );

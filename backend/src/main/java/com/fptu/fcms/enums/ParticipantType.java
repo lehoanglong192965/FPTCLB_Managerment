@@ -10,7 +10,8 @@ import java.util.Locale;
 public enum ParticipantType {
     CORE_TEAM,
     SUPPORT_ORGANIZER,
-    PARTICIPANT;
+    PARTICIPANT,
+    GUEST;
 
     @JsonValue
     public String jsonValue() {
