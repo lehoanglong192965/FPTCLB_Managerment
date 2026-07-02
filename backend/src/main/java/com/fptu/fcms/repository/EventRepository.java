@@ -76,4 +76,13 @@ public interface EventRepository extends JpaRepository<Event, Integer> {
               AND e.isScoreLocked = true
             """)
     long countLockedScoreEventsBySemesterId(@Param("semesterId") Integer semesterId);
+    @Query("""
+            SELECT e
+            FROM Event e
+            WHERE e.isDeleted = false
+              AND e.feedbackEnabled = true
+              AND (e.feedbackOpensAt IS NULL OR e.feedbackOpensAt <= :now)
+              AND (e.feedbackClosesAt IS NULL OR e.feedbackClosesAt > :now)
+            """)
+    List<Event> findFeedbackOpenEvents(@Param("now") LocalDateTime now);
 }

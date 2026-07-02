@@ -21,6 +21,7 @@ import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
 import com.fptu.fcms.repository.AuditLogRepository;
+import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.EventAssignmentRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
@@ -33,6 +34,7 @@ import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.event.EventLifecycleChangedEvent;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.AuditLogService;
+import com.fptu.fcms.service.ContributionBatchService;
 import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.EventRegistrationPolicyService;
@@ -54,6 +56,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -82,6 +85,8 @@ public class EventServiceImpl implements EventService {
     private static final String LEADER_EVALUATION_GOOD = "GOOD";
     private static final String LEADER_EVALUATION_NOT_GOOD = "NOT_GOOD";
     private static final int NOT_GOOD_PENALTY_POINTS = 10;
+    private static final int REGISTERED_MEMBER_BASE_POINTS = 100;
+    private static final int CLUB_ROLE_MEMBER_ID = 3;
     private static final BigDecimal HIGH_BUDGET_THRESHOLD = new BigDecimal("5000000");
 
     private final EventRepository eventRepository;
@@ -101,6 +106,8 @@ public class EventServiceImpl implements EventService {
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final MemberPerformanceRepository memberPerformanceRepository;
+    private final ClubMembershipRepository clubMembershipRepository;
+    private final ContributionBatchService contributionBatchService;
 
     @Override
     public boolean isUserAssigned(Integer eventId, Integer userId) {
@@ -394,7 +401,7 @@ public class EventServiceImpl implements EventService {
         record.setParticipantTypeSnapshotAt(registrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
                 .map(EventRegistration::getParticipantTypeSnapshotAt)
                 .orElse(null));
-        record.setCheckInMethod(CheckInMethod.QR.name());
+        record.setCheckInMethod(CheckInMethod.STAFF_LOOKUP.name());
         record.setCheckedInBy(userId);
         record.setCheckedInAt(LocalDateTime.now());
         record.setAttendanceStatus("Present");
@@ -490,18 +497,34 @@ public class EventServiceImpl implements EventService {
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElse(null);
         if (session == null) return List.of();
 
-        List<AttendanceRecord> records = attendanceRecordRepository.findBySessionID(session.getSessionID());
-        List<Integer> userIds = records.stream().map(AttendanceRecord::getUserID).collect(Collectors.toList());
+        List<AttendanceRecord> records = attendanceRecordRepository.findBySessionID(session.getSessionID()).stream()
+                .filter(r -> "PRESENT".equalsIgnoreCase(r.getAttendanceStatus()) || "Present".equals(r.getAttendanceStatus()))
+                .collect(Collectors.toList());
+        List<Integer> userIds = records.stream()
+                .map(AttendanceRecord::getUserID)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
         List<UserAccount> users = userRepository.findAllByUserIDIn(userIds);
         Map<Integer, UserAccount> userMap = users.stream()
                 .collect(Collectors.toMap(UserAccount::getUserID, u -> u));
+        Map<Integer, EventRegistration> registrationMap = registrationRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
+                .collect(Collectors.toMap(EventRegistration::getRegistrationID, r -> r, (a, b) -> a));
 
         return records.stream().map(r -> {
             UserAccount u = userMap.get(r.getUserID());
+            EventRegistration registration = registrationMap.get(r.getRegistrationID());
+            boolean guest = u == null && registration != null && registration.getUserID() == null;
             Map<String, Object> row = new HashMap<>();
+            row.put("recordId", r.getRecordID());
+            row.put("registrationId", r.getRegistrationID());
             row.put("userId", r.getUserID());
-            row.put("fullName", u != null && u.getFullName() != null ? u.getFullName() : "");
+            row.put("fullName", u != null && u.getFullName() != null
+                    ? u.getFullName()
+                    : registration != null && registration.getGuestFullName() != null ? registration.getGuestFullName() : "");
             row.put("studentId", u != null && u.getStudentId() != null ? u.getStudentId() : "");
+            row.put("registrationCode", registration != null ? registration.getRegistrationCode() : "");
+            row.put("participantType", guest ? "GUEST" : "FPTU");
             row.put("markedAt", r.getMarkedAt() != null ? r.getMarkedAt().toString() : "");
             return row;
         }).collect(Collectors.toList());
@@ -509,90 +532,13 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public List<ContributionDTO> getEventContributions(Integer eventId) {
-        Event event = getActiveEventOrThrow(eventId);
-        List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(eventId);
-        List<EventAssignment> assignments = eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId);
-        AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElse(null);
-        List<AttendanceRecord> attendanceRecords = session == null
-                ? List.of()
-                : attendanceRecordRepository.findBySessionID(session.getSessionID());
-
-        return registrations.stream().map(reg -> {
-            Integer userId = reg.getUserID();
-            String userName = userRepository.findById(userId).map(UserAccount::getFullName).orElse("Unknown");
-
-            String contributionType = assignments.stream()
-                    .filter(a -> a.getUserID().equals(userId))
-                    .findFirst()
-                    .map(a -> a.getEventRoleID() != null && a.getEventRoleID() == 1 ? "CORE_TEAM" : "SUPPORT_ORGANIZER")
-                    .orElseGet(() -> {
-                        boolean present = attendanceRecords.stream()
-                                .anyMatch(ar -> ar.getUserID().equals(userId) && "Present".equals(ar.getAttendanceStatus()));
-                        return present ? "PARTICIPANT" : "ABSENT";
-                    });
-
-            String leaderEvaluation = memberPerformanceRepository
-                    .findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
-                    .map(MemberPerformance::getLeaderEvaluation)
-                    .filter(StringUtils::hasText)
-                    .orElse(LEADER_EVALUATION_GOOD);
-
-            return new ContributionDTO(userId, userName, contributionType, leaderEvaluation);
-        }).collect(Collectors.toList());
+        return contributionBatchService.getContributionScores(eventId);
     }
 
     @Override
     @Transactional
     public void saveEventContributions(Integer eventId, List<ContributionDTO> contributions) {
-        Event event = getActiveEventOrThrow(eventId);
-        if (STATUS_CLOSED.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event is closed and cannot be modified.");
-        }
-
-        AttendanceSession session = attendanceSessionRepository.findByEventID(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Attendance session not found."));
-
-        for (ContributionDTO dto : contributions) {
-            Integer userId = dto.getUserID();
-            String type = dto.getContributionType();
-            EventRegistration registration = registrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId).orElse(null);
-
-            MemberPerformance performance = memberPerformanceRepository
-                    .findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
-                    .orElse(new MemberPerformance());
-            performance.setClubID(event.getClubID());
-            performance.setEventID(eventId);
-            performance.setUserID(userId);
-            String leaderEvaluation = normalizeLeaderEvaluation(dto.getLeaderEvaluation());
-            performance.setBonusPoints(calculateScore(type));
-            performance.setLeaderEvaluation(leaderEvaluation);
-            performance.setPenaltyPoints(LEADER_EVALUATION_NOT_GOOD.equals(leaderEvaluation) ? NOT_GOOD_PENALTY_POINTS : 0);
-            performance.setUpdatedAt(LocalDateTime.now());
-            performance.setIsDeleted(false);
-            memberPerformanceRepository.save(performance);
-
-            EventAssignment assignment = eventAssignmentRepository
-                    .findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
-                    .orElse(new EventAssignment());
-            assignment.setEventID(eventId);
-            assignment.setUserID(userId);
-            assignment.setEventRoleID("CORE_TEAM".equals(type) ? 1 : ("SUPPORT_ORGANIZER".equals(type) ? 2 : null));
-            assignment.setAssignedAt(LocalDateTime.now());
-            assignment.setIsDeleted(!"CORE_TEAM".equals(type) && !"SUPPORT_ORGANIZER".equals(type));
-            eventAssignmentRepository.save(assignment);
-
-            AttendanceRecord record = attendanceRecordRepository
-                    .findBySessionIDAndUserID(session.getSessionID(), userId)
-                    .orElse(new AttendanceRecord());
-            record.setSessionID(session.getSessionID());
-            record.setUserID(userId);
-            if (registration != null) {
-                record.setRegistrationID(registration.getRegistrationID());
-                record.setParticipantTypeSnapshotAt(registration.getParticipantTypeSnapshotAt());
-            }
-            record.setAttendanceStatus("PARTICIPANT".equals(type) ? ATTENDANCE_STATUS_PRESENT : (CONTRIBUTION_TYPE_ABSENT.equals(type) ? ATTENDANCE_STATUS_ABSENT : ATTENDANCE_STATUS_PRESENT));
-            attendanceRecordRepository.save(record);
-        }
+        contributionBatchService.saveContributionScores(eventId, contributions, null);
     }
 
     @Override
@@ -740,13 +686,52 @@ public class EventServiceImpl implements EventService {
         }
     }
 
+    private Integer resolveContributionBasePoints(Integer eventId, Integer userId) {
+        if (userId == null) {
+            return 0;
+        }
+        return registrationRepository.existsByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
+                ? REGISTERED_MEMBER_BASE_POINTS
+                : 0;
+    }
+
+    private Set<Integer> getScoringMemberUserIds(Event event) {
+        if (event == null || event.getClubID() == null || event.getSemesterID() == null) {
+            return Set.of();
+        }
+        return clubMembershipRepository
+                .findByClubIDAndSemesterIDAndClubRoleIDInAndIsDeletedFalse(
+                        event.getClubID(),
+                        event.getSemesterID(),
+                        List.of(CLUB_ROLE_MEMBER_ID)
+                )
+                .stream()
+                .map(com.fptu.fcms.entity.ClubMembership::getUserID)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+    }
+
+    private String normalizeContributionType(String contributionType) {
+        if (!StringUtils.hasText(contributionType)) {
+            return "";
+        }
+        String normalized = contributionType.trim().toUpperCase();
+        if (!"CORE_TEAM".equals(normalized)
+                && !"SUPPORT_ORGANIZER".equals(normalized)
+                && !"PARTICIPANT".equals(normalized)
+                && !CONTRIBUTION_TYPE_ABSENT.equals(normalized)) {
+            throw new IllegalArgumentException("contributionType must be CORE_TEAM, SUPPORT_ORGANIZER, PARTICIPANT, ABSENT, or blank.");
+        }
+        return normalized;
+    }
+
     private String normalizeLeaderEvaluation(String leaderEvaluation) {
         if (!StringUtils.hasText(leaderEvaluation)) {
-            return LEADER_EVALUATION_GOOD;
+            return null;
         }
         String normalized = leaderEvaluation.trim().toUpperCase();
         if (!LEADER_EVALUATION_GOOD.equals(normalized) && !LEADER_EVALUATION_NOT_GOOD.equals(normalized)) {
-            throw new IllegalArgumentException("leaderEvaluation must be GOOD or NOT_GOOD.");
+            throw new IllegalArgumentException("leaderEvaluation must be GOOD, NOT_GOOD, or blank.");
         }
         return normalized;
     }

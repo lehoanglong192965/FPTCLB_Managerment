@@ -52,6 +52,7 @@ public class MemberRankingServiceImpl implements MemberRankingService {
     private static final String ROLE_VICE_LEADER = "ViceLeader";
     private static final String ROLE_MEMBER = "Member";
     private static final String REGISTRATION_STATUS_REGISTERED = "REGISTERED";
+    private static final String REGISTRATION_STATUS_CONFIRMED = "CONFIRMED";
     private static final String ATTENDANCE_STATUS_PRESENT = "Present";
     private static final String BASE_POINTS_ATTENDEE_CONFIG = "BASE_POINTS_ATTENDEE";
     private static final int DEFAULT_EVENT_PARTICIPATION_POINT = 20;
@@ -60,7 +61,8 @@ public class MemberRankingServiceImpl implements MemberRankingService {
             "COMPLETED",
             "Closed",
             "CLOSED",
-            "CONTRIBUTION_CALCULATED"
+            "CONTRIBUTION_CALCULATED",
+            "ContributionFinalized"
     );
     private static final int TIER_S_MIN_SCORE = 150;
     private static final int TIER_A_MIN_SCORE = 80;
@@ -333,10 +335,10 @@ public class MemberRankingServiceImpl implements MemberRankingService {
         }
 
         Map<Integer, Set<Integer>> registeredUsersByEvent = eventRegistrationRepository
-                .findByEventIDInAndUserIDInAndStatusAndIsDeletedFalse(
+                .findByEventIDInAndUserIDInAndStatusInAndIsDeletedFalse(
                         eventIds,
                         userIds,
-                        REGISTRATION_STATUS_REGISTERED
+                        List.of(REGISTRATION_STATUS_REGISTERED, REGISTRATION_STATUS_CONFIRMED)
                 )
                 .stream()
                 .filter(registration -> registration.getEventID() != null && registration.getUserID() != null)

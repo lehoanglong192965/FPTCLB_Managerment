@@ -66,6 +66,15 @@ public class Event {
     @Column(name = "checkInCloseAt")
     private LocalDateTime checkInCloseAt;
 
+    @Column(name = "feedbackEnabled")
+    private Boolean feedbackEnabled = true;
+
+    @Column(name = "feedbackOpensAt")
+    private LocalDateTime feedbackOpensAt;
+
+    @Column(name = "feedbackClosesAt")
+    private LocalDateTime feedbackClosesAt;
+
     @Column(name = "startDate")
     private LocalDateTime startDate;
 
@@ -142,6 +151,9 @@ public class Event {
         }
         if (allowWalkIn == null) {
             allowWalkIn = false;
+        }
+        if (feedbackEnabled == null) {
+            feedbackEnabled = true;
         }
     }
 

@@ -10,6 +10,7 @@ import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventAssignment;
 import io.swagger.v3.oas.annotations.Operation;
 import com.fptu.fcms.security.UserPrincipal;
+import com.fptu.fcms.service.ContributionBatchService;
 import com.fptu.fcms.service.EventRegistrationService;
 import com.fptu.fcms.service.EventService;
 import jakarta.validation.Valid;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -38,6 +40,7 @@ public class EventController {
 
     private final EventService eventService;
     private final EventRegistrationService eventRegistrationService;
+    private final ContributionBatchService contributionBatchService;
 
     @GetMapping("/approved")
     public ResponseEntity<List<Event>> getApprovedEvents() {
@@ -123,7 +126,7 @@ public class EventController {
         return ResponseEntity.ok(Map.of("message", "Event proposal submitted successfully."));
     }
 
-    @PostMapping({"/{eventId}/registration/open", "/{eventId}/open-registration"})
+    @RequestMapping(value = {"/{eventId}/registration/open", "/{eventId}/open-registration"}, method = {RequestMethod.POST, RequestMethod.PATCH})
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
     @Operation(summary = "Mo dang ky event")
     public ResponseEntity<Map<String, String>> openRegistration(
@@ -133,7 +136,7 @@ public class EventController {
         return ResponseEntity.ok(Map.of("message", "Registration opened successfully."));
     }
 
-    @PostMapping({"/{eventId}/registration/close", "/{eventId}/close-registration"})
+    @RequestMapping(value = {"/{eventId}/registration/close", "/{eventId}/close-registration"}, method = {RequestMethod.POST, RequestMethod.PATCH})
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
     @Operation(summary = "Dong dang ky event")
     public ResponseEntity<Map<String, String>> closeRegistration(
@@ -206,15 +209,16 @@ public class EventController {
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
     public ResponseEntity<List<com.fptu.fcms.dto.response.ContributionDTO>> getContributions(
             @PathVariable Integer eventId) {
-        return ResponseEntity.ok(eventService.getEventContributions(eventId));
+        return ResponseEntity.ok(contributionBatchService.getContributionScores(eventId));
     }
 
     @PostMapping("/{eventId}/contributions")
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
     public ResponseEntity<Map<String, String>> saveContributions(
             @PathVariable Integer eventId,
-            @RequestBody List<com.fptu.fcms.dto.response.ContributionDTO> contributions) {
-        eventService.saveEventContributions(eventId, contributions);
+            @RequestBody List<com.fptu.fcms.dto.response.ContributionDTO> contributions,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        contributionBatchService.saveContributionScores(eventId, contributions, currentUser == null ? null : currentUser.getUserId());
         return ResponseEntity.ok(Map.of("message", "Contributions saved successfully."));
     }
 

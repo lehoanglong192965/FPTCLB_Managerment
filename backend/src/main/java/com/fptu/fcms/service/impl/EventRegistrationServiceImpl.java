@@ -11,6 +11,7 @@ import com.fptu.fcms.entity.EventAssignment;
 import com.fptu.fcms.entity.EventRegistration;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.enums.CheckInMethod;
+import com.fptu.fcms.enums.ParticipantType;
 import com.fptu.fcms.enums.RegistrationChannel;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.exception.ApiErrorCode;
@@ -150,10 +151,12 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setUserID(null);
         registration.setGuestFullName(request.getFullName().trim());
         registration.setGuestEmail(normalizedEmail);
-        registration.setGuestPhone(request.getPhone().trim());
-        registration.setParticipantType(RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT);
+        registration.setGuestEmailNormalized(normalizedEmail);
+        registration.setGuestPhone(request.getPhone().replaceAll("\\D", ""));
+        registration.setGuestPhoneNormalized(request.getPhone().replaceAll("\\D", ""));
+        registration.setParticipantType(ParticipantType.GUEST.name());
         registration.setParticipantTypeSnapshotAt(LocalDateTime.now());
-        registration.setRegistrationChannel(RegistrationChannel.GUEST.name());
+        registration.setRegistrationChannel(RegistrationChannel.ONLINE.name());
         registration.setRegisteredAt(LocalDateTime.now());
         registration.setStatus(allocation.status());
         registration.setRegistrationStatus(allocation.status());
@@ -247,7 +250,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     @Override
     public List<Event> getEventsByUserRegistered(Integer userId) {
         return registrationRepo.findByUserIDAndIsDeletedFalse(userId).stream()
-                .filter(reg -> RegistrationLifecycle.ACTIVE_STATUSES.contains(reg.getStatus()))
+                .filter(reg -> RegistrationLifecycle.ACTIVE_STATUSES.contains(lifecycleStatus(reg)))
                 .map(EventRegistration::getEventID)
                 .distinct()
                 .map(eventId -> eventRepository.findById(eventId).orElse(null))
@@ -300,12 +303,12 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         ensureCanManageRegistrations(currentUser);
         Event event = loadEventForUpdate(eventId);
         EventRegistration registration = loadRegistrationForEvent(eventId, registrationId);
-        if (!RegistrationLifecycle.STATUS_PENDING_APPROVAL.equals(registration.getStatus())) {
+        if (!RegistrationLifecycle.STATUS_PENDING_APPROVAL.equals(lifecycleStatus(registration))) {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(), "Registration must be Pending Approval before approval.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
         RegistrationAllocationResult allocation = allocationService.allocateOnApproval(eventId, event.getMaxParticipants());
-        String oldStatus = registration.getStatus();
+        String oldStatus = lifecycleStatus(registration);
         registration.setStatus(allocation.status());
         registration.setRegistrationStatus(allocation.status());
         registration.setUpdatedAt(LocalDateTime.now());
@@ -329,11 +332,11 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
 
         EventRegistration registration = loadRegistrationForEvent(eventId, registrationId);
-        if (!RegistrationLifecycle.STATUS_PENDING_APPROVAL.equals(registration.getStatus())) {
+        if (!RegistrationLifecycle.STATUS_PENDING_APPROVAL.equals(lifecycleStatus(registration))) {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(), "Registration must be Pending Approval before rejection.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
-        String oldStatus = registration.getStatus();
+        String oldStatus = lifecycleStatus(registration);
         registration.setStatus(RegistrationLifecycle.STATUS_REJECTED);
         registration.setRegistrationStatus(RegistrationLifecycle.STATUS_REJECTED);
         registration.setUpdatedAt(LocalDateTime.now());
@@ -357,12 +360,12 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     }
 
     private void cancelRegistrationInternal(EventRegistration registration, Integer actorUserId, boolean triggeredByLegacyEndpoint) {
-        if (RegistrationLifecycle.STATUS_CANCELLED.equals(registration.getStatus())) {
+        if (RegistrationLifecycle.STATUS_CANCELLED.equals(lifecycleStatus(registration))) {
             return;
         }
 
         Event event = loadEventForUpdate(registration.getEventID());
-        String oldStatus = registration.getStatus();
+        String oldStatus = lifecycleStatus(registration);
         registration.setStatus(RegistrationLifecycle.STATUS_CANCELLED);
         registration.setRegistrationStatus(RegistrationLifecycle.STATUS_CANCELLED);
         registration.setUpdatedAt(LocalDateTime.now());
@@ -459,7 +462,14 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     }
 
     private void ensureParticipantTypeEnabled(Integer eventId, String participantType) {
-        boolean enabled = registrationPolicyRepository.findByEventIDAndParticipantTypeAndIsDeletedFalse(eventId, participantType)
+        List<com.fptu.fcms.entity.EventRegistrationPolicy> policies = registrationPolicyRepository.findByEventIDAndIsDeletedFalse(eventId);
+        if (policies.isEmpty() && RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT.equalsIgnoreCase(participantType)) {
+            return;
+        }
+
+        boolean enabled = policies.stream()
+                .filter(policy -> participantType.equalsIgnoreCase(policy.getParticipantType()))
+                .findFirst()
                 .map(policy -> Boolean.TRUE.equals(policy.getIsEnabled()))
                 .orElse(false);
         if (!enabled) {
@@ -511,7 +521,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 registration.getEventID(),
                 registration.getUserID(),
                 registration.getParticipantType(),
-                registration.getStatus(),
+                lifecycleStatus(registration),
                 registration.getRegisteredAt(),
                 user == null ? null : user.getStudentId(),
                 user == null ? null : user.getFullName(),
@@ -522,6 +532,14 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         );
     }
 
+    private String lifecycleStatus(EventRegistration registration) {
+        if (registration == null) {
+            return null;
+        }
+        return StringUtils.hasText(registration.getRegistrationStatus())
+                ? registration.getRegistrationStatus()
+                : registration.getStatus();
+    }
     private boolean matchesParticipantType(RegistrationListItemResponse view, String participantType) {
         if (!StringUtils.hasText(participantType)) {
             return true;
