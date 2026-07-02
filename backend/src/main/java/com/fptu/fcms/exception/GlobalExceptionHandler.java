@@ -1,5 +1,6 @@
 package com.fptu.fcms.exception;
 
+import com.fptu.fcms.dto.response.ApiErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -42,6 +43,7 @@ public class GlobalExceptionHandler {
         body.put("timestamp", LocalDateTime.now().toString());
         body.put("status", ex.getStatus().value());
         body.put("error", ex.getStatus().getReasonPhrase());
+        body.put("code", "SEMESTER_CLOSURE_BLOCKED");
         body.put("message", ex.getMessage());
         body.put("semesterId", ex.getSemesterId());
         body.put("unfinishedEventCount", ex.getUnfinishedEventCount());
@@ -50,8 +52,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getStatus()).body(body);
     }
     @ExceptionHandler(BusinessRuleException.class)
-    public ResponseEntity<Map<String, Object>> handleBusinessRuleException(BusinessRuleException ex) {
-        return buildErrorResponse(ex.getStatus(), ex.getMessage());
+    public ResponseEntity<ApiErrorResponse> handleBusinessRuleException(BusinessRuleException ex) {
+        return buildErrorResponse(ex.getStatus(), ex.getErrorCode(), ex.getMessage());
     }
 
     // =====================================================================
@@ -63,13 +65,13 @@ public class GlobalExceptionHandler {
      * hoặc tham số đầu vào không hợp lệ.
      */
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
-        return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    public ResponseEntity<ApiErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.BAD_REQUEST.name(), ex.getMessage());
     }
 
     @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
-        return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
+    public ResponseEntity<ApiErrorResponse> handleIllegalState(IllegalStateException ex) {
+        return buildErrorResponse(HttpStatus.CONFLICT, ApiErrorCode.CONFLICT.name(), ex.getMessage());
     }
 
     // =====================================================================
@@ -81,12 +83,12 @@ public class GlobalExceptionHandler {
      * Tổng hợp tất cả field error thành một chuỗi để trả về.
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidationErrors(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ApiErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
         // Gộp tất cả lỗi field thành chuỗi, ví dụ: "clubID: không được để trống; userID: phải lớn hơn 0"
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
                 .collect(Collectors.joining("; "));
-        return buildErrorResponse(HttpStatus.BAD_REQUEST, message);
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.VALIDATION_ERROR.name(), message);
     }
 
     // =====================================================================
@@ -94,10 +96,11 @@ public class GlobalExceptionHandler {
     // =====================================================================
 
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
-    public ResponseEntity<Map<String, Object>> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
         return buildErrorResponse(
                 HttpStatus.FORBIDDEN,
-                "Bạn không có quyền truy cập tài nguyên này!"
+                ApiErrorCode.FORBIDDEN.name(),
+                "Ban khong co quyen truy cap tai nguyen nay!"
         );
     }
 
@@ -106,16 +109,16 @@ public class GlobalExceptionHandler {
      * Không expose stack trace ra ngoài — chỉ trả về thông điệp chung.
      */
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
-    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+    public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
         String msg = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
-        return buildErrorResponse(HttpStatus.CONFLICT, "Lỗi ràng buộc dữ liệu: " + msg);
+        return buildErrorResponse(HttpStatus.CONFLICT, ApiErrorCode.CONFLICT.name(), "Loi rang buoc du lieu: " + msg);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+    public ResponseEntity<ApiErrorResponse> handleGenericException(Exception ex) {
         // Log chi tiết để debug, trả về message thật trong development
         String detail = ex.getClass().getSimpleName() + ": " + ex.getMessage();
-        return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, detail);
+        return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, ApiErrorCode.INTERNAL_ERROR.name(), detail);
     }
 
     // =====================================================================
@@ -129,13 +132,15 @@ public class GlobalExceptionHandler {
      * @param message mô tả lỗi
      * @return ResponseEntity với body JSON
      */
-    private ResponseEntity<Map<String, Object>> buildErrorResponse(HttpStatus status, String message) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("success", false);
-        body.put("timestamp", LocalDateTime.now().toString());
-        body.put("status", status.value());
-        body.put("error", status.getReasonPhrase());
-        body.put("message", message);
+    private ResponseEntity<ApiErrorResponse> buildErrorResponse(HttpStatus status, String code, String message) {
+        ApiErrorResponse body = new ApiErrorResponse(
+                false,
+                LocalDateTime.now(),
+                status.value(),
+                status.getReasonPhrase(),
+                code,
+                message
+        );
         return ResponseEntity.status(status).body(body);
     }
 }

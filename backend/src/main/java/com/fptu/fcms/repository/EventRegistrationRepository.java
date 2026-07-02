@@ -12,8 +12,29 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     boolean existsByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
     Optional<EventRegistration> findByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
     boolean existsByEventIDAndGuestEmailAndIsDeletedFalse(Integer eventID, String guestEmail);
-    java.util.List<EventRegistration> findByEventIDAndIsDeletedFalse(Integer eventID);
-    java.util.List<EventRegistration> findByUserIDAndIsDeletedFalse(Integer userID);
+    long countByEventIDAndIsDeletedFalse(Integer eventID);
+    long countByEventIDAndStatusAndIsDeletedFalse(Integer eventID, String status);
+    long countByEventIDAndStatusInAndIsDeletedFalse(Integer eventID, Collection<String> statuses);
+    List<EventRegistration> findByEventIDAndIsDeletedFalse(Integer eventID);
+    List<EventRegistration> findByEventIDAndStatusAndIsDeletedFalse(Integer eventID, String status);
+    List<EventRegistration> findByEventIDAndStatusAndIsDeletedFalseOrderByRegisteredAtAsc(Integer eventID, String status);
+    List<EventRegistration> findByEventIDAndStatusInAndIsDeletedFalseOrderByRegisteredAtAsc(Integer eventID, Collection<String> statuses);
+    List<EventRegistration> findByUserIDAndIsDeletedFalse(Integer userID);
+    Optional<EventRegistration> findTopByEventIDAndUserIDAndIsDeletedFalseAndStatusInOrderByRegisteredAtDesc(
+            Integer eventID,
+            Integer userID,
+            Collection<String> statuses
+    );
+    boolean existsByEventIDAndUserIDAndIsDeletedFalseAndStatusIn(
+            Integer eventID,
+            Integer userID,
+            Collection<String> statuses
+    );
+    boolean existsByEventIDAndGuestEmailAndIsDeletedFalseAndStatusIn(
+            Integer eventID,
+            String guestEmail,
+            Collection<String> statuses
+    );
     List<EventRegistration> findByEventIDInAndUserIDInAndStatusAndIsDeletedFalse(
             Collection<Integer> eventIDs,
             Collection<Integer> userIDs,

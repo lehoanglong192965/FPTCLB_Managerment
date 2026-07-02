@@ -48,6 +48,24 @@ public class Event {
     @Column(name = "maxParticipants")
     private Integer maxParticipants;
 
+    @Column(name = "totalCapacity")
+    private Integer totalCapacity;
+
+    @Column(name = "allowWalkIn")
+    private Boolean allowWalkIn = false;
+
+    @Column(name = "registrationOpenAt")
+    private LocalDateTime registrationOpenAt;
+
+    @Column(name = "registrationCloseAt")
+    private LocalDateTime registrationCloseAt;
+
+    @Column(name = "checkInOpenAt")
+    private LocalDateTime checkInOpenAt;
+
+    @Column(name = "checkInCloseAt")
+    private LocalDateTime checkInCloseAt;
+
     @Column(name = "startDate")
     private LocalDateTime startDate;
 
@@ -100,5 +118,31 @@ public class Event {
 
     @Column(name = "isDeleted")
     private Boolean isDeleted;
+
+    @PrePersist
+    @PreUpdate
+    private void normalizeAndValidate() {
+        if (totalCapacity == null && maxParticipants != null) {
+            totalCapacity = maxParticipants;
+        } else if (maxParticipants == null && totalCapacity != null) {
+            maxParticipants = totalCapacity;
+        }
+
+        if (totalCapacity != null && totalCapacity < 0) {
+            throw new IllegalArgumentException("totalCapacity cannot be negative.");
+        }
+        if (maxParticipants != null && maxParticipants < 0) {
+            throw new IllegalArgumentException("maxParticipants cannot be negative.");
+        }
+        if (registrationOpenAt != null && registrationCloseAt != null && !registrationOpenAt.isBefore(registrationCloseAt)) {
+            throw new IllegalArgumentException("registrationOpenAt must be before registrationCloseAt.");
+        }
+        if (checkInOpenAt != null && checkInCloseAt != null && !checkInOpenAt.isBefore(checkInCloseAt)) {
+            throw new IllegalArgumentException("checkInOpenAt must be before checkInCloseAt.");
+        }
+        if (allowWalkIn == null) {
+            allowWalkIn = false;
+        }
+    }
 
 }

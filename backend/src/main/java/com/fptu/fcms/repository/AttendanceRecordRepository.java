@@ -18,6 +18,8 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     @CacheEvict(value = "memberRanking", allEntries = true)
     <S extends AttendanceRecord> List<S> saveAll(Iterable<S> entities);
 
+    Optional<AttendanceRecord> findBySessionIDAndRegistrationID(Integer sessionID, Integer registrationID);
+
     Optional<AttendanceRecord> findBySessionIDAndUserID(Integer sessionID, Integer userID);
 
     List<AttendanceRecord> findBySessionID(Integer sessionID);

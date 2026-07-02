@@ -4,6 +4,7 @@ import com.fptu.fcms.entity.AttendanceRecord;
 import com.fptu.fcms.entity.AttendanceSession;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.enums.CheckInMethod;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
@@ -45,12 +46,17 @@ public class EventAbsenceScheduler {
                     continue;
                 }
                 attendanceRecordRepository
-                        .findBySessionIDAndUserID(session.getSessionID(), reg.getUserID())
+                        .findBySessionIDAndRegistrationID(session.getSessionID(), reg.getRegistrationID())
                         .orElseGet(() -> {
                             AttendanceRecord absenceRecord = new AttendanceRecord();
                             absenceRecord.setSessionID(session.getSessionID());
                             absenceRecord.setUserID(reg.getUserID());
+                            absenceRecord.setRegistrationID(reg.getRegistrationID());
+                            absenceRecord.setParticipantTypeSnapshotAt(reg.getParticipantTypeSnapshotAt());
                             absenceRecord.setAttendanceStatus(ATTENDANCE_STATUS_ABSENT);
+                            absenceRecord.setCheckInMethod(CheckInMethod.AUTO.name());
+                            absenceRecord.setCheckedInAt(java.time.LocalDateTime.now());
+                            absenceRecord.setMarkedAt(java.time.LocalDateTime.now());
                             return attendanceRecordRepository.save(absenceRecord);
                         });
             }

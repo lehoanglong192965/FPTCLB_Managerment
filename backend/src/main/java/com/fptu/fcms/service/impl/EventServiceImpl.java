@@ -1,21 +1,22 @@
 package com.fptu.fcms.service.impl;
 
-import com.fptu.fcms.dto.request.CancelEventRequest;
-import com.fptu.fcms.dto.request.CreateEventProposalRequest;
-import com.fptu.fcms.dto.request.EventApprovalRequest;
-import com.fptu.fcms.dto.request.EventAssignmentRequest;
+import com.fptu.fcms.dto.request.*;
 import com.fptu.fcms.dto.response.ContributionDTO;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
+import com.fptu.fcms.dto.response.EventDetailResponse;
+import com.fptu.fcms.dto.response.EventRegistrationPolicyResponse;
 import com.fptu.fcms.entity.AttendanceRecord;
 import com.fptu.fcms.entity.AttendanceSession;
 import com.fptu.fcms.entity.AuditLog;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventAssignment;
 import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.EventRegistrationPolicy;
 import com.fptu.fcms.entity.EventRole;
 import com.fptu.fcms.entity.MemberPerformance;
 import com.fptu.fcms.entity.Semester;
 import com.fptu.fcms.entity.UserAccount;
+import com.fptu.fcms.enums.CheckInMethod;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
@@ -23,6 +24,7 @@ import com.fptu.fcms.repository.AuditLogRepository;
 import com.fptu.fcms.repository.EventAssignmentRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
+import com.fptu.fcms.repository.EventRegistrationPolicyRepository;
 import com.fptu.fcms.repository.EventRoleRepository;
 import com.fptu.fcms.repository.MemberPerformanceRepository;
 import com.fptu.fcms.repository.SemesterRepository;
@@ -30,8 +32,13 @@ import com.fptu.fcms.repository.SystemRoleRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.event.EventLifecycleChangedEvent;
 import com.fptu.fcms.security.UserPrincipal;
+import com.fptu.fcms.service.AuditLogService;
+import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.EmailService;
+import com.fptu.fcms.service.EventRegistrationPolicyService;
 import com.fptu.fcms.service.EventService;
+import com.fptu.fcms.service.event.EventPermissionService;
+import com.fptu.fcms.service.event.EventStateMachineService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.context.ApplicationEventPublisher;
@@ -63,6 +70,11 @@ public class EventServiceImpl implements EventService {
     private static final String STATUS_ONGOING = "Ongoing";
     private static final String STATUS_COMPLETED = "Completed";
     private static final String STATUS_CLOSED = "Closed";
+    private static final List<String> DEFAULT_PARTICIPANT_TYPES = List.of(
+            "CORE_TEAM",
+            "SUPPORT_ORGANIZER",
+            "PARTICIPANT"
+    );
     private static final String REGISTRATION_STATUS_REGISTERED = "REGISTERED";
     private static final String ATTENDANCE_STATUS_PRESENT = "Present";
     private static final String ATTENDANCE_STATUS_ABSENT = "Absent";
@@ -77,10 +89,15 @@ public class EventServiceImpl implements EventService {
     private final EventAssignmentRepository eventAssignmentRepository;
     private final EventRoleRepository eventRoleRepository;
     private final EventRegistrationRepository registrationRepository;
+    private final EventRegistrationPolicyRepository registrationPolicyRepository;
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
     private final EmailService emailService;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final AuditLogService auditLogService;
+    private final EventAssignmentAccessService eventAssignmentAccessService;
+    private final EventRegistrationPolicyService eventRegistrationPolicyService;
+    private final EventStateMachineService stateMachineService;
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final MemberPerformanceRepository memberPerformanceRepository;
@@ -122,7 +139,13 @@ public class EventServiceImpl implements EventService {
         event.setDescription(request.getDescription());
         event.setLocation(request.getLocation());
         event.setBudget(request.getBudget());
-        event.setMaxParticipants(request.getMaxParticipants());
+        event.setMaxParticipants(request.getMaxParticipants() != null ? request.getMaxParticipants() : request.getTotalCapacity());
+        event.setTotalCapacity(request.getTotalCapacity() != null ? request.getTotalCapacity() : request.getMaxParticipants());
+        event.setAllowWalkIn(request.getAllowWalkIn() != null ? request.getAllowWalkIn() : Boolean.FALSE);
+        event.setRegistrationOpenAt(request.getRegistrationOpenAt());
+        event.setRegistrationCloseAt(request.getRegistrationCloseAt());
+        event.setCheckInOpenAt(request.getCheckInOpenAt());
+        event.setCheckInCloseAt(request.getCheckInCloseAt());
         event.setStartDate(request.getStartDate());
         event.setEndDate(request.getEndDate());
         event.setEventStatus(STATUS_DRAFT);
@@ -135,6 +158,11 @@ public class EventServiceImpl implements EventService {
         event.setIsDeleted(false);
 
         Event savedEvent = eventRepository.save(event);
+        if (request.getRegistrationPolicies() == null || request.getRegistrationPolicies().isEmpty()) {
+            registrationPolicyRepository.saveAll(eventRegistrationPolicyService.buildDefaultPolicies(savedEvent.getEventID(), now));
+        } else {
+            eventRegistrationPolicyService.syncPolicies(savedEvent.getEventID(), request.getRegistrationPolicies(), now);
+        }
 
         if (request.getAssignments() != null && !request.getAssignments().isEmpty()) {
             List<EventAssignment> assignments = request.getAssignments().stream().map(dto -> {
@@ -161,6 +189,7 @@ public class EventServiceImpl implements EventService {
         }
 
         validateEventBeforeSubmission(event);
+        eventRegistrationPolicyService.validateBeforeSubmit(eventId);
         event.setEventStatus(STATUS_PENDING_APPROVAL);
         eventRepository.save(event);
     }
@@ -184,6 +213,34 @@ public class EventServiceImpl implements EventService {
         eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
                 .filter(a -> a.getUserID().equals(userId))
                 .forEach(a -> {
+                    a.setIsDeleted(true);
+                    eventAssignmentRepository.save(a);
+                });
+    }
+
+    @Override
+    @Transactional
+    public void assignCheckInStaff(Integer eventId, Integer userId) {
+        Event event = getActiveEventOrThrow(eventId);
+        Integer checkInStaffRoleId = resolveEventRoleIdByName("CHECK_IN_STAFF");
+
+        EventAssignment assignment = eventAssignmentRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
+                .orElseGet(EventAssignment::new);
+        assignment.setEventID(event.getEventID());
+        assignment.setUserID(userId);
+        assignment.setEventRoleID(checkInStaffRoleId);
+        assignment.setAssignedAt(LocalDateTime.now());
+        assignment.setIsDeleted(false);
+        eventAssignmentRepository.save(assignment);
+    }
+
+    @Override
+    @Transactional
+    public void revokeCheckInStaff(Integer eventId, Integer userId) {
+        Integer checkInStaffRoleId = resolveEventRoleIdByName("CHECK_IN_STAFF");
+        eventAssignmentRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
+                .filter(a -> checkInStaffRoleId.equals(a.getEventRoleID()))
+                .ifPresent(a -> {
                     a.setIsDeleted(true);
                     eventAssignmentRepository.save(a);
                 });
@@ -290,12 +347,28 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public EventDetailResponse getPublicEventDetail(Integer eventId) {
+        Event event = getActiveEventOrThrow(eventId);
+        return toEventDetailResponse(event, null, false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public EventDetailResponse getManagedEventDetail(Integer eventId, UserPrincipal currentUser) {
+        Event event = getActiveEventOrThrow(eventId);
+        return toEventDetailResponse(event, currentUser, true);
+    }
+
+    @Override
     @Transactional
-    public String checkIn(Integer eventId, String studentId) {
+    public String checkIn(Integer eventId, String studentId, UserPrincipal currentUser) {
         Event event = getActiveEventOrThrow(eventId);
         if (!STATUS_ONGOING.equals(event.getEventStatus())) {
             throw new IllegalArgumentException("Sự kiện chưa bắt đầu, không thể điểm danh.");
         }
+
+        eventAssignmentAccessService.ensureCanManageCheckIn(eventId, currentUser);
 
         UserAccount user = userRepository.findByStudentId(studentId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sinh viên với mã: " + studentId));
@@ -315,6 +388,15 @@ public class EventServiceImpl implements EventService {
         AttendanceRecord record = new AttendanceRecord();
         record.setSessionID(session.getSessionID());
         record.setUserID(userId);
+        record.setRegistrationID(registrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
+                .map(EventRegistration::getRegistrationID)
+                .orElse(null));
+        record.setParticipantTypeSnapshotAt(registrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
+                .map(EventRegistration::getParticipantTypeSnapshotAt)
+                .orElse(null));
+        record.setCheckInMethod(CheckInMethod.QR.name());
+        record.setCheckedInBy(userId);
+        record.setCheckedInAt(LocalDateTime.now());
         record.setAttendanceStatus("Present");
         record.setMarkedAt(LocalDateTime.now());
         record.setIsVerifiedByAI(false);
@@ -330,14 +412,12 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public void startEvent(Integer eventId) {
         Event event = getActiveEventOrThrow(eventId);
-        if (!STATUS_APPROVED.equals(event.getEventStatus())
-                && !STATUS_PENDING_APPROVAL.equals(event.getEventStatus())
-                && !STATUS_REGISTRATION_OPEN.equals(event.getEventStatus())
-                && !STATUS_REGISTRATION_CLOSED.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event must be Approved, RegistrationOpen, or RegistrationClosed to start.");
-        }
+        stateMachineService.ensureCanStart(event);
 
         event.setEventStatus(STATUS_ONGOING);
+        if (event.getCheckInOpenAt() == null) {
+            event.setCheckInOpenAt(LocalDateTime.now());
+        }
         eventRepository.save(event);
 
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElseGet(() -> {
@@ -358,10 +438,16 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public void finishEvent(Integer eventId) {
         Event event = getActiveEventOrThrow(eventId);
-        if (!STATUS_ONGOING.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event must be Ongoing to finish.");
+        stateMachineService.ensureCanFinish(event);
+        AttendanceSession session = attendanceSessionRepository.findByEventID(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Attendance session not opened."));
+        if (session.getCheckInTime() == null) {
+            throw new IllegalArgumentException("Attendance session has not started yet.");
         }
         event.setEventStatus(STATUS_COMPLETED);
+        if (event.getCheckInCloseAt() == null) {
+            event.setCheckInCloseAt(LocalDateTime.now());
+        }
         eventRepository.save(event);
         markMissingAttendanceAsAbsent(event);
     }
@@ -370,9 +456,7 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public void closeEvent(Integer eventId) {
         Event event = getActiveEventOrThrow(eventId);
-        if (!STATUS_COMPLETED.equals(event.getEventStatus()) && !STATUS_REPORT_UPLOADED.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event must be Completed or ReportUploaded to close.");
-        }
+        stateMachineService.ensureCanClose(event);
         event.setEventStatus(STATUS_CLOSED);
         eventRepository.save(event);
     }
@@ -392,6 +476,12 @@ public class EventServiceImpl implements EventService {
         }
         event.setEventStatus(STATUS_COMPLETED);
         eventRepository.save(event);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EventRegistrationPolicyResponse> getRegistrationPolicies(Integer eventId, UserPrincipal currentUser) {
+        return eventRegistrationPolicyService.getPolicies(eventId, currentUser);
     }
 
     @Override
@@ -465,6 +555,7 @@ public class EventServiceImpl implements EventService {
         for (ContributionDTO dto : contributions) {
             Integer userId = dto.getUserID();
             String type = dto.getContributionType();
+            EventRegistration registration = registrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId).orElse(null);
 
             MemberPerformance performance = memberPerformanceRepository
                     .findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
@@ -495,6 +586,10 @@ public class EventServiceImpl implements EventService {
                     .orElse(new AttendanceRecord());
             record.setSessionID(session.getSessionID());
             record.setUserID(userId);
+            if (registration != null) {
+                record.setRegistrationID(registration.getRegistrationID());
+                record.setParticipantTypeSnapshotAt(registration.getParticipantTypeSnapshotAt());
+            }
             record.setAttendanceStatus("PARTICIPANT".equals(type) ? ATTENDANCE_STATUS_PRESENT : (CONTRIBUTION_TYPE_ABSENT.equals(type) ? ATTENDANCE_STATUS_ABSENT : ATTENDANCE_STATUS_PRESENT));
             attendanceRecordRepository.save(record);
         }
@@ -502,18 +597,31 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void openRegistration(Integer eventId) {
+    public void openRegistration(Integer eventId, UserPrincipal currentUser) {
         Event event = getActiveEventOrThrow(eventId);
-        if (!STATUS_APPROVED.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event must be Approved to open registration.");
-        }
+        String oldStatus = event.getEventStatus();
+        stateMachineService.ensureCanOpenRegistration(event);
+        validateRegistrationOpenWindow(event);
         event.setEventStatus("RegistrationOpen");
-        eventRepository.save(event);
+        if (event.getRegistrationOpenAt() == null) {
+            event.setRegistrationOpenAt(LocalDateTime.now());
+        }
+        Event saved = eventRepository.save(event);
+        auditLogService.record(
+                currentUser == null ? null : currentUser.getUserId(),
+                "Event",
+                saved.getEventID(),
+                "REGISTRATION_OPENED",
+                oldStatus,
+                saved.getEventStatus(),
+                "Opened registration window"
+        );
+        publishLifecycleEvent(saved, oldStatus, saved.getEventStatus(), null, "Opened registration window");
     }
 
     @Override
     @Transactional
-    public void updateEvent(Integer eventId, com.fptu.fcms.dto.request.UpdateEventRequest request) {
+    public void updateEvent(Integer eventId, UpdateEventRequest request) {
         Event event = getActiveEventOrThrow(eventId);
         if (!STATUS_DRAFT.equals(event.getEventStatus())) {
             throw new IllegalArgumentException("Chỉ có thể chỉnh sửa sự kiện ở trạng thái Nháp.");
@@ -523,21 +631,48 @@ public class EventServiceImpl implements EventService {
         if (request.getLocation() != null)      event.setLocation(request.getLocation());
         if (request.getStartDate() != null)     event.setStartDate(request.getStartDate());
         if (request.getEndDate() != null)       event.setEndDate(request.getEndDate());
-        if (request.getMaxParticipants() != null) event.setMaxParticipants(request.getMaxParticipants());
+        if (request.getMaxParticipants() != null) {
+            event.setMaxParticipants(request.getMaxParticipants());
+            event.setTotalCapacity(request.getMaxParticipants());
+        }
+        if (request.getTotalCapacity() != null) {
+            event.setTotalCapacity(request.getTotalCapacity());
+            event.setMaxParticipants(request.getTotalCapacity());
+        }
+        if (request.getAllowWalkIn() != null)   event.setAllowWalkIn(request.getAllowWalkIn());
+        if (request.getRegistrationOpenAt() != null) event.setRegistrationOpenAt(request.getRegistrationOpenAt());
+        if (request.getRegistrationCloseAt() != null) event.setRegistrationCloseAt(request.getRegistrationCloseAt());
+        if (request.getCheckInOpenAt() != null) event.setCheckInOpenAt(request.getCheckInOpenAt());
+        if (request.getCheckInCloseAt() != null) event.setCheckInCloseAt(request.getCheckInCloseAt());
         if (request.getBudget() != null)        event.setBudget(request.getBudget());
         if (request.getBannerUrl() != null)     event.setBannerUrl(request.getBannerUrl());
         eventRepository.save(event);
+        if (request.getRegistrationPolicies() != null && !request.getRegistrationPolicies().isEmpty()) {
+            eventRegistrationPolicyService.syncPolicies(eventId, request.getRegistrationPolicies(), LocalDateTime.now());
+        }
     }
 
     @Override
     @Transactional
-    public void closeRegistration(Integer eventId) {
+    public void closeRegistration(Integer eventId, UserPrincipal currentUser) {
         Event event = getActiveEventOrThrow(eventId);
-        if (!STATUS_REGISTRATION_OPEN.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event must be RegistrationOpen to close registration.");
-        }
+        String oldStatus = event.getEventStatus();
+        stateMachineService.ensureCanCloseRegistration(event);
         event.setEventStatus(STATUS_REGISTRATION_CLOSED);
-        eventRepository.save(event);
+        if (event.getRegistrationCloseAt() == null) {
+            event.setRegistrationCloseAt(LocalDateTime.now());
+        }
+        Event saved = eventRepository.save(event);
+        auditLogService.record(
+                currentUser == null ? null : currentUser.getUserId(),
+                "Event",
+                saved.getEventID(),
+                "REGISTRATION_CLOSED",
+                oldStatus,
+                saved.getEventStatus(),
+                "Closed registration window"
+        );
+        publishLifecycleEvent(saved, oldStatus, saved.getEventStatus(), null, "Closed registration window");
     }
 
     @Override
@@ -546,9 +681,7 @@ public class EventServiceImpl implements EventService {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Event not found."));
 
-        if (!STATUS_PENDING.equals(event.getEventStatus()) && !STATUS_PENDING_APPROVAL.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event must be Pending or PendingApproval before approval.");
-        }
+        stateMachineService.ensureCanApprove(event);
 
         validateEventBeforeSemesterSettlement(event);
         validateScheduleConflict(event);
@@ -565,14 +698,13 @@ public class EventServiceImpl implements EventService {
                 .orElseThrow(() -> new IllegalArgumentException("Event not found."));
         String oldStatus = event.getEventStatus();
 
-        if (!STATUS_PENDING.equals(event.getEventStatus()) && !STATUS_PENDING_APPROVAL.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event must be Pending or PendingApproval before rejection.");
-        }
+        stateMachineService.ensureCanReject(event);
 
         event.setEventStatus(STATUS_REJECTED);
         event.setPdpFeedback(reason);
         event.setRejectionReason(reason);
         Event savedEvent = eventRepository.save(event);
+        auditLogService.record(null, "Event", savedEvent.getEventID(), "EVENT_REJECTED", oldStatus, STATUS_REJECTED, reason);
         publishLifecycleEvent(savedEvent, oldStatus, STATUS_REJECTED, null, reason);
     }
 
@@ -592,10 +724,17 @@ public class EventServiceImpl implements EventService {
             attendanceRecordRepository
                     .findBySessionIDAndUserID(session.getSessionID(), userId)
                     .orElseGet(() -> {
-                        AttendanceRecord absenceRecord = new AttendanceRecord();
+            AttendanceRecord absenceRecord = new AttendanceRecord();
                         absenceRecord.setSessionID(session.getSessionID());
                         absenceRecord.setUserID(userId);
+                        absenceRecord.setRegistrationID(registration.getRegistrationID());
+                        absenceRecord.setParticipantTypeSnapshotAt(registration.getParticipantTypeSnapshotAt());
                         absenceRecord.setAttendanceStatus(ATTENDANCE_STATUS_ABSENT);
+                        absenceRecord.setCheckInMethod(CheckInMethod.AUTO.name());
+                        absenceRecord.setCheckedInAt(LocalDateTime.now());
+                        absenceRecord.setMarkedAt(LocalDateTime.now());
+                        absenceRecord.setIsVerifiedByAI(false);
+                        absenceRecord.setIsDeleted(false);
                         return attendanceRecordRepository.save(absenceRecord);
                     });
         }
@@ -639,6 +778,9 @@ public class EventServiceImpl implements EventService {
         if (!event.getStartDate().isAfter(LocalDateTime.now().plusDays(7))) {
             throw new IllegalArgumentException("startDate must be at least 7 days from now before submit.");
         }
+        if (event.getTotalCapacity() != null && event.getTotalCapacity() < 0) {
+            throw new IllegalArgumentException("totalCapacity cannot be negative.");
+        }
     }
 
     private void assertCanModifyDraft(Event event, UserPrincipal currentUser) {
@@ -658,6 +800,15 @@ public class EventServiceImpl implements EventService {
             throw new IllegalArgumentException("Event role is required.");
         }
         return eventRoleRepository.findByEventRoleIDAndIsDeletedFalse(eventRoleId)
+                .map(EventRole::getEventRoleID)
+                .orElseThrow(() -> new IllegalArgumentException("Event role not found or deleted."));
+    }
+
+    private Integer resolveEventRoleIdByName(String roleName) {
+        if (!StringUtils.hasText(roleName)) {
+            throw new IllegalArgumentException("Event role is required.");
+        }
+        return eventRoleRepository.findByRoleNameAndIsDeletedFalse(roleName)
                 .map(EventRole::getEventRoleID)
                 .orElseThrow(() -> new IllegalArgumentException("Event role not found or deleted."));
     }
@@ -693,6 +844,16 @@ public class EventServiceImpl implements EventService {
         }
     }
 
+    private void validateRegistrationOpenWindow(Event event) {
+        LocalDateTime now = LocalDateTime.now();
+        if (event.getRegistrationOpenAt() != null && now.isBefore(event.getRegistrationOpenAt())) {
+            throw new BusinessRuleException("Registration cannot open before registrationOpenAt.", HttpStatus.CONFLICT);
+        }
+        if (event.getRegistrationCloseAt() != null && now.isAfter(event.getRegistrationCloseAt())) {
+            throw new BusinessRuleException("Registration cannot open after registrationCloseAt.", HttpStatus.CONFLICT);
+        }
+    }
+
     private void validateEventBeforeSemesterSettlement(Event event) {
         Semester semester = semesterRepository.findById(event.getSemesterID())
                 .orElseThrow(() -> new BusinessRuleException("Semester not found.", HttpStatus.NOT_FOUND));
@@ -712,16 +873,15 @@ public class EventServiceImpl implements EventService {
             String feedback,
             LocalDateTime executedAt
     ) {
-        AuditLog auditLog = new AuditLog();
-        auditLog.setActorID(actorId);
-        auditLog.setActionType(STATUS_APPROVED.equals(newStatus) ? "EVENT_APPROVED" : "EVENT_REJECTED");
-        auditLog.setTableName("Event");
-        auditLog.setRecordID(event.getEventID());
-        auditLog.setOldValue(oldStatus);
-        auditLog.setNewValue(newStatus);
-        auditLog.setOverrideReason(StringUtils.hasText(feedback) ? feedback : "Event approval decision");
-        auditLog.setExecutedAt(executedAt);
-        auditLogRepository.save(auditLog);
+        auditLogService.record(
+                actorId,
+                "Event",
+                event.getEventID(),
+                STATUS_APPROVED.equals(newStatus) ? "EVENT_APPROVED" : "EVENT_REJECTED",
+                oldStatus,
+                newStatus,
+                StringUtils.hasText(feedback) ? feedback : "Event approval decision"
+        );
     }
 
     private void publishLifecycleEvent(Event event, String oldStatus, String newStatus, Integer actorId, String reason) {
@@ -734,6 +894,45 @@ public class EventServiceImpl implements EventService {
                 actorId,
                 reason
         ));
+    }
+
+    private EventDetailResponse toEventDetailResponse(Event event, UserPrincipal currentUser, boolean includePolicies) {
+        EventPermissionService permissionService = null;
+        boolean isManager = includePolicies && currentUser != null && (permissionService.isIcpdp(currentUser) || permissionService.isLeader(currentUser));
+        List<EventRegistrationPolicyResponse> policies = isManager
+                ? eventRegistrationPolicyService.getPolicies(event.getEventID(), currentUser)
+                : null;
+
+        return new EventDetailResponse(
+                event.getEventID(),
+                event.getClubID(),
+                event.getSemesterID(),
+                event.getEventCode(),
+                event.getEventName(),
+                event.getDescription(),
+                event.getLocation(),
+                event.getStartDate(),
+                event.getEndDate(),
+                event.getEventStatus(),
+                event.getBannerUrl(),
+                event.getAllowWalkIn(),
+                isManager ? event.getRegistrationOpenAt() : null,
+                isManager ? event.getRegistrationCloseAt() : null,
+                isManager ? event.getCheckInOpenAt() : null,
+                isManager ? event.getCheckInCloseAt() : null,
+                isManager ? event.getTotalCapacity() : null,
+                isManager ? event.getMaxParticipants() : null,
+                isManager ? event.getBudget() : null,
+                isManager ? event.getApprovedBy() : null,
+                isManager ? event.getApprovedAt() : null,
+                isManager ? event.getPdpFeedback() : null,
+                isManager ? event.getRejectionReason() : null,
+                isManager ? event.getIsInternal() : null,
+                isManager ? event.getIsScoreLocked() : null,
+                isManager ? event.getCreatedAt() : null,
+                isManager ? event.getCreatedBy() : null,
+                policies
+        );
     }
 
     private int calculateScore(String type) {
