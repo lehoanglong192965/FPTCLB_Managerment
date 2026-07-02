@@ -396,7 +396,7 @@ public class EventServiceImpl implements EventService {
         record.setParticipantTypeSnapshotAt(registrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
                 .map(EventRegistration::getParticipantTypeSnapshotAt)
                 .orElse(null));
-        record.setCheckInMethod(CheckInMethod.QR);
+
         record.setCheckedInBy(userId);
         record.setCheckedInAt(LocalDateTime.now());
         record.setAttendanceStatus(AttendanceStatus.PRESENT);
@@ -718,7 +718,7 @@ public class EventServiceImpl implements EventService {
         List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(event.getEventID());
         for (EventRegistration registration : registrations) {
             Integer userId = registration.getUserID();
-            if (userId == null || !RegistrationStatus.REGISTERED.equals(registration.getStatus())) {
+            if (userId == null || registration.getRegistrationStatus() != RegistrationStatus.REGISTERED) {
                 continue;
             }
 

@@ -11,6 +11,7 @@ import com.fptu.fcms.enums.AttendanceSessionStatus;
 import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.CheckInMethod;
 import com.fptu.fcms.enums.EventStatus;
+import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.enums.VerificationMethod;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
@@ -19,7 +20,6 @@ import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.service.AttendanceService;
 import com.fptu.fcms.service.AuditLogService;
-import com.fptu.fcms.service.event.RegistrationLifecycle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -52,25 +52,25 @@ public class AttendanceServiceImpl implements AttendanceService {
 
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(session.getEventID())
                 .orElseThrow(() -> new IllegalArgumentException("Event not found."));
-        EventStatus eventStatus = EventStatus.fromValue(event.getEventStatus());
+        EventStatus eventStatus = EventStatus.fromValue(String.valueOf(event.getEventStatus()));
         if (eventStatus != EventStatus.ONGOING && eventStatus != EventStatus.CHECKIN_OPEN) {
             throw new IllegalArgumentException("Event must be Ongoing for check-in.");
         }
 
-        EventRegistration registration = eventRegistrationRepository.findByRegistrationIDAndIsDeletedFalse(request.getRegistrationId())
+        EventRegistration registration = (EventRegistration) eventRegistrationRepository.findByRegistrationIDAndIsDeletedFalse(request.getRegistrationId())
                 .orElseThrow(() -> new IllegalArgumentException("Registration not found."));
         if (!Objects.equals(registration.getEventID(), event.getEventID())) {
             throw new IllegalArgumentException("Registration does not belong to this attendance session.");
         }
-        if (!RegistrationLifecycle.STATUS_CONFIRMED.equals(normalize(registration.getStatus()))) {
+        if (!RegistrationStatus.CONFIRMED.name().equals(registration.getStatus())) {
             throw new IllegalArgumentException("Registration is not confirmed for check-in.");
         }
         var existingRecord = attendanceRecordRepository.findBySessionIDAndRegistrationID(sessionId, registration.getRegistrationID());
         if (existingRecord.isPresent()) {
             AttendanceRecord existing = existingRecord.get();
-            if (!AttendanceStatus.PRESENT.name().equals(normalize(existing.getAttendanceStatus()))) {
-                existing.setAttendanceStatus(AttendanceStatus.PRESENT.name());
-                existing.setCheckInMethod(CheckInMethod.STAFF_LOOKUP.name());
+            if (existing.getAttendanceStatus() != AttendanceStatus.PRESENT) {
+                existing.setAttendanceStatus(AttendanceStatus.PRESENT);
+                existing.setCheckInMethod(CheckInMethod.STAFF_LOOKUP);
                 existing.setVerificationMethod(normalize(request.getVerificationMethod()));
                 existing.setCheckedInBy(actorId);
                 existing.setCheckedInAt(LocalDateTime.now());
@@ -84,7 +84,7 @@ public class AttendanceServiceImpl implements AttendanceService {
                     event.getEventID(),
                     registration.getRegistrationID(),
                     registration.getUserID(),
-                    AttendanceStatus.PRESENT.name(),
+                    AttendanceStatus.PRESENT,
                     "Participant already checked in."
             );
         }
@@ -101,9 +101,9 @@ public class AttendanceServiceImpl implements AttendanceService {
         record.setUserID(registration.getUserID());
         record.setRegistrationID(registration.getRegistrationID());
         record.setParticipantTypeSnapshotAt(registration.getParticipantTypeSnapshotAt());
-        record.setParticipantTypeSnapshot(registration.getUserID() == null ? "GUEST" : registration.getParticipantType());
-        record.setAttendanceStatus(AttendanceStatus.PRESENT.name());
-        record.setCheckInMethod(CheckInMethod.STAFF_LOOKUP.name());
+        record.setAttendanceStatus(AttendanceStatus.PRESENT);
+        record.setCheckInMethod(CheckInMethod.STAFF_LOOKUP);
+        record.setParticipantTypeSnapshot(registration.getUserID() == null ? "GUEST" : registration.getParticipantType().name());
         record.setVerificationMethod(verificationMethod.name());
         record.setCheckedInBy(actorId);
         record.setCheckedInAt(now);
@@ -125,7 +125,7 @@ public class AttendanceServiceImpl implements AttendanceService {
                 event.getEventID(),
                 registration.getRegistrationID(),
                 registration.getUserID(),
-                AttendanceStatus.PRESENT.name(),
+                AttendanceStatus.PRESENT,
                 "Check-in successful."
         );
     }

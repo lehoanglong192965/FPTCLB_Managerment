@@ -65,7 +65,7 @@ public class FeedbackSummaryServiceImpl implements FeedbackSummaryService {
                 .map(attendanceRecordRepository::findBySessionID)
                 .orElseGet(java.util.List::of)
                 .stream()
-                .filter(record -> AttendanceStatus.PRESENT.name().equals(normalizeStatus(record.getAttendanceStatus())))
+                .filter(record -> AttendanceStatus.PRESENT.equals(record.getAttendanceStatus()))
                 .map(AttendanceRecord::getRegistrationID)
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toSet());

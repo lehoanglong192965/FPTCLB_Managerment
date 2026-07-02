@@ -59,7 +59,7 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
             if (confirmedCount >= maxParticipants) {
                 break;
             }
-            registration.setStatus(RegistrationLifecycle.STATUS_CONFIRMED);
+            registration.setStatus(RegistrationLifecycle.STATUS_CONFIRMED.name());
             registration.setRegistrationStatus(RegistrationLifecycle.STATUS_CONFIRMED);
             registrationRepository.save(registration);
             confirmedCount++;

@@ -18,7 +18,7 @@ public class RegistrationNotificationServiceImpl implements RegistrationNotifica
         if (registration.getGuestEmail() == null || registration.getUserID() != null) {
             return;
         }
-        String status = registration.getStatus() == null ? null : registration.getStatus().name();
+        String status = registration.getStatus();
         if (RegistrationStatus.CONFIRMED.name().equals(status)) {
             emailService.sendSimpleEmail(
                     registration.getGuestEmail(),

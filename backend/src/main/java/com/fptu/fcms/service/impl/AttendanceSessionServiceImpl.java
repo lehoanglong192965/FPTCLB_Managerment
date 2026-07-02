@@ -19,6 +19,7 @@ import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.service.AttendanceSessionService;
 import com.fptu.fcms.service.AuditLogService;
+import com.fptu.fcms.service.event.RegistrationLifecycle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -159,7 +160,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     @Transactional(readOnly = true)
     public AttendanceRegistrationSearchResponse preview(Integer sessionId, Integer registrationId) {
         AttendanceSession session = findSession(sessionId);
-        EventRegistration registration = eventRegistrationRepository.findByRegistrationIDAndIsDeletedFalse(registrationId)
+        EventRegistration registration = (EventRegistration) eventRegistrationRepository.findByRegistrationIDAndIsDeletedFalse(registrationId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "REGISTRATION_NOT_FOUND"));
         if (!session.getEventID().equals(registration.getEventID())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "REGISTRATION_NOT_IN_SESSION_EVENT");
@@ -255,7 +256,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 reg.getRegistrationCode(),
                 displayName,
                 participantType,
-                reg.getStatus() == null ? null : reg.getStatus().name(),
+                reg.getStatus(),
                 attendanceStatus == null ? null : attendanceStatus.name(),
                 maskEmail(email),
                 maskPhone(phone),
@@ -264,7 +265,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     }
 
     private boolean isConfirmed(EventRegistration registration) {
-        return RegistrationStatus.CONFIRMED.equals(registration.getStatus());
+        return registration != null
+                && RegistrationLifecycle.CONFIRMED_STATUSES.contains(registration.getRegistrationStatus());
     }
 
     private AttendanceRecord snapshot(AttendanceRecord record) {

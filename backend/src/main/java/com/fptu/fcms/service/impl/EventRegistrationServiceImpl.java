@@ -108,7 +108,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setParticipantTypeSnapshotAt(LocalDateTime.now());
         registration.setRegistrationChannel(RegistrationChannel.FPTU);
         registration.setRegisteredAt(LocalDateTime.now());
-        registration.setStatus(allocation.status());
+        registration.setStatus(String.valueOf(allocation.status()));
         registration.setRegistrationStatus(allocation.status());
         registration.setCreatedAt(registration.getRegisteredAt());
         registration.setCreatedBy(userID);
@@ -153,9 +153,9 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setGuestPhone(request.getPhone().trim());
         registration.setParticipantType(RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT);
         registration.setParticipantTypeSnapshotAt(LocalDateTime.now());
-        registration.setRegistrationChannel(RegistrationChannel.GUEST);
+        registration.setRegistrationChannel(RegistrationChannel.FPTU);
         registration.setRegisteredAt(LocalDateTime.now());
-        registration.setStatus(allocation.status());
+        registration.setStatus(String.valueOf(allocation.status()));
         registration.setRegistrationStatus(allocation.status());
         registration.setCreatedAt(registration.getRegisteredAt());
         registration.setCreatedBy(null);
@@ -207,7 +207,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setParticipantTypeSnapshotAt(LocalDateTime.now());
         registration.setRegistrationChannel(RegistrationChannel.WALK_IN);
         registration.setRegisteredAt(LocalDateTime.now());
-        registration.setStatus(allocation.status());
+        registration.setStatus(String.valueOf(allocation.status()));
         registration.setRegistrationStatus(allocation.status());
         registration.setCreatedAt(registration.getRegisteredAt());
         registration.setCreatedBy(currentUser.getUserId());
@@ -226,7 +226,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     @CacheEvict(value = "memberRanking", allEntries = true)
     public void unregisterEvent(Integer eventID, Integer userID) {
         EventRegistration registration = registrationRepo
-                .findTopByEventIDAndUserIDAndIsDeletedFalseAndStatusInOrderByRegisteredAtDesc(
+                .findTopByEventIDAndUserIDAndIsDeletedFalseAndRegistrationStatusInOrderByRegisteredAtDesc(
                         eventID,
                         userID,
                         RegistrationLifecycle.ACTIVE_STATUSES
@@ -237,7 +237,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
     @Override
     public boolean isUserRegistered(Integer eventId, Integer userId) {
-        return registrationRepo.existsByEventIDAndUserIDAndIsDeletedFalseAndStatusIn(
+        return registrationRepo.existsByEventIDAndUserIDAndIsDeletedFalseAndRegistrationStatusIn(
                 eventId,
                 userId,
                 RegistrationLifecycle.ACTIVE_STATUSES
@@ -247,7 +247,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     @Override
     public List<Event> getEventsByUserRegistered(Integer userId) {
         return registrationRepo.findByUserIDAndIsDeletedFalse(userId).stream()
-                .filter(reg -> RegistrationLifecycle.ACTIVE_STATUSES.contains(reg.getStatus()))
+                .filter(reg -> RegistrationLifecycle.ACTIVE_STATUSES.contains(reg.getRegistrationStatus()))
                 .map(EventRegistration::getEventID)
                 .distinct()
                 .map(eventId -> eventRepository.findById(eventId).orElse(null))
@@ -305,8 +305,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
 
         RegistrationAllocationResult allocation = allocationService.allocateOnApproval(eventId, event.getMaxParticipants());
-        RegistrationStatus oldStatus = registration.getStatus();
-        registration.setStatus(allocation.status());
+        RegistrationStatus oldStatus = RegistrationStatus.valueOf(registration.getStatus());
+        registration.setStatus(String.valueOf(allocation.status()));
         registration.setRegistrationStatus(allocation.status());
         registration.setUpdatedAt(LocalDateTime.now());
         registration.setUpdatedBy(currentUser.getUserId());
@@ -333,8 +333,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(), "Registration must be Pending Approval before rejection.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
-        RegistrationStatus oldStatus = registration.getStatus();
-        registration.setStatus(RegistrationLifecycle.STATUS_REJECTED);
+        RegistrationStatus oldStatus = RegistrationStatus.valueOf(registration.getStatus());
+        registration.setStatus(String.valueOf(RegistrationLifecycle.STATUS_REJECTED));
         registration.setRegistrationStatus(RegistrationLifecycle.STATUS_REJECTED);
         registration.setUpdatedAt(LocalDateTime.now());
         registration.setUpdatedBy(currentUser.getUserId());
@@ -362,8 +362,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
 
         Event event = loadEventForUpdate(registration.getEventID());
-        RegistrationStatus oldStatus = registration.getStatus();
-        registration.setStatus(RegistrationLifecycle.STATUS_CANCELLED);
+        RegistrationStatus oldStatus = RegistrationStatus.valueOf(registration.getStatus());
+        registration.setStatus(String.valueOf(RegistrationLifecycle.STATUS_CANCELLED));
         registration.setRegistrationStatus(RegistrationLifecycle.STATUS_CANCELLED);
         registration.setUpdatedAt(LocalDateTime.now());
         registration.setUpdatedBy(actorUserId);
@@ -475,7 +475,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
     private void ensureNoDuplicateActiveRegistration(Integer eventId, Integer userId, String guestEmail) {
         if (userId != null) {
-            boolean exists = registrationRepo.existsByEventIDAndUserIDAndIsDeletedFalseAndStatusIn(
+            boolean exists = registrationRepo.existsByEventIDAndUserIDAndIsDeletedFalseAndRegistrationStatusIn(
                     eventId,
                     userId,
                     RegistrationLifecycle.ACTIVE_STATUSES
@@ -485,7 +485,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             }
         }
         if (guestEmail != null) {
-            boolean exists = registrationRepo.existsByEventIDAndGuestEmailAndIsDeletedFalseAndStatusIn(
+            boolean exists = registrationRepo.existsByEventIDAndGuestEmailAndIsDeletedFalseAndRegistrationStatusIn(
                     eventId,
                     guestEmail,
                     RegistrationLifecycle.ACTIVE_STATUSES
@@ -511,7 +511,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 registration.getEventID(),
                 registration.getUserID(),
                 registration.getParticipantType(),
-                registration.getStatus(),
+                RegistrationStatus.fromValue(registration.getStatus()),
                 registration.getRegisteredAt(),
                 user == null ? null : user.getStudentId(),
                 user == null ? null : user.getFullName(),

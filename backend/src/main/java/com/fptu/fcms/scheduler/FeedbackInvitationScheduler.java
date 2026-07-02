@@ -76,7 +76,7 @@ public class FeedbackInvitationScheduler {
         }
 
         Set<Integer> presentRegistrationIds = attendanceRecordRepository.findBySessionID(session.getSessionID()).stream()
-                .filter(record -> AttendanceStatus.PRESENT.name().equals(normalize(record.getAttendanceStatus())))
+                .filter(record -> AttendanceStatus.PRESENT.equals(record.getAttendanceStatus()))
                 .map(AttendanceRecord::getRegistrationID)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());

@@ -427,7 +427,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     }
 
     private boolean isConfirmedRegistration(EventRegistration registration) {
-        RegistrationStatus status = registration.getStatus();
+        RegistrationStatus status = RegistrationStatus.valueOf(registration.getStatus());
         RegistrationStatus registrationStatus = registration.getRegistrationStatus();
         return REGISTRATION_STATUS_CONFIRMED.equals(status)
                 || REGISTRATION_STATUS_REGISTERED.equals(status)

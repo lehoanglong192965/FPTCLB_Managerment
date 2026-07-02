@@ -131,7 +131,7 @@ class FeedbackSummaryServiceImplTest {
     private AttendanceRecord record(Integer registrationId) {
         AttendanceRecord record = new AttendanceRecord();
         record.setRegistrationID(registrationId);
-        record.setAttendanceStatus(AttendanceStatus.PRESENT.name());
+        record.setAttendanceStatus(AttendanceStatus.valueOf(AttendanceStatus.PRESENT.name()));
         return record;
     }
 

@@ -186,7 +186,7 @@ public class FeedbackServiceImpl implements FeedbackService {
         AttendanceRecord attendance = attendanceRecordRepository
                 .findBySessionIDAndRegistrationID(session.getSessionID(), registration.getRegistrationID())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_NOT_ELIGIBLE"));
-        if (!AttendanceStatus.PRESENT.name().equals(normalize(attendance.getAttendanceStatus()))) {
+        if (!AttendanceStatus.PRESENT.equals(attendance.getAttendanceStatus())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_NOT_ELIGIBLE");
         }
     }
@@ -210,7 +210,7 @@ public class FeedbackServiceImpl implements FeedbackService {
     }
 
     private EventRegistration findRegistration(Integer registrationId) {
-        return eventRegistrationRepository.findByRegistrationIDAndIsDeletedFalse(registrationId)
+        return (EventRegistration) eventRegistrationRepository.findByRegistrationIDAndIsDeletedFalse(registrationId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "REGISTRATION_NOT_FOUND"));
     }
 

@@ -71,7 +71,7 @@ public class EventAbsenceScheduler {
         if (registration == null || registration.getUserID() == null || registration.getStatus() == null) {
             return false;
         }
-        return registration.getStatus() == RegistrationStatus.CONFIRMED
-                || registration.getStatus() == RegistrationStatus.REGISTERED;
+        return RegistrationStatus.CONFIRMED.name().equals(registration.getStatus())
+                || RegistrationStatus.REGISTERED.name().equals(registration.getStatus());
     }
 }

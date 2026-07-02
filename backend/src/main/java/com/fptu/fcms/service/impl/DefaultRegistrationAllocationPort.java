@@ -15,6 +15,8 @@ public class DefaultRegistrationAllocationPort implements RegistrationAllocation
 
     @Override
     public String allocateGuest(Event event, EventRegistration registration) {
-        return allocationService.allocateInitial(event.getEventID(), event.getMaxParticipants(), false).status();
+        return allocationService.allocateInitial(event.getEventID(), event.getMaxParticipants(), false)
+                .status()
+                .name();
     }
 }

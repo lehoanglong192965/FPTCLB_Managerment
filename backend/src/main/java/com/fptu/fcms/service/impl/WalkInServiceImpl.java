@@ -63,8 +63,8 @@ public class WalkInServiceImpl implements WalkInService {
 
         EventRegistration registration = eventRegistrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(event.getEventID(), user.getUserID())
                 .orElseGet(() -> createFptuWalkInRegistration(event, user));
-        if (registration.getStatus() != RegistrationStatus.CONFIRMED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, registration.getStatus() == null ? null : registration.getStatus().name());
+        if (!RegistrationStatus.CONFIRMED.name().equals(registration.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, registration.getStatus());
         }
 
         AttendanceCheckInRequest checkIn = new AttendanceCheckInRequest();
@@ -100,7 +100,7 @@ public class WalkInServiceImpl implements WalkInService {
         registration.setParticipantTypeSnapshotAt(now);
         registration.setRegistrationChannel(RegistrationChannel.WALK_IN);
         registration.setDiscoverySource(request.getDiscoverySource());
-        registration.setStatus(RegistrationStatus.CONFIRMED);
+        registration.setStatus(RegistrationStatus.CONFIRMED.name());
         registration.setRegistrationStatus(RegistrationStatus.CONFIRMED);
         registration.setRegisteredAt(now);
         registration.setVerifiedAt(now);
@@ -145,7 +145,7 @@ public class WalkInServiceImpl implements WalkInService {
         registration.setIsDeleted(false);
         EventRegistration saved = eventRegistrationRepository.save(registration);
         RegistrationStatus status = RegistrationStatus.fromValue(registrationAllocationPort.allocateGuest(event, saved));
-        saved.setStatus(status);
+        saved.setStatus(status == null ? null : status.name());
         saved.setRegistrationStatus(status);
         return eventRegistrationRepository.save(saved);
     }
