@@ -7,6 +7,7 @@ import lombok.Getter;
 @AllArgsConstructor
 public class AttendanceCheckInResponse {
     private Integer eventId;
+    private Integer registrationId;
     private Integer userId;
     private String status;
     private String message;

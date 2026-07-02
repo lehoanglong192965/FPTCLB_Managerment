@@ -8,9 +8,11 @@ import java.util.Locale;
 
 @Schema(description = "Check-in method")
 public enum CheckInMethod {
-    QR,
+    STAFF_LOOKUP,
     MANUAL,
-    AUTO;
+    AUTO,
+    WALK_IN,
+    EMERGENCY_OVERRIDE;
 
     @JsonValue
     public String jsonValue() {

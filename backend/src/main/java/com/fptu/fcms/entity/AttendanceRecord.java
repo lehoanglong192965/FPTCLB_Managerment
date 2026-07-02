@@ -36,11 +36,17 @@ public class AttendanceRecord {
     @Column(name = "participantTypeSnapshotAt")
     private LocalDateTime participantTypeSnapshotAt;
 
+    @Column(name = "participantTypeSnapshot")
+    private String participantTypeSnapshot;
+
     @Column(name = "attendanceStatus")
     private String attendanceStatus;
 
     @Column(name = "checkInMethod")
     private String checkInMethod;
+
+    @Column(name = "verificationMethod")
+    private String verificationMethod;
 
     @Column(name = "checkedInBy")
     private Integer checkedInBy;
@@ -50,6 +56,15 @@ public class AttendanceRecord {
 
     @Column(name = "manualReason")
     private String manualReason;
+
+    @Column(name = "overrideReason")
+    private String overrideReason;
+
+    @Column(name = "note")
+    private String note;
+
+    @Column(name = "deviceInfoOrSource")
+    private String deviceInfoOrSource;
 
     @Column(name = "capturedImgUrl")
     private String capturedImgUrl;
@@ -63,6 +78,12 @@ public class AttendanceRecord {
     @Column(name = "markedAt")
     private LocalDateTime markedAt;
 
+    @Column(name = "createdAt")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updatedAt")
+    private LocalDateTime updatedAt;
+
     @Column(name = "isDeleted")
     private Boolean isDeleted = false;
 
@@ -75,7 +96,10 @@ public class AttendanceRecord {
         if (markedAt == null) {
             markedAt = checkedInAt;
         }
+        if (createdAt == null) {
+            createdAt = markedAt;
+        }
+        updatedAt = LocalDateTime.now();
     }
 
 }
-
