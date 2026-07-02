@@ -1,5 +1,6 @@
 package com.fptu.fcms.dto.response;
 
+import com.fptu.fcms.enums.ParticipantType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -12,7 +13,7 @@ import java.time.LocalDateTime;
 public class EventRegistrationPolicyResponse {
     private final Integer policyID;
     private final Integer eventID;
-    private final String participantType;
+    private final ParticipantType participantType;
     private final Boolean isEnabled;
     private final Integer quota;
     private final Boolean waitlistEnabled;

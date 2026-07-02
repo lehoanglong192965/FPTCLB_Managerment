@@ -4,7 +4,10 @@ import com.fptu.fcms.entity.AttendanceRecord;
 import com.fptu.fcms.entity.AttendanceSession;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.CheckInMethod;
+import com.fptu.fcms.enums.EventStatus;
+import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
@@ -14,14 +17,12 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class EventAbsenceScheduler {
-
-    private static final String REGISTRATION_STATUS_REGISTERED = "REGISTERED";
-    private static final String ATTENDANCE_STATUS_ABSENT = "Absent";
 
     private final EventRepository eventRepository;
     private final EventRegistrationRepository registrationRepository;
@@ -31,7 +32,7 @@ public class EventAbsenceScheduler {
     @Scheduled(cron = "0 0 1 * * ?")
     @Transactional
     public void markAbsences() {
-        List<Event> completedEvents = eventRepository.findByEventStatusAndIsDeletedFalse("Completed");
+        List<Event> completedEvents = eventRepository.findByEventStatusAndIsDeletedFalse(EventStatus.COMPLETED);
 
         for (Event event : completedEvents) {
             AttendanceSession session = attendanceSessionRepository.findByEventID(event.getEventID())
@@ -42,24 +43,35 @@ public class EventAbsenceScheduler {
 
             List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(event.getEventID());
             for (EventRegistration reg : registrations) {
-                if (reg.getUserID() == null || !REGISTRATION_STATUS_REGISTERED.equals(reg.getStatus())) {
+                if (!isCountedRegistration(reg)) {
                     continue;
                 }
                 attendanceRecordRepository
                         .findBySessionIDAndRegistrationID(session.getSessionID(), reg.getRegistrationID())
-                        .orElseGet(() -> {
-                            AttendanceRecord absenceRecord = new AttendanceRecord();
-                            absenceRecord.setSessionID(session.getSessionID());
-                            absenceRecord.setUserID(reg.getUserID());
-                            absenceRecord.setRegistrationID(reg.getRegistrationID());
-                            absenceRecord.setParticipantTypeSnapshotAt(reg.getParticipantTypeSnapshotAt());
-                            absenceRecord.setAttendanceStatus(ATTENDANCE_STATUS_ABSENT);
-                            absenceRecord.setCheckInMethod(CheckInMethod.AUTO.name());
-                            absenceRecord.setCheckedInAt(java.time.LocalDateTime.now());
-                            absenceRecord.setMarkedAt(java.time.LocalDateTime.now());
-                            return attendanceRecordRepository.save(absenceRecord);
-                        });
+                        .orElseGet(() -> createAbsenceRecord(session, reg));
             }
         }
+    }
+
+    private AttendanceRecord createAbsenceRecord(AttendanceSession session, EventRegistration reg) {
+        LocalDateTime now = LocalDateTime.now();
+        AttendanceRecord absenceRecord = new AttendanceRecord();
+        absenceRecord.setSessionID(session.getSessionID());
+        absenceRecord.setUserID(reg.getUserID());
+        absenceRecord.setRegistrationID(reg.getRegistrationID());
+        absenceRecord.setParticipantTypeSnapshotAt(reg.getParticipantTypeSnapshotAt());
+        absenceRecord.setAttendanceStatus(AttendanceStatus.ABSENT);
+        absenceRecord.setCheckInMethod(CheckInMethod.AUTO);
+        absenceRecord.setCheckedInAt(now);
+        absenceRecord.setMarkedAt(now);
+        return attendanceRecordRepository.save(absenceRecord);
+    }
+
+    private boolean isCountedRegistration(EventRegistration registration) {
+        if (registration == null || registration.getUserID() == null || registration.getStatus() == null) {
+            return false;
+        }
+        return registration.getStatus() == RegistrationStatus.CONFIRMED
+                || registration.getStatus() == RegistrationStatus.REGISTERED;
     }
 }

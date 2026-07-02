@@ -1,6 +1,7 @@
 package com.fptu.fcms.scheduler;
 
 import com.fptu.fcms.entity.Event;
+import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.service.EventService;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,7 @@ import java.util.List;
 @Slf4j
 public class RegistrationCloseScheduler {
 
-    private static final String STATUS_REGISTRATION_OPEN = "RegistrationOpen";
+    private static final EventStatus STATUS_REGISTRATION_OPEN = EventStatus.REGISTRATION_OPEN;
 
     private final EventRepository eventRepository;
     private final EventService eventService;

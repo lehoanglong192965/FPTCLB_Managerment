@@ -10,7 +10,6 @@ import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventAssignment;
 import com.fptu.fcms.entity.EventRegistration;
 import com.fptu.fcms.entity.UserAccount;
-import com.fptu.fcms.enums.CheckInMethod;
 import com.fptu.fcms.enums.ParticipantType;
 import com.fptu.fcms.enums.RegistrationChannel;
 import com.fptu.fcms.enums.RegistrationStatus;
@@ -88,7 +87,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         UserAccount user = loadActiveUser(userID);
         ensureUserAllowedForEvent(event, user);
 
-        String participantType = classifyParticipantType(eventID, userID);
+        ParticipantType participantType = classifyParticipantType(eventID, userID);
         ensureParticipantTypeEnabled(eventID, participantType);
         ensureNoDuplicateActiveRegistration(eventID, userID, null);
         boolean requiresApproval = isApprovalRequired(eventID, participantType);
@@ -107,7 +106,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setGuestPhone(null);
         registration.setParticipantType(participantType);
         registration.setParticipantTypeSnapshotAt(LocalDateTime.now());
-        registration.setRegistrationChannel(RegistrationChannel.FPTU.name());
+        registration.setRegistrationChannel(RegistrationChannel.FPTU);
         registration.setRegisteredAt(LocalDateTime.now());
         registration.setStatus(allocation.status());
         registration.setRegistrationStatus(allocation.status());
@@ -151,12 +150,10 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setUserID(null);
         registration.setGuestFullName(request.getFullName().trim());
         registration.setGuestEmail(normalizedEmail);
-        registration.setGuestEmailNormalized(normalizedEmail);
-        registration.setGuestPhone(request.getPhone().replaceAll("\\D", ""));
-        registration.setGuestPhoneNormalized(request.getPhone().replaceAll("\\D", ""));
-        registration.setParticipantType(ParticipantType.GUEST.name());
+        registration.setGuestPhone(request.getPhone().trim());
+        registration.setParticipantType(RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT);
         registration.setParticipantTypeSnapshotAt(LocalDateTime.now());
-        registration.setRegistrationChannel(RegistrationChannel.ONLINE.name());
+        registration.setRegistrationChannel(RegistrationChannel.GUEST);
         registration.setRegisteredAt(LocalDateTime.now());
         registration.setStatus(allocation.status());
         registration.setRegistrationStatus(allocation.status());
@@ -208,7 +205,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setGuestPhone(StringUtils.hasText(request.getPhone()) ? request.getPhone().trim() : null);
         registration.setParticipantType(RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT);
         registration.setParticipantTypeSnapshotAt(LocalDateTime.now());
-        registration.setRegistrationChannel(RegistrationChannel.WALK_IN.name());
+        registration.setRegistrationChannel(RegistrationChannel.WALK_IN);
         registration.setRegisteredAt(LocalDateTime.now());
         registration.setStatus(allocation.status());
         registration.setRegistrationStatus(allocation.status());
@@ -250,7 +247,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     @Override
     public List<Event> getEventsByUserRegistered(Integer userId) {
         return registrationRepo.findByUserIDAndIsDeletedFalse(userId).stream()
-                .filter(reg -> RegistrationLifecycle.ACTIVE_STATUSES.contains(lifecycleStatus(reg)))
+                .filter(reg -> RegistrationLifecycle.ACTIVE_STATUSES.contains(reg.getStatus()))
                 .map(EventRegistration::getEventID)
                 .distinct()
                 .map(eventId -> eventRepository.findById(eventId).orElse(null))
@@ -303,12 +300,12 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         ensureCanManageRegistrations(currentUser);
         Event event = loadEventForUpdate(eventId);
         EventRegistration registration = loadRegistrationForEvent(eventId, registrationId);
-        if (!RegistrationLifecycle.STATUS_PENDING_APPROVAL.equals(lifecycleStatus(registration))) {
+        if (!RegistrationLifecycle.STATUS_PENDING_APPROVAL.equals(registration.getStatus())) {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(), "Registration must be Pending Approval before approval.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
         RegistrationAllocationResult allocation = allocationService.allocateOnApproval(eventId, event.getMaxParticipants());
-        String oldStatus = lifecycleStatus(registration);
+        RegistrationStatus oldStatus = registration.getStatus();
         registration.setStatus(allocation.status());
         registration.setRegistrationStatus(allocation.status());
         registration.setUpdatedAt(LocalDateTime.now());
@@ -319,7 +316,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
         registration.setIsDeleted(false);
         registrationRepo.save(registration);
-        saveAudit(currentUser.getUserId(), registration, "REGISTRATION_APPROVED", oldStatus, allocation.status(), "Approved by leader");
+        saveAudit(currentUser.getUserId(), registration, "REGISTRATION_APPROVED", oldStatus.name(), allocation.status().name(), "Approved by leader");
     }
 
     @Override
@@ -332,11 +329,11 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
 
         EventRegistration registration = loadRegistrationForEvent(eventId, registrationId);
-        if (!RegistrationLifecycle.STATUS_PENDING_APPROVAL.equals(lifecycleStatus(registration))) {
+        if (!RegistrationLifecycle.STATUS_PENDING_APPROVAL.equals(registration.getStatus())) {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(), "Registration must be Pending Approval before rejection.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
-        String oldStatus = lifecycleStatus(registration);
+        RegistrationStatus oldStatus = registration.getStatus();
         registration.setStatus(RegistrationLifecycle.STATUS_REJECTED);
         registration.setRegistrationStatus(RegistrationLifecycle.STATUS_REJECTED);
         registration.setUpdatedAt(LocalDateTime.now());
@@ -344,7 +341,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setTicketRevokedAt(LocalDateTime.now());
         registration.setIsDeleted(false);
         registrationRepo.save(registration);
-        saveAudit(currentUser.getUserId(), registration, "REGISTRATION_REJECTED", oldStatus, RegistrationLifecycle.STATUS_REJECTED, request.getReason());
+        saveAudit(currentUser.getUserId(), registration, "REGISTRATION_REJECTED", oldStatus.name(), RegistrationLifecycle.STATUS_REJECTED.name(), request.getReason());
     }
 
     @Override
@@ -360,12 +357,12 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     }
 
     private void cancelRegistrationInternal(EventRegistration registration, Integer actorUserId, boolean triggeredByLegacyEndpoint) {
-        if (RegistrationLifecycle.STATUS_CANCELLED.equals(lifecycleStatus(registration))) {
+        if (RegistrationLifecycle.STATUS_CANCELLED.equals(registration.getStatus())) {
             return;
         }
 
         Event event = loadEventForUpdate(registration.getEventID());
-        String oldStatus = lifecycleStatus(registration);
+        RegistrationStatus oldStatus = registration.getStatus();
         registration.setStatus(RegistrationLifecycle.STATUS_CANCELLED);
         registration.setRegistrationStatus(RegistrationLifecycle.STATUS_CANCELLED);
         registration.setUpdatedAt(LocalDateTime.now());
@@ -376,7 +373,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
         boolean freedSeat = RegistrationLifecycle.CONFIRMED_STATUSES.contains(oldStatus);
         int promoted = freedSeat ? allocationService.promoteWaitlisted(event.getEventID(), event.getMaxParticipants()) : 0;
-        saveAudit(actorUserId, registration, "REGISTRATION_CANCELLED", oldStatus, RegistrationLifecycle.STATUS_CANCELLED,
+        saveAudit(actorUserId, registration, "REGISTRATION_CANCELLED", oldStatus.name(), RegistrationLifecycle.STATUS_CANCELLED.name(),
                 triggeredByLegacyEndpoint ? "Cancelled from legacy unregister endpoint" : "Cancelled by user");
         if (promoted > 0) {
             // no-op: promotion is handled atomically by allocation service
@@ -437,7 +434,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
     }
 
-    private String classifyParticipantType(Integer eventId, Integer userId) {
+    private ParticipantType classifyParticipantType(Integer eventId, Integer userId) {
         EventAssignment assignment = eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
                 .filter(a -> Objects.equals(a.getUserID(), userId))
                 .min(Comparator.comparingInt(a -> {
@@ -461,15 +458,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         };
     }
 
-    private void ensureParticipantTypeEnabled(Integer eventId, String participantType) {
-        List<com.fptu.fcms.entity.EventRegistrationPolicy> policies = registrationPolicyRepository.findByEventIDAndIsDeletedFalse(eventId);
-        if (policies.isEmpty() && RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT.equalsIgnoreCase(participantType)) {
-            return;
-        }
-
-        boolean enabled = policies.stream()
-                .filter(policy -> participantType.equalsIgnoreCase(policy.getParticipantType()))
-                .findFirst()
+    private void ensureParticipantTypeEnabled(Integer eventId, ParticipantType participantType) {
+        boolean enabled = registrationPolicyRepository.findByEventIDAndParticipantTypeAndIsDeletedFalse(eventId, participantType)
                 .map(policy -> Boolean.TRUE.equals(policy.getIsEnabled()))
                 .orElse(false);
         if (!enabled) {
@@ -477,7 +467,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
     }
 
-    private boolean isApprovalRequired(Integer eventId, String participantType) {
+    private boolean isApprovalRequired(Integer eventId, ParticipantType participantType) {
         return registrationPolicyRepository.findByEventIDAndParticipantTypeAndIsDeletedFalse(eventId, participantType)
                 .map(policy -> Boolean.TRUE.equals(policy.getRequiresManualApproval()) || Boolean.TRUE.equals(policy.getRequiresApproval()))
                 .orElse(false);
@@ -521,7 +511,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 registration.getEventID(),
                 registration.getUserID(),
                 registration.getParticipantType(),
-                lifecycleStatus(registration),
+                registration.getStatus(),
                 registration.getRegisteredAt(),
                 user == null ? null : user.getStudentId(),
                 user == null ? null : user.getFullName(),
@@ -532,26 +522,18 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         );
     }
 
-    private String lifecycleStatus(EventRegistration registration) {
-        if (registration == null) {
-            return null;
-        }
-        return StringUtils.hasText(registration.getRegistrationStatus())
-                ? registration.getRegistrationStatus()
-                : registration.getStatus();
-    }
     private boolean matchesParticipantType(RegistrationListItemResponse view, String participantType) {
         if (!StringUtils.hasText(participantType)) {
             return true;
         }
-        return participantType.equalsIgnoreCase(view.getParticipantType());
+        return view.getParticipantType() != null && participantType.equalsIgnoreCase(view.getParticipantType().name());
     }
 
     private boolean matchesStatus(RegistrationListItemResponse view, String status) {
         if (!StringUtils.hasText(status)) {
             return true;
         }
-        return status.equalsIgnoreCase(view.getStatus());
+        return view.getStatus() != null && status.equalsIgnoreCase(view.getStatus().name());
     }
 
     private boolean matchesKeyword(RegistrationListItemResponse view, String keyword) {
@@ -573,8 +555,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     private Comparator<RegistrationListItemResponse> buildComparator(String sortBy, boolean desc) {
         Comparator<RegistrationListItemResponse> comparator = switch (sortBy) {
             case "registrationID" -> Comparator.comparing(RegistrationListItemResponse::getRegistrationID, Comparator.nullsLast(Comparator.naturalOrder()));
-            case "status" -> Comparator.comparing(RegistrationListItemResponse::getStatus, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
-            case "participantType" -> Comparator.comparing(RegistrationListItemResponse::getParticipantType, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            case "status" -> Comparator.comparing((RegistrationListItemResponse v) -> v.getStatus() == null ? null : v.getStatus().name(), Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+            case "participantType" -> Comparator.comparing((RegistrationListItemResponse v) -> v.getParticipantType() == null ? null : v.getParticipantType().name(), Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
             case "studentId" -> Comparator.comparing(RegistrationListItemResponse::getStudentId, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
             case "fullName" -> Comparator.comparing(RegistrationListItemResponse::getFullName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
             case "email" -> Comparator.comparing(RegistrationListItemResponse::getEmail, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));

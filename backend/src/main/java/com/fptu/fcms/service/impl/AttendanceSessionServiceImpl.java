@@ -123,8 +123,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                     record.setSessionID(sessionId);
                     record.setRegistrationID(reg.getRegistrationID());
                     record.setUserID(reg.getUserID());
-                    record.setParticipantTypeSnapshot(reg.getUserID() == null ? "GUEST" : reg.getParticipantType());
-                    record.setAttendanceStatus(AttendanceStatus.ABSENT.name());
+                    record.setParticipantTypeSnapshot(reg.getUserID() == null ? "GUEST" : reg.getParticipantType().name());
+                    record.setAttendanceStatus(AttendanceStatus.ABSENT);
                     record.setCreatedAt(now);
                     record.setMarkedAt(now);
                     record.setIsDeleted(false);
@@ -144,7 +144,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     public List<AttendanceRegistrationSearchResponse> searchRegistrations(Integer sessionId, String keyword) {
         AttendanceSession session = findSession(sessionId);
         String normalized = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
-        Map<Integer, String> attendanceByRegistration = attendanceRecordRepository.findBySessionID(sessionId).stream()
+        Map<Integer, AttendanceStatus> attendanceByRegistration = attendanceRecordRepository.findBySessionID(sessionId).stream()
                 .filter(record -> record.getRegistrationID() != null)
                 .collect(Collectors.toMap(AttendanceRecord::getRegistrationID, AttendanceRecord::getAttendanceStatus, (a, b) -> a));
         Map<Integer, UserAccount> users = loadUsers(session.getEventID());
@@ -165,7 +165,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "REGISTRATION_NOT_IN_SESSION_EVENT");
         }
         UserAccount user = registration.getUserID() == null ? null : userRepository.findByUserIDAndIsDeletedFalse(registration.getUserID()).orElse(null);
-        String attendance = attendanceRecordRepository.findBySessionIDAndRegistrationID(sessionId, registrationId)
+        AttendanceStatus attendance = attendanceRecordRepository.findBySessionIDAndRegistrationID(sessionId, registrationId)
                 .map(AttendanceRecord::getAttendanceStatus)
                 .orElse(null);
         return toSearchResponse(registration, user, attendance);
@@ -176,8 +176,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     public AttendanceSummaryResponse summary(Integer eventId) {
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElse(null);
         List<AttendanceRecord> records = session == null ? List.of() : attendanceRecordRepository.findBySessionID(session.getSessionID());
-        long present = records.stream().filter(row -> AttendanceStatus.PRESENT.name().equals(normalize(row.getAttendanceStatus()))).count();
-        long absent = records.stream().filter(row -> AttendanceStatus.ABSENT.name().equals(normalize(row.getAttendanceStatus()))).count();
+        long present = records.stream().filter(row -> AttendanceStatus.PRESENT.equals(row.getAttendanceStatus())).count();
+        long absent = records.stream().filter(row -> AttendanceStatus.ABSENT.equals(row.getAttendanceStatus())).count();
         long confirmed = eventRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId).stream().filter(this::isConfirmed).count();
         return new AttendanceSummaryResponse(eventId, confirmed, present, absent);
     }
@@ -192,7 +192,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ATTENDANCE_STATUS_INVALID");
         }
         AttendanceRecord before = snapshot(record);
-        record.setAttendanceStatus(status);
+        record.setAttendanceStatus(AttendanceStatus.fromValue(status));
         record.setOverrideReason(request.getOverrideReason());
         record.setNote(request.getNote());
         record.setUpdatedAt(LocalDateTime.now());
@@ -242,8 +242,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 || contains(user.getStudentId(), keyword)));
     }
 
-    private AttendanceRegistrationSearchResponse toSearchResponse(EventRegistration reg, UserAccount user, String attendanceStatus) {
-        String participantType = reg.getUserID() == null ? "GUEST" : reg.getParticipantType();
+    private AttendanceRegistrationSearchResponse toSearchResponse(EventRegistration reg, UserAccount user, AttendanceStatus attendanceStatus) {
+        String participantType = reg.getUserID() == null ? "GUEST" : reg.getParticipantType().name();
         String displayName = user != null ? user.getFullName() : reg.getGuestFullName();
         String email = user != null ? user.getEmail() : reg.getGuestEmail();
         String phone = user != null ? user.getPhoneNumber() : reg.getGuestPhone();
@@ -255,8 +255,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 reg.getRegistrationCode(),
                 displayName,
                 participantType,
-                reg.getStatus(),
-                attendanceStatus,
+                reg.getStatus() == null ? null : reg.getStatus().name(),
+                attendanceStatus == null ? null : attendanceStatus.name(),
                 maskEmail(email),
                 maskPhone(phone),
                 verification
@@ -264,8 +264,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     }
 
     private boolean isConfirmed(EventRegistration registration) {
-        String status = normalize(registration.getStatus());
-        return RegistrationStatus.CONFIRMED.name().equals(status);
+        return RegistrationStatus.CONFIRMED.equals(registration.getStatus());
     }
 
     private AttendanceRecord snapshot(AttendanceRecord record) {

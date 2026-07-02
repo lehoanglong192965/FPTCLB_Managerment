@@ -1,6 +1,7 @@
 package com.fptu.fcms.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fptu.fcms.enums.EventStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -23,7 +24,7 @@ public class EventDetailResponse {
     private final String location;
     private final LocalDateTime startDate;
     private final LocalDateTime endDate;
-    private final String eventStatus;
+    private final EventStatus eventStatus;
     private final String bannerUrl;
     private final Boolean allowWalkIn;
     private final LocalDateTime registrationOpenAt;

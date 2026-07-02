@@ -5,6 +5,7 @@ import com.fptu.fcms.entity.ClubRole;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventReportReminderLog;
 import com.fptu.fcms.entity.UserAccount;
+import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.ClubRoleRepository;
 import com.fptu.fcms.repository.EventReportReminderLogRepository;
@@ -29,8 +30,8 @@ import java.util.stream.Stream;
 @Slf4j
 public class EventReportReminderScheduler {
 
-    private static final String STATUS_APPROVED = "Approved";
-    private static final String STATUS_COMPLETED = "Completed";
+    private static final EventStatus STATUS_APPROVED = EventStatus.APPROVED;
+    private static final EventStatus STATUS_COMPLETED = EventStatus.COMPLETED;
     private static final String ROLE_LEADER = "Leader";
     private static final String ROLE_VICE_LEADER = "ViceLeader";
     private static final String REMINDER_TYPE = "EVENT_REPORT_OVERDUE";

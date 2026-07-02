@@ -6,6 +6,7 @@ import com.fptu.fcms.entity.Notification;
 import com.fptu.fcms.entity.NotificationRecipient;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.event.EventLifecycleChangedEvent;
+import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.repository.ClubRepository;
 import com.fptu.fcms.repository.NotificationRecipientRepository;
 import com.fptu.fcms.repository.NotificationRepository;
@@ -28,9 +29,6 @@ public class EventNotificationListener {
 
     private static final String SYSTEM_ROLE_ADMIN = "Admin";
     private static final String SYSTEM_ROLE_ICPDP = "ICPDP";
-    private static final String STATUS_APPROVED = "Approved";
-    private static final String STATUS_REJECTED = "Rejected";
-    private static final String STATUS_CANCELLED = "Cancelled";
 
     private final NotificationRepository notificationRepository;
     private final NotificationRecipientRepository notificationRecipientRepository;
@@ -41,7 +39,7 @@ public class EventNotificationListener {
     @EventListener
     @Transactional
     public void onEventLifecycleChanged(EventLifecycleChangedEvent event) {
-        if (!List.of(STATUS_APPROVED, STATUS_REJECTED, STATUS_CANCELLED).contains(event.newStatus())) {
+        if (!List.of(EventStatus.APPROVED, EventStatus.REJECTED, EventStatus.CANCELLED).contains(event.newStatus())) {
             return;
         }
 
@@ -64,7 +62,7 @@ public class EventNotificationListener {
         notification.setClub(club);
         notification.setCreatedBy(creator);
         notification.setTitle(buildTitle(event.newStatus(), club));
-        notification.setNotificationType("EVENT_" + event.newStatus().toUpperCase());
+        notification.setNotificationType("EVENT_" + event.newStatus().name());
         notification.setContent(buildContent(event.newStatus(), event.reason()));
         notification.setCreatedAt(LocalDateTime.now());
         notification.setIsDeleted(false);
@@ -87,22 +85,22 @@ public class EventNotificationListener {
                 .orElseGet(List::of);
     }
 
-    private String buildTitle(String status, Club club) {
+    private String buildTitle(EventStatus status, Club club) {
         String clubName = club == null ? "Event" : club.getClubName();
         return switch (status) {
-            case STATUS_APPROVED -> "Event approved: " + clubName;
-            case STATUS_REJECTED -> "Event rejected: " + clubName;
-            case STATUS_CANCELLED -> "Event cancelled: " + clubName;
+            case APPROVED -> "Event approved: " + clubName;
+            case REJECTED -> "Event rejected: " + clubName;
+            case CANCELLED -> "Event cancelled: " + clubName;
             default -> "Event update: " + clubName;
         };
     }
 
-    private String buildContent(String status, String reason) {
+    private String buildContent(EventStatus status, String reason) {
         String suffix = (reason == null || reason.isBlank()) ? "" : "\nReason: " + reason;
         return switch (status) {
-            case STATUS_APPROVED -> "An event has been approved." + suffix;
-            case STATUS_REJECTED -> "An event has been rejected." + suffix;
-            case STATUS_CANCELLED -> "An event has been cancelled." + suffix;
+            case APPROVED -> "An event has been approved." + suffix;
+            case REJECTED -> "An event has been rejected." + suffix;
+            case CANCELLED -> "An event has been cancelled." + suffix;
             default -> "An event status changed." + suffix;
         };
     }

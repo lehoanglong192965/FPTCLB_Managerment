@@ -4,6 +4,8 @@ import org.hibernate.annotations.SQLRestriction;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fptu.fcms.enums.AttendanceStatus;
+import com.fptu.fcms.enums.CheckInMethod;
 import java.time.*;
 import java.math.*;
 
@@ -40,10 +42,12 @@ public class AttendanceRecord {
     private String participantTypeSnapshot;
 
     @Column(name = "attendanceStatus")
-    private String attendanceStatus;
+    @Convert(converter = AttendanceStatusConverter.class)
+    private AttendanceStatus attendanceStatus;
 
     @Column(name = "checkInMethod")
-    private String checkInMethod;
+    @Convert(converter = CheckInMethodConverter.class)
+    private CheckInMethod checkInMethod;
 
     @Column(name = "verificationMethod")
     private String verificationMethod;

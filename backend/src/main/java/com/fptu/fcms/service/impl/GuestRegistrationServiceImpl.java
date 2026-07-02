@@ -82,13 +82,13 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         registration.setSchoolOrOrganization(trimToNull(request.getSchoolOrOrganization()));
         registration.setConsentAccepted(true);
         registration.setDiscoverySource(normalizeDiscoverySource(request.getDiscoverySource()));
-        registration.setRegistrationChannel(RegistrationChannel.ONLINE.name());
-        registration.setParticipantType(ParticipantType.GUEST.name());
+        registration.setRegistrationChannel(RegistrationChannel.ONLINE);
+        registration.setParticipantType(ParticipantType.GUEST);
         registration.setParticipantTypeSnapshotAt(now);
         registration.setGuestReferenceHash(hash(rawReference));
         registration.setRegisteredAt(now);
-        registration.setStatus(RegistrationStatus.PENDING_VERIFICATION.name());
-        registration.setRegistrationStatus(RegistrationStatus.PENDING_VERIFICATION.name());
+        registration.setStatus(RegistrationStatus.PENDING_VERIFICATION);
+        registration.setRegistrationStatus(RegistrationStatus.PENDING_VERIFICATION);
         registration.setRegistrationCode(generateRegistrationCode());
         registration.setCreatedAt(now);
         registration.setUpdatedAt(now);
@@ -101,7 +101,7 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         return new GuestRegistrationResponse(
                 eventId,
                 saved.getRegistrationID(),
-                saved.getRegistrationStatus(),
+                saved.getRegistrationStatus().name(),
                 rawReference,
                 otpIssue.otp().getExpiresAt(),
                 otpIssue.otp().getResendAvailableAt()
@@ -147,8 +147,9 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         otp.setUpdatedAt(now);
         registration.setVerifiedAt(now);
         String allocatedStatus = registrationAllocationPort.allocateGuest(event, registration);
-        registration.setStatus(allocatedStatus);
-        registration.setRegistrationStatus(allocatedStatus);
+        RegistrationStatus status = RegistrationStatus.fromValue(allocatedStatus);
+        registration.setStatus(status);
+        registration.setRegistrationStatus(status);
         registration.setUpdatedAt(now);
         eventRegistrationRepository.save(registration);
         registrationNotificationService.notifyRegistrationStatus(registration);
@@ -183,7 +184,7 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         return new GuestRegistrationResponse(
                 registration.getEventID(),
                 registration.getRegistrationID(),
-                registration.getRegistrationStatus(),
+                registration.getRegistrationStatus().name(),
                 null,
                 otpIssue.otp().getExpiresAt(),
                 otpIssue.otp().getResendAvailableAt()
@@ -200,8 +201,8 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
     @Transactional
     public GuestRegistrationStatusResponse cancel(String guestReference) {
         EventRegistration registration = findByReference(guestReference);
-        registration.setStatus(RegistrationStatus.CANCELLED.name());
-        registration.setRegistrationStatus(RegistrationStatus.CANCELLED.name());
+        registration.setStatus(RegistrationStatus.CANCELLED);
+        registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
         registration.setCancelledAt(LocalDateTime.now());
         registration.setUpdatedAt(LocalDateTime.now());
         eventRegistrationRepository.save(registration);

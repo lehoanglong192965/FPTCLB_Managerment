@@ -2,19 +2,16 @@ package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventRegistrationPolicy;
+import com.fptu.fcms.enums.ParticipantType;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.service.OTPService;
 import com.fptu.fcms.service.event.EventProposalValidator;
-import com.fptu.fcms.service.event.RegistrationLifecycle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.List;
-import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -68,8 +65,7 @@ public class EventProposalValidatorImpl implements EventProposalValidator {
 
         long distinctTypes = policies.stream()
                 .map(EventRegistrationPolicy::getParticipantType)
-                .filter(StringUtils::hasText)
-                .map(type -> type.toUpperCase(Locale.ROOT))
+                .filter(java.util.Objects::nonNull)
                 .distinct()
                 .count();
         if (distinctTypes != 3) {
@@ -81,7 +77,7 @@ public class EventProposalValidatorImpl implements EventProposalValidator {
         }
 
         for (EventRegistrationPolicy policy : policies) {
-            if (policy == null || !StringUtils.hasText(policy.getParticipantType())) {
+            if (policy == null || policy.getParticipantType() == null) {
                 throw new BusinessRuleException("participantType is required.", HttpStatus.BAD_REQUEST);
             }
             if (policy.getQuota() != null && policy.getQuota() < 0) {
@@ -101,7 +97,7 @@ public class EventProposalValidatorImpl implements EventProposalValidator {
         }
 
         boolean guestEnabled = policies.stream()
-                .filter(p -> RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT.equalsIgnoreCase(p.getParticipantType()))
+                .filter(p -> ParticipantType.PARTICIPANT.equals(p.getParticipantType()))
                 .anyMatch(p -> Boolean.TRUE.equals(p.getIsEnabled()));
         if (guestEnabled && otpService == null) {
             throw new BusinessRuleException("Guest registration requires OTP support.", HttpStatus.BAD_REQUEST);

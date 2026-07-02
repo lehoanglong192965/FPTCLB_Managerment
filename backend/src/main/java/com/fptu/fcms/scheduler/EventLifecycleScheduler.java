@@ -1,6 +1,7 @@
 package com.fptu.fcms.scheduler;
 
 import com.fptu.fcms.entity.Event;
+import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.service.EventCapacityService;
 import lombok.RequiredArgsConstructor;
@@ -15,11 +16,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class EventLifecycleScheduler {
 
-    private static final String STATUS_APPROVED = "Approved";
-    private static final String STATUS_REG_OPEN = "RegistrationOpen";
-    private static final String STATUS_ONGOING = "Ongoing";
-    private static final String STATUS_COMPLETED = "Completed";
-    private static final String STATUS_CLOSED = "Closed";
+    private static final EventStatus STATUS_APPROVED = EventStatus.APPROVED;
+    private static final EventStatus STATUS_REG_OPEN = EventStatus.REGISTRATION_OPEN;
+    private static final EventStatus STATUS_ONGOING = EventStatus.ONGOING;
+    private static final EventStatus STATUS_COMPLETED = EventStatus.COMPLETED;
+    private static final EventStatus STATUS_CLOSED = EventStatus.CLOSED;
 
     private final EventRepository eventRepository;
     private final EventCapacityService eventCapacityService;

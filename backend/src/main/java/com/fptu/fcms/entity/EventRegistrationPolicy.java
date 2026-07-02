@@ -1,5 +1,6 @@
 package com.fptu.fcms.entity;
 
+import com.fptu.fcms.enums.ParticipantType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -35,7 +36,8 @@ public class EventRegistrationPolicy {
     private Integer eventID;
 
     @Column(name = "participantType", nullable = false, length = 50)
-    private String participantType;
+    @Convert(converter = ParticipantTypeConverter.class)
+    private ParticipantType participantType;
 
     @Column(name = "isEnabled", nullable = false)
     private Boolean isEnabled = true;

@@ -5,15 +5,12 @@ import org.hibernate.annotations.SQLRestriction;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.*;
+import java.math.*;
+
 
 @Entity
 @SQLRestriction("isDeleted = false")
-@Table(name = "EventRegistration", indexes = {
-        @Index(name = "IX_EventRegistration_RegistrationCode", columnList = "registrationCode"),
-        @Index(name = "IX_EventRegistration_GuestReferenceHash", columnList = "guestReferenceHash"),
-        @Index(name = "IX_EventRegistration_Event_GuestEmailNormalized", columnList = "eventID,guestEmailNormalized"),
-        @Index(name = "IX_EventRegistration_Event_GuestPhoneNormalized", columnList = "eventID,guestPhoneNormalized")
-})
+@Table(name = "EventRegistration")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -45,26 +42,8 @@ public class EventRegistration {
     @Column(name = "guestEmail")
     private String guestEmail;
 
-    @Column(name = "guestEmailNormalized")
-    private String guestEmailNormalized;
-
     @Column(name = "guestPhone")
     private String guestPhone;
-
-    @Column(name = "guestPhoneNormalized")
-    private String guestPhoneNormalized;
-
-    @Column(name = "guestReferenceHash")
-    private String guestReferenceHash;
-
-    @Column(name = "schoolOrOrganization")
-    private String schoolOrOrganization;
-
-    @Column(name = "consentAccepted")
-    private Boolean consentAccepted;
-
-    @Column(name = "discoverySource")
-    private String discoverySource;
 
     @Column(name = "participantType")
     private String participantType;
@@ -83,18 +62,6 @@ public class EventRegistration {
 
     @Column(name = "ticketRevokedAt")
     private LocalDateTime ticketRevokedAt;
-
-    @Column(name = "registrationCode")
-    private String registrationCode;
-
-    @Column(name = "waitlistPosition")
-    private Integer waitlistPosition;
-
-    @Column(name = "verifiedAt")
-    private LocalDateTime verifiedAt;
-
-    @Column(name = "cancelledAt")
-    private LocalDateTime cancelledAt;
 
     @Column(name = "createdAt")
     private LocalDateTime createdAt;
@@ -120,20 +87,8 @@ public class EventRegistration {
         if (status == null) {
             status = registrationStatus;
         }
-        if (registrationStatus == null) {
-            registrationStatus = "PENDING_VERIFICATION";
-            status = registrationStatus;
-        }
-        registrationStatus = normalizeStatus(registrationStatus);
-        status = normalizeStatus(status);
         if (registrationChannel == null) {
-            registrationChannel = userID == null ? "ONLINE" : "FPTU";
-        }
-        if (guestEmailNormalized == null && guestEmail != null) {
-            guestEmailNormalized = guestEmail.trim().toLowerCase(java.util.Locale.ROOT);
-        }
-        if (guestPhoneNormalized == null && guestPhone != null) {
-            guestPhoneNormalized = guestPhone.replaceAll("\\D", "");
+            registrationChannel = userID == null ? "GUEST" : "FPTU";
         }
         if (participantTypeSnapshotAt == null) {
             participantTypeSnapshotAt = registeredAt;
@@ -141,20 +96,13 @@ public class EventRegistration {
         if (createdAt == null) {
             createdAt = registeredAt != null ? registeredAt : LocalDateTime.now();
         }
-        if (isDeleted == null) {
-            isDeleted = false;
-        }
         updatedAt = LocalDateTime.now();
+        if (registrationStatus == null) {
+            registrationStatus = "REGISTERED";
+        }
+        if (status == null) {
+            status = registrationStatus;
+        }
     }
 
-    private String normalizeStatus(String value) {
-        if (value == null) {
-            return null;
-        }
-        String normalized = value.trim().toUpperCase(java.util.Locale.ROOT);
-        if ("CANCELED".equals(normalized)) {
-            return "CANCELLED";
-        }
-        return normalized;
-    }
 }

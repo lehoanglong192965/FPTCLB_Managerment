@@ -14,6 +14,7 @@ import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.enums.AttendanceSessionStatus;
 import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.CheckInMethod;
+import com.fptu.fcms.enums.ParticipantType;
 import com.fptu.fcms.enums.RegistrationChannel;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.enums.VerificationMethod;
@@ -62,8 +63,8 @@ public class WalkInServiceImpl implements WalkInService {
 
         EventRegistration registration = eventRegistrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(event.getEventID(), user.getUserID())
                 .orElseGet(() -> createFptuWalkInRegistration(event, user));
-        if (!RegistrationStatus.CONFIRMED.name().equals(normalize(registration.getStatus()))) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, registration.getStatus());
+        if (registration.getStatus() != RegistrationStatus.CONFIRMED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, registration.getStatus() == null ? null : registration.getStatus().name());
         }
 
         AttendanceCheckInRequest checkIn = new AttendanceCheckInRequest();
@@ -95,12 +96,12 @@ public class WalkInServiceImpl implements WalkInService {
         registration.setSchoolOrOrganization(request.getSchoolOrOrganization());
         LocalDateTime now = LocalDateTime.now();
         registration.setConsentAccepted(request.isConsent());
-        registration.setParticipantType("GUEST");
+        registration.setParticipantType(ParticipantType.GUEST);
         registration.setParticipantTypeSnapshotAt(now);
-        registration.setRegistrationChannel(RegistrationChannel.WALK_IN.name());
+        registration.setRegistrationChannel(RegistrationChannel.WALK_IN);
         registration.setDiscoverySource(request.getDiscoverySource());
-        registration.setStatus(RegistrationStatus.CONFIRMED.name());
-        registration.setRegistrationStatus(RegistrationStatus.CONFIRMED.name());
+        registration.setStatus(RegistrationStatus.CONFIRMED);
+        registration.setRegistrationStatus(RegistrationStatus.CONFIRMED);
         registration.setRegisteredAt(now);
         registration.setVerifiedAt(now);
         registration.setCreatedAt(now);
@@ -115,8 +116,8 @@ public class WalkInServiceImpl implements WalkInService {
         record.setSessionID(sessionId);
         record.setRegistrationID(saved.getRegistrationID());
         record.setParticipantTypeSnapshot("GUEST");
-        record.setAttendanceStatus(AttendanceStatus.PRESENT.name());
-        record.setCheckInMethod(CheckInMethod.EMERGENCY_OVERRIDE.name());
+        record.setAttendanceStatus(AttendanceStatus.PRESENT);
+        record.setCheckInMethod(CheckInMethod.EMERGENCY_OVERRIDE);
         record.setVerificationMethod(VerificationMethod.MANUAL_OVERRIDE.name());
         record.setCheckedInAt(now);
         record.setCheckedInBy(actorId);
@@ -127,14 +128,14 @@ public class WalkInServiceImpl implements WalkInService {
         record.setIsDeleted(false);
         AttendanceRecord savedRecord = attendanceRecordRepository.save(record);
         auditLogService.record(actorId, "AttendanceRecord", savedRecord.getRecordID(), "ATTENDANCE_EMERGENCY_OVERRIDE", null, savedRecord, request.getReason());
-        return new AttendanceCheckInResponse(event.getEventID(), saved.getRegistrationID(), null, AttendanceStatus.PRESENT.name(), "Emergency walk-in check-in successful.");
+        return new AttendanceCheckInResponse(event.getEventID(), saved.getRegistrationID(), null, AttendanceStatus.PRESENT, "Emergency walk-in check-in successful.");
     }
 
     private EventRegistration createFptuWalkInRegistration(Event event, UserAccount user) {
         EventRegistration registration = new EventRegistration();
         registration.setEventID(event.getEventID());
         registration.setUserID(user.getUserID());
-        registration.setRegistrationChannel(RegistrationChannel.WALK_IN.name());
+        registration.setRegistrationChannel(RegistrationChannel.WALK_IN);
         LocalDateTime now = LocalDateTime.now();
         registration.setParticipantType(RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT);
         registration.setParticipantTypeSnapshotAt(now);
@@ -143,7 +144,7 @@ public class WalkInServiceImpl implements WalkInService {
         registration.setUpdatedAt(now);
         registration.setIsDeleted(false);
         EventRegistration saved = eventRegistrationRepository.save(registration);
-        String status = registrationAllocationPort.allocateGuest(event, saved);
+        RegistrationStatus status = RegistrationStatus.fromValue(registrationAllocationPort.allocateGuest(event, saved));
         saved.setStatus(status);
         saved.setRegistrationStatus(status);
         return eventRegistrationRepository.save(saved);

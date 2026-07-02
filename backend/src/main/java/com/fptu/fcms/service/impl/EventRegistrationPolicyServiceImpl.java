@@ -6,6 +6,7 @@ import com.fptu.fcms.entity.ClubMembership;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventRegistrationPolicy;
 import com.fptu.fcms.entity.Semester;
+import com.fptu.fcms.enums.ParticipantType;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.ClubRoleRepository;
@@ -21,24 +22,18 @@ import com.fptu.fcms.service.event.RegistrationLifecycle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class EventRegistrationPolicyServiceImpl implements EventRegistrationPolicyService {
-
-    private static final Set<String> ALLOWED_TYPES = Set.copyOf(RegistrationLifecycle.PARTICIPANT_TYPES);
 
     private final EventRepository eventRepository;
     private final EventRegistrationPolicyRepository policyRepository;
@@ -64,9 +59,10 @@ public class EventRegistrationPolicyServiceImpl implements EventRegistrationPoli
         }
         List<EventRegistrationPolicyRequest> normalized = normalizeAndValidateRequests(requests);
 
-        Map<String, EventRegistrationPolicy> existingByType = policyRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
+        Map<ParticipantType, EventRegistrationPolicy> existingByType = policyRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
+                .filter(policy -> policy.getParticipantType() != null)
                 .collect(Collectors.toMap(
-                        p -> p.getParticipantType().toUpperCase(Locale.ROOT),
+                        EventRegistrationPolicy::getParticipantType,
                         p -> p,
                         (left, right) -> left,
                         LinkedHashMap::new
@@ -74,7 +70,7 @@ public class EventRegistrationPolicyServiceImpl implements EventRegistrationPoli
 
         List<EventRegistrationPolicy> toSave = new ArrayList<>();
         for (EventRegistrationPolicyRequest request : normalized) {
-            String type = request.getParticipantType().name();
+            ParticipantType type = request.getParticipantType();
             EventRegistrationPolicy policy = existingByType.getOrDefault(type, new EventRegistrationPolicy());
             policy.setEventID(eventId);
             policy.setParticipantType(type);
@@ -159,20 +155,16 @@ public class EventRegistrationPolicyServiceImpl implements EventRegistrationPoli
             throw new BusinessRuleException("Exactly 3 policy rows are required.", HttpStatus.BAD_REQUEST);
         }
 
-        Map<String, EventRegistrationPolicyRequest> unique = new LinkedHashMap<>();
+        Map<ParticipantType, EventRegistrationPolicyRequest> unique = new LinkedHashMap<>();
         for (EventRegistrationPolicyRequest request : requests) {
             if (request == null || request.getParticipantType() == null) {
                 throw new BusinessRuleException("participantType is required.", HttpStatus.BAD_REQUEST);
             }
-            String type = request.getParticipantType().name();
-            if (!ALLOWED_TYPES.contains(type)) {
-                throw new BusinessRuleException("Invalid participantType: " + request.getParticipantType(), HttpStatus.BAD_REQUEST);
-            }
             if (request.getQuota() != null && request.getQuota() < 0) {
                 throw new BusinessRuleException("quota must be >= 0.", HttpStatus.BAD_REQUEST);
             }
-            if (unique.putIfAbsent(type, request) != null) {
-                throw new BusinessRuleException("Duplicate participantType: " + type, HttpStatus.BAD_REQUEST);
+            if (unique.putIfAbsent(request.getParticipantType(), request) != null) {
+                throw new BusinessRuleException("Duplicate participantType: " + request.getParticipantType(), HttpStatus.BAD_REQUEST);
             }
         }
 

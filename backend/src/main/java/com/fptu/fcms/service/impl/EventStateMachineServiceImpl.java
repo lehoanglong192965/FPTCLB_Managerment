@@ -7,7 +7,6 @@ import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.service.event.EventStateMachineService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 @Service
 public class EventStateMachineServiceImpl implements EventStateMachineService {
@@ -75,16 +74,12 @@ public class EventStateMachineServiceImpl implements EventStateMachineService {
         }
     }
 
-    private boolean isAnyStatus(String currentStatus, EventStatus... allowed) {
-        if (!StringUtils.hasText(currentStatus)) {
-            return false;
-        }
-        EventStatus current = EventStatus.fromValue(currentStatus);
-        if (current == null) {
+    private boolean isAnyStatus(EventStatus currentStatus, EventStatus... allowed) {
+        if (currentStatus == null) {
             return false;
         }
         for (EventStatus allowedStatus : allowed) {
-            if (current == allowedStatus) {
+            if (currentStatus == allowedStatus) {
                 return true;
             }
         }

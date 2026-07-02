@@ -12,6 +12,7 @@ import com.fptu.fcms.entity.NotificationRecipient;
 import com.fptu.fcms.entity.Semester;
 import com.fptu.fcms.entity.SystemRole;
 import com.fptu.fcms.entity.UserAccount;
+import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.exception.SemesterClosureBlockedException;
 import com.fptu.fcms.repository.AuditLogRepository;
@@ -44,7 +45,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SemesterServiceImpl implements SemesterService {
 
-    private static final List<String> FINISHED_EVENT_STATUSES = List.of("Completed", "Cancelled", "Rejected");
+    private static final List<EventStatus> FINISHED_EVENT_STATUSES = List.of(
+            EventStatus.COMPLETED,
+            EventStatus.CANCELLED,
+            EventStatus.REJECTED
+    );
     private static final String FORCE_CLOSE_ACTION = "FORCE_CLOSE_SEMESTER";
     private static final String SYSTEM_ROLE_ADMIN = "Admin";
     private static final String SYSTEM_ROLE_ICPDP = "ICPDP";

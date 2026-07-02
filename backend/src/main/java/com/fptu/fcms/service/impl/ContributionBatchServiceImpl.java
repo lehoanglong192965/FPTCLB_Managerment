@@ -15,8 +15,11 @@ import com.fptu.fcms.entity.EventAssignment;
 import com.fptu.fcms.entity.EventRegistration;
 import com.fptu.fcms.entity.MemberPerformance;
 import com.fptu.fcms.entity.UserAccount;
+import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.AppealStatus;
 import com.fptu.fcms.enums.ContributionBatchStatus;
+import com.fptu.fcms.enums.EventStatus;
+import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.repository.AppealRepository;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
@@ -52,11 +55,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ContributionBatchServiceImpl implements ContributionBatchService {
 
-    private static final String STATUS_REPORT_UPLOADED = "ReportUploaded";
-    private static final String STATUS_CONTRIBUTION_SCORING = "ContributionScoring";
-    private static final String STATUS_CONTRIBUTION_FINALIZED = "ContributionFinalized";
-    private static final String REGISTRATION_STATUS_CONFIRMED = "CONFIRMED";
-    private static final String REGISTRATION_STATUS_REGISTERED = "REGISTERED";
+    private static final EventStatus STATUS_REPORT_UPLOADED = EventStatus.REPORT_UPLOADED;
+    private static final EventStatus STATUS_CONTRIBUTION_SCORING = EventStatus.CONTRIBUTION_SCORING;
+    private static final EventStatus STATUS_CONTRIBUTION_FINALIZED = EventStatus.CONTRIBUTION_FINALIZED;
+    private static final RegistrationStatus REGISTRATION_STATUS_CONFIRMED = RegistrationStatus.CONFIRMED;
+    private static final RegistrationStatus REGISTRATION_STATUS_REGISTERED = RegistrationStatus.REGISTERED;
     private static final String CONTRIBUTION_STATUS_DRAFT = "DRAFT";
     private static final String CONTRIBUTION_STATUS_FINALIZED = "FINALIZED";
     private static final String CONTRIBUTION_TYPE_ABSENT = "ABSENT";
@@ -358,7 +361,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
                             .filter(ar -> Objects.equals(ar.getUserID(), userId))
                             .findFirst()
                             .orElse(null);
-                    if (record == null || !StringUtils.hasText(record.getAttendanceStatus())) {
+                    if (record == null || record.getAttendanceStatus() == null) {
                         return "";
                     }
                     return isPresent(record.getAttendanceStatus()) ? "PARTICIPANT" : CONTRIBUTION_TYPE_ABSENT;
@@ -424,8 +427,8 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     }
 
     private boolean isConfirmedRegistration(EventRegistration registration) {
-        String status = normalize(registration.getStatus());
-        String registrationStatus = normalize(registration.getRegistrationStatus());
+        RegistrationStatus status = registration.getStatus();
+        RegistrationStatus registrationStatus = registration.getRegistrationStatus();
         return REGISTRATION_STATUS_CONFIRMED.equals(status)
                 || REGISTRATION_STATUS_REGISTERED.equals(status)
                 || REGISTRATION_STATUS_CONFIRMED.equals(registrationStatus)
@@ -487,8 +490,8 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         };
     }
 
-    private boolean isPresent(String status) {
-        return "PRESENT".equals(normalize(status));
+    private boolean isPresent(AttendanceStatus status) {
+        return AttendanceStatus.PRESENT.equals(status);
     }
 
     private String normalize(String value) {

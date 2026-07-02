@@ -4,6 +4,8 @@ import org.hibernate.annotations.SQLRestriction;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fptu.fcms.enums.EventStatus;
+
 import java.time.*;
 import java.math.*;
 
@@ -82,15 +84,16 @@ public class Event {
     private LocalDateTime endDate;
 
     @Column(name = "eventStatus")
-    private String eventStatus; // DRAFT, UPCOMING, ONGOING, COMPLETED, CLOSED
+    @Convert(converter = EventStatusConverter.class)
+    private EventStatus eventStatus;
 
     // Thêm phương thức helper để kiểm tra trạng thái
     public boolean isEditable() {
-        return "DRAFT".equals(this.eventStatus) || "UPCOMING".equals(this.eventStatus);
+        return EventStatus.DRAFT.equals(this.eventStatus) || EventStatus.PENDING.equals(this.eventStatus);
     }
     
     public boolean isReportable() {
-        return "COMPLETED".equals(this.eventStatus);
+        return EventStatus.COMPLETED.equals(this.eventStatus);
     }
 
     @org.hibernate.annotations.Nationalized
