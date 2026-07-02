@@ -1,3 +1,193 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// MOCK DATA TẬP TRUNG — Sprint 0
+// Dùng cho tất cả stub pages cho đến khi API thật sẵn sàng.
+// Shape của mỗi object khớp với response mà service file tương ứng sẽ trả về.
+// Khi tích hợp API thật: xoá import mock + thêm useEffect gọi service.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── GUEST (Sprint 4 — guestService) ──────────────────────────────────────────
+
+export const MOCK_GUEST_EVENT = {
+  eventId: 1,
+  eventName: 'Hackathon FPT 2026 – Build The Future',
+  clubName: 'FPT Coder',
+  startDate: '15/08/2026 08:00',
+  endDate: '16/08/2026 20:00',
+  location: 'Hội trường A – ĐH FPT Hà Nội',
+  availableSlots: 12,
+  maxParticipants: 200,
+};
+
+export const MOCK_GUEST_REGISTRATION = {
+  guestRef: 'GUEST-2026-001234',
+  fullName: 'Nguyễn Văn A',
+  email: 'exa***@gmail.com',
+  phone: '09***6789',
+  status: 'CONFIRMED',        // PENDING_VERIFICATION | CONFIRMED | WAITLISTED | CANCELLED
+  event: MOCK_GUEST_EVENT,
+  registeredAt: '01/07/2026 09:30',
+};
+
+// ── ATTENDANCE (Sprint 5 — attendanceService) ─────────────────────────────────
+
+export const MOCK_ATTENDANCE_SESSIONS = [
+  {
+    sessionId: 1,
+    eventId: 1,
+    sessionName: 'Phiên sáng',
+    status: 'CLOSED',         // PENDING | OPEN | CLOSED
+    openedAt: '08:00',
+    closedAt: '12:00',
+    totalCheckedIn: 142,
+    totalAbsent: 18,
+  },
+  {
+    sessionId: 2,
+    eventId: 1,
+    sessionName: 'Phiên chiều',
+    status: 'OPEN',
+    openedAt: '13:00',
+    closedAt: null,
+    totalCheckedIn: 87,
+    totalAbsent: 0,
+  },
+];
+
+export const MOCK_ATTENDANCE_RECORDS = [
+  { recordId: 1, userId: 101, fullName: 'Trần Thị B',  studentId: 'SE150042', status: 'PRESENT', checkedInAt: '08:05', method: 'MANUAL' },
+  { recordId: 2, userId: 102, fullName: 'Lê Văn C',    studentId: 'SE150078', status: 'LATE',    checkedInAt: '08:47', method: 'MANUAL' },
+  { recordId: 3, userId: 103, fullName: 'Phạm Thị D',  studentId: 'SE150091', status: 'ABSENT',  checkedInAt: null,    method: null      },
+  { recordId: 4, userId: 104, fullName: 'Nguyễn Văn E',studentId: 'SE150120', status: 'PRESENT', checkedInAt: '08:12', method: 'MANUAL' },
+];
+
+export const MOCK_ATTENDANCE_SUMMARY = {
+  eventId: 1,
+  sessionId: 1,
+  totalRegistered: 160,
+  totalPresent: 130,
+  totalLate: 12,
+  totalAbsent: 18,
+  attendanceRate: 88.75,
+};
+
+// ── WALK-IN (Sprint 5 — walkInService) ───────────────────────────────────────
+
+export const MOCK_WALKIN_LOG = [
+  { id: 1, fullName: 'Nguyễn Văn A',  studentId: 'SE150001', type: 'FPTU',  checkInAt: '08:05' },
+  { id: 2, fullName: 'Trần Thị B',    studentId: 'SE150042', type: 'FPTU',  checkInAt: '08:12' },
+  { id: 3, fullName: 'John Smith',     studentId: null,        type: 'GUEST', checkInAt: '08:20' },
+];
+
+// ── REPORT (Sprint 6 — reportService) ────────────────────────────────────────
+
+export const MOCK_EVENT_REPORT = {
+  reportId: 1,
+  eventId: 1,
+  reportUrl: '/uploads/bao-cao-hackathon-2026.pdf',
+  summary: 'Sự kiện diễn ra thành công với 142/160 người tham dự. Các đội đã hoàn thành 24 giờ lập trình marathon và trình bày sản phẩm trước ban giám khảo.',
+  uploadedBy: 5,
+  uploadedAt: '17/08/2026 10:00',
+  status: 'PENDING_REVIEW',   // PENDING_REVIEW | APPROVED | REJECTED
+  rejectionReason: null,
+};
+
+export const MOCK_PENDING_REPORTS = [
+  { reportId: 1, eventId: 1, eventName: 'Hackathon FPT 2026', clubName: 'FPT Coder',   uploadedAt: '17/08/2026', status: 'PENDING_REVIEW' },
+  { reportId: 2, eventId: 2, eventName: 'Workshop UI/UX',      clubName: 'FPT Design',  uploadedAt: '25/06/2026', status: 'PENDING_REVIEW' },
+];
+
+// ── CONTRIBUTION (Sprint 6 — contributionService) ────────────────────────────
+
+export const MOCK_CONTRIBUTIONS = [
+  { userId: 5,  fullName: 'Nguyễn Leader',  role: 'Trưởng BTC', tier: 'A', rationale: 'Điều phối toàn bộ sự kiện',        appealStatus: null       },
+  { userId: 6,  fullName: 'Trần Vice',       role: 'Phó BTC',    tier: 'A', rationale: 'Hỗ trợ logistics xuyên suốt',     appealStatus: null       },
+  { userId: 7,  fullName: 'Lê Thành Viên',  role: 'Hỗ trợ',    tier: 'B', rationale: 'Tham gia đầy đủ các ca trực',      appealStatus: 'PENDING'  },
+  { userId: 8,  fullName: 'Phạm Nhân Sự',   role: 'Hỗ trợ',    tier: 'C', rationale: 'Vắng một buổi không báo',          appealStatus: null       },
+];
+
+export const MOCK_APPEALS = [
+  {
+    appealId: 1,
+    userId: 7,
+    fullName: 'Lê Thành Viên',
+    currentTier: 'B',
+    requestedTier: 'A',
+    reason: 'Tôi đã tham gia đầy đủ và hỗ trợ setup từ 6 giờ sáng, xin xem xét lại.',
+    status: 'PENDING',       // PENDING | ACCEPTED | REJECTED
+    submittedAt: '18/08/2026 08:30',
+  },
+];
+
+// ── FEEDBACK (Sprint 7 — feedbackService) ────────────────────────────────────
+
+export const MOCK_FEEDBACK_SUMMARY = {
+  eventId: 1,
+  totalResponses: 98,
+  sampleStatus: 'SUFFICIENT',  // SUFFICIENT | INSUFFICIENT_SAMPLE
+  averageScores: {
+    organization: 4.3,
+    content:      4.5,
+    venue:        4.1,
+    overall:      4.4,
+  },
+  overallAverage: 4.33,
+  isIncludedInExternalScore: true,
+};
+
+export const MOCK_FEEDBACK_ELIGIBILITY = {
+  eligible: true,
+  reason: null,              // null nếu eligible; string nếu không (vd: 'ALREADY_SUBMITTED', 'NOT_ATTENDED')
+  attendanceStatus: 'PRESENT',
+};
+
+// ── COMPETITION (Sprint 8 — competitionService) ───────────────────────────────
+
+export const MOCK_COMPETITIONS = [
+  {
+    competitionId: 1,
+    title: 'Cuộc Thi CLB Xuất Sắc – HK1 2026',
+    semester: 'HK1 2026-2027',
+    semesterId: 3,
+    status: 'Draft',          // Draft | Approved | Published | Closed
+    clubCount: 12,
+    createdAt: '01/07/2026',
+  },
+  {
+    competitionId: 2,
+    title: 'Cuộc Thi CLB Xuất Sắc – HK2 2025',
+    semester: 'HK2 2025-2026',
+    semesterId: 2,
+    status: 'Published',
+    clubCount: 15,
+    createdAt: '10/01/2026',
+  },
+  {
+    competitionId: 3,
+    title: 'Cuộc Thi CLB Xuất Sắc – HK1 2025',
+    semester: 'HK1 2025-2026',
+    semesterId: 1,
+    status: 'Closed',
+    clubCount: 14,
+    createdAt: '01/07/2025',
+  },
+];
+
+export const MOCK_COMPETITION_SCORES = [
+  { clubId: 1, clubName: 'FPT Coder',   activity: 22, feedback: 18, participation: 14, engagement: 20, compliance: 13, total: 87, rank: 1 },
+  { clubId: 2, clubName: 'FPT Design',  activity: 20, feedback: 16, participation: 12, engagement: 18, compliance: 15, total: 81, rank: 2 },
+  { clubId: 3, clubName: 'FPT AI Club', activity: 18, feedback: 14, participation: 13, engagement: 16, compliance: 12, total: 73, rank: 3 },
+  { clubId: 4, clubName: 'FPT English', activity: 15, feedback: 12, participation: 10, engagement: 14, compliance: 10, total: 61, rank: 4 },
+];
+
+export const MOCK_COMPETITION_AWARDS = [
+  { rank: 1, clubName: 'FPT Coder',  leaderName: 'Nguyễn A', viceLeaderName: 'Trần B', award: 'Giải Nhất — CLB Xuất Sắc' },
+  { rank: 2, clubName: 'FPT Design', leaderName: 'Lê C',      viceLeaderName: 'Phạm D', award: 'Giải Nhì — CLB Xuất Sắc'  },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LANDING PAGE DATA (giữ nguyên từ trước)
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const STATS = [
   { value: "5K+",  label: "Thành viên"   },
   { value: "120+", label: "Sự kiện/năm" },

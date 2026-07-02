@@ -20,6 +20,7 @@ import {
   Network,
   ClipboardList,
   PlusCircle,
+  Trophy,
 } from "lucide-react";
 
 /*
@@ -49,6 +50,7 @@ export const SIDEBAR_CONFIGS = {
     { key: "personnel-reassign", label: "Điều Động Nhân Sự",   icon: ArrowRightLeft, path: "/icpdp/personnel-reassign" },
     { key: "discipline-log",     label: "Nhật Ký Kỷ Luật",     icon: ShieldAlert,    path: "/icpdp/discipline-log" },
     { key: "recruitment",        label: "Tuyển Dụng",          icon: UserPlus,       path: "/icpdp/recruitment" },
+    { key: "competition",        label: "Cuộc Thi CLB",        icon: Trophy,         path: "/icpdp/competition" },
     { key: "notifications",      label: "Thông Báo",           icon: Bell,           path: "/icpdp/notifications" },
     { key: "profile",            label: "Thông Tin Tài Khoản", icon: UserCircle,     path: "/icpdp/profile" },
   ],
