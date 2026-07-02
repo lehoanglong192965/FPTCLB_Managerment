@@ -4,13 +4,18 @@ import org.hibernate.annotations.SQLRestriction;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fptu.fcms.enums.AttendanceStatus;
+import com.fptu.fcms.enums.CheckInMethod;
 import java.time.*;
 import java.math.*;
 
 
 @Entity
 @SQLRestriction("isDeleted = false")
-@Table(name = "AttendanceRecord")
+@Table(
+        name = "AttendanceRecord",
+        uniqueConstraints = @UniqueConstraint(name = "UK_AttendanceRecord_Session_Registration", columnNames = {"sessionID", "registrationID"})
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -27,8 +32,43 @@ public class AttendanceRecord {
     @Column(name = "userID")
     private Integer userID;
 
+    @Column(name = "registrationID")
+    private Integer registrationID;
+
+    @Column(name = "participantTypeSnapshotAt")
+    private LocalDateTime participantTypeSnapshotAt;
+
+    @Column(name = "participantTypeSnapshot")
+    private String participantTypeSnapshot;
+
     @Column(name = "attendanceStatus")
-    private String attendanceStatus;
+    @Convert(converter = AttendanceStatusConverter.class)
+    private AttendanceStatus attendanceStatus;
+
+    @Column(name = "checkInMethod")
+    @Convert(converter = CheckInMethodConverter.class)
+    private CheckInMethod checkInMethod;
+
+    @Column(name = "verificationMethod")
+    private String verificationMethod;
+
+    @Column(name = "checkedInBy")
+    private Integer checkedInBy;
+
+    @Column(name = "checkedInAt")
+    private LocalDateTime checkedInAt;
+
+    @Column(name = "manualReason")
+    private String manualReason;
+
+    @Column(name = "overrideReason")
+    private String overrideReason;
+
+    @Column(name = "note")
+    private String note;
+
+    @Column(name = "deviceInfoOrSource")
+    private String deviceInfoOrSource;
 
     @Column(name = "capturedImgUrl")
     private String capturedImgUrl;
@@ -42,8 +82,28 @@ public class AttendanceRecord {
     @Column(name = "markedAt")
     private LocalDateTime markedAt;
 
+    @Column(name = "createdAt")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updatedAt")
+    private LocalDateTime updatedAt;
+
     @Column(name = "isDeleted")
     private Boolean isDeleted = false;
 
-}
+    @PrePersist
+    @PreUpdate
+    private void normalizeLifecycle() {
+        if (checkedInAt == null) {
+            checkedInAt = markedAt != null ? markedAt : LocalDateTime.now();
+        }
+        if (markedAt == null) {
+            markedAt = checkedInAt;
+        }
+        if (createdAt == null) {
+            createdAt = markedAt;
+        }
+        updatedAt = LocalDateTime.now();
+    }
 
+}

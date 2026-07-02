@@ -55,6 +55,9 @@ spring:
               - email
               - profile
 
+  cache:
+    type: ${SPRING_CACHE_TYPE:simple}
+
   data:
     redis:
       host: ${REDIS_HOST:localhost}

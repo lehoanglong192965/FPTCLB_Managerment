@@ -14,6 +14,7 @@ public class BusinessRuleException extends RuntimeException {
 
     // HTTP status tương ứng với lỗi nghiệp vụ này
     private final HttpStatus status;
+    private final String errorCode;
 
     /**
      * Constructor mặc định: dùng HTTP 422 Unprocessable Entity
@@ -23,6 +24,7 @@ public class BusinessRuleException extends RuntimeException {
     public BusinessRuleException(String message) {
         super(message);
         this.status = HttpStatus.UNPROCESSABLE_ENTITY;
+        this.errorCode = ApiErrorCode.BUSINESS_RULE_VIOLATION.name();
     }
 
     /**
@@ -34,9 +36,20 @@ public class BusinessRuleException extends RuntimeException {
     public BusinessRuleException(String message, HttpStatus status) {
         super(message);
         this.status = status;
+        this.errorCode = status == null ? ApiErrorCode.BUSINESS_RULE_VIOLATION.name() : status.name();
+    }
+
+    public BusinessRuleException(String errorCode, String message, HttpStatus status) {
+        super(message);
+        this.status = status == null ? HttpStatus.UNPROCESSABLE_ENTITY : status;
+        this.errorCode = errorCode == null ? ApiErrorCode.BUSINESS_RULE_VIOLATION.name() : errorCode;
     }
 
     public HttpStatus getStatus() {
         return status;
+    }
+
+    public String getErrorCode() {
+        return errorCode;
     }
 }

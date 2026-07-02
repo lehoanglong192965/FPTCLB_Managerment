@@ -1,74 +1,37 @@
 package com.fptu.fcms.service.impl;
 
+import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.service.EventCapacityService;
+import com.fptu.fcms.service.event.RegistrationLifecycle;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class EventCapacityServiceImpl implements EventCapacityService {
 
-    private static final String KEY_PREFIX = "event:capacity:";
-
-    private final StringRedisTemplate redisTemplate;
+    private final EventRegistrationRepository registrationRepository;
 
     @Override
     public boolean reserveSeat(Integer eventId, Integer maxParticipants) {
         if (eventId == null || maxParticipants == null || maxParticipants <= 0) {
             return true;
         }
-        String key = key(eventId);
-        String script = """
-                local current = redis.call('GET', KEYS[1])
-                if not current then
-                    redis.call('SET', KEYS[1], ARGV[1])
-                    current = ARGV[1]
-                end
-                current = tonumber(current)
-                if current <= 0 then
-                    return 0
-                end
-                redis.call('DECR', KEYS[1])
-                return 1
-                """;
-        try {
-            Long result = redisTemplate.execute(
-                    new DefaultRedisScript<>(script, Long.class),
-                    List.of(key),
-                    String.valueOf(maxParticipants)
-            );
-            return Long.valueOf(1L).equals(result);
-        } catch (Exception ex) {
-            // Redis không khả dụng → cho phép đăng ký (không giới hạn slot)
-            return true;
-        }
+
+        long currentRegistrations = registrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
+                eventId,
+                RegistrationLifecycle.CONFIRMED_STATUSES
+        );
+        return currentRegistrations < maxParticipants;
     }
 
     @Override
     public void releaseSeat(Integer eventId) {
-        if (eventId == null) return;
-        try {
-            redisTemplate.opsForValue().increment(key(eventId));
-        } catch (Exception ex) {
-            // Redis không khả dụng → bỏ qua
-        }
+        // DB-based capacity does not need an explicit release step.
     }
 
     @Override
     public void resetCapacity(Integer eventId, Integer maxParticipants) {
-        if (eventId == null || maxParticipants == null || maxParticipants <= 0) return;
-        try {
-            redisTemplate.opsForValue().set(key(eventId), String.valueOf(maxParticipants));
-        } catch (Exception ex) {
-            // Redis không khả dụng → bỏ qua
-        }
-    }
-
-    private String key(Integer eventId) {
-        return KEY_PREFIX + eventId;
+        // DB-based capacity is derived from active registrations.
     }
 }

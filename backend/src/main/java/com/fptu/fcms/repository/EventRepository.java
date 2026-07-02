@@ -1,6 +1,7 @@
 package com.fptu.fcms.repository;
 
 import com.fptu.fcms.entity.Event;
+import com.fptu.fcms.enums.EventStatus;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -37,24 +38,24 @@ public interface EventRepository extends JpaRepository<Event, Integer> {
     boolean existsByLocationAndEventIDNotAndEventStatusAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
             String location,
             Integer eventID,
-            String eventStatus,
+            EventStatus eventStatus,
             LocalDateTime endDate,
             LocalDateTime startDate
     );
 
     List<Event> findByEndDateBeforeAndEventStatusInAndIsDeletedFalse(
             LocalDateTime endDate,
-            Collection<String> eventStatuses
+            Collection<EventStatus> eventStatuses
     );
 
-    List<Event> findByEventStatusAndIsDeletedFalse(String status);
+    List<Event> findByEventStatusAndIsDeletedFalse(EventStatus status);
 
-    List<Event> findByEventStatusInAndIsDeletedFalse(Collection<String> statuses);
+    List<Event> findByEventStatusInAndIsDeletedFalse(Collection<EventStatus> statuses);
 
     // [BR-G02] Tìm các event Pending lâu hơn một mốc thời gian
-    List<Event> findByEventStatusAndCreatedAtBeforeAndIsDeletedFalse(String status, LocalDateTime date);
+    List<Event> findByEventStatusAndCreatedAtBeforeAndIsDeletedFalse(EventStatus status, LocalDateTime date);
 
-    List<Event> findByEventStatus(String completed);
+    List<Event> findByEventStatus(EventStatus completed);
 
     @Query("""
             SELECT COUNT(e)
@@ -65,7 +66,7 @@ public interface EventRepository extends JpaRepository<Event, Integer> {
             """)
     long countUnfinishedEventsBySemesterId(
             @Param("semesterId") Integer semesterId,
-            @Param("finishedStatuses") Collection<String> finishedStatuses
+            @Param("finishedStatuses") Collection<EventStatus> finishedStatuses
     );
 
     @Query("""
@@ -76,4 +77,13 @@ public interface EventRepository extends JpaRepository<Event, Integer> {
               AND e.isScoreLocked = true
             """)
     long countLockedScoreEventsBySemesterId(@Param("semesterId") Integer semesterId);
+    @Query("""
+            SELECT e
+            FROM Event e
+            WHERE e.isDeleted = false
+              AND e.feedbackEnabled = true
+              AND (e.feedbackOpensAt IS NULL OR e.feedbackOpensAt <= :now)
+              AND (e.feedbackClosesAt IS NULL OR e.feedbackClosesAt > :now)
+            """)
+    List<Event> findFeedbackOpenEvents(@Param("now") LocalDateTime now);
 }

@@ -13,6 +13,8 @@ import com.fptu.fcms.entity.MemberRankingSnapshot;
 import com.fptu.fcms.entity.Semester;
 import com.fptu.fcms.entity.SystemConfig;
 import com.fptu.fcms.entity.UserAccount;
+import com.fptu.fcms.enums.AttendanceStatus;
+import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
@@ -28,6 +30,7 @@ import com.fptu.fcms.repository.SystemConfigRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.MemberRankingService;
+import com.fptu.fcms.service.event.RegistrationLifecycle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
@@ -51,16 +54,12 @@ public class MemberRankingServiceImpl implements MemberRankingService {
     private static final String ROLE_LEADER = "Leader";
     private static final String ROLE_VICE_LEADER = "ViceLeader";
     private static final String ROLE_MEMBER = "Member";
-    private static final String REGISTRATION_STATUS_REGISTERED = "REGISTERED";
-    private static final String ATTENDANCE_STATUS_PRESENT = "Present";
     private static final String BASE_POINTS_ATTENDEE_CONFIG = "BASE_POINTS_ATTENDEE";
     private static final int DEFAULT_EVENT_PARTICIPATION_POINT = 20;
-    private static final Set<String> RANKING_ELIGIBLE_EVENT_STATUSES = Set.of(
-            "Completed",
-            "COMPLETED",
-            "Closed",
-            "CLOSED",
-            "CONTRIBUTION_CALCULATED"
+    private static final Set<com.fptu.fcms.enums.EventStatus> RANKING_ELIGIBLE_EVENT_STATUSES = Set.of(
+            com.fptu.fcms.enums.EventStatus.COMPLETED,
+            com.fptu.fcms.enums.EventStatus.CLOSED,
+            com.fptu.fcms.enums.EventStatus.CONTRIBUTION_CALCULATED
     );
     private static final int TIER_S_MIN_SCORE = 150;
     private static final int TIER_A_MIN_SCORE = 80;
@@ -333,10 +332,10 @@ public class MemberRankingServiceImpl implements MemberRankingService {
         }
 
         Map<Integer, Set<Integer>> registeredUsersByEvent = eventRegistrationRepository
-                .findByEventIDInAndUserIDInAndStatusAndIsDeletedFalse(
+                .findByEventIDInAndUserIDInAndRegistrationStatusAndIsDeletedFalse(
                         eventIds,
                         userIds,
-                        REGISTRATION_STATUS_REGISTERED
+                        RegistrationStatus.CONFIRMED
                 )
                 .stream()
                 .filter(registration -> registration.getEventID() != null && registration.getUserID() != null)
@@ -360,7 +359,7 @@ public class MemberRankingServiceImpl implements MemberRankingService {
 
             attendanceRecordRepository.findBySessionID(session.getSessionID())
                     .stream()
-                    .filter(record -> ATTENDANCE_STATUS_PRESENT.equals(record.getAttendanceStatus()))
+                    .filter(record -> AttendanceStatus.PRESENT.equals(record.getAttendanceStatus()))
                     .map(AttendanceRecord::getUserID)
                     .filter(registeredUsers::contains)
                     .distinct()

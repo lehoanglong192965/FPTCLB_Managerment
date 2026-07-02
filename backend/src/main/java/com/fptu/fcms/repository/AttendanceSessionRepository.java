@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface AttendanceSessionRepository extends JpaRepository<AttendanceSession, Integer> {
     Optional<AttendanceSession> findByEventID(Integer eventID);
+    Optional<AttendanceSession> findBySessionIDAndIsDeletedFalse(Integer sessionID);
 }

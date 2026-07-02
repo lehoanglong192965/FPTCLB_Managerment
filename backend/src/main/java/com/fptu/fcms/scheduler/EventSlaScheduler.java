@@ -1,6 +1,7 @@
 package com.fptu.fcms.scheduler;
 
 import com.fptu.fcms.entity.Event;
+import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.service.EmailService;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,7 @@ public class EventSlaScheduler {
     public void checkPendingEventSla() {
         LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
         List<Event> stuckEvents = eventRepository.findByEventStatusAndCreatedAtBeforeAndIsDeletedFalse(
-                "Pending", sevenDaysAgo
+                EventStatus.PENDING, sevenDaysAgo
         );
 
         if (!stuckEvents.isEmpty()) {

@@ -3,6 +3,7 @@ package com.fptu.fcms.service.impl;
 import com.fptu.fcms.dto.request.CreateEventReportRequest;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventReport;
+import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.repository.EventReportRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.service.ReportUploadService;
@@ -30,7 +31,7 @@ public class ReportUploadServiceImpl implements ReportUploadService {
     private static final long MAX_PDF_SIZE_BYTES = 10L * 1024 * 1024;
     private static final byte[] PDF_MAGIC = new byte[] {'%', 'P', 'D', 'F', '-'};
 
-    private static final String STATUS_REPORT_UPLOADED = "ReportUploaded";
+    private static final EventStatus STATUS_REPORT_UPLOADED = EventStatus.REPORT_UPLOADED;
 
     private final EventRepository eventRepository;
     private final EventReportRepository eventReportRepository;
@@ -51,7 +52,7 @@ public class ReportUploadServiceImpl implements ReportUploadService {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(request.getEventID())
                 .orElseThrow(() -> new IllegalArgumentException("Event not found."));
 
-        if (!"Completed".equals(event.getEventStatus()) && !"Ongoing".equals(event.getEventStatus())) {
+        if (!EventStatus.COMPLETED.equals(event.getEventStatus()) && !EventStatus.ONGOING.equals(event.getEventStatus())) {
             throw new IllegalArgumentException("Only Completed or Ongoing events can have reports uploaded.");
         }
 

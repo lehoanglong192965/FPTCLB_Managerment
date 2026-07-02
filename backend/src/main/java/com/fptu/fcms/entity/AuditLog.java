@@ -41,6 +41,15 @@ public class AuditLog {
     @Column(name = "overrideReason")
     private String overrideReason;
 
+    @Column(name = "beforeJson", columnDefinition = "NVARCHAR(MAX)")
+    private String beforeJson;
+
+    @Column(name = "afterJson", columnDefinition = "NVARCHAR(MAX)")
+    private String afterJson;
+
+    @Column(name = "reason", columnDefinition = "NVARCHAR(MAX)")
+    private String reason;
+
     @Column(name = "executedAt")
     private LocalDateTime executedAt;
 

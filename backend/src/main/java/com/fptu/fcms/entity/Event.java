@@ -4,6 +4,8 @@ import org.hibernate.annotations.SQLRestriction;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fptu.fcms.enums.EventStatus;
+
 import java.time.*;
 import java.math.*;
 
@@ -48,6 +50,33 @@ public class Event {
     @Column(name = "maxParticipants")
     private Integer maxParticipants;
 
+    @Column(name = "totalCapacity")
+    private Integer totalCapacity;
+
+    @Column(name = "allowWalkIn")
+    private Boolean allowWalkIn = false;
+
+    @Column(name = "registrationOpenAt")
+    private LocalDateTime registrationOpenAt;
+
+    @Column(name = "registrationCloseAt")
+    private LocalDateTime registrationCloseAt;
+
+    @Column(name = "checkInOpenAt")
+    private LocalDateTime checkInOpenAt;
+
+    @Column(name = "checkInCloseAt")
+    private LocalDateTime checkInCloseAt;
+
+    @Column(name = "feedbackEnabled")
+    private Boolean feedbackEnabled = true;
+
+    @Column(name = "feedbackOpensAt")
+    private LocalDateTime feedbackOpensAt;
+
+    @Column(name = "feedbackClosesAt")
+    private LocalDateTime feedbackClosesAt;
+
     @Column(name = "startDate")
     private LocalDateTime startDate;
 
@@ -55,15 +84,16 @@ public class Event {
     private LocalDateTime endDate;
 
     @Column(name = "eventStatus")
-    private String eventStatus; // DRAFT, UPCOMING, ONGOING, COMPLETED, CLOSED
+    @Convert(converter = EventStatusConverter.class)
+    private EventStatus eventStatus;
 
     // Thêm phương thức helper để kiểm tra trạng thái
     public boolean isEditable() {
-        return "DRAFT".equals(this.eventStatus) || "UPCOMING".equals(this.eventStatus);
+        return EventStatus.DRAFT.equals(this.eventStatus) || EventStatus.PENDING.equals(this.eventStatus);
     }
     
     public boolean isReportable() {
-        return "COMPLETED".equals(this.eventStatus);
+        return EventStatus.COMPLETED.equals(this.eventStatus);
     }
 
     @org.hibernate.annotations.Nationalized
@@ -100,5 +130,34 @@ public class Event {
 
     @Column(name = "isDeleted")
     private Boolean isDeleted;
+
+    @PrePersist
+    @PreUpdate
+    private void normalizeAndValidate() {
+        if (totalCapacity == null && maxParticipants != null) {
+            totalCapacity = maxParticipants;
+        } else if (maxParticipants == null && totalCapacity != null) {
+            maxParticipants = totalCapacity;
+        }
+
+        if (totalCapacity != null && totalCapacity < 0) {
+            throw new IllegalArgumentException("totalCapacity cannot be negative.");
+        }
+        if (maxParticipants != null && maxParticipants < 0) {
+            throw new IllegalArgumentException("maxParticipants cannot be negative.");
+        }
+        if (registrationOpenAt != null && registrationCloseAt != null && !registrationOpenAt.isBefore(registrationCloseAt)) {
+            throw new IllegalArgumentException("registrationOpenAt must be before registrationCloseAt.");
+        }
+        if (checkInOpenAt != null && checkInCloseAt != null && !checkInOpenAt.isBefore(checkInCloseAt)) {
+            throw new IllegalArgumentException("checkInOpenAt must be before checkInCloseAt.");
+        }
+        if (allowWalkIn == null) {
+            allowWalkIn = false;
+        }
+        if (feedbackEnabled == null) {
+            feedbackEnabled = true;
+        }
+    }
 
 }

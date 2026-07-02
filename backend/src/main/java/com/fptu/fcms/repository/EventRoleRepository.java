@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface EventRoleRepository extends JpaRepository<EventRole, Integer> {
     Optional<EventRole> findByEventRoleIDAndIsDeletedFalse(Integer eventRoleID);
+
+    Optional<EventRole> findByRoleNameAndIsDeletedFalse(String roleName);
 }

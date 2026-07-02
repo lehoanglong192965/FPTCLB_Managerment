@@ -1,5 +1,6 @@
 package com.fptu.fcms.dto.response;
 
+import com.fptu.fcms.enums.EventStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -8,7 +9,7 @@ import lombok.Getter;
 public class EventApprovalResponse {
     private Integer eventId;
     private String eventName;
-    private String status;
+    private EventStatus status;
     private String pdpFeedback;
     private String message;
 }
