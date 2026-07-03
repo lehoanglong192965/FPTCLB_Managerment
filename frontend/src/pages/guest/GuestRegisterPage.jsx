@@ -118,7 +118,7 @@ export default function GuestRegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email (không phải @fpt.edu.vn) *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
             <div className="relative">
               <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -160,7 +160,7 @@ export default function GuestRegisterPage() {
 
         <p className="text-center text-sm text-gray-500 mt-4">
           Có tài khoản FPTU?{' '}
-          <Link to="/login" className="text-orange-500 font-medium hover:underline">
+          <Link to="/login" className="font-semibold hover:underline" style={{ color: "#F37021" }}>
             Đăng nhập
           </Link>
         </p>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Calendar, Clock, MapPin, Search, X, AlertTriangle, Users, ChevronRight } from "lucide-react";
 import { TokenService } from "../../services/api/axiosClient";
 import clubService from "../../services/api/clubs/clubService";
@@ -14,38 +14,36 @@ const getImageUrl = (url) => {
   return apiBase.replace(/\/api\/?$/, "") + url;
 };
 
-const STATUS_CFG = {
-  // Title case (từ backend API)
-  Draft:            { label: "Bản nháp",         color: "#6b7280", bg: "#f3f4f6" },
-  Pending:          { label: "Chờ duyệt",         color: "#d97706", bg: "#fffbeb" },
-  PendingApproval:  { label: "Chờ ICPDP duyệt",  color: "#d97706", bg: "#fffbeb" },
-  Approved:         { label: "Đã duyệt",          color: "#059669", bg: "#ecfdf5" },
-  RegistrationOpen:   { label: "Mở đăng ký",        color: "#0891b2", bg: "#e0f2fe" },
-  RegistrationClosed: { label: "Đóng đăng ký",      color: "#6b7280", bg: "#f3f4f6" },
-  Upcoming:         { label: "Sắp diễn ra",        color: "#059669", bg: "#ecfdf5" },
-  Ongoing:          { label: "Đang diễn ra",       color: "#2563eb", bg: "#eff6ff" },
-  Completed:        { label: "Đã kết thúc",        color: "#7c3aed", bg: "#f5f3ff" },
-  ReportUploaded:   { label: "Đã nộp báo cáo",    color: "#9333ea", bg: "#faf5ff" },
-  Closed:           { label: "Đã đóng",            color: "#374151", bg: "#e5e7eb" },
-  Cancelled:        { label: "Đã hủy",             color: "#dc2626", bg: "#fef2f2" },
-  Rejected:         { label: "Bị từ chối",         color: "#b91c1c", bg: "#fff1f2" },
-  // UPPERCASE fallback
-  DRAFT:            { label: "Bản nháp",           color: "#6b7280", bg: "#f3f4f6" },
-  PENDING:          { label: "Chờ duyệt",          color: "#d97706", bg: "#fffbeb" },
-  PENDINGAPPROVAL:  { label: "Chờ ICPDP duyệt",   color: "#d97706", bg: "#fffbeb" },
-  APPROVED:         { label: "Đã duyệt",           color: "#059669", bg: "#ecfdf5" },
-  REGISTRATIONOPEN:   { label: "Mở đăng ký",         color: "#0891b2", bg: "#e0f2fe" },
-  REGISTRATIONCLOSED: { label: "Đóng đăng ký",       color: "#6b7280", bg: "#f3f4f6" },
-  UPCOMING:         { label: "Sắp diễn ra",         color: "#059669", bg: "#ecfdf5" },
-  ONGOING:          { label: "Đang diễn ra",        color: "#2563eb", bg: "#eff6ff" },
-  COMPLETED:        { label: "Đã kết thúc",         color: "#7c3aed", bg: "#f5f3ff" },
-  REPORTUPLOADED:   { label: "Đã nộp báo cáo",     color: "#9333ea", bg: "#faf5ff" },
-  CLOSED:           { label: "Đã đóng",             color: "#374151", bg: "#e5e7eb" },
-  CANCELLED:        { label: "Đã hủy",              color: "#dc2626", bg: "#fef2f2" },
-  REJECTED:         { label: "Bị từ chối",          color: "#b91c1c", bg: "#fff1f2" },
-  // lowercase (CreateEventPage saveToLocal)
-  pending:          { label: "Chờ duyệt",          color: "#d97706", bg: "#fffbeb" },
-};
+const STATUS_DEFS = [
+  { keys: ["Draft",                   "DRAFT"],                        label: "Bản nháp",                    color: "#6b7280", bg: "#f3f4f6" },
+  { keys: ["Pending",                 "PENDING",          "pending"],  label: "Chờ duyệt (cũ)",              color: "#d97706", bg: "#fffbeb" },
+  { keys: ["PendingApproval",         "PENDING_APPROVAL", "PENDINGAPPROVAL"], label: "Chờ ICPDP duyệt",     color: "#b45309", bg: "#fef3c7" },
+  { keys: ["Approved",                "APPROVED"],                     label: "Đã duyệt",                    color: "#059669", bg: "#d1fae5" },
+  { keys: ["RegistrationOpen",        "REGISTRATION_OPEN",   "REGISTRATIONOPEN"],   label: "Mở đăng ký",    color: "#0891b2", bg: "#cffafe" },
+  { keys: ["RegistrationClosed",      "REGISTRATION_CLOSED", "REGISTRATIONCLOSED"], label: "Đóng đăng ký",  color: "#0e7490", bg: "#e0f2fe" },
+  { keys: ["CheckinOpen",             "CHECKIN_OPEN",    "CHECKINOPEN"],            label: "Đang điểm danh",color: "#0284c7", bg: "#bae6fd" },
+  { keys: ["Upcoming",                "UPCOMING"],                     label: "Sắp diễn ra",                 color: "#16a34a", bg: "#dcfce7" },
+  { keys: ["Ongoing",                 "ONGOING"],                      label: "Đang diễn ra",                color: "#2563eb", bg: "#dbeafe" },
+  { keys: ["Completed",               "COMPLETED"],                    label: "Đã kết thúc",                 color: "#7c3aed", bg: "#ede9fe" },
+  { keys: ["ReportUploaded",          "REPORT_UPLOADED",     "REPORTUPLOADED"],     label: "Đã nộp báo cáo",color: "#9333ea", bg: "#f3e8ff" },
+  { keys: ["ReportPendingApproval",   "REPORT_PENDING_APPROVAL", "REPORTPENDINGAPPROVAL"], label: "Báo cáo chờ duyệt", color: "#c026d3", bg: "#fae8ff" },
+  { keys: ["ReportApproved",          "REPORT_APPROVED", "REPORTAPPROVED"],         label: "Báo cáo đã duyệt",color: "#0f766e", bg: "#ccfbf1" },
+  { keys: ["ContributionDraft",       "CONTRIBUTION_DRAFT",        "CONTRIBUTIONDRAFT"],        label: "Đóng góp — Nháp",     color: "#475569", bg: "#f1f5f9" },
+  { keys: ["ContributionCalculated",  "CONTRIBUTION_CALCULATED",   "CONTRIBUTIONCALCULATED"],   label: "Đã tính điểm",        color: "#0369a1", bg: "#e0f2fe" },
+  { keys: ["ContributionScoring",     "CONTRIBUTION_SCORING",      "CONTRIBUTIONSCORING"],      label: "Đang chấm điểm",      color: "#7c2d12", bg: "#fff7ed" },
+  { keys: ["ContributionPendingApproval","CONTRIBUTION_PENDING_APPROVAL","CONTRIBUTIONPENDINGAPPROVAL"], label: "Đóng góp chờ duyệt", color: "#a16207", bg: "#fefce8" },
+  { keys: ["ContributionApproved",    "CONTRIBUTION_APPROVED",     "CONTRIBUTIONAPPROVED"],     label: "Đóng góp đã duyệt",   color: "#15803d", bg: "#f0fdf4" },
+  { keys: ["ContributionFinalized",   "CONTRIBUTION_FINALIZED",    "CONTRIBUTIONFINALIZED"],    label: "Đóng góp hoàn tất",   color: "#166534", bg: "#dcfce7" },
+  { keys: ["Closed",                  "CLOSED"],                       label: "Đã đóng",                     color: "#374151", bg: "#e5e7eb" },
+  { keys: ["Cancelled",               "CANCELLED",        "CANCELED"],label: "Đã hủy",                      color: "#dc2626", bg: "#fee2e2" },
+  { keys: ["Rejected",                "REJECTED"],                     label: "Bị từ chối",                  color: "#b91c1c", bg: "#fff1f2" },
+];
+
+const STATUS_CFG = Object.fromEntries(
+  STATUS_DEFS.flatMap(({ keys, label, color, bg }) =>
+    keys.map((k) => [k, { label, color, bg }])
+  )
+);
 
 const REASON_MIN = 20;
 
@@ -176,6 +174,7 @@ function normalizeEvent(ev) {
     budget:          ev.budget          ?? null,
     bannerUrl:        ev.bannerUrl        ?? null,
     rejectionReason:  ev.rejectionReason  ?? null,
+    createdAt:        ev.createdAt        ?? ev.createdDate ?? null,
   };
 }
 
@@ -191,8 +190,10 @@ function loadLocal(clubId) {
 export default function ClubEventsMgmt() {
   const clubId   = resolveClubId();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [search, setSearch]             = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [events, setEvents]             = useState(() => loadLocal(clubId));
   const [cancelTarget, setCancelTarget]         = useState(null);
   const [finishTarget, setFinishTarget]         = useState(null);
@@ -224,6 +225,13 @@ export default function ClubEventsMgmt() {
         const normalized = raw.map(normalizeEvent);
         setEvents(normalized);
         localStorage.setItem(`club_events_${clubId}`, JSON.stringify(raw));
+
+        // Khôi phục popup nếu URL có ?event= (ví dụ: quay lại từ trang phân công)
+        const returnId = Number(new URLSearchParams(window.location.search).get("event"));
+        if (returnId) {
+          const ev = normalized.find((e) => e.eventID === returnId);
+          if (ev) { setSelectedEv(ev); setIsEditing(false); }
+        }
       } catch (error) {
         if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError") return;
         console.error("[ClubEventsMgmt] Lỗi tải sự kiện:", error);
@@ -232,9 +240,38 @@ export default function ClubEventsMgmt() {
     if (clubId) fetchEvents();
   }, [clubId]);
 
-  const filtered = events.filter((e) =>
-    (e.eventName || "").toLowerCase().includes(search.toLowerCase())
-  );
+  // Thứ tự hiển thị chip lọc (chỉ các trạng thái Club Leader thực sự gặp)
+  const STATUS_ORDER = [
+    "DRAFT",
+    "PENDING_APPROVAL", "PENDINGAPPROVAL",
+    "REJECTED",
+    "APPROVED",
+    "REGISTRATION_OPEN", "REGISTRATIONOPEN",
+    "REGISTRATION_CLOSED", "REGISTRATIONCLOSED",
+    "ONGOING",
+    "COMPLETED",
+    "REPORT_UPLOADED", "REPORTUPLOADED",
+    "CLOSED",
+    "CANCELLED",
+  ];
+
+  const availableStatuses = [...new Set(events.map((e) => (e.eventStatus || "Draft").toUpperCase()))]
+    .sort((a, b) => {
+      const ia = STATUS_ORDER.indexOf(a);
+      const ib = STATUS_ORDER.indexOf(b);
+      if (ia === -1 && ib === -1) return 0;
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+
+  const filtered = events
+    .filter((e) => (e.eventName || "").toLowerCase().includes(search.toLowerCase()))
+    .filter((e) => statusFilter === "ALL" || (e.eventStatus || "Draft").toUpperCase() === statusFilter)
+    .sort((a, b) => {
+      if (a.createdAt && b.createdAt) return new Date(b.createdAt) - new Date(a.createdAt);
+      return (b.eventID ?? 0) - (a.eventID ?? 0);
+    });
 
   const updateEvent = (eventID, patch) => {
     setEvents((prev) => prev.map((e) => e.eventID === eventID ? { ...e, ...patch } : e));
@@ -245,19 +282,42 @@ export default function ClubEventsMgmt() {
     setSelectedEv(ev);
     setIsEditing(false);
     setEditForm({});
+    setSearchParams({ event: ev.eventID }, { replace: true });
   };
 
-  const startEdit = (ev) => {
-    const dt = ev.startDate ? new Date(ev.startDate) : null;
+  const closeDetail = () => {
+    setSelectedEv(null);
+    setIsEditing(false);
+    setSearchParams({}, { replace: true });
+  };
+
+  const startEdit = async (ev) => {
+    // Fetch full detail để lấy các field không có trong list API (vd: budget)
+    let full = { ...ev };
+    try {
+      const detail = await eventService.getEventById(ev.eventID);
+      if (detail) {
+        const det = normalizeEvent(detail);
+        // Chỉ ghi đè field nào detail trả về non-null, giữ nguyên giá trị cũ nếu detail null
+        Object.entries(det).forEach(([k, v]) => { if (v != null) full[k] = v; });
+        full.eventID = ev.eventID;
+      }
+    } catch { /* dùng data hiện có nếu fetch lỗi */ }
+
+    const dt = full.startDate ? new Date(full.startDate) : null;
     const pad = (n) => String(n).padStart(2, "0");
     setEditForm({
-      name:            ev.eventName || "",
+      name:            full.eventName || "",
       date:            dt ? `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}` : "",
       time:            dt ? `${pad(dt.getHours())}:${pad(dt.getMinutes())}` : "",
-      location:        ev.location || "",
-      description:     ev.description || "",
-      maxParticipants: ev.maxParticipants || "",
+      location:        full.location || "",
+      description:     full.description || "",
+      maxParticipants: full.maxParticipants ?? "",
+      budget:          full.budget ?? "",
+      bannerFile:      null,
     });
+    // Cập nhật selectedEv với data đầy đủ hơn
+    setSelectedEv((prev) => prev?.eventID === full.eventID ? { ...prev, ...full } : prev);
     setIsEditing(true);
   };
 
@@ -274,13 +334,27 @@ export default function ClubEventsMgmt() {
         startDate:       startDate || undefined,
         endDate:         startDate || undefined,
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : undefined,
+        budget:          editForm.budget ? Number(editForm.budget) : undefined,
       });
+
+      let newBannerUrl = selectedEv.bannerUrl;
+      if (editForm.bannerFile) {
+        try {
+          const res = await eventService.uploadBanner(selectedEv.eventID, editForm.bannerFile);
+          newBannerUrl = res?.bannerUrl ?? res?.url ?? newBannerUrl;
+        } catch {
+          // Banner upload thất bại không chặn lưu thông tin khác
+        }
+      }
+
       updateEvent(selectedEv.eventID, {
         eventName:       editForm.name,
         description:     editForm.description,
         location:        editForm.location,
         startDate:       startDate ? `${editForm.date}T${editForm.time}:00` : selectedEv.startDate,
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : selectedEv.maxParticipants,
+        budget:          editForm.budget ? Number(editForm.budget) : selectedEv.budget,
+        bannerUrl:       newBannerUrl,
       });
       setIsEditing(false);
     } catch (e) {
@@ -314,7 +388,7 @@ export default function ClubEventsMgmt() {
       </div>
 
       <div className="content-card">
-        <div style={{ marginBottom: "1rem" }}>
+        <div style={{ marginBottom: "1rem", display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ position: "relative", maxWidth: 360 }}>
             <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
             <input
@@ -323,6 +397,39 @@ export default function ClubEventsMgmt() {
               placeholder="Tìm sự kiện..."
               style={{ width: "100%", padding: "8px 10px 8px 32px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
             />
+          </div>
+
+          {/* Bộ lọc trạng thái */}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {[{ key: "ALL", label: "Tất cả", color: "#374151", bg: "#f3f4f6" },
+              ...availableStatuses.map((s) => {
+                const cfg = STATUS_CFG[s] || STATUS_CFG["Draft"];
+                return { key: s, label: cfg.label, color: cfg.color, bg: cfg.bg };
+              })
+            ].map(({ key, label, color, bg }) => {
+              const active = statusFilter === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setStatusFilter(key)}
+                  style={{
+                    padding: "4px 12px", borderRadius: 99, fontSize: 12, fontWeight: 600,
+                    cursor: "pointer", border: "1.5px solid",
+                    borderColor: active ? color : "#e5e7eb",
+                    background: active ? bg : "#fff",
+                    color: active ? color : "#6b7280",
+                    transition: "all .15s",
+                  }}
+                >
+                  {label}
+                  {key !== "ALL" && (
+                    <span style={{ marginLeft: 5, fontWeight: 700 }}>
+                      {events.filter((e) => (e.eventStatus || "Draft").toUpperCase() === key).length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -355,7 +462,7 @@ export default function ClubEventsMgmt() {
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             {filtered.map((ev, index) => {
               const rawStatus = ev.eventStatus || "Draft";
-              const status    = rawStatus.toUpperCase();
+              const status    = rawStatus.toUpperCase().replace(/_/g, "");
               const cfg       = STATUS_CFG[rawStatus] || STATUS_CFG[status] || STATUS_CFG["Draft"];
               const dateStr = ev.startDate
                 ? new Date(ev.startDate).toLocaleDateString("vi-VN")
@@ -410,7 +517,7 @@ export default function ClubEventsMgmt() {
       {/* Drawer chi tiết sự kiện */}
       {selectedEv && (() => {
         const rawStatus = selectedEv.eventStatus || "Draft";
-        const status    = rawStatus.toUpperCase();
+        const status    = rawStatus.toUpperCase().replace(/_/g, "");
         const cfg       = STATUS_CFG[rawStatus] || STATUS_CFG[status] || STATUS_CFG["Draft"];
         const dateStr    = selectedEv.startDate
           ? new Date(selectedEv.startDate).toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
@@ -429,7 +536,7 @@ export default function ClubEventsMgmt() {
         return (
           <>
             <div
-              onClick={() => setSelectedEv(null)}
+              onClick={() => closeDetail()}
               style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
             >
             <div
@@ -442,7 +549,7 @@ export default function ClubEventsMgmt() {
                 margin: "0 16px",
               }}>
               {/* Banner */}
-              {selectedEv.bannerUrl && (
+              {selectedEv.bannerUrl && !isEditing && (
                 <div style={{
                   height: 160, flexShrink: 0,
                   backgroundImage: `url(${getImageUrl(selectedEv.bannerUrl)})`,
@@ -469,7 +576,7 @@ export default function ClubEventsMgmt() {
                   )}
                 </div>
                 <button
-                  onClick={() => { setSelectedEv(null); setIsEditing(false); }}
+                  onClick={() => closeDetail()}
                   style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#6b7280", flexShrink: 0, borderRadius: 8 }}
                 >
                   <X size={20} />
@@ -497,6 +604,53 @@ export default function ClubEventsMgmt() {
                     <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Số người tối đa</label>
                     <input type="number" min={1} value={editForm.maxParticipants} onChange={(e) => setEditForm((f) => ({ ...f, maxParticipants: e.target.value }))}
                       style={{ width: "100%", fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", boxSizing: "border-box", outline: "none" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Quỹ dự kiến (VNĐ)</label>
+                    <input
+                      type="number" min={0} step={1000}
+                      value={editForm.budget}
+                      onChange={(e) => setEditForm((f) => ({ ...f, budget: e.target.value }))}
+                      placeholder="0"
+                      style={{ width: "100%", fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", boxSizing: "border-box", outline: "none" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 6 }}>Ảnh banner</label>
+                    <label style={{ display: "block", position: "relative", cursor: "pointer", borderRadius: 8, overflow: "hidden" }}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          setEditForm((prev) => ({ ...prev, bannerFile: f }));
+                        }}
+                      />
+                      {(editForm.bannerFile || selectedEv.bannerUrl) ? (
+                        <img
+                          src={editForm.bannerFile ? URL.createObjectURL(editForm.bannerFile) : getImageUrl(selectedEv.bannerUrl)}
+                          alt="Banner"
+                          style={{ width: "100%", height: 120, objectFit: "cover", display: "block" }}
+                        />
+                      ) : (
+                        <div style={{ width: "100%", height: 120, background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: "1.5px dashed #d1d5db" }}>
+                          <span style={{ fontSize: 13, color: "#9ca3af" }}>Chưa có ảnh banner</span>
+                        </div>
+                      )}
+                      <div style={{
+                        position: "absolute", top: 8, right: 8,
+                        background: "rgba(0,0,0,0.55)", borderRadius: 6,
+                        padding: "5px 10px", display: "flex", alignItems: "center", gap: 5,
+                        backdropFilter: "blur(4px)",
+                      }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                        <span style={{ fontSize: 12, color: "#fff", fontWeight: 600 }}>Sửa</span>
+                      </div>
+                    </label>
                   </div>
                   <div>
                     <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Mô tả</label>

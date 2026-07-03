@@ -29,6 +29,14 @@ const eventService = {
   getReportUploadedEvents: () => axiosClient.get("/v1/events/report-uploaded"),
   getReportByEventId: (eventId) => axiosClient.get(`/v1/reports/event/${eventId}`),
   rejectReport: (eventId) => axiosClient.patch(`/v1/events/${eventId}/reject-report`),
+  uploadBanner: (eventId, file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return axiosClient.post(`/v1/events/${eventId}/banner`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
   uploadReport: (eventId, summary, file) => {
     const form = new FormData();
     form.append("eventID", eventId);

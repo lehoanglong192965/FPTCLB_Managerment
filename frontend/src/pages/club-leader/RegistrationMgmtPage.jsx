@@ -159,7 +159,7 @@ export default function RegistrationMgmtPage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl">
+    <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
       <button
         onClick={() => navigate(-1)}

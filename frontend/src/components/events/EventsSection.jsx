@@ -33,7 +33,11 @@ export default function EventsSection() {
         const clubRes = await safeGet(() => clubService.getAll(), 100);
         if (cancelled) return;
 
-        const evList   = Array.isArray(evRes)   ? evRes   : (evRes?.content   ?? evRes?.data   ?? []);
+        const evList   = (Array.isArray(evRes) ? evRes : (evRes?.content ?? evRes?.data ?? []))
+          .filter((e) => {
+            const s = (e.eventStatus ?? e.status ?? "").toUpperCase().replace(/_/g, "");
+            return s !== "APPROVED";
+          });
         const clubList = clubRes
           ? (Array.isArray(clubRes) ? clubRes : (clubRes?.content ?? clubRes?.data ?? []))
           : [];

@@ -236,7 +236,8 @@ function loadProcessed() {
 }
 
 function saveProcessed(events) {
-  localStorage.setItem(LS_KEY, JSON.stringify(events.filter((e) => e.status !== "pending")));
+  // Chỉ lưu sự kiện bị từ chối — approved được lấy từ API thật khi reload
+  localStorage.setItem(LS_KEY, JSON.stringify(events.filter((e) => e.status === "rejected")));
 }
 
 function savePublicApproved(events) {
@@ -259,11 +260,17 @@ export default function IcpdpEventApproval() {
 
   const fetchEvents = () => {
     setLoading(true);
-    eventService.getPendingForIcpdp()
-      .then((res) => {
-        const list = Array.isArray(res) ? res : res?.data ?? [];
-        const pendingIds = new Set(list.map((e) => e.eventID));
-        const fromApi = list.map((e) => ({
+    Promise.all([
+      eventService.getPendingForIcpdp().catch(() => []),
+      eventService.getApprovedEvents().catch(() => []),
+    ])
+      .then(([pendingRes, approvedRes]) => {
+        const pendingList   = Array.isArray(pendingRes)  ? pendingRes  : (pendingRes?.data  ?? []);
+        const approvedList  = Array.isArray(approvedRes) ? approvedRes : (approvedRes?.content ?? approvedRes?.data ?? []);
+
+        const pendingIds    = new Set(pendingList.map((e) => e.eventID));
+
+        const fromPending = pendingList.map((e) => ({
           id:               e.eventID,
           status:           "pending",
           statusLabel:      "Chờ IC-PDP duyệt",
@@ -277,8 +284,31 @@ export default function IcpdpEventApproval() {
           bannerUrl:        e.bannerUrl ?? null,
           scheduleConflict: false,
         }));
-        const processed = loadProcessed().filter((e) => !pendingIds.has(e.id));
-        setEvents([...fromApi, ...processed]);
+
+        // Sự kiện đã duyệt lấy từ API thật (APPROVED / REGISTRATION_OPEN / v.v.)
+        const fromApproved = approvedList.map((e) => ({
+          id:               e.eventID,
+          status:           "approved",
+          statusLabel:      "Đã phê duyệt",
+          name:             e.eventName,
+          club:             e.clubName ?? `CLB #${e.clubID}`,
+          description:      e.description,
+          eventDate:        formatDate(e.startDate),
+          budget:           formatBudget(e.budget),
+          location:         e.location,
+          submittedAt:      formatDate(e.createdAt),
+          bannerUrl:        e.bannerUrl ?? null,
+          scheduleConflict: false,
+        }));
+
+        const approvedIds = new Set(fromApproved.map((e) => e.id));
+
+        // Sự kiện bị từ chối chỉ có trong localStorage (BE không có endpoint riêng)
+        const rejectedFromStorage = loadProcessed().filter(
+          (e) => e.status === "rejected" && !pendingIds.has(e.id) && !approvedIds.has(e.id)
+        );
+
+        setEvents([...fromPending, ...fromApproved, ...rejectedFromStorage]);
       })
       .catch(() => setEvents(loadProcessed()))
       .finally(() => setLoading(false));
