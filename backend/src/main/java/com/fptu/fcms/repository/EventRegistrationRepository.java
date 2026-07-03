@@ -2,7 +2,7 @@ package com.fptu.fcms.repository;
 
 import com.fptu.fcms.entity.EventRegistration;
 import com.fptu.fcms.enums.RegistrationStatus;
-import io.lettuce.core.dynamic.annotation.Param;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -54,9 +54,9 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
             RegistrationStatus status
     );
 
-    Optional<Object> findByRegistrationIDAndIsDeletedFalse(Integer registrationId);
+    Optional<EventRegistration> findByRegistrationIDAndIsDeletedFalse(Integer registrationId);
 
-    Collection<Object> findByEventIDInAndUserIDInAndStatusInAndIsDeletedFalse(Collection<Integer> eventID, Collection<Integer> userID, Collection<String> status);
+    Collection<EventRegistration> findByEventIDInAndUserIDInAndStatusInAndIsDeletedFalse(Collection<Integer> eventID, Collection<Integer> userID, Collection<String> status);
 
     @Query("""
     SELECT CASE WHEN COUNT(er) > 0 THEN true ELSE false END
@@ -85,4 +85,11 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     Optional<Object> findByGuestReferenceHashAndIsDeletedFalse(String hash);
 
     boolean existsByRegistrationCodeAndIsDeletedFalse(String code);
+
+    // Custom query for GuestOtpExpiryScheduler — avoids loading entire table
+    @Query("SELECT r FROM EventRegistration r WHERE r.registrationStatus = :status AND r.createdAt < :threshold AND r.isDeleted = false")
+    List<EventRegistration> findByRegistrationStatusAndCreatedAtBeforeAndIsDeletedFalse(
+            @Param("status") RegistrationStatus status,
+            @Param("threshold") java.time.LocalDateTime threshold
+    );
 }

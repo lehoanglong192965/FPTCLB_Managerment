@@ -3,70 +3,59 @@ import axiosClient from "../axiosClient";
 /**
  * Contribution & Appeal — đánh giá đóng góp thành viên sau sự kiện (Sprint 6 — BE-CON-*)
  *
- * Luồng:
- *   [Leader] getDraft() → update() → finalize()
- *     → APPEAL_WINDOW (24h) → [Member] submitAppeal()
- *       → [Leader] processAppeal() HOẶC hết 24h (BE-CON-08 scheduler tự đóng)
- *         → [ICPDP nếu cần] emergencyOverride()
+ * Actual BE endpoints (confirmed from ContributionBatchController + EventController):
+ *   GET  /api/v1/events/:eventId/contributions                    → getContributionScores
+ *   POST /api/v1/events/:eventId/contributions                    → saveContributionScores
+ *   GET  /api/v1/events/:eventId/contribution-batch               → getBatchByEvent
+ *   POST /api/v1/events/:eventId/contribution-batch/open-appeal   → openAppealWindow
+ *   POST /api/v1/events/:eventId/contribution-batch/finalize      → finalizeBatch
+ *   GET  /api/v1/contribution-batches/:batchId/appeals            → getAppeals
+ *   POST /api/v1/contribution-batches/:batchId/appeals            → createAppeal
+ *   PATCH /api/v1/contribution-appeals/:appealId/resolve          → resolveAppeal
  *
- * Chú ý:
- * - Chỉ Host (người được phân công) mới có trong danh sách contribution
- * - Leader không được tự đánh giá bản thân (BE-CON-04 guard)
- * - Sau CLOSED không được sửa (BE-CON-11)
+ * Note: appeals use batchId/appealId, NOT eventId/userId.
  */
 const contributionService = {
 
-  // ── LEADER — TẠO & CHỈNH SỬA ──────────────────────────────────────
-  // BE-CON-01: Lấy danh sách contribution draft (Host eligible only)
+  // ── LEADER — DANH SÁCH & CẬP NHẬT ─────────────────────────────────
   // GET /api/v1/events/:eventId/contributions
   getDraft: (eventId) =>
     axiosClient.get(`/v1/events/${eventId}/contributions`),
 
-  // BE-CON-03: Cập nhật tier và ghi chú cho từng người
-  // PUT /api/v1/events/:eventId/contributions
+  // POST /api/v1/events/:eventId/contributions  (backend uses POST, not PUT)
   // payload: [{ userId, tier, rationale }]
   update: (eventId, contributions) =>
-    axiosClient.put(`/v1/events/${eventId}/contributions`, contributions),
+    axiosClient.post(`/v1/events/${eventId}/contributions`, contributions),
 
-  // BE-CON-05: Khoá đánh giá → bắt đầu APPEAL_WINDOW 24h
-  // PATCH /api/v1/events/:eventId/contributions/finalize
+  // ── BATCH LIFECYCLE ────────────────────────────────────────────────
+  // GET /api/v1/events/:eventId/contribution-batch
+  // Response: ContributionBatchResponse { batchID, status, appealOpenedAt, appealClosesAt, ... }
+  getBatch: (eventId) =>
+    axiosClient.get(`/v1/events/${eventId}/contribution-batch`),
+
+  // POST /api/v1/events/:eventId/contribution-batch/open-appeal
+  openAppealWindow: (eventId) =>
+    axiosClient.post(`/v1/events/${eventId}/contribution-batch/open-appeal`),
+
+  // POST /api/v1/events/:eventId/contribution-batch/finalize
   finalize: (eventId) =>
-    axiosClient.patch(`/v1/events/${eventId}/contributions/finalize`),
+    axiosClient.post(`/v1/events/${eventId}/contribution-batch/finalize`),
 
-  // ── MEMBER — KHÁNG CÁO ────────────────────────────────────────────
-  // BE-CON-06: Nộp kháng cáo trong 24h kể từ khi finalize
-  // POST /api/v1/events/:eventId/contributions/appeal
-  submitAppeal: (eventId, { reason }) =>
-    axiosClient.post(`/v1/events/${eventId}/contributions/appeal`, { reason }),
+  // ── MEMBER — KHÁNG CÁO (cần batchId từ getBatch trước) ───────────
+  // POST /api/v1/contribution-batches/:batchId/appeals
+  // payload: { reason }
+  submitAppeal: (batchId, { reason }) =>
+    axiosClient.post(`/v1/contribution-batches/${batchId}/appeals`, { reason }),
 
-  // Xem trạng thái kháng cáo của bản thân
-  // GET /api/v1/events/:eventId/contributions/appeal/my
-  getMyAppeal: (eventId) =>
-    axiosClient.get(`/v1/events/${eventId}/contributions/appeal/my`),
+  // ── LEADER/ICPDP — XỬ LÝ KHÁNG CÁO ──────────────────────────────
+  // GET /api/v1/contribution-batches/:batchId/appeals
+  getAppeals: (batchId) =>
+    axiosClient.get(`/v1/contribution-batches/${batchId}/appeals`),
 
-  // ── LEADER — XỬ LÝ KHÁNG CÁO ─────────────────────────────────────
-  // BE-CON-07: Xem tất cả kháng cáo của sự kiện
-  // GET /api/v1/events/:eventId/contributions/appeals
-  getAppeals: (eventId) =>
-    axiosClient.get(`/v1/events/${eventId}/contributions/appeals`),
-
-  // BE-CON-07: Chấp nhận hoặc từ chối kháng cáo của một thành viên
-  // PATCH /api/v1/events/:eventId/contributions/:userId/appeal/process
-  processAppeal: (eventId, userId, { isAccepted, newTier, reason }) =>
-    axiosClient.patch(
-      `/v1/events/${eventId}/contributions/${userId}/appeal/process`,
-      { isAccepted, newTier, reason }
-    ),
-
-  // ── ICPDP — OVERRIDE KHẨN CẤP (BE-CON-09) ────────────────────────
-  // Ghi đè kết quả sau khi CLOSED (cần lý do rõ ràng)
-  // PATCH /api/v1/events/:eventId/contributions/override
-  emergencyOverride: (eventId, { userId, newTier, reason }) =>
-    axiosClient.patch(`/v1/events/${eventId}/contributions/override`, {
-      userId,
-      newTier,
-      reason,
-    }),
+  // PATCH /api/v1/contribution-appeals/:appealId/resolve
+  // payload: { status: 'ACCEPTED'|'REJECTED', resolutionNote, contributionType?, leaderEvaluation? }
+  resolveAppeal: (appealId, payload) =>
+    axiosClient.patch(`/v1/contribution-appeals/${appealId}/resolve`, payload),
 };
 
 export default contributionService;

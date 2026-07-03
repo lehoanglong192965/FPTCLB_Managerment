@@ -1,22 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FileText, Upload, ArrowLeft, CheckCircle2 } from 'lucide-react';
-
-// Mock — thay bằng reportService.getByEventId(eventId) trong Sprint 6
-const MOCK_EVENT = {
-  eventId: 1,
-  eventName: 'Hackathon FPT 2026 – Build The Future',
-  endDate: '15/08/2026',
-  status: 'Completed',
-};
+import { FileText, Upload, ArrowLeft, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import reportService from '../../services/api/report/reportService';
+import eventService from '../../services/api/events/eventService';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function ReportSubmitPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
+
+  const [event, setEvent] = useState(null);
+  const [existing, setExisting] = useState(null); // existing report if any
   const [file, setFile] = useState(null);
   const [summary, setSummary] = useState('');
-  const [submitted, setSubmitted] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!eventId) return;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [evRes, repRes] = await Promise.allSettled([
+          eventService.getEventById(eventId),
+          reportService.getByEventId(eventId),
+        ]);
+        if (evRes.status === 'fulfilled') setEvent(evRes.value?.data ?? evRes.value);
+        if (repRes.status === 'fulfilled') {
+          const rep = repRes.value?.data ?? repRes.value;
+          if (rep) {
+            setExisting(rep);
+            setSummary(rep.summary || '');
+          }
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [eventId]);
 
   const handleFileChange = (e) => {
     const f = e.target.files[0];
@@ -25,14 +49,28 @@ export default function ReportSubmitPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file) return;
+    if (!file || uploading) return;
     setUploading(true);
-    // TODO Sprint 6: reportService.submit(eventId, { file, summary })
-    setTimeout(() => {
-      setUploading(false);
+    try {
+      const isResubmit = existing?.status === 'REJECTED';
+      if (isResubmit) {
+        await reportService.resubmit(eventId, { file, summary });
+        toast.success('Đã nộp lại báo cáo thành công!');
+      } else {
+        await reportService.submit(eventId, { file, summary });
+        toast.success('Đã nộp báo cáo thành công!');
+      }
       setSubmitted(true);
-    }, 1200);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Nộp báo cáo thất bại. Vui lòng thử lại.');
+    } finally {
+      setUploading(false);
+    }
   };
+
+  if (loading) {
+    return <div className="p-6 text-center text-sm text-gray-400">Đang tải...</div>;
+  }
 
   if (submitted) {
     return (
@@ -42,7 +80,7 @@ export default function ReportSubmitPage() {
           <h2 className="text-xl font-bold text-gray-900">Nộp báo cáo thành công!</h2>
           <p className="text-gray-500 text-sm mt-2">ICPDP sẽ xem xét và phê duyệt báo cáo của bạn.</p>
           <button
-            onClick={() => navigate('/club-leader/events')}
+            onClick={() => navigate(-1)}
             className="mt-6 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
           >
             Về quản lý sự kiện
@@ -52,26 +90,50 @@ export default function ReportSubmitPage() {
     );
   }
 
+  const isResubmit = existing?.status === 'REJECTED';
+
   return (
     <div className="p-6 max-w-2xl">
-      {/* Back */}
       <button
-        onClick={() => navigate('/club-leader/events')}
+        onClick={() => navigate(-1)}
         className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors"
       >
-        <ArrowLeft size={16} /> Quản lý sự kiện
+        <ArrowLeft size={16} /> Quay lại
       </button>
 
-      {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <FileText size={22} className="text-blue-600" />
-          Nộp Báo Cáo Sự Kiện
+          {isResubmit ? 'Nộp Lại Báo Cáo' : 'Nộp Báo Cáo Sự Kiện'}
         </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          {MOCK_EVENT.eventName} &mdash; Kết thúc: {MOCK_EVENT.endDate}
-        </p>
+        {event && (
+          <p className="text-sm text-gray-500 mt-1">
+            {event.eventName}
+            {event.endDate && (
+              <> &mdash; Kết thúc: {new Date(event.endDate).toLocaleDateString('vi-VN')}</>
+            )}
+          </p>
+        )}
       </div>
+
+      {/* Rejection reason banner */}
+      {isResubmit && existing?.rejectionReason && (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5 text-sm">
+          <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-red-700">Báo cáo bị từ chối:</p>
+            <p className="text-red-600 mt-0.5">{existing.rejectionReason}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Status of existing report */}
+      {existing && existing.status !== 'REJECTED' && (
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5 text-sm text-blue-700">
+          <RefreshCw size={15} />
+          Báo cáo hiện tại: <strong>{existing.status === 'PENDING_REVIEW' ? 'Đang chờ duyệt' : existing.status}</strong>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-100 p-6 space-y-5">
         {/* File upload */}
@@ -93,20 +155,13 @@ export default function ReportSubmitPage() {
                 <p className="text-xs text-gray-400 mt-1">PDF, DOCX — tối đa 10MB</p>
               </div>
             )}
-            <input
-              type="file"
-              className="hidden"
-              accept=".pdf,.doc,.docx"
-              onChange={handleFileChange}
-            />
+            <input type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
           </label>
         </div>
 
         {/* Summary */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Tóm tắt báo cáo
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Tóm tắt báo cáo</label>
           <textarea
             rows={5}
             value={summary}
@@ -125,12 +180,12 @@ export default function ReportSubmitPage() {
             {uploading ? (
               <><i className="fas fa-spinner fa-spin" /> Đang nộp...</>
             ) : (
-              <><Upload size={15} /> Nộp báo cáo</>
+              <><Upload size={15} /> {isResubmit ? 'Nộp lại báo cáo' : 'Nộp báo cáo'}</>
             )}
           </button>
           <button
             type="button"
-            onClick={() => navigate('/club-leader/events')}
+            onClick={() => navigate(-1)}
             className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
           >
             Huỷ

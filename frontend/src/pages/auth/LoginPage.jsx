@@ -152,33 +152,35 @@ export default function LoginPage() {
             )}
           </div>
 
-          <div className="relative">
-            <input
-              className={[
-                "w-full pl-[14px] pr-[42px] py-[11px] border-0 border-b-[1.5px] bg-transparent text-[14px] text-[#1A1A1A] outline-none transition-colors duration-150 box-border placeholder-[#ABABAB]",
-                errors.password
-                  ? "border-b-[#D0453A]"
-                  : "border-b-[#E4E4E4] focus:border-b-[#4A90D9]",
-                !!loading ? "opacity-60 cursor-not-allowed" : "",
-              ].join(" ")}
-              type={showPass ? "text" : "password"}
-              placeholder="Mật khẩu"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (errors.password) setErrors((p) => ({ ...p, password: "" }));
-              }}
-              disabled={!!loading}
-              autoComplete="current-password"
-            />
-            <button
-              type="button"
-              className="absolute right-[10px] top-1/2 -translate-y-1/2 bg-none border-0 cursor-pointer text-[#ABABAB] flex items-center p-[2px] transition-colors duration-150 hover:text-[#6B6B6B]"
-              onClick={() => setShowPass((v) => !v)}
-              aria-label={showPass ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-            >
-              <EyeIcon open={showPass} /> 
-            </button>
+          <div>
+            <div className="relative">
+              <input
+                className={[
+                  "w-full pl-[14px] pr-[42px] py-[11px] border-0 border-b-[1.5px] bg-transparent text-[14px] text-[#1A1A1A] outline-none transition-colors duration-150 box-border placeholder-[#ABABAB]",
+                  errors.password
+                    ? "border-b-[#D0453A]"
+                    : "border-b-[#E4E4E4] focus:border-b-[#4A90D9]",
+                  !!loading ? "opacity-60 cursor-not-allowed" : "",
+                ].join(" ")}
+                type={showPass ? "text" : "password"}
+                placeholder="Mật khẩu"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (errors.password) setErrors((p) => ({ ...p, password: "" }));
+                }}
+                disabled={!!loading}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                className="absolute right-[10px] top-1/2 -translate-y-1/2 bg-none border-0 cursor-pointer text-[#ABABAB] flex items-center p-[2px] transition-colors duration-150 hover:text-[#6B6B6B]"
+                onClick={() => setShowPass((v) => !v)}
+                aria-label={showPass ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              >
+                <EyeIcon open={showPass} />
+              </button>
+            </div>
             {errors.password && (
               <p className="text-[12px] text-[#D0453A] mt-[5px] pl-[2px] leading-[1.4]">{errors.password}</p>
             )}

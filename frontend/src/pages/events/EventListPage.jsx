@@ -55,7 +55,14 @@ export default function EventListPage() {
         const [evRes, clubRes, regRes] = await Promise.all(requests);
         if (cancelled) return;
 
-        if (evRes) setRawEvents(Array.isArray(evRes) ? evRes : (evRes?.content ?? evRes?.data ?? []));
+        if (evRes) {
+          const evList = (Array.isArray(evRes) ? evRes : (evRes?.content ?? evRes?.data ?? []))
+            .filter((e) => {
+              const s = (e.eventStatus ?? e.status ?? "").toUpperCase().replace(/_/g, "");
+              return s !== "APPROVED";
+            });
+          setRawEvents(evList);
+        }
         if (clubRes) setClubs(Array.isArray(clubRes) ? clubRes : (clubRes?.content ?? clubRes?.data ?? []));
 
         const regList = Array.isArray(regRes) ? regRes : [];

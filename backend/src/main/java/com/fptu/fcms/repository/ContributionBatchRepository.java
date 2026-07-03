@@ -5,6 +5,7 @@ import com.fptu.fcms.enums.ContributionBatchStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,4 +16,11 @@ public interface ContributionBatchRepository extends JpaRepository<ContributionB
     Optional<ContributionBatch> findByBatchIDAndIsDeletedFalse(Integer batchID);
 
     List<ContributionBatch> findByClubIDAndStatusAndIsDeletedFalse(Integer clubID, ContributionBatchStatus status);
+
+    List<ContributionBatch> findByStatusAndAppealClosesAtBeforeAndIsDeletedFalse(
+            ContributionBatchStatus status,
+            LocalDateTime appealClosesAt
+    );
+
+    List<ContributionBatch> findByStatusAndIsDeletedFalse(ContributionBatchStatus status);
 }

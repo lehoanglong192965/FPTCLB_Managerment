@@ -1,26 +1,52 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, RefreshCw } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
 import OTPInput from '../../components/ui/OTPInput';
+import guestService from '../../services/api/guest/guestService';
+import { maskEmail } from '../../utils/piiMask';
 
 export default function GuestVerifyOtpPage() {
   const navigate = useNavigate();
-  const [otp, setOtp] = useState('');
-  const [resending, setResending] = useState(false);
-  // Email lấy từ state navigation — mock ở đây
-  const maskedEmail = 'exa***@gmail.com';
+  const location = useLocation();
 
-  const handleVerify = (e) => {
+  // guestReference + email passed via navigate state from GuestRegisterPage
+  const { guestReference, email } = location.state || {};
+  const maskedEmail = email ? maskEmail(email) : '(email không xác định)';
+
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState(null);
+
+  const handleVerify = async (e) => {
     e.preventDefault();
-    if (otp.length < 6) return;
-    // TODO Sprint 4: gọi guestService.verifyOtp(otp) → navigate('/guest/status/:ref')
-    navigate('/guest/status/mock-ref-001');
+    if (otp.length < 6 || loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await guestService.verifyOtp(guestReference, { otp });
+      navigate(`/guest/status/${guestReference}`, { replace: true });
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Mã OTP không đúng hoặc đã hết hạn.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
+    if (resending || !guestReference) return;
     setResending(true);
-    // TODO Sprint 4: gọi guestService.resendOtp()
-    setTimeout(() => setResending(false), 2000);
+    setResendMsg(null);
+    setError(null);
+    try {
+      await guestService.resendOtp(guestReference);
+      setResendMsg('Đã gửi lại mã OTP. Vui lòng kiểm tra email.');
+    } catch (err) {
+      setResendMsg(err?.response?.data?.message || 'Không thể gửi lại. Thử lại sau ít phút.');
+    } finally {
+      setResending(false);
+    }
   };
 
   return (
@@ -34,15 +60,28 @@ export default function GuestVerifyOtpPage() {
           Nhập mã 6 chữ số đã gửi đến <strong>{maskedEmail}</strong>
         </p>
 
+        {error && (
+          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2.5 mb-4 text-sm text-left">
+            <AlertCircle size={15} className="shrink-0" />
+            {error}
+          </div>
+        )}
+
+        {resendMsg && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-3 py-2.5 mb-4 text-sm">
+            {resendMsg}
+          </div>
+        )}
+
         <form onSubmit={handleVerify} className="space-y-5">
-          <OTPInput length={6} value={otp} onChange={setOtp} />
+          <OTPInput length={6} value={otp} onChange={(v) => { setOtp(v); setError(null); }} />
 
           <button
             type="submit"
-            disabled={otp.length < 6}
+            disabled={otp.length < 6 || loading}
             className="w-full py-3 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
           >
-            Xác nhận
+            {loading ? 'Đang xác thực...' : 'Xác nhận'}
           </button>
         </form>
 

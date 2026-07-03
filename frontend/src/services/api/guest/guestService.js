@@ -1,42 +1,32 @@
 import axiosClient from "../axiosClient";
 
-/**
- * Guest OTP registration flow (Sprint 4 — BE-GST-*)
- *
- * Luồng:
- *   register() → sendOtp() (BE tự gửi sau register) → verifyOtp() → CONFIRMED
- *                                                    ↗ resendOtp() nếu hết hạn
- */
+// GuestRegistrationController is at /api (not /api/v1), so paths have no /v1/ prefix.
+// baseURL = http://localhost:8080/api, so /events/... → http://localhost:8080/api/events/...
 const guestService = {
 
-  // ── ĐĂNG KÝ ──────────────────────────────────────────────────────
-  // BE-GST-05: Tạo đăng ký Guest, trạng thái PENDING_VERIFICATION, BE tự gửi OTP qua email
-  // POST /api/v1/guest/register
-  register: (eventId, { fullName, email, phone }) =>
-    axiosClient.post("/v1/guest/register", { eventId, fullName, email, phone }),
+  // POST /api/events/{eventId}/guest-registrations
+  // GuestRegistrationRequest: fullName, email, phone, schoolOrOrganization, consent (@AssertTrue), discoverySource (@NotBlank)
+  register: (eventId, { fullName, email, phone, schoolOrOrganization, discoverySource = 'EVENT_PAGE', consent = true }) =>
+    axiosClient.post(`/events/${eventId}/guest-registrations`, {
+      fullName, email, phone, schoolOrOrganization, discoverySource, consent,
+    }),
 
-  // ── XÁC THỰC OTP ─────────────────────────────────────────────────
-  // BE-GST-08: Xác thực OTP → chuyển sang CONFIRMED hoặc WAITLISTED
-  // POST /api/v1/guest/verify-otp
-  verifyOtp: ({ email, otp }) =>
-    axiosClient.post("/v1/guest/verify-otp", { email, otp }),
+  // POST /api/guest-registrations/{guestReference}/verify-otp
+  // GuestOtpVerifyRequest: otp (@NotBlank, size 4-12)
+  verifyOtp: (guestReference, { otp }) =>
+    axiosClient.post(`/guest-registrations/${guestReference}/verify-otp`, { otp }),
 
-  // BE-GST-09: Gửi lại OTP (có giới hạn số lần)
-  // POST /api/v1/guest/resend-otp
-  resendOtp: ({ email, eventId }) =>
-    axiosClient.post("/v1/guest/resend-otp", { email, eventId }),
+  // POST /api/guest-registrations/{guestReference}/resend-otp  (no request body)
+  resendOtp: (guestReference) =>
+    axiosClient.post(`/guest-registrations/${guestReference}/resend-otp`),
 
-  // ── XEM TRẠNG THÁI ───────────────────────────────────────────────
-  // BE-GST-09: Xem trạng thái đăng ký theo guestReference
-  // GET /api/v1/guest/status/:ref
-  getStatus: (guestRef) =>
-    axiosClient.get(`/v1/guest/status/${guestRef}`),
+  // GET /api/guest-registrations/{guestReference}
+  getStatus: (guestReference) =>
+    axiosClient.get(`/guest-registrations/${guestReference}`),
 
-  // ── HUỶ ĐĂNG KÝ ──────────────────────────────────────────────────
-  // BE-GST-09: Huỷ đăng ký (trước khi sự kiện bắt đầu)
-  // DELETE /api/v1/guest/cancel/:ref
-  cancel: (guestRef) =>
-    axiosClient.delete(`/v1/guest/cancel/${guestRef}`),
+  // POST /api/guest-registrations/{guestReference}/cancel  (not DELETE)
+  cancel: (guestReference) =>
+    axiosClient.post(`/guest-registrations/${guestReference}/cancel`),
 };
 
 export default guestService;

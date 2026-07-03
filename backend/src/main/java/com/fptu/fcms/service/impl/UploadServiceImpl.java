@@ -42,11 +42,10 @@ public class UploadServiceImpl implements UploadService {
         }
 
         try {
-            // Generate a unique file name
-            String originalFileName = file.getOriginalFilename();
-            String fileExtension = "";
-            if (originalFileName != null && originalFileName.contains(".")) {
-                fileExtension = originalFileName.substring(originalFileName.lastIndexOf("."));
+            // Generate a unique file name based on content type, preventing extension spoofing
+            String fileExtension = ".jpg";
+            if ("image/png".equals(contentType)) {
+                fileExtension = ".png";
             }
             String fileName = UUID.randomUUID().toString() + fileExtension;
 
@@ -68,6 +67,12 @@ public class UploadServiceImpl implements UploadService {
     public Resource loadFileAsResource(String filename) {
         try {
             Path filePath = this.fileStorageLocation.resolve(filename).normalize();
+            
+            // Prevent Path Traversal (LFI)
+            if (!filePath.startsWith(this.fileStorageLocation)) {
+                throw new SecurityException("Cảnh báo bảo mật: Phát hiện nỗ lực Path Traversal!");
+            }
+            
             Resource resource = new UrlResource(filePath.toUri());
 
             if (resource.exists()) {

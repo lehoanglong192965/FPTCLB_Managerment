@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 
 const ROLE_DASHBOARD = {
@@ -19,9 +19,13 @@ function getDashboardPath(user) {
 export default function Header() {
   const [scrolled, setScrolled]   = useState(false);
   const [menuOpen, setMenuOpen]   = useState(false);
-  const { user }                  = useAuth();
+  const { user, logout }          = useAuth();
   const navigate                  = useNavigate();
+  const { pathname }              = useLocation();
   const menuRef                   = useRef(null);
+
+  const isAuthPage = pathname === "/login" || pathname === "/register" || pathname === "/forgot-password"
+    || pathname.startsWith("/guest/register") || pathname === "/guest/verify-otp" || pathname.startsWith("/guest/status");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -101,7 +105,7 @@ export default function Header() {
                 </button>
                 <div className="h-px bg-gray-100 mx-3 my-1" />
                 <button
-                  onClick={() => { setMenuOpen(false); localStorage.clear(); window.location.href = "/login"; }}
+                  onClick={() => { setMenuOpen(false); logout(); }}
                   onMouseEnter={e => { e.currentTarget.style.background = "#fef2f2"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
                   style={{ color: "#ef4444", background: "transparent" }}
@@ -115,14 +119,14 @@ export default function Header() {
               </div>
             )}
           </div>
-        ) : (
+        ) : !isAuthPage && (
           /* ── Chưa đăng nhập: hiện nút Đăng nhập / Đăng ký ── */
           <>
             <button
-              className="px-[18px] py-2 rounded-sm text-[14px] font-semibold bg-transparent border cursor-pointer font-[inherit] transition-all duration-200"
-              style={{ color: "#9ca3af", borderColor: "#9ca3af" }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = "#F37021"; e.currentTarget.style.borderColor = "#F37021"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "#9ca3af"; e.currentTarget.style.borderColor = "#9ca3af"; }}
+              className="px-5 py-[9px] rounded-sm text-[14px] font-bold text-white border-0 cursor-pointer font-[inherit] transition-all duration-200 hover:-translate-y-px"
+              style={{ background: "linear-gradient(135deg, var(--orange), var(--orange-light))", boxShadow: "var(--shadow-orange)" }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 12px 36px rgba(255,107,0,0.40)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "var(--shadow-orange)"; }}
               onClick={() => navigate("/login")}
             >
               Đăng Nhập

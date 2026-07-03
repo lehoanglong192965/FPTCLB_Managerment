@@ -10,7 +10,13 @@ import java.math.*;
 
 @Entity
 @SQLRestriction("isDeleted = false")
-@Table(name = "ClubMembership", uniqueConstraints = {@UniqueConstraint(columnNames = {"userID", "clubID", "semesterID"})})
+@Table(
+        name = "ClubMembership",
+        indexes = {
+                @Index(name = "IX_ClubMembership_Club_User_Semester", columnList = "clubID,userID,semesterID")
+        },
+        uniqueConstraints = {@UniqueConstraint(columnNames = {"userID", "clubID", "semesterID"})}
+)
 @Getter
 @Setter
 @NoArgsConstructor

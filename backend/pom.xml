@@ -12,8 +12,13 @@
         <version>3.3.0</version>
         <relativePath/>
     </parent>
-    <artifactId>backend</artifactId>
 
+    <groupId>com.fptu</groupId>
+    <artifactId>backend</artifactId>
+    <version>1.0.0</version>
+
+    <name>backend</name>
+    <description>FPT Club Management System Backend</description>
 
     <properties>
         <java.version>21</java.version>
@@ -60,7 +65,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Security -->
+        <!-- Spring Security -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
@@ -100,7 +105,7 @@
             <version>2.5.0</version>
         </dependency>
 
-        <!-- Excel -->
+        <!-- Apache POI -->
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi</artifactId>
@@ -113,7 +118,7 @@
             <version>5.2.5</version>
         </dependency>
 
-        <!-- Email (JavaMailSender) -->
+        <!-- Email -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
@@ -121,13 +126,13 @@
 
         <!-- Lombok -->
         <dependency>
-			<groupId>org.projectlombok</groupId>
-			<artifactId>lombok</artifactId>
-			<version>${lombok.version}</version>
-			<optional>true</optional>
-		</dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <optional>true</optional>
+        </dependency>
 
-        <!-- Devtools -->
+        <!-- DevTools -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-devtools</artifactId>
@@ -160,15 +165,20 @@
     <build>
         <plugins>
 
+            <!-- Spring Boot Plugin -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
 
+            <!-- Java Compiler -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+
                 <configuration>
+                    <release>${maven.compiler.release}</release>
+
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>
