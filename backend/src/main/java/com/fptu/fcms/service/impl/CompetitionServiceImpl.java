@@ -1,6 +1,7 @@
 package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.entity.*;
+import com.fptu.fcms.enums.CompetitionStatus;
 import com.fptu.fcms.repository.*;
 import com.fptu.fcms.service.CompetitionService;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +52,7 @@ public class CompetitionServiceImpl implements CompetitionService {
     @Override
     @Transactional
     public Competition createCompetition(Competition competition) {
-        competition.setStatus("Draft");
+        competition.setStatus(CompetitionStatus.Draft);
         return competitionRepository.save(competition);
     }
 
@@ -76,7 +77,7 @@ public class CompetitionServiceImpl implements CompetitionService {
         if (!"Calculated".equals(competition.getStatus())) {
             throw new IllegalStateException("Phải tính điểm trước khi approve. Trạng thái hiện tại: " + competition.getStatus());
         }
-        competition.setStatus("Approved");
+        competition.setStatus(CompetitionStatus.Approved);
         competitionRepository.save(competition);
         log.info("Competition {} approved", id);
     }
@@ -88,7 +89,7 @@ public class CompetitionServiceImpl implements CompetitionService {
         if (!"Approved".equals(competition.getStatus())) {
             throw new IllegalStateException("Phải approve trước khi publish. Trạng thái hiện tại: " + competition.getStatus());
         }
-        competition.setStatus("Published");
+        competition.setStatus(CompetitionStatus.Published);
         competitionRepository.save(competition);
         log.info("Competition {} published", id);
     }
@@ -194,7 +195,7 @@ public class CompetitionServiceImpl implements CompetitionService {
         scoreRepository.saveAll(newScores);
 
         // 5. Update status
-        competition.setStatus("Calculated");
+        competition.setStatus(CompetitionStatus.Calculated);
         competitionRepository.save(competition);
 
         log.info("Successfully calculated and saved scores for {} members in competition {}.", newScores.size(), competitionId);

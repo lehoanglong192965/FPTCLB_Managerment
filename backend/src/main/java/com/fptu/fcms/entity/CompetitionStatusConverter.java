@@ -15,9 +15,14 @@ public class CompetitionStatusConverter implements AttributeConverter<Competitio
             return null;
         }
         return switch (attribute) {
+            case Draft -> "DRAFT";
+            case Published -> "PUBLISHED";
             case DRAFT -> "Draft";
             case OPEN -> "Open";
             case CLOSED -> "Closed";
+            case Approved -> "Approved";
+            case Rejected -> "Rejected";
+            case Calculated -> "Calculated";
         };
     }
 
