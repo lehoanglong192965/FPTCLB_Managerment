@@ -114,15 +114,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
-                .flatMap(activeSemester -> clubRoleRepository.findByRoleNameAndIsDeletedFalse("Leader")
-                        .map(leaderRole -> clubMembershipRepository
-                                .existsByUserIDAndSemesterIDAndClubRoleIDAndIsDeletedFalse(
-                                        userId,
-                                        activeSemester.getSemesterID(),
-                                        leaderRole.getClubRoleID()
-                                )))
-                .filter(Boolean.TRUE::equals)
-                .ifPresent(isLeader -> authorities.add(new SimpleGrantedAuthority("ROLE_Leader")));
+        semesterRepository.findByIsActiveTrueAndIsDeletedFalse().ifPresent(activeSemester -> {
+            Integer semesterId = activeSemester.getSemesterID();
+
+            // Check for Leader
+            clubRoleRepository.findByRoleNameAndIsDeletedFalse("Leader").ifPresent(leaderRole -> {
+                boolean isLeader = clubMembershipRepository
+                        .existsByUserIDAndSemesterIDAndClubRoleIDAndIsDeletedFalse(
+                                userId, semesterId, leaderRole.getClubRoleID()
+                        );
+                if (isLeader) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_Leader"));
+                }
+            });
+
+            // Check for ViceLeader
+            clubRoleRepository.findByRoleNameAndIsDeletedFalse("ViceLeader").ifPresent(viceRole -> {
+                boolean isVice = clubMembershipRepository
+                        .existsByUserIDAndSemesterIDAndClubRoleIDAndIsDeletedFalse(
+                                userId, semesterId, viceRole.getClubRoleID()
+                        );
+                if (isVice) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_ViceLeader"));
+                }
+            });
+        });
     }
 }

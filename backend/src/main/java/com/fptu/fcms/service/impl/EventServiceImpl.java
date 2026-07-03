@@ -33,6 +33,9 @@ import com.fptu.fcms.repository.MemberPerformanceRepository;
 import com.fptu.fcms.repository.SemesterRepository;
 import com.fptu.fcms.repository.SystemRoleRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.repository.ClubMembershipRepository;
+import com.fptu.fcms.repository.ClubRoleRepository;
+import com.fptu.fcms.entity.ClubRole;
 import com.fptu.fcms.event.EventLifecycleChangedEvent;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.AuditLogService;
@@ -103,6 +106,8 @@ public class EventServiceImpl implements EventService {
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final MemberPerformanceRepository memberPerformanceRepository;
+    private final ClubMembershipRepository clubMembershipRepository;
+    private final ClubRoleRepository clubRoleRepository;
 
     @Override
     public boolean isUserAssigned(Integer eventId, Integer userId) {
@@ -122,6 +127,7 @@ public class EventServiceImpl implements EventService {
     public void createEventProposal(CreateEventProposalRequest request, UserPrincipal currentUser) {
         System.out.println("[DEBUG] bannerUrl received: " + (request.getBannerUrl() != null ? "length=" + request.getBannerUrl().length() : "NULL"));
         validateCreateRequest(request);
+        validateUserIsClubLeader(request.getClubID(), currentUser);
 
         LocalDateTime now = LocalDateTime.now();
         boolean isResubmit = Boolean.TRUE.equals(request.getIsResubmitted());
@@ -766,6 +772,37 @@ public class EventServiceImpl implements EventService {
         }
         if (!request.getStartDate().isAfter(LocalDateTime.now())) {
             throw new IllegalArgumentException("startDate must be in the future.");
+        }
+    }
+
+    private void validateUserIsClubLeader(Integer clubId, UserPrincipal currentUser) {
+        if (currentUser == null) {
+            throw new BusinessRuleException("User must be authenticated.", HttpStatus.UNAUTHORIZED);
+        }
+        
+        Integer userId = currentUser.getUserId();
+        
+        Semester activeSemester = semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
+                .orElseThrow(() -> new BusinessRuleException("No active semester found.", HttpStatus.BAD_REQUEST));
+                
+        boolean isAuthorized = false;
+        
+        java.util.Optional<ClubRole> leaderRole = clubRoleRepository.findByRoleNameAndIsDeletedFalse("Leader");
+        if (leaderRole.isPresent()) {
+            isAuthorized = clubMembershipRepository.existsActiveLeaderInClub(
+                    clubId, userId, activeSemester.getSemesterID(), leaderRole.get().getClubRoleID());
+        }
+        
+        if (!isAuthorized) {
+            java.util.Optional<ClubRole> viceRole = clubRoleRepository.findByRoleNameAndIsDeletedFalse("ViceLeader");
+            if (viceRole.isPresent()) {
+                isAuthorized = clubMembershipRepository.existsActiveLeaderInClub(
+                        clubId, userId, activeSemester.getSemesterID(), viceRole.get().getClubRoleID());
+            }
+        }
+        
+        if (!isAuthorized) {
+            throw new BusinessRuleException("You do not have permission to create an event for this club.", HttpStatus.FORBIDDEN);
         }
     }
 
