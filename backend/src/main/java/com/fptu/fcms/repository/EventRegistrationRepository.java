@@ -56,7 +56,7 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
 
     Optional<Object> findByRegistrationIDAndIsDeletedFalse(Integer registrationId);
 
-    Collection<Object> findByEventIDInAndUserIDInAndStatusInAndIsDeletedFalse(List<Integer> eventIds, List<Integer> userIds, List<RegistrationStatus> confirmedStatuses);
+    Collection<Object> findByEventIDInAndUserIDInAndStatusInAndIsDeletedFalse(Collection<Integer> eventID, Collection<Integer> userID, Collection<String> status);
 
     @Query("""
     SELECT CASE WHEN COUNT(er) > 0 THEN true ELSE false END

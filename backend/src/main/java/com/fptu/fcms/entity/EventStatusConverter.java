@@ -32,8 +32,8 @@ public class EventStatusConverter implements AttributeConverter<EventStatus, Str
             case CONTRIBUTION_DRAFT -> "CONTRIBUTION_DRAFT";
             case CONTRIBUTION_PENDING_APPROVAL -> "CONTRIBUTION_PENDING_APPROVAL";
             case CONTRIBUTION_APPROVED -> "CONTRIBUTION_APPROVED";
-            case CONTRIBUTION_SCORING -> null;
-            case CONTRIBUTION_FINALIZED -> null;
+            case CONTRIBUTION_SCORING -> "CONTRIBUTION_SCORING";
+            case CONTRIBUTION_FINALIZED -> "CONTRIBUTION_FINALIZED";
         };
     }
 
