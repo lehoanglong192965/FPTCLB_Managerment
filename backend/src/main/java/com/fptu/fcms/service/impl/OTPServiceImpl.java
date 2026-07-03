@@ -4,15 +4,16 @@ import com.fptu.fcms.service.*;
 
 import com.fptu.fcms.entity.OTPVerification;
 import com.fptu.fcms.repository.OTPVerificationRepository;
+import com.fptu.fcms.util.EmailMaskingUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -25,13 +26,13 @@ public class OTPServiceImpl implements OTPService {
     @Value("${otp.expiration-minutes:10}")
     private Integer otpExpirationMinutes;
 
-    private static final Random random = new Random();
+    private static final SecureRandom secureRandom = new SecureRandom();
 
     @Override
     @Transactional
     public void generateAndSendOTP(String email) {
-        // Tạo mã OTP 6 chữ số
-        String otpCode = String.format("%06d", random.nextInt(999999));
+        // Tạo mã OTP 6 chữ số (dùng SecureRandom để không bị đoán trước)
+        String otpCode = String.format("%06d", secureRandom.nextInt(999999));
 
         // Lấy OTP cũ (nếu có) và đánh dấu là đã sử dụng
         Optional<OTPVerification> oldOTP = otpRepository.findFirstByEmailAndIsUsedFalseOrderByCreatedAtDesc(email);
@@ -55,7 +56,7 @@ public class OTPServiceImpl implements OTPService {
 
         // Gửi email với OTP
         emailService.sendOTPEmail(email, otpCode);
-        log.info("OTP generated and sent to: {}", email);
+        log.info("OTP generated and sent to: {}", EmailMaskingUtil.maskEmail(email));
     }
 
     @Override
@@ -64,7 +65,7 @@ public class OTPServiceImpl implements OTPService {
         Optional<OTPVerification> otpOptional = otpRepository.findByEmailAndOtpCode(email, otpCode);
 
         if (otpOptional.isEmpty()) {
-            log.warn("OTP not found for email: {}", email);
+            log.warn("OTP not found for email: {}", EmailMaskingUtil.maskEmail(email));
             return false;
         }
 
@@ -81,16 +82,16 @@ public class OTPServiceImpl implements OTPService {
             otpRepository.save(otp);
 
             if (otp.isExpired()) {
-                log.warn("OTP expired for email: {}", email);
+                log.warn("OTP expired for email: {}", EmailMaskingUtil.maskEmail(email));
                 throw new IllegalArgumentException("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới!");
             }
 
             if (otp.getAttempts() >= 5) {
-                log.warn("OTP max attempts reached for email: {}", email);
+                log.warn("OTP max attempts reached for email: {}", EmailMaskingUtil.maskEmail(email));
                 throw new IllegalArgumentException("Quá nhiều lần thử sai. Vui lòng yêu cầu mã OTP mới!");
             }
 
-            log.warn("Invalid OTP for email: {}", email);
+            log.warn("Invalid OTP for email: {}", EmailMaskingUtil.maskEmail(email));
             return false;
         }
 
@@ -98,7 +99,7 @@ public class OTPServiceImpl implements OTPService {
         otp.setIsUsed(true);
         otpRepository.save(otp);
 
-        log.info("OTP verified successfully for email: {}", email);
+        log.info("OTP verified successfully for email: {}", EmailMaskingUtil.maskEmail(email));
         return true;
     }
 

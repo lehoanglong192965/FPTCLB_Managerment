@@ -42,20 +42,22 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         String clientIp = getClientIP(request);
 
-        if (path.startsWith("/api/guest")) {
+        if (path.contains("/guest-registrations") || path.contains("/otp")) {
+            // SEC-01: Rate limit Guest registration + OTP endpoints
             Bucket bucket = cache.computeIfAbsent(clientIp + "-guest", k -> createNewBucket());
             if (!bucket.tryConsume(1)) {
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setContentType("application/json");
-                response.getWriter().write("{\"error\": \"RATE_LIMIT_EXCEEDED\"}");
+                response.getWriter().write("{\"error\": \"RATE_LIMIT_EXCEEDED\", \"message\": \"Quá nhiều yêu cầu. Vui lòng thử lại sau.\"}");
                 return;
             }
-        } else if (path.startsWith("/api/feedback")) {
+        } else if (path.contains("/feedback")) {
+            // SEC-01: Rate limit feedback endpoints separately
             Bucket bucket = cache.computeIfAbsent(clientIp + "-feedback", k -> createNewBucketForFeedback());
             if (!bucket.tryConsume(1)) {
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setContentType("application/json");
-                response.getWriter().write("{\"error\": \"RATE_LIMIT_EXCEEDED\"}");
+                response.getWriter().write("{\"error\": \"RATE_LIMIT_EXCEEDED\", \"message\": \"Quá nhiều yêu cầu feedback. Vui lòng thử lại sau.\"}");
                 return;
             }
         }

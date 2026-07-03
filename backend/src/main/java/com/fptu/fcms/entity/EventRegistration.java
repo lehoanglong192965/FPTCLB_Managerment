@@ -29,7 +29,9 @@ import java.util.Locale;
         @Index(name = "IX_EventRegistration_RegistrationCode", columnList = "registrationCode"),
         @Index(name = "IX_EventRegistration_GuestReferenceHash", columnList = "guestReferenceHash"),
         @Index(name = "IX_EventRegistration_Event_GuestEmailNormalized", columnList = "eventID,guestEmailNormalized"),
-        @Index(name = "IX_EventRegistration_Event_GuestPhoneNormalized", columnList = "eventID,guestPhoneNormalized")
+        @Index(name = "IX_EventRegistration_Event_GuestPhoneNormalized", columnList = "eventID,guestPhoneNormalized"),
+        @Index(name = "IX_EventRegistration_Event_User", columnList = "eventID,userID"),
+        @Index(name = "IX_EventRegistration_Status", columnList = "registrationStatus")
 })
 @Getter
 @Setter

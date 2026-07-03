@@ -21,4 +21,6 @@ public interface ContributionBatchRepository extends JpaRepository<ContributionB
             ContributionBatchStatus status,
             LocalDateTime appealClosesAt
     );
+
+    List<ContributionBatch> findByStatusAndIsDeletedFalse(ContributionBatchStatus status);
 }

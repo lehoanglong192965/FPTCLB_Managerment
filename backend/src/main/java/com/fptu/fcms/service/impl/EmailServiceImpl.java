@@ -1,6 +1,7 @@
 package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.service.*;
+import com.fptu.fcms.util.EmailMaskingUtil;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,9 +45,9 @@ public class EmailServiceImpl implements EmailService {
             message.setText(text);
 
             mailSender.send(message);
-            log.info("OTP email sent successfully to: {}", email);
+            log.info("OTP email sent successfully to: {}", EmailMaskingUtil.maskEmail(email));
         } catch (Exception e) {
-            log.error("Error sending OTP email to: {}", email, e);
+            log.error("Error sending OTP email to: {}", EmailMaskingUtil.maskEmail(email), e);
         }
     }
 
@@ -68,9 +69,9 @@ public class EmailServiceImpl implements EmailService {
             message.setText(text);
 
             mailSender.send(message);
-            log.info("Account activation email sent successfully to: {}", email);
+            log.info("Account activation email sent successfully to: {}", EmailMaskingUtil.maskEmail(email));
         } catch (Exception e) {
-            log.error("Error sending activation email to: {}", email, e);
+            log.error("Error sending account activation email to: {}", EmailMaskingUtil.maskEmail(email), e);
         }
     }
 
@@ -154,9 +155,9 @@ public class EmailServiceImpl implements EmailService {
             message.setText(content);
 
             mailSender.send(message);
-            log.info("Simple email sent successfully to: {}", to);
+            log.info("Simple email sent successfully to: {}", EmailMaskingUtil.maskEmail(to));
         } catch (Exception e) {
-            log.error("Error sending simple email to: {}", to, e);
+            log.error("Error sending simple email to: {}", EmailMaskingUtil.maskEmail(to), e);
         }
     }
 
@@ -174,9 +175,9 @@ public class EmailServiceImpl implements EmailService {
             message.setText(text);
 
             mailSender.send(message);
-            log.info("{} email sent successfully to: {}", emailType, email);
+            log.info("{} email sent successfully to: {}", emailType, EmailMaskingUtil.maskEmail(email));
         } catch (Exception e) {
-            log.error("Error sending {} email to: {}", emailType, email, e);
+            log.error("Error sending {} email to: {}", emailType, EmailMaskingUtil.maskEmail(email), e);
         }
     }
 }

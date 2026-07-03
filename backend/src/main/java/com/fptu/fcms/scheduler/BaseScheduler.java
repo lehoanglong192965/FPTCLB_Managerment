@@ -65,6 +65,28 @@ public abstract class BaseScheduler {
         }
     }
 
+    /**
+     * Executes the task idempotently for intraday jobs (using a custom suffix to represent the time slot).
+     * @param slotSuffix e.g. "H12" for hour 12, "H12_M05" for 12:05, etc.
+     */
+    public void executeIdempotentIntraday(String jobName, String slotSuffix, Runnable task) {
+        String uniqueJobName = jobName + "_" + slotSuffix;
+        LocalDate today = LocalDate.now();
+        if (acquireExecutionLock(uniqueJobName, today)) {
+            try {
+                log.info("Starting scheduled job: {}", uniqueJobName);
+                task.run();
+                updateJobStatus(uniqueJobName, today, "COMPLETED");
+                log.info("Completed scheduled job: {}", uniqueJobName);
+            } catch (Exception e) {
+                log.error("Failed scheduled job: {}", uniqueJobName, e);
+                updateJobStatus(uniqueJobName, today, "FAILED");
+            }
+        } else {
+            log.debug("Job {} already executed today. Skipping.", uniqueJobName);
+        }
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateJobStatus(String jobName, LocalDate date, String status) {
         schedulerLogRepository.findByJobNameAndExecutionDate(jobName, date).ifPresent(logEntry -> {

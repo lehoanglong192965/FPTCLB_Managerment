@@ -14,6 +14,10 @@ import java.math.*;
 @SQLRestriction("isDeleted = false")
 @Table(
         name = "AttendanceRecord",
+        indexes = {
+                @Index(name = "IX_AttendanceRecord_Session_User", columnList = "sessionID,userID"),
+                @Index(name = "IX_AttendanceRecord_Session_Registration", columnList = "sessionID,registrationID")
+        },
         uniqueConstraints = @UniqueConstraint(name = "UK_AttendanceRecord_Session_Registration", columnNames = {"sessionID", "registrationID"})
 )
 @Getter
