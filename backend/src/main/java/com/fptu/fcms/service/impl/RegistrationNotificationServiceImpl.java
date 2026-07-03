@@ -18,24 +18,27 @@ public class RegistrationNotificationServiceImpl implements RegistrationNotifica
         if (registration.getGuestEmail() == null || registration.getUserID() != null) {
             return;
         }
-        String status = registration.getStatus();
-        if (RegistrationStatus.CONFIRMED.name().equals(status)) {
+        RegistrationStatus status = registration.getRegistrationStatus();
+        if (status == null && registration.getStatus() != null) {
+            status = RegistrationStatus.fromValue(registration.getStatus());
+        }
+        if (RegistrationStatus.CONFIRMED.equals(status)) {
             emailService.sendSimpleEmail(
                     registration.getGuestEmail(),
                     "FCMS Guest Registration Confirmed",
                     "Your registration is confirmed. Check-in does not use QR. Please ask staff to look you up on the event list and verify your full name plus the last 4 digits of your phone number."
             );
-        } else if (RegistrationStatus.WAITLISTED.name().equals(status)) {
+        } else if (RegistrationStatus.WAITLISTED.equals(status)) {
             emailService.sendSimpleEmail(
                     registration.getGuestEmail(),
                     "FCMS Guest Registration Waitlisted",
                     "Your registration is currently waitlisted. We will notify you if a slot becomes available."
             );
-        } else if (RegistrationStatus.REJECTED.name().equals(status) || RegistrationStatus.CANCELLED.name().equals(status)) {
+        } else if (RegistrationStatus.REJECTED.equals(status) || RegistrationStatus.CANCELLED.equals(status)) {
             emailService.sendSimpleEmail(
                     registration.getGuestEmail(),
                     "FCMS Guest Registration Update",
-                    "Your registration status is now: " + status + "."
+                    "Your registration status is now: " + status.name() + "."
             );
         }
     }

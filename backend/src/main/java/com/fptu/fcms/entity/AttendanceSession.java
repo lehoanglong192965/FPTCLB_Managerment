@@ -1,11 +1,23 @@
 package com.fptu.fcms.entity;
 
+import com.fptu.fcms.enums.AttendanceSessionStatus;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
-import jakarta.persistence.*;
-import lombok.*;
-import java.time.*;
-import java.math.*;
+import java.time.LocalDateTime;
 
 
 @Entity
@@ -30,8 +42,9 @@ public class AttendanceSession {
     @Column(name = "checkInTime")
     private LocalDateTime checkInTime;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status")
-    private String status;
+    private AttendanceSessionStatus status;
 
     @Column(name = "opensAt")
     private LocalDateTime opensAt;
@@ -64,7 +77,7 @@ public class AttendanceSession {
     @PreUpdate
     private void normalizeLifecycle() {
         if (status == null) {
-            status = "DRAFT";
+            status = AttendanceSessionStatus.DRAFT;
         }
         if (createdAt == null) {
             createdAt = LocalDateTime.now();

@@ -300,12 +300,13 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         ensureCanManageRegistrations(currentUser);
         Event event = loadEventForUpdate(eventId);
         EventRegistration registration = loadRegistrationForEvent(eventId, registrationId);
-        if (!RegistrationLifecycle.STATUS_PENDING_APPROVAL.equals(registration.getStatus())) {
+        RegistrationStatus currentStatus = currentRegistrationStatus(registration);
+        if (!RegistrationLifecycle.STATUS_PENDING_APPROVAL.equals(currentStatus)) {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(), "Registration must be Pending Approval before approval.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
         RegistrationAllocationResult allocation = allocationService.allocateOnApproval(eventId, event.getMaxParticipants());
-        RegistrationStatus oldStatus = RegistrationStatus.valueOf(registration.getStatus());
+        RegistrationStatus oldStatus = currentStatus;
         registration.setStatus(String.valueOf(allocation.status()));
         registration.setRegistrationStatus(allocation.status());
         registration.setUpdatedAt(LocalDateTime.now());
@@ -316,7 +317,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
         registration.setIsDeleted(false);
         registrationRepo.save(registration);
-        saveAudit(currentUser.getUserId(), registration, "REGISTRATION_APPROVED", oldStatus.name(), allocation.status().name(), "Approved by leader");
+        saveAudit(currentUser.getUserId(), registration, "REGISTRATION_APPROVED", oldStatus == null ? null : oldStatus.name(), allocation.status().name(), "Approved by leader");
     }
 
     @Override
@@ -329,11 +330,12 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
 
         EventRegistration registration = loadRegistrationForEvent(eventId, registrationId);
-        if (!RegistrationLifecycle.STATUS_PENDING_APPROVAL.equals(registration.getStatus())) {
+        RegistrationStatus currentStatus = currentRegistrationStatus(registration);
+        if (!RegistrationLifecycle.STATUS_PENDING_APPROVAL.equals(currentStatus)) {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(), "Registration must be Pending Approval before rejection.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
-        RegistrationStatus oldStatus = RegistrationStatus.valueOf(registration.getStatus());
+        RegistrationStatus oldStatus = currentStatus;
         registration.setStatus(String.valueOf(RegistrationLifecycle.STATUS_REJECTED));
         registration.setRegistrationStatus(RegistrationLifecycle.STATUS_REJECTED);
         registration.setUpdatedAt(LocalDateTime.now());
@@ -341,7 +343,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setTicketRevokedAt(LocalDateTime.now());
         registration.setIsDeleted(false);
         registrationRepo.save(registration);
-        saveAudit(currentUser.getUserId(), registration, "REGISTRATION_REJECTED", oldStatus.name(), RegistrationLifecycle.STATUS_REJECTED.name(), request.getReason());
+        saveAudit(currentUser.getUserId(), registration, "REGISTRATION_REJECTED", oldStatus == null ? null : oldStatus.name(), RegistrationLifecycle.STATUS_REJECTED.name(), request.getReason());
     }
 
     @Override
@@ -357,12 +359,13 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     }
 
     private void cancelRegistrationInternal(EventRegistration registration, Integer actorUserId, boolean triggeredByLegacyEndpoint) {
-        if (RegistrationLifecycle.STATUS_CANCELLED.equals(registration.getStatus())) {
+        RegistrationStatus currentStatus = currentRegistrationStatus(registration);
+        if (RegistrationLifecycle.STATUS_CANCELLED.equals(currentStatus)) {
             return;
         }
 
         Event event = loadEventForUpdate(registration.getEventID());
-        RegistrationStatus oldStatus = RegistrationStatus.valueOf(registration.getStatus());
+        RegistrationStatus oldStatus = currentStatus;
         registration.setStatus(String.valueOf(RegistrationLifecycle.STATUS_CANCELLED));
         registration.setRegistrationStatus(RegistrationLifecycle.STATUS_CANCELLED);
         registration.setUpdatedAt(LocalDateTime.now());
@@ -373,7 +376,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
         boolean freedSeat = RegistrationLifecycle.CONFIRMED_STATUSES.contains(oldStatus);
         int promoted = freedSeat ? allocationService.promoteWaitlisted(event.getEventID(), event.getMaxParticipants()) : 0;
-        saveAudit(actorUserId, registration, "REGISTRATION_CANCELLED", oldStatus.name(), RegistrationLifecycle.STATUS_CANCELLED.name(),
+        saveAudit(actorUserId, registration, "REGISTRATION_CANCELLED", oldStatus == null ? null : oldStatus.name(), RegistrationLifecycle.STATUS_CANCELLED.name(),
                 triggeredByLegacyEndpoint ? "Cancelled from legacy unregister endpoint" : "Cancelled by user");
         if (promoted > 0) {
             // no-op: promotion is handled atomically by allocation service
@@ -511,7 +514,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 registration.getEventID(),
                 registration.getUserID(),
                 registration.getParticipantType(),
-                RegistrationStatus.fromValue(registration.getStatus()),
+                currentRegistrationStatus(registration),
                 registration.getRegisteredAt(),
                 user == null ? null : user.getStudentId(),
                 user == null ? null : user.getFullName(),
@@ -534,6 +537,16 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             return true;
         }
         return view.getStatus() != null && status.equalsIgnoreCase(view.getStatus().name());
+    }
+
+    private RegistrationStatus currentRegistrationStatus(EventRegistration registration) {
+        if (registration == null) {
+            return null;
+        }
+        if (registration.getRegistrationStatus() != null) {
+            return registration.getRegistrationStatus();
+        }
+        return RegistrationStatus.fromValue(registration.getStatus());
     }
 
     private boolean matchesKeyword(RegistrationListItemResponse view, String keyword) {

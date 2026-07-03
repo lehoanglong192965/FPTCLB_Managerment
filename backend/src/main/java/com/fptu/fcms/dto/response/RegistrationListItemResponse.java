@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class RegistrationListItemResponse {
     private Integer registrationID;
-    private  Integer eventID;
+    private Integer eventID;
     private Integer userID;
     private ParticipantType participantType;
     private RegistrationStatus status;
@@ -22,7 +22,4 @@ public class RegistrationListItemResponse {
     private String guestFullName;
     private String guestEmail;
     private String guestPhone;
-
-    public RegistrationListItemResponse(Integer registrationID, Integer eventID, Integer userID, ParticipantType participantType, String status, LocalDateTime registeredAt, String studentId, String fullName, String email, String guestFullName, String guestEmail, String guestPhone) {
-    }
 }

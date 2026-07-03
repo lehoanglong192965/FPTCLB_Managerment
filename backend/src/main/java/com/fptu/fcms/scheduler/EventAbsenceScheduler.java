@@ -68,10 +68,14 @@ public class EventAbsenceScheduler {
     }
 
     private boolean isCountedRegistration(EventRegistration registration) {
-        if (registration == null || registration.getUserID() == null || registration.getStatus() == null) {
+        RegistrationStatus status = registration == null ? null : registration.getRegistrationStatus();
+        if (status == null && registration != null && registration.getStatus() != null) {
+            status = RegistrationStatus.fromValue(registration.getStatus());
+        }
+        if (registration == null || registration.getUserID() == null || status == null) {
             return false;
         }
-        return RegistrationStatus.CONFIRMED.name().equals(registration.getStatus())
-                || RegistrationStatus.REGISTERED.name().equals(registration.getStatus());
+        return RegistrationStatus.CONFIRMED.equals(status)
+                || RegistrationStatus.REGISTERED.equals(status);
     }
 }

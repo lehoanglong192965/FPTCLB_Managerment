@@ -63,8 +63,12 @@ public class WalkInServiceImpl implements WalkInService {
 
         EventRegistration registration = eventRegistrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(event.getEventID(), user.getUserID())
                 .orElseGet(() -> createFptuWalkInRegistration(event, user));
-        if (!RegistrationStatus.CONFIRMED.name().equals(registration.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, registration.getStatus());
+        RegistrationStatus registrationStatus = registration.getRegistrationStatus();
+        if (registrationStatus == null && registration.getStatus() != null) {
+            registrationStatus = RegistrationStatus.fromValue(registration.getStatus());
+        }
+        if (!RegistrationStatus.CONFIRMED.equals(registrationStatus)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, registrationStatus == null ? "REGISTRATION_NOT_CONFIRMED" : registrationStatus.name());
         }
 
         AttendanceCheckInRequest checkIn = new AttendanceCheckInRequest();
@@ -153,7 +157,7 @@ public class WalkInServiceImpl implements WalkInService {
     private AttendanceSession requireWalkInOpenSession(Integer sessionId) {
         AttendanceSession session = attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(sessionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ATTENDANCE_SESSION_NOT_FOUND"));
-        if (!AttendanceSessionStatus.OPEN.name().equals(session.getStatus())) {
+        if (session.getStatus() != AttendanceSessionStatus.OPEN) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "ATTENDANCE_SESSION_NOT_OPEN");
         }
         return session;

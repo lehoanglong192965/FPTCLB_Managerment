@@ -1,5 +1,6 @@
 package com.fptu.fcms.entity;
 
+import com.fptu.fcms.enums.CompetitionStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -28,12 +29,27 @@ public class Competition {
     @Column(name = "description", columnDefinition = "NVARCHAR(MAX)")
     private String description;
 
+    @Convert(converter = CompetitionStatusConverter.class)
     @Column(name = "status", nullable = false, length = 20)
-    private String status = "Draft";
+    private CompetitionStatus status = CompetitionStatus.DRAFT;
 
     @Column(name = "createdAt", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @Column(name = "isDeleted", nullable = false)
     private Boolean isDeleted = false;
+
+    @PrePersist
+    @PreUpdate
+    private void normalizeLifecycle() {
+        if (status == null) {
+            status = CompetitionStatus.DRAFT;
+        }
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (isDeleted == null) {
+            isDeleted = false;
+        }
+    }
 }

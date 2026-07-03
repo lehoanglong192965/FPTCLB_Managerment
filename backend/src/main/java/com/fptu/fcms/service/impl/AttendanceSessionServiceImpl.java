@@ -54,7 +54,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         AttendanceSession session = new AttendanceSession();
         session.setEventID(eventId);
         session.setSessionName(request.getName());
-        session.setStatus(AttendanceSessionStatus.DRAFT.name());
+        session.setStatus(AttendanceSessionStatus.DRAFT);
         session.setOpensAt(request.getOpensAt());
         session.setClosesAt(request.getClosesAt());
         session.setCreatedBy(actorId);
@@ -67,7 +67,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     @Transactional
     public AttendanceSessionResponse update(Integer sessionId, AttendanceSessionRequest request) {
         AttendanceSession session = findSession(sessionId);
-        if (!AttendanceSessionStatus.DRAFT.name().equals(session.getStatus())) {
+        if (session.getStatus() != AttendanceSessionStatus.DRAFT) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "ATTENDANCE_SESSION_NOT_DRAFT");
         }
         session.setSessionName(request.getName());
@@ -89,10 +89,10 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     @Transactional
     public AttendanceSessionResponse open(Integer sessionId, Integer actorId) {
         AttendanceSession session = findSession(sessionId);
-        if (!AttendanceSessionStatus.DRAFT.name().equals(session.getStatus())) {
+        if (session.getStatus() != AttendanceSessionStatus.DRAFT) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "ATTENDANCE_SESSION_TRANSITION_INVALID");
         }
-        session.setStatus(AttendanceSessionStatus.OPEN.name());
+        session.setStatus(AttendanceSessionStatus.OPEN);
         session.setOpenedBy(actorId);
         session.setCheckInTime(LocalDateTime.now());
         session.setUpdatedAt(LocalDateTime.now());
@@ -103,10 +103,10 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     @Transactional
     public AttendanceSessionResponse close(Integer sessionId, Integer actorId) {
         AttendanceSession session = findSession(sessionId);
-        if (AttendanceSessionStatus.CLOSED.name().equals(session.getStatus())) {
+        if (session.getStatus() == AttendanceSessionStatus.CLOSED) {
             return toSessionResponse(session);
         }
-        if (!AttendanceSessionStatus.OPEN.name().equals(session.getStatus())) {
+        if (session.getStatus() != AttendanceSessionStatus.OPEN) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "ATTENDANCE_SESSION_NOT_OPEN");
         }
         List<EventRegistration> confirmed = eventRegistrationRepository.findByEventIDAndIsDeletedFalse(session.getEventID()).stream()
@@ -133,7 +133,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 })
                 .toList();
         attendanceRecordRepository.saveAll(absentRows);
-        session.setStatus(AttendanceSessionStatus.CLOSED.name());
+        session.setStatus(AttendanceSessionStatus.CLOSED);
         session.setClosedBy(actorId);
         session.setClosesAt(now);
         session.setUpdatedAt(now);
@@ -212,7 +212,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 session.getSessionID(),
                 session.getEventID(),
                 session.getSessionName(),
-                session.getStatus(),
+                session.getStatus() == null ? null : session.getStatus().name(),
                 session.getOpensAt(),
                 session.getClosesAt()
         );

@@ -94,6 +94,7 @@ public class EventRegistration {
     private LocalDateTime registeredAt;
 
     @Column(name = "status")
+    @Deprecated
     private String status;
 
     @Column(name = "ticketCode")

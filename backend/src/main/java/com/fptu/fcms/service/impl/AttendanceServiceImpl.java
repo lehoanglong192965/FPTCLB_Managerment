@@ -46,7 +46,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     public AttendanceCheckInResponse checkIn(Integer sessionId, AttendanceCheckInRequest request, Integer actorId) {
         AttendanceSession session = attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Attendance session not found."));
-        if (!AttendanceSessionStatus.OPEN.name().equals(normalize(session.getStatus()))) {
+        if (session.getStatus() != AttendanceSessionStatus.OPEN) {
             throw new IllegalArgumentException("Attendance session is not open.");
         }
 
@@ -62,7 +62,11 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (!Objects.equals(registration.getEventID(), event.getEventID())) {
             throw new IllegalArgumentException("Registration does not belong to this attendance session.");
         }
-        if (!RegistrationStatus.CONFIRMED.name().equals(registration.getStatus())) {
+        RegistrationStatus registrationStatus = registration.getRegistrationStatus();
+        if (registrationStatus == null && registration.getStatus() != null) {
+            registrationStatus = RegistrationStatus.fromValue(registration.getStatus());
+        }
+        if (!RegistrationStatus.CONFIRMED.equals(registrationStatus)) {
             throw new IllegalArgumentException("Registration is not confirmed for check-in.");
         }
         var existingRecord = attendanceRecordRepository.findBySessionIDAndRegistrationID(sessionId, registration.getRegistrationID());
