@@ -6,15 +6,15 @@ import com.fptu.fcms.dto.response.GuestOtpVerifyResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationStatusResponse;
 import com.fptu.fcms.entity.Event;
-import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.entity.GuestVerificationOtp;
 import com.fptu.fcms.enums.DiscoverySource;
 import com.fptu.fcms.enums.GuestOtpStatus;
 import com.fptu.fcms.enums.ParticipantType;
 import com.fptu.fcms.enums.RegistrationChannel;
 import com.fptu.fcms.enums.RegistrationStatus;
-import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.GuestVerificationOtpRepository;
 import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.GuestRegistrationService;
@@ -34,9 +34,9 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.Set;
 import java.util.HexFormat;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -45,10 +45,10 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final int DEFAULT_OTP_MAX_ATTEMPTS = 5;
-    private static final Set<String> INACTIVE_GUEST_STATUSES = Set.of(RegistrationStatus.CANCELLED.name(), RegistrationStatus.REJECTED.name());
+    private static final Set<RegistrationStatus> INACTIVE_GUEST_STATUSES = Set.of(RegistrationStatus.CANCELLED, RegistrationStatus.REJECTED);
 
     private final EventRepository eventRepository;
-    private final EventRegistrationRepository eventRegistrationRepository;
+    private final GuestEventRegistrationRepository guestEventRegistrationRepository;
     private final GuestVerificationOtpRepository guestVerificationOtpRepository;
     private final RegistrationAllocationPort registrationAllocationPort;
     private final PasswordEncoder passwordEncoder;
@@ -64,16 +64,15 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
     @Override
     @Transactional
     public GuestRegistrationResponse createGuestRegistration(Integer eventId, GuestRegistrationRequest request) {
-        Event event = eventRepository.findByEventIDAndIsDeletedFalseForUpdate(eventId)
+        eventRepository.findByEventIDAndIsDeletedFalseForUpdate(eventId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
 
         validateGuestRequest(eventId, request);
 
         LocalDateTime now = LocalDateTime.now();
         String rawReference = generateOpaqueToken();
-        EventRegistration registration = new EventRegistration();
+        GuestEventRegistration registration = new GuestEventRegistration();
         registration.setEventID(eventId);
-        registration.setUserID(null);
         registration.setGuestFullName(normalizeNameForStorage(request.getFullName()));
         registration.setGuestEmail(normalizeEmail(request.getEmail()));
         registration.setGuestEmailNormalized(normalizeEmail(request.getEmail()));
@@ -94,13 +93,13 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         registration.setUpdatedAt(now);
         registration.setIsDeleted(false);
 
-        EventRegistration saved = eventRegistrationRepository.save(registration);
-        OtpIssue otpIssue = createOtp(saved.getRegistrationID(), saved.getGuestEmail());
+        GuestEventRegistration saved = guestEventRegistrationRepository.save(registration);
+        OtpIssue otpIssue = createOtp(saved.getGuestRegistrationID(), saved.getGuestEmail());
         sendGuestOtpEmail(saved.getGuestEmail(), otpIssue.rawOtp(), otpIssue.otp().getExpiresAt());
 
         return new GuestRegistrationResponse(
                 eventId,
-                saved.getRegistrationID(),
+                saved.getGuestRegistrationID(),
                 saved.getRegistrationStatus().name(),
                 rawReference,
                 otpIssue.otp().getExpiresAt(),
@@ -111,10 +110,10 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
     @Override
     @Transactional
     public GuestOtpVerifyResponse verifyOtp(String guestReference, GuestOtpVerifyRequest request) {
-        EventRegistration registration = findByReference(guestReference);
+        GuestEventRegistration registration = findByReference(guestReference);
         GuestVerificationOtp otp = guestVerificationOtpRepository
-                .findTopByEventRegistrationIDAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
-                        registration.getRegistrationID(),
+                .findTopByGuestRegistrationIDAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                        registration.getGuestRegistrationID(),
                         GuestOtpStatus.ACTIVE
                 )
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "OTP_INVALID"));
@@ -146,16 +145,16 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         otp.setVerifiedAt(now);
         otp.setUpdatedAt(now);
         registration.setVerifiedAt(now);
-        String allocatedStatus = registrationAllocationPort.allocateGuest(event, registration);
+        String allocatedStatus = registrationAllocationPort.allocateGuest(event);
         RegistrationStatus status = RegistrationStatus.fromValue(allocatedStatus);
         registration.setStatus(status == null ? null : status.name());
         registration.setRegistrationStatus(status);
         registration.setUpdatedAt(now);
-        eventRegistrationRepository.save(registration);
-        registrationNotificationService.notifyRegistrationStatus(registration);
+        guestEventRegistrationRepository.save(registration);
+        registrationNotificationService.notifyGuestRegistrationStatus(registration);
 
         return new GuestOtpVerifyResponse(
-                registration.getRegistrationID(),
+                registration.getGuestRegistrationID(),
                 effectiveStatus(registration),
                 "Guest registration verified."
         );
@@ -164,10 +163,10 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
     @Override
     @Transactional
     public GuestRegistrationResponse resendOtp(String guestReference) {
-        EventRegistration registration = findByReference(guestReference);
+        GuestEventRegistration registration = findByReference(guestReference);
         GuestVerificationOtp current = guestVerificationOtpRepository
-                .findTopByEventRegistrationIDAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
-                        registration.getRegistrationID(),
+                .findTopByGuestRegistrationIDAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                        registration.getGuestRegistrationID(),
                         GuestOtpStatus.ACTIVE
                 )
                 .orElse(null);
@@ -179,11 +178,11 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
             current.setStatus(GuestOtpStatus.EXPIRED);
             current.setUpdatedAt(now);
         }
-        OtpIssue otpIssue = createOtp(registration.getRegistrationID(), registration.getGuestEmail());
+        OtpIssue otpIssue = createOtp(registration.getGuestRegistrationID(), registration.getGuestEmail());
         sendGuestOtpEmail(registration.getGuestEmail(), otpIssue.rawOtp(), otpIssue.otp().getExpiresAt());
         return new GuestRegistrationResponse(
                 registration.getEventID(),
-                registration.getRegistrationID(),
+                registration.getGuestRegistrationID(),
                 effectiveStatus(registration),
                 null,
                 otpIssue.otp().getExpiresAt(),
@@ -200,13 +199,13 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
     @Override
     @Transactional
     public GuestRegistrationStatusResponse cancel(String guestReference) {
-        EventRegistration registration = findByReference(guestReference);
+        GuestEventRegistration registration = findByReference(guestReference);
         registration.setStatus(RegistrationStatus.CANCELLED.name());
         registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
         registration.setCancelledAt(LocalDateTime.now());
         registration.setUpdatedAt(LocalDateTime.now());
-        eventRegistrationRepository.save(registration);
-        registrationNotificationService.notifyRegistrationStatus(registration);
+        guestEventRegistrationRepository.save(registration);
+        registrationNotificationService.notifyGuestRegistrationStatus(registration);
         return toStatus(registration);
     }
 
@@ -216,19 +215,19 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "FPT_EMAIL_LOGIN_REQUIRED");
         }
         String phone = normalizePhone(request.getPhone());
-        if (eventRegistrationRepository.existsActiveGuestEmail(eventId, email, INACTIVE_GUEST_STATUSES)) {
+        if (guestEventRegistrationRepository.existsActiveGuestEmail(eventId, email, INACTIVE_GUEST_STATUSES)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "GUEST_DUPLICATE_EMAIL");
         }
-        if (eventRegistrationRepository.existsActiveGuestPhone(eventId, phone, INACTIVE_GUEST_STATUSES)) {
+        if (guestEventRegistrationRepository.existsActiveGuestPhone(eventId, phone, INACTIVE_GUEST_STATUSES)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "GUEST_DUPLICATE_PHONE");
         }
     }
 
-    private OtpIssue createOtp(Integer registrationId, String guestEmail) {
+    private OtpIssue createOtp(Integer guestRegistrationId, String guestEmail) {
         String otpRaw = String.format(Locale.ROOT, "%06d", SECURE_RANDOM.nextInt(1_000_000));
         LocalDateTime now = LocalDateTime.now();
         GuestVerificationOtp otp = new GuestVerificationOtp();
-        otp.setEventRegistrationID(registrationId);
+        otp.setGuestRegistrationID(guestRegistrationId);
         otp.setGuestEmail(guestEmail);
         otp.setOtpHash(passwordEncoder.encode(otpRaw));
         otp.setExpiresAt(now.plusMinutes(otpExpirationMinutes));
@@ -249,15 +248,15 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         );
     }
 
-    private EventRegistration findByReference(String guestReference) {
-        return (EventRegistration) eventRegistrationRepository.findByGuestReferenceHashAndIsDeletedFalse(hash(guestReference))
+    private GuestEventRegistration findByReference(String guestReference) {
+        return guestEventRegistrationRepository.findByGuestReferenceHashAndIsDeletedFalse(hash(guestReference))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "GUEST_REFERENCE_INVALID"));
     }
 
-    private GuestRegistrationStatusResponse toStatus(EventRegistration registration) {
+    private GuestRegistrationStatusResponse toStatus(GuestEventRegistration registration) {
         return new GuestRegistrationStatusResponse(
                 registration.getEventID(),
-                registration.getRegistrationID(),
+                registration.getGuestRegistrationID(),
                 effectiveStatus(registration),
                 maskName(registration.getGuestFullName()),
                 maskEmail(registration.getGuestEmail()),
@@ -267,7 +266,7 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         );
     }
 
-    private String effectiveStatus(EventRegistration registration) {
+    private String effectiveStatus(GuestEventRegistration registration) {
         if (registration == null) {
             return null;
         }
@@ -325,7 +324,7 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         String code;
         do {
             code = "GUEST-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT);
-        } while (eventRegistrationRepository.existsByRegistrationCodeAndIsDeletedFalse(code));
+        } while (guestEventRegistrationRepository.existsByRegistrationCodeAndIsDeletedFalse(code));
         return code;
     }
 
@@ -352,4 +351,3 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         return "******" + phone.substring(phone.length() - 4);
     }
 }
-

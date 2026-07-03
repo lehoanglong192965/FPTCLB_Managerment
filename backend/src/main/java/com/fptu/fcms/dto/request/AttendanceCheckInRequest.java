@@ -1,7 +1,6 @@
 package com.fptu.fcms.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -9,8 +8,9 @@ import lombok.Setter;
 @Setter
 public class AttendanceCheckInRequest {
 
-    @NotNull(message = "registrationId is required")
     private Integer registrationId;
+
+    private Integer guestRegistrationId;
 
     @NotBlank(message = "verificationMethod is required")
     private String verificationMethod;

@@ -10,6 +10,7 @@ import com.fptu.fcms.entity.AttendanceRecord;
 import com.fptu.fcms.entity.AttendanceSession;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.enums.AttendanceSessionStatus;
 import com.fptu.fcms.enums.AttendanceStatus;
@@ -22,6 +23,7 @@ import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.service.AttendanceService;
 import com.fptu.fcms.service.AuditLogService;
@@ -37,6 +39,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -46,6 +49,7 @@ public class WalkInServiceImpl implements WalkInService {
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final EventRepository eventRepository;
     private final EventRegistrationRepository eventRegistrationRepository;
+    private final GuestEventRegistrationRepository guestEventRegistrationRepository;
     private final UserRepository userRepository;
     private final RegistrationAllocationPort registrationAllocationPort;
     private final AttendanceService attendanceService;
@@ -90,7 +94,9 @@ public class WalkInServiceImpl implements WalkInService {
     public AttendanceCheckInResponse emergencyGuestOverride(Integer sessionId, WalkInGuestEmergencyOverrideRequest request, Integer actorId) {
         AttendanceSession session = requireWalkInOpenSession(sessionId);
         Event event = requireWalkInEvent(session.getEventID());
-        EventRegistration registration = new EventRegistration();
+        LocalDateTime now = LocalDateTime.now();
+
+        GuestEventRegistration registration = new GuestEventRegistration();
         registration.setEventID(event.getEventID());
         registration.setGuestFullName(request.getFullName().trim());
         registration.setGuestEmail(request.getEmail().trim().toLowerCase(Locale.ROOT));
@@ -98,12 +104,13 @@ public class WalkInServiceImpl implements WalkInService {
         registration.setGuestPhone(request.getPhone().replaceAll("\\D", ""));
         registration.setGuestPhoneNormalized(request.getPhone().replaceAll("\\D", ""));
         registration.setSchoolOrOrganization(request.getSchoolOrOrganization());
-        LocalDateTime now = LocalDateTime.now();
         registration.setConsentAccepted(request.isConsent());
         registration.setParticipantType(ParticipantType.GUEST);
         registration.setParticipantTypeSnapshotAt(now);
         registration.setRegistrationChannel(RegistrationChannel.WALK_IN);
         registration.setDiscoverySource(request.getDiscoverySource());
+        registration.setGuestReferenceHash("EMERGENCY-" + UUID.randomUUID());
+        registration.setRegistrationCode("GUEST-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT));
         registration.setStatus(RegistrationStatus.CONFIRMED.name());
         registration.setRegistrationStatus(RegistrationStatus.CONFIRMED);
         registration.setRegisteredAt(now);
@@ -111,14 +118,15 @@ public class WalkInServiceImpl implements WalkInService {
         registration.setCreatedAt(now);
         registration.setUpdatedAt(now);
         registration.setIsDeleted(false);
-        EventRegistration saved = eventRegistrationRepository.save(registration);
+        GuestEventRegistration saved = guestEventRegistrationRepository.save(registration);
 
-        if (attendanceRecordRepository.existsBySessionIDAndRegistrationIDAndIsDeletedFalse(sessionId, saved.getRegistrationID())) {
+        if (attendanceRecordRepository.existsBySessionIDAndGuestRegistrationIDAndIsDeletedFalse(sessionId, saved.getGuestRegistrationID())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "ATTENDANCE_ALREADY_CHECKED_IN");
         }
         AttendanceRecord record = new AttendanceRecord();
         record.setSessionID(sessionId);
-        record.setRegistrationID(saved.getRegistrationID());
+        record.setGuestRegistrationID(saved.getGuestRegistrationID());
+        record.setParticipantTypeSnapshotAt(saved.getParticipantTypeSnapshotAt());
         record.setParticipantTypeSnapshot("GUEST");
         record.setAttendanceStatus(AttendanceStatus.PRESENT);
         record.setCheckInMethod(CheckInMethod.EMERGENCY_OVERRIDE);
@@ -132,7 +140,7 @@ public class WalkInServiceImpl implements WalkInService {
         record.setIsDeleted(false);
         AttendanceRecord savedRecord = attendanceRecordRepository.save(record);
         auditLogService.record(actorId, "AttendanceRecord", savedRecord.getRecordID(), "ATTENDANCE_EMERGENCY_OVERRIDE", null, savedRecord, request.getReason());
-        return new AttendanceCheckInResponse(event.getEventID(), saved.getRegistrationID(), null, AttendanceStatus.PRESENT, "Emergency walk-in check-in successful.");
+        return new AttendanceCheckInResponse(event.getEventID(), saved.getGuestRegistrationID(), null, AttendanceStatus.PRESENT, "Emergency walk-in check-in successful.");
     }
 
     private EventRegistration createFptuWalkInRegistration(Event event, UserAccount user) {
@@ -148,7 +156,7 @@ public class WalkInServiceImpl implements WalkInService {
         registration.setUpdatedAt(now);
         registration.setIsDeleted(false);
         EventRegistration saved = eventRegistrationRepository.save(registration);
-        RegistrationStatus status = RegistrationStatus.fromValue(registrationAllocationPort.allocateGuest(event, saved));
+        RegistrationStatus status = RegistrationStatus.fromValue(registrationAllocationPort.allocateGuest(event));
         saved.setStatus(status == null ? null : status.name());
         saved.setRegistrationStatus(status);
         return eventRegistrationRepository.save(saved);
@@ -171,9 +179,4 @@ public class WalkInServiceImpl implements WalkInService {
         }
         return event;
     }
-
-    private String normalize(String value) {
-        return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
-    }
 }
-

@@ -11,6 +11,7 @@ public class FeedbackGuestTokenResponse {
     private boolean valid;
     private Integer eventId;
     private Integer registrationId;
+    private Integer guestRegistrationId;
     private LocalDateTime expiresAt;
     private String reason;
 }

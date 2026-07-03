@@ -1,7 +1,15 @@
 package com.fptu.fcms.entity;
 
 import com.fptu.fcms.enums.FeedbackInvitationStatus;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,10 +22,9 @@ import java.time.LocalDateTime;
 @SQLRestriction("isDeleted = false")
 @Table(name = "EventFeedbackInvitation", indexes = {
         @Index(name = "IX_FeedbackInvitation_TokenHash", columnList = "tokenHash"),
-        @Index(name = "IX_FeedbackInvitation_Event_Status", columnList = "eventID,status")
-}, uniqueConstraints = {
-        @UniqueConstraint(name = "UQ_FeedbackInvitation_TokenHash", columnNames = {"tokenHash"}),
-        @UniqueConstraint(name = "UQ_FeedbackInvitation_Event_Registration", columnNames = {"eventID", "registrationID"})
+        @Index(name = "IX_FeedbackInvitation_Event_Status", columnList = "eventID,status"),
+        @Index(name = "IX_FeedbackInvitation_Event_Registration", columnList = "eventID,registrationID"),
+        @Index(name = "IX_FeedbackInvitation_Event_GuestRegistration", columnList = "eventID,guestRegistrationID")
 })
 @Getter
 @Setter
@@ -32,8 +39,11 @@ public class EventFeedbackInvitation {
     @Column(name = "eventID", nullable = false)
     private Integer eventID;
 
-    @Column(name = "registrationID", nullable = false)
+    @Column(name = "registrationID")
     private Integer registrationID;
+
+    @Column(name = "guestRegistrationID")
+    private Integer guestRegistrationID;
 
     @Column(name = "tokenHash", nullable = false, length = 255)
     private String tokenHash;

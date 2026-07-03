@@ -31,8 +31,8 @@ public class GuestVerificationOtp {
     @Column(name = "otpID")
     private Integer otpID;
 
-    @Column(name = "eventRegistrationID", nullable = false)
-    private Integer eventRegistrationID;
+    @Column(name = "guestRegistrationID")
+    private Integer guestRegistrationID;
 
     @Column(name = "guestEmail", nullable = false)
     private String guestEmail;

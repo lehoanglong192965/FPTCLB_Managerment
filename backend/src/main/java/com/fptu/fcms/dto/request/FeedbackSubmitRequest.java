@@ -10,8 +10,9 @@ import lombok.Setter;
 @Getter
 @Setter
 public class FeedbackSubmitRequest {
-    @NotNull
     private Integer registrationId;
+
+    private Integer guestRegistrationId;
 
     @NotNull
     @Min(1)

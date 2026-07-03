@@ -2,11 +2,14 @@ package com.fptu.fcms.controller;
 
 import com.fptu.fcms.dto.request.EventWalkInRegistrationRequest;
 import com.fptu.fcms.dto.request.EventGuestRegistrationRequest;
+import com.fptu.fcms.dto.request.GuestRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
+import com.fptu.fcms.dto.response.GuestRegistrationResponse;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EventRegistrationService;
+import com.fptu.fcms.service.GuestRegistrationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,6 +34,7 @@ import java.util.Map;
 public class EventRegistrationApiController {
 
     private final EventRegistrationService eventRegistrationService;
+    private final GuestRegistrationService guestRegistrationService;
 
     @PostMapping({"/api/events/{eventId}/registrations/me"})
     @PreAuthorize("isAuthenticated()")
@@ -52,11 +56,22 @@ public class EventRegistrationApiController {
     @PostMapping({"/api/events/{eventId}/registrations/guest"})
     @PreAuthorize("permitAll()")
     @Operation(summary = "Dang ky khach moi")
-    public ResponseEntity<Map<String, String>> registerGuest(
+    public ResponseEntity<GuestRegistrationResponse> registerGuest(
             @PathVariable Integer eventId,
             @Valid @RequestBody EventGuestRegistrationRequest request) {
-        eventRegistrationService.registerGuestEvent(eventId, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Guest registration submitted for approval."));
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                guestRegistrationService.createGuestRegistration(eventId, toGuestRegistrationRequest(request))
+        );
+    }
+
+    private GuestRegistrationRequest toGuestRegistrationRequest(EventGuestRegistrationRequest request) {
+        GuestRegistrationRequest guestRequest = new GuestRegistrationRequest();
+        guestRequest.setFullName(request.getFullName());
+        guestRequest.setEmail(request.getEmail());
+        guestRequest.setPhone(request.getPhone());
+        guestRequest.setConsent(true);
+        guestRequest.setDiscoverySource("EVENT_PAGE");
+        return guestRequest;
     }
 
     @PostMapping({"/api/events/{eventId}/registrations/walk-in"})
@@ -66,8 +81,10 @@ public class EventRegistrationApiController {
             @PathVariable Integer eventId,
             @Valid @RequestBody EventWalkInRegistrationRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventRegistrationService.registerWalkInEvent(eventId, request, currentUser);
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Walk-in registration submitted."));
+        return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
+                "message",
+                "Walk-in guest registration now uses /api/attendance-sessions/{sessionId}/walk-ins/guest."
+        ));
     }
 
     @GetMapping({"/api/events/{eventId}/registrations"})

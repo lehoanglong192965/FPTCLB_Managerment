@@ -126,99 +126,14 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     @Transactional
     @CacheEvict(value = "memberRanking", allEntries = true)
     public void registerGuestEvent(Integer eventID, EventGuestRegistrationRequest request) {
-        Event event = eventRepository.findByEventIDAndIsDeletedFalseForUpdate(eventID)
-                .orElseThrow(() -> new IllegalArgumentException("Su kien khong ton tai."));
-        ensureRegistrationWindowOpen(event);
-
-        if (request == null || !StringUtils.hasText(request.getEmail()) || !StringUtils.hasText(request.getPhone()) || !StringUtils.hasText(request.getFullName())) {
-            throw new IllegalArgumentException("Guest information is required.");
-        }
-
-        String normalizedEmail = request.getEmail().trim().toLowerCase(Locale.ROOT);
-        ensureParticipantTypeEnabled(eventID, RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT);
-        ensureNoDuplicateActiveRegistration(eventID, null, normalizedEmail);
-        boolean requiresApproval = isApprovalRequired(eventID, RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT);
-
-        RegistrationAllocationResult allocation = allocationService.allocateInitial(
-                eventID,
-                event.getMaxParticipants(),
-                requiresApproval
-        );
-
-        EventRegistration registration = new EventRegistration();
-        registration.setEventID(eventID);
-        registration.setUserID(null);
-        registration.setGuestFullName(request.getFullName().trim());
-        registration.setGuestEmail(normalizedEmail);
-        registration.setGuestPhone(request.getPhone().trim());
-        registration.setParticipantType(RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT);
-        registration.setParticipantTypeSnapshotAt(LocalDateTime.now());
-        registration.setRegistrationChannel(RegistrationChannel.FPTU);
-        registration.setRegisteredAt(LocalDateTime.now());
-        registration.setStatus(String.valueOf(allocation.status()));
-        registration.setRegistrationStatus(allocation.status());
-        registration.setCreatedAt(registration.getRegisteredAt());
-        registration.setCreatedBy(null);
-        registration.setUpdatedAt(registration.getRegisteredAt());
-        registration.setUpdatedBy(null);
-        if (allocation.consumesSeat()) {
-            registration.setTicketCode(UUID.randomUUID().toString());
-            registration.setTicketIssuedAt(LocalDateTime.now());
-        }
-        registration.setIsDeleted(false);
-        registrationRepo.save(registration);
+        throw new UnsupportedOperationException("Guest registration uses GuestRegistrationService and GuestEventRegistration.");
     }
 
     @Override
     @Transactional
     @CacheEvict(value = "memberRanking", allEntries = true)
     public void registerWalkInEvent(Integer eventID, EventWalkInRegistrationRequest request, UserPrincipal currentUser) {
-        eventAssignmentAccessService.ensureCanManageCheckIn(eventID, currentUser);
-
-        Event event = eventRepository.findByEventIDAndIsDeletedFalseForUpdate(eventID)
-                .orElseThrow(() -> new IllegalArgumentException("Su kien khong ton tai."));
-        ensureWalkInWindowOpen(event);
-
-        if (request == null || !StringUtils.hasText(request.getFullName())) {
-            throw new IllegalArgumentException("Guest information is required.");
-        }
-
-        String normalizedEmail = StringUtils.hasText(request.getEmail())
-                ? request.getEmail().trim().toLowerCase(Locale.ROOT)
-                : null;
-
-        ensureParticipantTypeEnabled(eventID, RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT);
-        ensureNoDuplicateActiveRegistration(eventID, null, normalizedEmail);
-        boolean requiresApproval = isApprovalRequired(eventID, RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT);
-
-        RegistrationAllocationResult allocation = allocationService.allocateInitial(
-                eventID,
-                event.getMaxParticipants(),
-                requiresApproval
-        );
-
-        EventRegistration registration = new EventRegistration();
-        registration.setEventID(eventID);
-        registration.setUserID(null);
-        registration.setGuestFullName(request.getFullName().trim());
-        registration.setGuestEmail(normalizedEmail);
-        registration.setGuestPhone(StringUtils.hasText(request.getPhone()) ? request.getPhone().trim() : null);
-        registration.setParticipantType(RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT);
-        registration.setParticipantTypeSnapshotAt(LocalDateTime.now());
-        registration.setRegistrationChannel(RegistrationChannel.WALK_IN);
-        registration.setRegisteredAt(LocalDateTime.now());
-        registration.setStatus(String.valueOf(allocation.status()));
-        registration.setRegistrationStatus(allocation.status());
-        registration.setCreatedAt(registration.getRegisteredAt());
-        registration.setCreatedBy(currentUser.getUserId());
-        registration.setUpdatedAt(registration.getRegisteredAt());
-        registration.setUpdatedBy(currentUser.getUserId());
-        if (allocation.consumesSeat()) {
-            registration.setTicketCode(UUID.randomUUID().toString());
-            registration.setTicketIssuedAt(LocalDateTime.now());
-        }
-        registration.setIsDeleted(false);
-        registrationRepo.save(registration);
+        throw new UnsupportedOperationException("Walk-in guest registration uses WalkInService and GuestEventRegistration.");
     }
 
     @Override

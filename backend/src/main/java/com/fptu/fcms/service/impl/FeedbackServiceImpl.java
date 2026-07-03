@@ -11,6 +11,7 @@ import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventFeedback;
 import com.fptu.fcms.entity.EventFeedbackInvitation;
 import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.FeedbackInvitationStatus;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
@@ -20,6 +21,7 @@ import com.fptu.fcms.repository.EventFeedbackInvitationRepository;
 import com.fptu.fcms.repository.EventFeedbackRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.service.FeedbackService;
 import com.fptu.fcms.service.FeedbackSummaryService;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +35,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
-import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +42,7 @@ public class FeedbackServiceImpl implements FeedbackService {
 
     private final EventRepository eventRepository;
     private final EventRegistrationRepository eventRegistrationRepository;
+    private final GuestEventRegistrationRepository guestEventRegistrationRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final EventFeedbackRepository eventFeedbackRepository;
@@ -78,6 +80,9 @@ public class FeedbackServiceImpl implements FeedbackService {
     @Transactional
     public FeedbackSubmitResponse submitFptu(Integer eventId, FeedbackSubmitRequest request, Integer userId) {
         Event event = findEvent(eventId);
+        if (request.getRegistrationId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "REGISTRATION_ID_REQUIRED");
+        }
         EventRegistration registration = findRegistration(request.getRegistrationId());
         if (!eventId.equals(registration.getEventID())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "REGISTRATION_NOT_IN_EVENT");
@@ -96,22 +101,24 @@ public class FeedbackServiceImpl implements FeedbackService {
                 .findByTokenHashAndIsDeletedFalse(hash(feedbackToken))
                 .orElse(null);
         if (invitation == null) {
-            return new FeedbackGuestTokenResponse(false, null, null, null, "FEEDBACK_TOKEN_INVALID");
+            return new FeedbackGuestTokenResponse(false, null, null, null, null, "FEEDBACK_TOKEN_INVALID");
         }
 
         LocalDateTime now = LocalDateTime.now();
+        Integer registrationId = responseRegistrationId(invitation);
+        Integer guestRegistrationId = invitation.getGuestRegistrationID();
         if (!FeedbackInvitationStatus.ACTIVE.equals(invitation.getStatus())) {
-            return new FeedbackGuestTokenResponse(false, invitation.getEventID(), invitation.getRegistrationID(), invitation.getExpiresAt(), "FEEDBACK_TOKEN_INVALID");
+            return new FeedbackGuestTokenResponse(false, invitation.getEventID(), registrationId, guestRegistrationId, invitation.getExpiresAt(), "FEEDBACK_TOKEN_INVALID");
         }
         if (invitation.getExpiresAt().isBefore(now)) {
             invitation.setStatus(FeedbackInvitationStatus.EXPIRED);
-            return new FeedbackGuestTokenResponse(false, invitation.getEventID(), invitation.getRegistrationID(), invitation.getExpiresAt(), "FEEDBACK_TOKEN_EXPIRED");
+            return new FeedbackGuestTokenResponse(false, invitation.getEventID(), registrationId, guestRegistrationId, invitation.getExpiresAt(), "FEEDBACK_TOKEN_EXPIRED");
         }
-        if (eventFeedbackRepository.existsByEventIDAndRegistrationIDAndIsDeletedFalse(invitation.getEventID(), invitation.getRegistrationID())) {
-            return new FeedbackGuestTokenResponse(false, invitation.getEventID(), invitation.getRegistrationID(), invitation.getExpiresAt(), "FEEDBACK_ALREADY_SUBMITTED");
+        if (feedbackAlreadySubmitted(invitation)) {
+            return new FeedbackGuestTokenResponse(false, invitation.getEventID(), registrationId, guestRegistrationId, invitation.getExpiresAt(), "FEEDBACK_ALREADY_SUBMITTED");
         }
 
-        return new FeedbackGuestTokenResponse(true, invitation.getEventID(), invitation.getRegistrationID(), invitation.getExpiresAt(), null);
+        return new FeedbackGuestTokenResponse(true, invitation.getEventID(), registrationId, guestRegistrationId, invitation.getExpiresAt(), null);
     }
 
     @Override
@@ -127,13 +134,31 @@ public class FeedbackServiceImpl implements FeedbackService {
             invitation.setStatus(FeedbackInvitationStatus.EXPIRED);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_TOKEN_EXPIRED");
         }
+
         Event event = findEvent(invitation.getEventID());
-        EventRegistration registration = findRegistration(invitation.getRegistrationID());
-        if (!registration.getRegistrationID().equals(request.getRegistrationId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "FEEDBACK_TOKEN_INVALID");
+        FeedbackSubmitResponse response;
+        if (invitation.getGuestRegistrationID() != null) {
+            GuestEventRegistration registration = findGuestRegistration(invitation.getGuestRegistrationID());
+            Integer requestedGuestRegistrationId = request.getGuestRegistrationId() != null
+                    ? request.getGuestRegistrationId()
+                    : request.getRegistrationId();
+            if (!registration.getGuestRegistrationID().equals(requestedGuestRegistrationId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "FEEDBACK_TOKEN_INVALID");
+            }
+            validateGuestFeedbackEligibility(event, registration);
+            response = saveGuestFeedback(event, registration, request);
+        } else {
+            if (request.getRegistrationId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "REGISTRATION_ID_REQUIRED");
+            }
+            EventRegistration registration = findRegistration(invitation.getRegistrationID());
+            if (!registration.getRegistrationID().equals(request.getRegistrationId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "FEEDBACK_TOKEN_INVALID");
+            }
+            validateFeedbackEligibility(event, registration);
+            response = saveFeedback(event, registration, request);
         }
-        validateFeedbackEligibility(event, registration);
-        FeedbackSubmitResponse response = saveFeedback(event, registration, request);
+
         invitation.setStatus(FeedbackInvitationStatus.USED);
         invitation.setUsedAt(now);
         return response;
@@ -165,13 +190,65 @@ public class FeedbackServiceImpl implements FeedbackService {
                 saved.getFeedbackID(),
                 saved.getEventID(),
                 saved.getRegistrationID(),
+                null,
                 Boolean.TRUE.equals(saved.getIsIncludedInExternalScore()),
+                saved.getSubmittedAt()
+        );
+    }
+
+    private FeedbackSubmitResponse saveGuestFeedback(Event event, GuestEventRegistration registration, FeedbackSubmitRequest request) {
+        if (eventFeedbackRepository.existsByEventIDAndGuestRegistrationIDAndIsDeletedFalse(event.getEventID(), registration.getGuestRegistrationID())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "FEEDBACK_ALREADY_SUBMITTED");
+        }
+        EventFeedback feedback = new EventFeedback();
+        feedback.setEventID(event.getEventID());
+        feedback.setGuestRegistrationID(registration.getGuestRegistrationID());
+        feedback.setContentRating(request.getContentRating());
+        feedback.setOrganizationRating(request.getOrganizationRating());
+        feedback.setLogisticsRating(request.getLogisticsRating());
+        feedback.setOverallRating(request.getOverallRating());
+        feedback.setComment(request.getComment());
+        feedback.setIsIncludedInExternalScore(true);
+        feedback.setSubmittedAt(LocalDateTime.now());
+        feedback.setIsDeleted(false);
+        EventFeedback saved = eventFeedbackRepository.save(feedback);
+        return new FeedbackSubmitResponse(
+                saved.getFeedbackID(),
+                saved.getEventID(),
+                null,
+                saved.getGuestRegistrationID(),
+                true,
                 saved.getSubmittedAt()
         );
     }
 
     private void validateFeedbackEligibility(Event event, EventRegistration registration) {
         LocalDateTime now = LocalDateTime.now();
+        validateFeedbackWindow(event, now);
+        AttendanceSession session = attendanceSessionRepository.findByEventID(event.getEventID())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_NOT_ELIGIBLE"));
+        AttendanceRecord attendance = attendanceRecordRepository
+                .findBySessionIDAndRegistrationID(session.getSessionID(), registration.getRegistrationID())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_NOT_ELIGIBLE"));
+        if (!AttendanceStatus.PRESENT.equals(attendance.getAttendanceStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_NOT_ELIGIBLE");
+        }
+    }
+
+    private void validateGuestFeedbackEligibility(Event event, GuestEventRegistration registration) {
+        LocalDateTime now = LocalDateTime.now();
+        validateFeedbackWindow(event, now);
+        AttendanceSession session = attendanceSessionRepository.findByEventID(event.getEventID())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_NOT_ELIGIBLE"));
+        AttendanceRecord attendance = attendanceRecordRepository
+                .findBySessionIDAndGuestRegistrationID(session.getSessionID(), registration.getGuestRegistrationID())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_NOT_ELIGIBLE"));
+        if (!AttendanceStatus.PRESENT.equals(attendance.getAttendanceStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_NOT_ELIGIBLE");
+        }
+    }
+
+    private void validateFeedbackWindow(Event event, LocalDateTime now) {
         if (Boolean.FALSE.equals(event.getFeedbackEnabled())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_NOT_ELIGIBLE");
         }
@@ -181,14 +258,25 @@ public class FeedbackServiceImpl implements FeedbackService {
         if (event.getFeedbackClosesAt() != null && event.getFeedbackClosesAt().isBefore(now)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_NOT_ELIGIBLE");
         }
-        AttendanceSession session = attendanceSessionRepository.findByEventID(event.getEventID())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_NOT_ELIGIBLE"));
-        AttendanceRecord attendance = attendanceRecordRepository
-                .findBySessionIDAndRegistrationID(session.getSessionID(), registration.getRegistrationID())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_NOT_ELIGIBLE"));
-        if (!AttendanceStatus.PRESENT.equals(attendance.getAttendanceStatus())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "FEEDBACK_NOT_ELIGIBLE");
+    }
+
+    private boolean feedbackAlreadySubmitted(EventFeedbackInvitation invitation) {
+        if (invitation.getGuestRegistrationID() != null) {
+            return eventFeedbackRepository.existsByEventIDAndGuestRegistrationIDAndIsDeletedFalse(
+                    invitation.getEventID(),
+                    invitation.getGuestRegistrationID()
+            );
         }
+        return eventFeedbackRepository.existsByEventIDAndRegistrationIDAndIsDeletedFalse(
+                invitation.getEventID(),
+                invitation.getRegistrationID()
+        );
+    }
+
+    private Integer responseRegistrationId(EventFeedbackInvitation invitation) {
+        return invitation.getRegistrationID() != null
+                ? invitation.getRegistrationID()
+                : invitation.getGuestRegistrationID();
     }
 
     private boolean isExternalParticipant(Event event, EventRegistration registration) {
@@ -214,8 +302,9 @@ public class FeedbackServiceImpl implements FeedbackService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "REGISTRATION_NOT_FOUND"));
     }
 
-    private String normalize(String value) {
-        return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
+    private GuestEventRegistration findGuestRegistration(Integer guestRegistrationId) {
+        return guestEventRegistrationRepository.findByGuestRegistrationIDAndIsDeletedFalse(guestRegistrationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "REGISTRATION_NOT_FOUND"));
     }
 
     private String hash(String raw) {

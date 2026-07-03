@@ -11,8 +11,8 @@ import java.util.Optional;
 public interface GuestVerificationOtpRepository extends JpaRepository<GuestVerificationOtp, Integer> {
     Optional<GuestVerificationOtp> findFirstByGuestEmailAndIsDeletedFalseOrderByCreatedAtDesc(String guestEmail);
 
-    Optional<GuestVerificationOtp> findTopByEventRegistrationIDAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
-            Integer eventRegistrationID,
+    Optional<GuestVerificationOtp> findTopByGuestRegistrationIDAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+            Integer guestRegistrationID,
             GuestOtpStatus status
     );
 }
