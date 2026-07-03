@@ -1,6 +1,7 @@
 package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.repository.EventRegistrationRepository;
+import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.service.EventCapacityService;
 import com.fptu.fcms.service.event.RegistrationLifecycle;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 public class EventCapacityServiceImpl implements EventCapacityService {
 
     private final EventRegistrationRepository registrationRepository;
+    private final GuestEventRegistrationRepository guestRegistrationRepository;
 
     @Override
     public boolean reserveSeat(Integer eventId, Integer maxParticipants) {
@@ -19,6 +21,9 @@ public class EventCapacityServiceImpl implements EventCapacityService {
         }
 
         long currentRegistrations = registrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
+                eventId,
+                RegistrationLifecycle.CONFIRMED_STATUSES
+        ) + guestRegistrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
                 eventId,
                 RegistrationLifecycle.CONFIRMED_STATUSES
         );

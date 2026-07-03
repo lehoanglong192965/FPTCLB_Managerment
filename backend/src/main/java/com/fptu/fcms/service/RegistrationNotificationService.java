@@ -1,7 +1,7 @@
 package com.fptu.fcms.service;
 
-import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.GuestEventRegistration;
 
 public interface RegistrationNotificationService {
-    void notifyRegistrationStatus(EventRegistration registration);
+    void notifyGuestRegistrationStatus(GuestEventRegistration registration);
 }

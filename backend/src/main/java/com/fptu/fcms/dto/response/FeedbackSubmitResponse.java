@@ -11,6 +11,7 @@ public class FeedbackSubmitResponse {
     private Integer feedbackId;
     private Integer eventId;
     private Integer registrationId;
+    private Integer guestRegistrationId;
     private boolean includedInExternalScore;
     private LocalDateTime submittedAt;
 }

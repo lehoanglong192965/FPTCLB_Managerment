@@ -6,6 +6,7 @@ import com.fptu.fcms.entity.AttendanceSession;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventFeedback;
 import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.FeedbackAssessmentStatus;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
@@ -14,13 +15,16 @@ import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.EventFeedbackRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.service.FeedbackSummaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -46,6 +50,7 @@ public class FeedbackSummaryServiceImpl implements FeedbackSummaryService {
 
     private final EventRepository eventRepository;
     private final EventRegistrationRepository eventRegistrationRepository;
+    private final GuestEventRegistrationRepository guestEventRegistrationRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final EventFeedbackRepository eventFeedbackRepository;
@@ -59,15 +64,25 @@ public class FeedbackSummaryServiceImpl implements FeedbackSummaryService {
         Map<Integer, EventRegistration> registrations = eventRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId)
                 .stream()
                 .collect(Collectors.toMap(EventRegistration::getRegistrationID, Function.identity(), (a, b) -> a));
+        Map<Integer, GuestEventRegistration> guestRegistrations = guestEventRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId)
+                .stream()
+                .collect(Collectors.toMap(GuestEventRegistration::getGuestRegistrationID, Function.identity(), (a, b) -> a));
 
-        Set<Integer> presentRegistrationIds = attendanceSessionRepository.findByEventID(eventId)
+        List<AttendanceRecord> presentRecords = attendanceSessionRepository.findByEventID(eventId)
                 .map(AttendanceSession::getSessionID)
                 .map(attendanceRecordRepository::findBySessionID)
-                .orElseGet(java.util.List::of)
+                .orElseGet(List::of)
                 .stream()
                 .filter(record -> AttendanceStatus.PRESENT.equals(record.getAttendanceStatus()))
+                .toList();
+
+        Set<Integer> presentRegistrationIds = presentRecords.stream()
                 .map(AttendanceRecord::getRegistrationID)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Set<Integer> presentGuestRegistrationIds = presentRecords.stream()
+                .map(AttendanceRecord::getGuestRegistrationID)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
         Set<Integer> eligibleExternalRegistrationIds = registrations.values().stream()
@@ -75,13 +90,18 @@ public class FeedbackSummaryServiceImpl implements FeedbackSummaryService {
                 .filter(registration -> isExternalParticipant(event, registration))
                 .map(EventRegistration::getRegistrationID)
                 .collect(Collectors.toSet());
+        Set<Integer> eligibleGuestRegistrationIds = guestRegistrations.values().stream()
+                .filter(registration -> presentGuestRegistrationIds.contains(registration.getGuestRegistrationID()))
+                .map(GuestEventRegistration::getGuestRegistrationID)
+                .collect(Collectors.toSet());
 
         var externalFeedbacks = eventFeedbackRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
-                .filter(feedback -> eligibleExternalRegistrationIds.contains(feedback.getRegistrationID()))
                 .filter(feedback -> Boolean.TRUE.equals(feedback.getIsIncludedInExternalScore()))
+                .filter(feedback -> eligibleExternalRegistrationIds.contains(feedback.getRegistrationID())
+                        || eligibleGuestRegistrationIds.contains(feedback.getGuestRegistrationID()))
                 .toList();
 
-        long eligibleExternalPresentCount = eligibleExternalRegistrationIds.size();
+        long eligibleExternalPresentCount = eligibleExternalRegistrationIds.size() + eligibleGuestRegistrationIds.size();
         long externalFeedbackResponseCount = externalFeedbacks.size();
         long positiveFeedbackCount = externalFeedbacks.stream()
                 .filter(feedback -> feedback.getOverallRating() != null && feedback.getOverallRating() >= 4)
@@ -92,7 +112,7 @@ public class FeedbackSummaryServiceImpl implements FeedbackSummaryService {
                 : (double) externalFeedbackResponseCount / eligibleExternalPresentCount;
         double averageRating = externalFeedbacks.stream()
                 .map(EventFeedback::getOverallRating)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .mapToInt(Integer::intValue)
                 .average()
                 .orElse(0.0);
@@ -161,12 +181,4 @@ public class FeedbackSummaryServiceImpl implements FeedbackSummaryService {
                 : clubMembershipRepository.findByClubIDAndUserIDAndSemesterIDAndIsDeletedFalse(event.getClubID(), registration.getUserID(), event.getSemesterID()).isPresent();
         return !hostClubMember;
     }
-
-    private String normalizeStatus(String status) {
-        if (status == null) {
-            return "";
-        }
-        return status.trim().toUpperCase(java.util.Locale.ROOT);
-    }
 }
-

@@ -1,14 +1,16 @@
 package com.fptu.fcms.entity;
 
-import org.hibernate.annotations.SQLRestriction;
-
-import jakarta.persistence.*;
-import lombok.*;
 import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.CheckInMethod;
-import java.time.*;
-import java.math.*;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.hibernate.annotations.SQLRestriction;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @SQLRestriction("isDeleted = false")
@@ -16,9 +18,9 @@ import java.math.*;
         name = "AttendanceRecord",
         indexes = {
                 @Index(name = "IX_AttendanceRecord_Session_User", columnList = "sessionID,userID"),
-                @Index(name = "IX_AttendanceRecord_Session_Registration", columnList = "sessionID,registrationID")
-        },
-        uniqueConstraints = @UniqueConstraint(name = "UK_AttendanceRecord_Session_Registration", columnNames = {"sessionID", "registrationID"})
+                @Index(name = "IX_AttendanceRecord_Session_Registration", columnList = "sessionID,registrationID"),
+                @Index(name = "IX_AttendanceRecord_Session_GuestRegistration", columnList = "sessionID,guestRegistrationID")
+        }
 )
 @Getter
 @Setter
@@ -38,6 +40,9 @@ public class AttendanceRecord {
 
     @Column(name = "registrationID")
     private Integer registrationID;
+
+    @Column(name = "guestRegistrationID")
+    private Integer guestRegistrationID;
 
     @Column(name = "participantTypeSnapshotAt")
     private LocalDateTime participantTypeSnapshotAt;
@@ -109,5 +114,4 @@ public class AttendanceRecord {
         }
         updatedAt = LocalDateTime.now();
     }
-
 }

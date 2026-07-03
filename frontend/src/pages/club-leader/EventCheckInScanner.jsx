@@ -55,12 +55,14 @@ const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
     }
 
     const handleCheckIn = async (participant) => {
-        const regId = participant.registrationId ?? participant.id;
+        const guestRegId = participant.guestRegistrationId ?? participant.guestRegistrationID;
+        const regId = guestRegId ?? participant.registrationId ?? participant.id;
         setCheckInLoading(regId);
         setResult(null);
         try {
             await attendanceService.checkIn(sessionId, {
-                registrationId: regId,
+                registrationId: guestRegId ? undefined : regId,
+                guestRegistrationId: guestRegId,
                 verificationMethod: 'MANUAL',
             });
             setResult({
@@ -143,7 +145,8 @@ const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
                 {participants.length > 0 && (
                     <div className="mt-3 max-w-2xl mx-auto border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
                         {participants.map((p) => {
-                            const regId = p.registrationId ?? p.id;
+                            const guestRegId = p.guestRegistrationId ?? p.guestRegistrationID;
+                            const regId = guestRegId ?? p.registrationId ?? p.id;
                             const isChecking = checkInLoading === regId;
                             return (
                                 <div key={regId} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">

@@ -2,6 +2,7 @@ package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.entity.EventRegistration;
 import com.fptu.fcms.repository.EventRegistrationRepository;
+import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.service.event.RegistrationAllocationResult;
 import com.fptu.fcms.service.event.RegistrationAllocationService;
 import com.fptu.fcms.service.event.RegistrationLifecycle;
@@ -16,6 +17,7 @@ import java.util.List;
 public class RegistrationAllocationServiceImpl implements RegistrationAllocationService {
 
     private final EventRegistrationRepository registrationRepository;
+    private final GuestEventRegistrationRepository guestRegistrationRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -78,6 +80,9 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
 
     private long countConfirmedRegistrations(Integer eventId) {
         return registrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
+                eventId,
+                RegistrationLifecycle.CONFIRMED_STATUSES
+        ) + guestRegistrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
                 eventId,
                 RegistrationLifecycle.CONFIRMED_STATUSES
         );

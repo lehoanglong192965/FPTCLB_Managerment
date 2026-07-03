@@ -38,7 +38,7 @@ function StarRating({ value, onChange, disabled }) {
 export default function GuestFeedbackPage() {
   const { token } = useParams();
 
-  const [tokenInfo, setTokenInfo] = useState(null); // FeedbackGuestTokenResponse: { valid, eventId, registrationId, expiresAt, reason }
+  const [tokenInfo, setTokenInfo] = useState(null); // FeedbackGuestTokenResponse: { valid, eventId, registrationId, guestRegistrationId, expiresAt, reason }
   const [tokenLoading, setTokenLoading] = useState(true);
   const [ratings, setRatings] = useState({});
   const [comment, setComment] = useState('');
@@ -64,7 +64,8 @@ export default function GuestFeedbackPage() {
     setError(null);
     try {
       await feedbackService.submitGuest(token, {
-        registrationId:  tokenInfo?.registrationId,
+        registrationId:  tokenInfo?.guestRegistrationId ? undefined : tokenInfo?.registrationId,
+        guestRegistrationId: tokenInfo?.guestRegistrationId,
         organizationRating: ratings.organization,
         contentRating:      ratings.content,
         logisticsRating:    ratings.logistics,

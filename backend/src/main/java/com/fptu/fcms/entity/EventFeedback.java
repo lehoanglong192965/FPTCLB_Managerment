@@ -1,6 +1,12 @@
 package com.fptu.fcms.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,8 +17,9 @@ import java.time.LocalDateTime;
 
 @Entity
 @SQLRestriction("isDeleted = false")
-@Table(name = "EventFeedback", uniqueConstraints = {
-        @UniqueConstraint(name = "UQ_EventFeedback_Event_Registration", columnNames = {"eventID", "registrationID"})
+@Table(name = "EventFeedback", indexes = {
+        @Index(name = "IX_EventFeedback_Event_Registration", columnList = "eventID,registrationID"),
+        @Index(name = "IX_EventFeedback_Event_GuestRegistration", columnList = "eventID,guestRegistrationID")
 })
 @Getter
 @Setter
@@ -27,8 +34,11 @@ public class EventFeedback {
     @Column(name = "eventID", nullable = false)
     private Integer eventID;
 
-    @Column(name = "registrationID", nullable = false)
+    @Column(name = "registrationID")
     private Integer registrationID;
+
+    @Column(name = "guestRegistrationID")
+    private Integer guestRegistrationID;
 
     @Column(name = "contentRating", nullable = false)
     private Integer contentRating;

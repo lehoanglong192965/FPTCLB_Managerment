@@ -15,9 +15,10 @@ public interface EventFeedbackInvitationRepository extends JpaRepository<EventFe
 
     boolean existsByEventIDAndRegistrationIDAndIsDeletedFalse(Integer eventID, Integer registrationID);
 
+    boolean existsByEventIDAndGuestRegistrationIDAndIsDeletedFalse(Integer eventID, Integer guestRegistrationID);
+
     List<EventFeedbackInvitation> findByStatusAndExpiresAtBeforeAndIsDeletedFalse(
             FeedbackInvitationStatus status,
             LocalDateTime expiresAt
     );
 }
-

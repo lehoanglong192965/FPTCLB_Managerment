@@ -1,6 +1,6 @@
 package com.fptu.fcms.service.impl;
 
-import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.RegistrationNotificationService;
@@ -14,8 +14,8 @@ public class RegistrationNotificationServiceImpl implements RegistrationNotifica
     private final EmailService emailService;
 
     @Override
-    public void notifyRegistrationStatus(EventRegistration registration) {
-        if (registration.getGuestEmail() == null || registration.getUserID() != null) {
+    public void notifyGuestRegistrationStatus(GuestEventRegistration registration) {
+        if (registration.getGuestEmail() == null) {
             return;
         }
         RegistrationStatus status = registration.getRegistrationStatus();

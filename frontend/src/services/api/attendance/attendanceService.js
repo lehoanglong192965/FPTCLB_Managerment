@@ -1,13 +1,17 @@
 import axiosClient from "../axiosClient";
 
 // Normalize AttendanceRegistrationSearchResponse fields to match page expectations
-const normalizeRecord = (r) => ({
-  ...r,
-  fullName:  r.displayName      ?? r.fullName,
-  studentId: r.registrationCode ?? r.studentId,
-  status:    r.attendanceStatus ?? r.status,
-  recordId:  r.registrationId   ?? r.recordId,
-});
+const normalizeRecord = (r) => {
+  const guestRegistrationId = r.guestRegistrationId ?? r.guestRegistrationID;
+  return {
+    ...r,
+    guestRegistrationId,
+    fullName:  r.displayName      ?? r.fullName,
+    studentId: r.registrationCode ?? r.studentId,
+    status:    r.attendanceStatus ?? r.status,
+    recordId:  guestRegistrationId ?? r.registrationId ?? r.recordId,
+  };
+};
 
 const attendanceService = {
 
@@ -50,10 +54,11 @@ const attendanceService = {
 
   // ── CHECK-IN ─────────────────────────────────────────────────────
   // POST /api/v1/attendance-sessions/{sessionId}/check-ins
-  // AttendanceCheckInRequest: registrationId (@NotNull), verificationMethod (@NotBlank), verificationValue, guestFullName, note
-  checkIn: (sessionId, { registrationId, verificationMethod = 'MANUAL', verificationValue, guestFullName, note }) =>
+  // AttendanceCheckInRequest: registrationId, guestRegistrationId, verificationMethod (@NotBlank), verificationValue, guestFullName, note
+  checkIn: (sessionId, { registrationId, guestRegistrationId, verificationMethod = 'MANUAL', verificationValue, guestFullName, note }) =>
     axiosClient.post(`/v1/attendance-sessions/${sessionId}/check-ins`, {
       registrationId,
+      guestRegistrationId,
       verificationMethod,
       verificationValue,
       guestFullName,

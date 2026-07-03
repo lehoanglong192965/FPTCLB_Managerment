@@ -5,6 +5,7 @@ import com.fptu.fcms.entity.AttendanceSession;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventFeedbackInvitation;
 import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.FeedbackInvitationStatus;
@@ -13,6 +14,7 @@ import com.fptu.fcms.repository.AttendanceSessionRepository;
 import com.fptu.fcms.repository.EventFeedbackInvitationRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.service.EmailService;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +31,6 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -42,6 +43,7 @@ public class FeedbackInvitationScheduler {
 
     private final EventRepository eventRepository;
     private final EventRegistrationRepository eventRegistrationRepository;
+    private final GuestEventRegistrationRepository guestEventRegistrationRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final EventFeedbackInvitationRepository feedbackInvitationRepository;
@@ -75,12 +77,18 @@ public class FeedbackInvitationScheduler {
             return;
         }
 
-        Set<Integer> presentRegistrationIds = attendanceRecordRepository.findBySessionID(session.getSessionID()).stream()
+        var presentRecords = attendanceRecordRepository.findBySessionID(session.getSessionID()).stream()
                 .filter(record -> AttendanceStatus.PRESENT.equals(record.getAttendanceStatus()))
+                .toList();
+        Set<Integer> presentRegistrationIds = presentRecords.stream()
                 .map(AttendanceRecord::getRegistrationID)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
-        if (presentRegistrationIds.isEmpty()) {
+        Set<Integer> presentGuestRegistrationIds = presentRecords.stream()
+                .map(AttendanceRecord::getGuestRegistrationID)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (presentRegistrationIds.isEmpty() && presentGuestRegistrationIds.isEmpty()) {
             return;
         }
 
@@ -97,6 +105,19 @@ public class FeedbackInvitationScheduler {
             }
             createAndSendInvitation(event, registration, email, now);
         }
+
+        for (GuestEventRegistration registration : guestEventRegistrationRepository.findByEventIDAndIsDeletedFalse(event.getEventID())) {
+            if (!presentGuestRegistrationIds.contains(registration.getGuestRegistrationID())) {
+                continue;
+            }
+            if (feedbackInvitationRepository.existsByEventIDAndGuestRegistrationIDAndIsDeletedFalse(event.getEventID(), registration.getGuestRegistrationID())) {
+                continue;
+            }
+            if (!StringUtils.hasText(registration.getGuestEmail())) {
+                continue;
+            }
+            createAndSendGuestInvitation(event, registration, now);
+        }
     }
 
     private void createAndSendInvitation(Event event, EventRegistration registration, String email, LocalDateTime now) {
@@ -112,6 +133,26 @@ public class FeedbackInvitationScheduler {
         invitation.setIsDeleted(false);
         feedbackInvitationRepository.save(invitation);
 
+        sendFeedbackEmail(event, email, rawToken);
+    }
+
+    private void createAndSendGuestInvitation(Event event, GuestEventRegistration registration, LocalDateTime now) {
+        String rawToken = generateToken();
+        EventFeedbackInvitation invitation = new EventFeedbackInvitation();
+        invitation.setEventID(event.getEventID());
+        invitation.setGuestRegistrationID(registration.getGuestRegistrationID());
+        invitation.setTokenHash(hash(rawToken));
+        invitation.setExpiresAt(event.getFeedbackClosesAt() == null ? now.plusDays(7) : event.getFeedbackClosesAt());
+        invitation.setStatus(FeedbackInvitationStatus.ACTIVE);
+        invitation.setSentAt(now);
+        invitation.setCreatedAt(now);
+        invitation.setIsDeleted(false);
+        feedbackInvitationRepository.save(invitation);
+
+        sendFeedbackEmail(event, registration.getGuestEmail(), rawToken);
+    }
+
+    private void sendFeedbackEmail(Event event, String email, String rawToken) {
         String link = publicFeedbackBaseUrl.endsWith("/") ? publicFeedbackBaseUrl + rawToken : publicFeedbackBaseUrl + "/" + rawToken;
         emailService.sendSimpleEmail(
                 email,
@@ -142,9 +183,5 @@ public class FeedbackInvitationScheduler {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 unavailable", e);
         }
-    }
-
-    private String normalize(String value) {
-        return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
     }
 }

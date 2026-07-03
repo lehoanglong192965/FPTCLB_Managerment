@@ -6,6 +6,7 @@ import com.fptu.fcms.entity.AttendanceRecord;
 import com.fptu.fcms.entity.AttendanceSession;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.enums.AttendanceSessionStatus;
 import com.fptu.fcms.enums.AttendanceStatus;
@@ -17,6 +18,7 @@ import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.service.AttendanceService;
 import com.fptu.fcms.service.AuditLogService;
@@ -38,6 +40,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final EventRepository eventRepository;
     private final EventRegistrationRepository eventRegistrationRepository;
+    private final GuestEventRegistrationRepository guestEventRegistrationRepository;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
 
@@ -57,6 +60,13 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new IllegalArgumentException("Event must be Ongoing for check-in.");
         }
 
+        if (request.getGuestRegistrationId() != null) {
+            return checkInGuest(sessionId, event, request, actorId);
+        }
+        if (request.getRegistrationId() == null) {
+            throw new IllegalArgumentException("registrationId is required.");
+        }
+
         EventRegistration registration = (EventRegistration) eventRegistrationRepository.findByRegistrationIDAndIsDeletedFalse(request.getRegistrationId())
                 .orElseThrow(() -> new IllegalArgumentException("Registration not found."));
         if (!Objects.equals(registration.getEventID(), event.getEventID())) {
@@ -73,14 +83,15 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (existingRecord.isPresent()) {
             AttendanceRecord existing = existingRecord.get();
             if (existing.getAttendanceStatus() != AttendanceStatus.PRESENT) {
+                AttendanceRecord before = snapshot(existing);
+                LocalDateTime now = LocalDateTime.now();
                 existing.setAttendanceStatus(AttendanceStatus.PRESENT);
                 existing.setCheckInMethod(CheckInMethod.STAFF_LOOKUP);
-                existing.setVerificationMethod(normalize(request.getVerificationMethod()));
+                existing.setVerificationMethod(parseVerificationMethod(request.getVerificationMethod()).name());
                 existing.setCheckedInBy(actorId);
-                existing.setCheckedInAt(LocalDateTime.now());
-                existing.setMarkedAt(existing.getCheckedInAt());
-                existing.setUpdatedAt(existing.getCheckedInAt());
-                AttendanceRecord before = snapshot(existing);
+                existing.setCheckedInAt(now);
+                existing.setMarkedAt(now);
+                existing.setUpdatedAt(now);
                 attendanceRecordRepository.save(existing);
                 auditLogService.record(actorId, "AttendanceRecord", existing.getRecordID(), "ATTENDANCE_CHECK_IN_EXISTING", before, existing, request.getNote());
             }
@@ -96,7 +107,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         UserAccount user = registration.getUserID() == null
                 ? null
                 : userRepository.findByUserIDAndIsDeletedFalse(registration.getUserID()).orElse(null);
-        VerificationMethod verificationMethod = VerificationMethod.fromValue(request.getVerificationMethod());
+        VerificationMethod verificationMethod = parseVerificationMethod(request.getVerificationMethod());
         verifyParticipant(registration, user, verificationMethod, request);
 
         LocalDateTime now = LocalDateTime.now();
@@ -129,6 +140,88 @@ public class AttendanceServiceImpl implements AttendanceService {
                 event.getEventID(),
                 registration.getRegistrationID(),
                 registration.getUserID(),
+                AttendanceStatus.PRESENT,
+                "Check-in successful."
+        );
+    }
+
+    private AttendanceCheckInResponse checkInGuest(
+            Integer sessionId,
+            Event event,
+            AttendanceCheckInRequest request,
+            Integer actorId
+    ) {
+        GuestEventRegistration registration = guestEventRegistrationRepository
+                .findByGuestRegistrationIDAndIsDeletedFalse(request.getGuestRegistrationId())
+                .orElseThrow(() -> new IllegalArgumentException("Guest registration not found."));
+        if (!Objects.equals(registration.getEventID(), event.getEventID())) {
+            throw new IllegalArgumentException("Registration does not belong to this attendance session.");
+        }
+        RegistrationStatus registrationStatus = registration.getRegistrationStatus();
+        if (registrationStatus == null && registration.getStatus() != null) {
+            registrationStatus = RegistrationStatus.fromValue(registration.getStatus());
+        }
+        if (!RegistrationStatus.CONFIRMED.equals(registrationStatus)) {
+            throw new IllegalArgumentException("Registration is not confirmed for check-in.");
+        }
+
+        var existingRecord = attendanceRecordRepository.findBySessionIDAndGuestRegistrationID(sessionId, registration.getGuestRegistrationID());
+        if (existingRecord.isPresent()) {
+            AttendanceRecord existing = existingRecord.get();
+            if (existing.getAttendanceStatus() != AttendanceStatus.PRESENT) {
+                AttendanceRecord before = snapshot(existing);
+                LocalDateTime now = LocalDateTime.now();
+                existing.setAttendanceStatus(AttendanceStatus.PRESENT);
+                existing.setCheckInMethod(CheckInMethod.STAFF_LOOKUP);
+                existing.setVerificationMethod(parseVerificationMethod(request.getVerificationMethod()).name());
+                existing.setCheckedInBy(actorId);
+                existing.setCheckedInAt(now);
+                existing.setMarkedAt(now);
+                existing.setUpdatedAt(now);
+                attendanceRecordRepository.save(existing);
+                auditLogService.record(actorId, "AttendanceRecord", existing.getRecordID(), "ATTENDANCE_CHECK_IN_EXISTING", before, existing, request.getNote());
+            }
+            return new AttendanceCheckInResponse(
+                    event.getEventID(),
+                    registration.getGuestRegistrationID(),
+                    null,
+                    AttendanceStatus.PRESENT,
+                    "Participant already checked in."
+            );
+        }
+
+        VerificationMethod verificationMethod = parseVerificationMethod(request.getVerificationMethod());
+        verifyGuestParticipant(registration, verificationMethod, request);
+
+        LocalDateTime now = LocalDateTime.now();
+        AttendanceRecord record = new AttendanceRecord();
+        record.setSessionID(sessionId);
+        record.setGuestRegistrationID(registration.getGuestRegistrationID());
+        record.setParticipantTypeSnapshotAt(registration.getParticipantTypeSnapshotAt());
+        record.setAttendanceStatus(AttendanceStatus.PRESENT);
+        record.setCheckInMethod(CheckInMethod.STAFF_LOOKUP);
+        record.setParticipantTypeSnapshot("GUEST");
+        record.setVerificationMethod(verificationMethod.name());
+        record.setCheckedInBy(actorId);
+        record.setCheckedInAt(now);
+        record.setManualReason(request.getNote());
+        record.setNote(request.getNote());
+        record.setMarkedAt(now);
+        record.setCreatedAt(now);
+        record.setIsVerifiedByAI(false);
+        record.setIsDeleted(false);
+
+        try {
+            AttendanceRecord savedRecord = attendanceRecordRepository.save(record);
+            auditLogService.record(actorId, "AttendanceRecord", savedRecord.getRecordID(), "ATTENDANCE_CHECK_IN", null, savedRecord, request.getNote());
+        } catch (DataIntegrityViolationException ex) {
+            throw new IllegalArgumentException("Participant already checked in.");
+        }
+
+        return new AttendanceCheckInResponse(
+                event.getEventID(),
+                registration.getGuestRegistrationID(),
+                null,
                 AttendanceStatus.PRESENT,
                 "Check-in successful."
         );
@@ -176,11 +269,36 @@ public class AttendanceServiceImpl implements AttendanceService {
         }
     }
 
+    private void verifyGuestParticipant(
+            GuestEventRegistration registration,
+            VerificationMethod method,
+            AttendanceCheckInRequest request
+    ) {
+        if (method != VerificationMethod.PHONE_LAST4 && method != VerificationMethod.MANUAL_OVERRIDE) {
+            throw new IllegalArgumentException("Guest check-in requires phone last 4 verification.");
+        }
+        if (method == VerificationMethod.MANUAL_OVERRIDE) {
+            return;
+        }
+        String phone = StringUtils.hasText(registration.getGuestPhoneNormalized())
+                ? registration.getGuestPhoneNormalized()
+                : registration.getGuestPhone();
+        String expectedLast4 = phone == null || phone.length() < 4 ? phone : phone.substring(phone.length() - 4);
+        if (!StringUtils.hasText(request.getVerificationValue()) || !request.getVerificationValue().trim().equals(expectedLast4)) {
+            throw new IllegalArgumentException("Guest phone verification failed.");
+        }
+        if (StringUtils.hasText(request.getGuestFullName())
+                && !normalizeSpaces(request.getGuestFullName()).equalsIgnoreCase(normalizeSpaces(registration.getGuestFullName()))) {
+            throw new IllegalArgumentException("Guest name verification failed.");
+        }
+    }
+
     private AttendanceRecord snapshot(AttendanceRecord record) {
         AttendanceRecord copy = new AttendanceRecord();
         copy.setRecordID(record.getRecordID());
         copy.setSessionID(record.getSessionID());
         copy.setRegistrationID(record.getRegistrationID());
+        copy.setGuestRegistrationID(record.getGuestRegistrationID());
         copy.setAttendanceStatus(record.getAttendanceStatus());
         copy.setCheckInMethod(record.getCheckInMethod());
         copy.setVerificationMethod(record.getVerificationMethod());
@@ -193,6 +311,14 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     private String normalize(String value) {
         return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private VerificationMethod parseVerificationMethod(String value) {
+        String normalized = normalize(value);
+        if (normalized.isBlank() || "MANUAL".equals(normalized)) {
+            return VerificationMethod.MANUAL_OVERRIDE;
+        }
+        return VerificationMethod.fromValue(normalized);
     }
 
     private String normalizeSpaces(String value) {
