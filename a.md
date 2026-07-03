@@ -1,5 +1,3 @@
----
-
 Tài liệu này mô tả chi tiết Vòng đời (Lifecycle) và Ngăn xếp cuộc gọi (Call Stack) của hệ thống **FCMS (FPT Club Management System)** cho luồng nghiệp vụ:
 **Cán bộ ICPDP trực tiếp khởi tạo Câu lạc bộ mới trên hệ thống.**
 
