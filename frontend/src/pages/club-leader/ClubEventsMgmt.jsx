@@ -305,11 +305,13 @@ export default function ClubEventsMgmt() {
     } catch { /* dùng data hiện có nếu fetch lỗi */ }
 
     const dt = full.startDate ? new Date(full.startDate) : null;
+    const endDt = full.endDate ? new Date(full.endDate) : null;
     const pad = (n) => String(n).padStart(2, "0");
     setEditForm({
       name:            full.eventName || "",
       date:            dt ? `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}` : "",
       time:            dt ? `${pad(dt.getHours())}:${pad(dt.getMinutes())}` : "",
+      endTime:         endDt ? `${pad(endDt.getHours())}:${pad(endDt.getMinutes())}` : "",
       location:        full.location || "",
       description:     full.description || "",
       maxParticipants: full.maxParticipants ?? "",
@@ -325,14 +327,21 @@ export default function ClubEventsMgmt() {
     setSaving(true);
     try {
       const startDate = editForm.date && editForm.time
-        ? new Date(`${editForm.date}T${editForm.time}:00`).toISOString().slice(0, 19)
+        ? `${editForm.date}T${editForm.time}:00`
         : null;
+      const endDate = editForm.date && editForm.endTime
+        ? `${editForm.date}T${editForm.endTime}:00`
+        : null;
+      if (startDate && endDate && endDate <= startDate) {
+        alert("Giờ kết thúc phải sau giờ bắt đầu.");
+        return;
+      }
       await eventService.update(selectedEv.eventID, {
         eventName:       editForm.name || undefined,
         description:     editForm.description || undefined,
         location:        editForm.location || undefined,
         startDate:       startDate || undefined,
-        endDate:         startDate || undefined,
+        endDate:         endDate || undefined,
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : undefined,
         budget:          editForm.budget ? Number(editForm.budget) : undefined,
       });
@@ -351,7 +360,8 @@ export default function ClubEventsMgmt() {
         eventName:       editForm.name,
         description:     editForm.description,
         location:        editForm.location,
-        startDate:       startDate ? `${editForm.date}T${editForm.time}:00` : selectedEv.startDate,
+        startDate:       startDate || selectedEv.startDate,
+        endDate:         endDate || selectedEv.endDate,
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : selectedEv.maxParticipants,
         budget:          editForm.budget ? Number(editForm.budget) : selectedEv.budget,
         bannerUrl:       newBannerUrl,
@@ -592,7 +602,9 @@ export default function ClubEventsMgmt() {
                       <input type="date" value={editForm.date} onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))}
                         style={{ flex: 1, fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", outline: "none" }} />
                       <input type="time" value={editForm.time} onChange={(e) => setEditForm((f) => ({ ...f, time: e.target.value }))}
-                        style={{ width: 110, fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", outline: "none" }} />
+                        style={{ width: 96, fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", outline: "none" }} />
+                      <input type="time" value={editForm.endTime} onChange={(e) => setEditForm((f) => ({ ...f, endTime: e.target.value }))}
+                        style={{ width: 96, fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", outline: "none" }} />
                     </div>
                   </div>
                   <div>

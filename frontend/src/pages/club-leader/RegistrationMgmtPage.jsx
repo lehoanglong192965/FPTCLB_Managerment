@@ -6,6 +6,8 @@ import { useToast } from '../../contexts/ToastContext';
 
 const STATUS_CFG = {
   PENDING:   { label: 'Chờ duyệt',  color: 'text-yellow-700', bg: 'bg-yellow-100' },
+  PENDING_APPROVAL: { label: 'Chờ duyệt', color: 'text-yellow-700', bg: 'bg-yellow-100' },
+  PENDING_VERIFICATION: { label: 'Chờ OTP', color: 'text-orange-700', bg: 'bg-orange-100' },
   CONFIRMED: { label: 'Đã xác nhận', color: 'text-green-700',  bg: 'bg-green-100'  },
   REJECTED:  { label: 'Từ chối',    color: 'text-red-700',    bg: 'bg-red-100'    },
   CANCELLED: { label: 'Đã hủy',     color: 'text-gray-600',   bg: 'bg-gray-100'   },
@@ -14,7 +16,7 @@ const STATUS_CFG = {
 
 const TABS = [
   { id: '',          label: 'Tất cả'    },
-  { id: 'PENDING',   label: 'Chờ duyệt' },
+  { id: 'PENDING_APPROVAL', label: 'Chờ duyệt' },
   { id: 'CONFIRMED', label: 'Đã duyệt'  },
   { id: 'REJECTED',  label: 'Từ chối'   },
 ];
@@ -87,6 +89,7 @@ export default function RegistrationMgmtPage() {
       const data = raw.map((r) => ({
         ...r,
         registrationId: r.registrationID ?? r.registrationId ?? r.id,
+        guestRegistrationId: r.guestRegistrationID ?? r.guestRegistrationId,
         fullName:       r.fullName || r.guestFullName,
         email:          r.email    || r.guestEmail,
         type:           r.participantType ?? r.type,
@@ -147,13 +150,14 @@ export default function RegistrationMgmtPage() {
     return (
       (r.fullName || r.name || '').toLowerCase().includes(q) ||
       (r.studentId || '').toLowerCase().includes(q) ||
-      (r.email || '').toLowerCase().includes(q)
+      (r.email || '').toLowerCase().includes(q) ||
+      (r.guestPhone || '').toLowerCase().includes(q)
     );
   });
 
   const counts = {
     '': registrations.length,
-    PENDING:   registrations.filter((r) => r.status === 'PENDING').length,
+    PENDING_APPROVAL: registrations.filter((r) => r.status === 'PENDING_APPROVAL').length,
     CONFIRMED: registrations.filter((r) => r.status === 'CONFIRMED').length,
     REJECTED:  registrations.filter((r) => r.status === 'REJECTED').length,
   };
@@ -237,7 +241,10 @@ export default function RegistrationMgmtPage() {
             </thead>
             <tbody>
               {filtered.map((r, idx) => {
-                const regId = r.registrationId ?? r.id;
+                const isGuest = r.type === 'GUEST';
+                const regId = isGuest
+                  ? 'guest-' + (r.guestRegistrationId ?? r.registrationId ?? idx)
+                  : 'fptu-' + (r.registrationId ?? r.id ?? idx);
                 const cfg = STATUS_CFG[r.status] ?? { label: r.status, color: 'text-gray-600', bg: 'bg-gray-100' };
                 const isLoading = actionLoading === regId;
                 return (
@@ -258,7 +265,7 @@ export default function RegistrationMgmtPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        {r.status === 'PENDING' && (
+                        {!isGuest && r.status === 'PENDING_APPROVAL' && (
                           <>
                             <button
                               onClick={() => handleApprove(r)}
@@ -269,7 +276,7 @@ export default function RegistrationMgmtPage() {
                               <CheckCircle2 size={16} />
                             </button>
                             <button
-                              onClick={() => setRejectTarget({ id: regId, name: r.fullName || r.name })}
+                              onClick={() => setRejectTarget({ id: r.registrationId ?? r.id, name: r.fullName || r.name })}
                               disabled={isLoading}
                               title="Từ chối"
                               className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50"
@@ -278,7 +285,7 @@ export default function RegistrationMgmtPage() {
                             </button>
                           </>
                         )}
-                        {(r.status === 'CONFIRMED' || r.status === 'PENDING') && (
+                        {!isGuest && (r.status === 'CONFIRMED' || r.status === 'PENDING_APPROVAL') && (
                           <button
                             onClick={() => handleCancel(r)}
                             disabled={isLoading}

@@ -57,7 +57,13 @@ export default function AttendanceDashboardPage() {
     } finally {
       setSessionLoading(false);
     }
-  }, [eventId]);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedSession && sessions.length > 0) {
+      loadSessionSummary(sessions[0]);
+    }
+  }, [sessions, selectedSession, loadSessionSummary]);
 
   const attendanceRate = summary
     ? summary.attendanceRate ?? (summary.totalRegistered > 0 ? ((summary.totalPresent / summary.totalRegistered) * 100).toFixed(1) : 0)
@@ -191,12 +197,12 @@ export default function AttendanceDashboardPage() {
                         </thead>
                         <tbody>
                           {sessionSummary.records.map((r, idx) => (
-                            <tr key={r.recordId ?? idx} className="border-b border-gray-50 last:border-0">
+                            <tr key={r.participantKey ?? r.recordId ?? idx} className="border-b border-gray-50 last:border-0">
                               <td className="px-4 py-3 text-gray-400">{idx + 1}</td>
                               <td className="px-4 py-3 font-medium text-gray-900">{r.fullName || r.name || '—'}</td>
                               <td className="px-4 py-3 text-gray-600 font-mono text-xs">{r.studentId || '—'}</td>
                               <td className="px-4 py-3">
-                                {r.status === 'PRESENT' ? (
+                                {(r.status ?? r.attendanceStatus) === 'PRESENT' ? (
                                   <span className="flex items-center gap-1 text-green-700 text-xs font-medium">
                                     <CheckCircle2 size={13} /> Có mặt
                                   </span>
@@ -207,7 +213,7 @@ export default function AttendanceDashboardPage() {
                                 )}
                               </td>
                               <td className="px-4 py-3 text-gray-500 text-xs">
-                                {r.checkedInAt ? new Date(r.checkedInAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                {r.checkedInAt || r.markedAt ? new Date(r.checkedInAt ?? r.markedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—'}
                               </td>
                             </tr>
                           ))}
