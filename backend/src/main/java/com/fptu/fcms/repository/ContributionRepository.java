@@ -1,6 +1,6 @@
 package com.fptu.fcms.repository;
 
-import com.fptu.fcms.entity.Contribution;
+import com.fptu.fcms.entity.EventContribution;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -9,12 +9,12 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ContributionRepository extends JpaRepository<Contribution, Integer> {
-    List<Contribution> findByEventIDAndIsDeletedFalse(Integer eventID);
+public interface ContributionRepository extends JpaRepository<EventContribution, Integer> {
+    List<EventContribution> findByEventIDAndIsDeletedFalse(Integer eventID);
 
-    List<Contribution> findByBatchIDAndIsDeletedFalse(Integer batchID);
+    List<EventContribution> findByBatchIDAndIsDeletedFalse(Integer batchID);
 
-    Optional<Contribution> findByBatchIDAndUserIDAndIsDeletedFalse(Integer batchID, Integer userID);
+    Optional<EventContribution> findByBatchIDAndUserIDAndIsDeletedFalse(Integer batchID, Integer userID);
 
-    List<Contribution> findByBatchIDAndUserIDInAndIsDeletedFalse(Integer batchID, Collection<Integer> userIDs);
+    List<EventContribution> findByBatchIDAndUserIDInAndIsDeletedFalse(Integer batchID, Collection<Integer> userIDs);
 }

@@ -3,6 +3,7 @@ package com.fptu.fcms.service.impl;
 import com.fptu.fcms.dto.request.CreateEventReportRequest;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventReport;
+import com.fptu.fcms.enums.EventReportStatus;
 import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.repository.EventReportRepository;
 import com.fptu.fcms.repository.EventRepository;
@@ -52,8 +53,10 @@ public class ReportUploadServiceImpl implements ReportUploadService {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(request.getEventID())
                 .orElseThrow(() -> new IllegalArgumentException("Event not found."));
 
-        if (!EventStatus.COMPLETED.equals(event.getEventStatus()) && !EventStatus.ONGOING.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Only Completed or Ongoing events can have reports uploaded.");
+        if (!EventStatus.COMPLETED.equals(event.getEventStatus())
+                && !EventStatus.ONGOING.equals(event.getEventStatus())
+                && !EventStatus.REPORT_REJECTED.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Only Completed, Ongoing, or ReportRejected events can have reports uploaded.");
         }
 
         MultipartFile file = request.getFile();
@@ -73,6 +76,12 @@ public class ReportUploadServiceImpl implements ReportUploadService {
             report.setSummary(request.getSummary());
             report.setUploadedBy(uploadedBy);
             report.setUploadedAt(LocalDateTime.now());
+            report.setStatus(EventReportStatus.UPLOADED);
+            report.setApprovedBy(null);
+            report.setApprovedAt(null);
+            report.setRejectedBy(null);
+            report.setRejectedAt(null);
+            report.setRejectionReason(null);
             report.setIsDeleted(false);
             eventReportRepository.save(report);
 

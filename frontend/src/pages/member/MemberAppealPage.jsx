@@ -69,7 +69,7 @@ export default function MemberAppealPage() {
     );
   }
 
-  const appealWindowOpen = batchStatus === 'APPEAL_WINDOW';
+  const appealWindowOpen = batchStatus === 'APPEAL_WINDOW' || batchStatus === 'APPEAL_OPEN';
 
   if (submittedAppeal) {
     const cfg = APPEAL_STATUS_CFG[submittedAppeal.status ?? 'PENDING'] ?? APPEAL_STATUS_CFG.PENDING;

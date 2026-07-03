@@ -35,6 +35,9 @@ build/
 ### Custom Ignored Files ###
 *.docx
 *.sql
+!src/main/resources/db/
+!src/main/resources/db/migration/
+!src/main/resources/db/migration/*.sql
 .agent/
 plan.zip
 temp_docx/

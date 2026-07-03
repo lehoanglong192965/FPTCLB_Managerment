@@ -28,7 +28,7 @@ const eventService = {
   removeAssignment: (eventId, userId) => axiosClient.delete(`/v1/events/${eventId}/assignments/${userId}`),
   getReportUploadedEvents: () => axiosClient.get("/v1/events/report-uploaded"),
   getReportByEventId: (eventId) => axiosClient.get(`/v1/reports/event/${eventId}`),
-  rejectReport: (eventId) => axiosClient.patch(`/v1/events/${eventId}/reject-report`),
+  rejectReport: (eventId, reason) => axiosClient.patch(`/v1/events/${eventId}/reject-report`, { reason }),
   uploadBanner: (eventId, file) => {
     const form = new FormData();
     form.append("file", file);

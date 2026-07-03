@@ -4,6 +4,7 @@ import com.fptu.fcms.dto.request.CancelEventRequest;
 import com.fptu.fcms.dto.request.CreateEventProposalRequest;
 import com.fptu.fcms.dto.request.EventApprovalRequest;
 import com.fptu.fcms.dto.request.EventAssignmentRequest;
+import com.fptu.fcms.dto.request.ReportRejectRequest;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
 import com.fptu.fcms.dto.response.EventDetailResponse;
 import com.fptu.fcms.entity.Event;
@@ -55,9 +56,12 @@ public class EventController {
 
     @PatchMapping("/{eventId}/reject-report")
     @PreAuthorize("hasRole('ICPDP')")
-    public ResponseEntity<Map<String, String>> rejectReport(@PathVariable Integer eventId) {
-        eventService.rejectReport(eventId);
-        return ResponseEntity.ok(Map.of("message", "Report rejected, event returned to Completed."));
+    public ResponseEntity<Map<String, String>> rejectReport(
+            @PathVariable Integer eventId,
+            @Valid @RequestBody ReportRejectRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        contributionBatchService.rejectReport(eventId, request.getReason(), currentUser == null ? null : currentUser.getUserId());
+        return ResponseEntity.ok(Map.of("message", "Report rejected."));
     }
 
     @GetMapping("/{eventId}")

@@ -2,6 +2,7 @@ package com.fptu.fcms.controller;
 
 import com.fptu.fcms.dto.request.AppealCreateRequest;
 import com.fptu.fcms.dto.request.AppealResolveRequest;
+import com.fptu.fcms.dto.request.ReportRejectRequest;
 import com.fptu.fcms.dto.response.AppealResponse;
 import com.fptu.fcms.dto.response.ContributionBatchResponse;
 import com.fptu.fcms.security.UserPrincipal;
@@ -28,13 +29,24 @@ public class ContributionBatchController {
 
     private final ContributionBatchService contributionBatchService;
 
-    @PatchMapping("/events/{eventId}/approve-report")
+    @PatchMapping({"/events/{eventId}/approve-report", "/events/{eventId}/report/approve"})
     @PreAuthorize("hasRole('ICPDP')")
     public ResponseEntity<ContributionBatchResponse> approveReport(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         return ResponseEntity.ok(contributionBatchService.approveReportAndCreateBatch(eventId, userId(principal)));
+    }
+
+    @PatchMapping("/events/{eventId}/report/reject")
+    @PreAuthorize("hasRole('ICPDP')")
+    public ResponseEntity<Void> rejectReport(
+            @PathVariable Integer eventId,
+            @Valid @RequestBody ReportRejectRequest request,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        contributionBatchService.rejectReport(eventId, request.getReason(), userId(principal));
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/events/{eventId}/contribution-batch")

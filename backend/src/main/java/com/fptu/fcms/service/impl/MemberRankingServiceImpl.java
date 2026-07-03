@@ -298,6 +298,7 @@ public class MemberRankingServiceImpl implements MemberRankingService {
         return memberPerformanceRepository
                 .findByClubIDAndEventIDInAndUserIDInAndIsDeletedFalse(clubId, semesterEventIds, userIds)
                 .stream()
+                .filter(this::isIndividualRankingEligible)
                 .collect(Collectors.groupingBy(
                         MemberPerformance::getUserID,
                         Collectors.summingInt(performance -> performance.getBonusPoints() == null ? 0 : performance.getBonusPoints())
@@ -318,6 +319,7 @@ public class MemberRankingServiceImpl implements MemberRankingService {
         return memberPerformanceRepository
                 .findByClubIDAndEventIDInAndUserIDInAndIsDeletedFalse(clubId, semesterEventIds, userIds)
                 .stream()
+                .filter(this::isIndividualRankingEligible)
                 .collect(Collectors.groupingBy(
                         MemberPerformance::getUserID,
                         Collectors.summingInt(this::resolvePenaltyAdjustment)
@@ -371,6 +373,10 @@ public class MemberRankingServiceImpl implements MemberRankingService {
     private int resolvePenaltyAdjustment(MemberPerformance performance) {
         int penaltyPoints = performance.getPenaltyPoints() == null ? 0 : performance.getPenaltyPoints();
         return -penaltyPoints;
+    }
+
+    private boolean isIndividualRankingEligible(MemberPerformance performance) {
+        return performance != null && Boolean.TRUE.equals(performance.getIndividualRankingEligible());
     }
 
     private int resolveEventParticipationPoint() {

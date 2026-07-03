@@ -28,6 +28,7 @@ const STATUS_DEFS = [
   { keys: ["ReportUploaded",          "REPORT_UPLOADED",     "REPORTUPLOADED"],     label: "Đã nộp báo cáo",color: "#9333ea", bg: "#f3e8ff" },
   { keys: ["ReportPendingApproval",   "REPORT_PENDING_APPROVAL", "REPORTPENDINGAPPROVAL"], label: "Báo cáo chờ duyệt", color: "#c026d3", bg: "#fae8ff" },
   { keys: ["ReportApproved",          "REPORT_APPROVED", "REPORTAPPROVED"],         label: "Báo cáo đã duyệt",color: "#0f766e", bg: "#ccfbf1" },
+  { keys: ["ReportRejected",          "REPORT_REJECTED", "REPORTREJECTED"],         label: "Báo cáo bị từ chối",color: "#b91c1c", bg: "#fee2e2" },
   { keys: ["ContributionDraft",       "CONTRIBUTION_DRAFT",        "CONTRIBUTIONDRAFT"],        label: "Đóng góp — Nháp",     color: "#475569", bg: "#f1f5f9" },
   { keys: ["ContributionCalculated",  "CONTRIBUTION_CALCULATED",   "CONTRIBUTIONCALCULATED"],   label: "Đã tính điểm",        color: "#0369a1", bg: "#e0f2fe" },
   { keys: ["ContributionScoring",     "CONTRIBUTION_SCORING",      "CONTRIBUTIONSCORING"],      label: "Đang chấm điểm",      color: "#7c2d12", bg: "#fff7ed" },

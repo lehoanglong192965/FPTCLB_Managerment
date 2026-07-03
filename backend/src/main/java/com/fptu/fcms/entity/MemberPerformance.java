@@ -45,6 +45,12 @@ public class MemberPerformance {
     @Column(name = "leaderEvaluation")
     private String leaderEvaluation;
 
+    @Column(name = "sourceContributionID")
+    private Integer sourceContributionID;
+
+    @Column(name = "individualRankingEligible")
+    private Boolean individualRankingEligible = true;
+
     @Column(name = "updatedAt")
     private LocalDateTime updatedAt;
 

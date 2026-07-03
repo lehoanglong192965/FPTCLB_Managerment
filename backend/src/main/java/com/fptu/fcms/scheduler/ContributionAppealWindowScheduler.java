@@ -35,9 +35,8 @@ public class ContributionAppealWindowScheduler extends BaseScheduler {
         
         executeIdempotentIntraday("ContributionAppealWindowScheduler", slotSuffix, () -> {
             for (ContributionBatch batch : contributionBatchRepository
-                    .findByStatusAndAppealClosesAtBeforeAndIsDeletedFalse(ContributionBatchStatus.APPEAL_OPEN, now)) {
+                    .findByStatusAndAppealClosesAtBeforeAndIsDeletedFalse(ContributionBatchStatus.APPEAL_WINDOW, now)) {
                 ContributionBatchStatus beforeStatus = batch.getStatus();
-                batch.setStatus(ContributionBatchStatus.APPEAL_RESOLUTION);
                 batch.setUpdatedAt(now);
                 ContributionBatch saved = contributionBatchRepository.save(batch);
                 auditLogService.record(

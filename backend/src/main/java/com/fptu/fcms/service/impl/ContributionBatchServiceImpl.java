@@ -5,19 +5,21 @@ import com.fptu.fcms.dto.request.AppealResolveRequest;
 import com.fptu.fcms.dto.response.AppealResponse;
 import com.fptu.fcms.dto.response.ContributionBatchResponse;
 import com.fptu.fcms.dto.response.ContributionDTO;
-import com.fptu.fcms.entity.Appeal;
 import com.fptu.fcms.entity.AttendanceRecord;
 import com.fptu.fcms.entity.AttendanceSession;
-import com.fptu.fcms.entity.Contribution;
+import com.fptu.fcms.entity.ContributionAppeal;
 import com.fptu.fcms.entity.ContributionBatch;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventAssignment;
+import com.fptu.fcms.entity.EventContribution;
 import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.EventReport;
 import com.fptu.fcms.entity.MemberPerformance;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.AppealStatus;
 import com.fptu.fcms.enums.ContributionBatchStatus;
+import com.fptu.fcms.enums.EventReportStatus;
 import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.repository.AppealRepository;
@@ -56,7 +58,8 @@ import java.util.stream.Collectors;
 public class ContributionBatchServiceImpl implements ContributionBatchService {
 
     private static final EventStatus STATUS_REPORT_UPLOADED = EventStatus.REPORT_UPLOADED;
-    private static final EventStatus STATUS_CONTRIBUTION_SCORING = EventStatus.CONTRIBUTION_SCORING;
+    private static final EventStatus STATUS_REPORT_APPROVED = EventStatus.REPORT_APPROVED;
+    private static final EventStatus STATUS_REPORT_REJECTED = EventStatus.REPORT_REJECTED;
     private static final EventStatus STATUS_CONTRIBUTION_FINALIZED = EventStatus.CONTRIBUTION_FINALIZED;
     private static final RegistrationStatus REGISTRATION_STATUS_CONFIRMED = RegistrationStatus.CONFIRMED;
     private static final RegistrationStatus REGISTRATION_STATUS_REGISTERED = RegistrationStatus.REGISTERED;
@@ -90,9 +93,8 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         if (!STATUS_REPORT_UPLOADED.equals(event.getEventStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "EVENT_REPORT_NOT_UPLOADED");
         }
-        if (!eventReportRepository.existsByEventIDAndIsDeletedFalse(eventId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "EVENT_REPORT_NOT_FOUND");
-        }
+        EventReport report = eventReportRepository.findByEventIDAndIsDeletedFalse(eventId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "EVENT_REPORT_NOT_FOUND"));
 
         LocalDateTime now = LocalDateTime.now();
         ContributionBatch batch = contributionBatchRepository.findByEventIDAndIsDeletedFalse(eventId).orElse(null);
@@ -101,7 +103,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
             batch.setEventID(eventId);
             batch.setClubID(event.getClubID());
             batch.setSemesterID(event.getSemesterID());
-            batch.setStatus(ContributionBatchStatus.SCORING);
+            batch.setStatus(ContributionBatchStatus.DRAFT);
             batch.setReportApprovedBy(actorId);
             batch.setReportApprovedAt(now);
             batch.setScoringOpenedAt(now);
@@ -109,12 +111,93 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
             batch.setUpdatedAt(now);
             batch.setIsDeleted(false);
             batch = contributionBatchRepository.save(batch);
+        } else {
+            batch.setStatus(ContributionBatchStatus.DRAFT);
+            batch.setReportApprovedBy(actorId);
+            batch.setReportApprovedAt(now);
+            batch.setUpdatedAt(now);
+            batch = contributionBatchRepository.save(batch);
         }
 
-        event.setEventStatus(STATUS_CONTRIBUTION_SCORING);
+        report.setStatus(EventReportStatus.APPROVED);
+        report.setApprovedBy(actorId);
+        report.setApprovedAt(now);
+        report.setRejectedBy(null);
+        report.setRejectedAt(null);
+        report.setRejectionReason(null);
+        eventReportRepository.save(report);
+
+        event.setEventStatus(STATUS_REPORT_APPROVED);
         eventRepository.save(event);
-        auditLogService.record(actorId, "ContributionBatch", batch.getBatchID(), "REPORT_APPROVED_BATCH_CREATED", null, batch.getStatus(), "ICPDP approved report and opened contribution scoring");
+        auditLogService.recordWithRefs(
+                actorId,
+                "EventReport",
+                report.getReportID(),
+                "REPORT_APPROVED",
+                EventReportStatus.UPLOADED,
+                report.getStatus(),
+                eventId,
+                null,
+                null,
+                "ICPDP approved report and opened contribution draft"
+        );
         return toBatchResponse(batch);
+    }
+
+    @Override
+    @Transactional
+    public void rejectReport(Integer eventId, String reason, Integer actorId) {
+        if (!StringUtils.hasText(reason)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "REPORT_REJECT_REASON_REQUIRED");
+        }
+
+        Event event = findEvent(eventId);
+        if (!STATUS_REPORT_UPLOADED.equals(event.getEventStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "EVENT_REPORT_NOT_UPLOADED");
+        }
+        EventReport report = eventReportRepository.findByEventIDAndIsDeletedFalse(eventId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "EVENT_REPORT_NOT_FOUND"));
+
+        EventStatus beforeStatus = event.getEventStatus();
+        EventReportStatus beforeReportStatus = report.getStatus();
+        LocalDateTime now = LocalDateTime.now();
+
+        report.setStatus(EventReportStatus.REJECTED);
+        report.setRejectedBy(actorId);
+        report.setRejectedAt(now);
+        report.setRejectionReason(reason.trim());
+        report.setApprovedBy(null);
+        report.setApprovedAt(null);
+        eventReportRepository.save(report);
+
+        event.setEventStatus(STATUS_REPORT_REJECTED);
+        event.setRejectionReason(reason.trim());
+        eventRepository.save(event);
+
+        auditLogService.recordWithRefs(
+                actorId,
+                "EventReport",
+                report.getReportID(),
+                "REPORT_REJECTED",
+                beforeReportStatus,
+                report.getStatus(),
+                eventId,
+                null,
+                null,
+                reason.trim()
+        );
+        auditLogService.recordWithRefs(
+                actorId,
+                "Event",
+                event.getEventID(),
+                "EVENT_REPORT_REJECTED",
+                beforeStatus,
+                event.getEventStatus(),
+                eventId,
+                null,
+                null,
+                reason.trim()
+        );
     }
 
     @Override
@@ -129,9 +212,9 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         Event event = findEvent(eventId);
         ContributionBatch batch = findBatchByEvent(eventId);
         Set<Integer> scoringMemberUserIds = getScoringMemberUserIds(event);
-        Map<Integer, Contribution> savedByUser = contributionRepository.findByBatchIDAndUserIDInAndIsDeletedFalse(batch.getBatchID(), scoringMemberUserIds)
+        Map<Integer, EventContribution> savedByUser = contributionRepository.findByBatchIDAndUserIDInAndIsDeletedFalse(batch.getBatchID(), scoringMemberUserIds)
                 .stream()
-                .collect(Collectors.toMap(Contribution::getUserID, Function.identity(), (a, b) -> a));
+                .collect(Collectors.toMap(EventContribution::getUserID, Function.identity(), (a, b) -> a));
         List<EventRegistration> registrations = eventRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId);
         List<EventAssignment> assignments = eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId);
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElse(null);
@@ -150,8 +233,8 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     public ContributionBatchResponse saveContributionScores(Integer eventId, List<ContributionDTO> contributions, Integer actorId) {
         Event event = findEvent(eventId);
         ContributionBatch batch = findBatchByEvent(eventId);
-        if (batch.getStatus() != ContributionBatchStatus.SCORING) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "CONTRIBUTION_BATCH_NOT_SCORING");
+        if (!isDraftStatus(batch.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CONTRIBUTION_BATCH_NOT_DRAFT");
         }
 
         Set<Integer> scoringMemberUserIds = getScoringMemberUserIds(event);
@@ -166,8 +249,8 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
             if (!StringUtils.hasText(type) && !StringUtils.hasText(leaderEvaluation)) {
                 continue;
             }
-            Contribution contribution = contributionRepository.findByBatchIDAndUserIDAndIsDeletedFalse(batch.getBatchID(), userId)
-                    .orElseGet(Contribution::new);
+            EventContribution contribution = contributionRepository.findByBatchIDAndUserIDAndIsDeletedFalse(batch.getBatchID(), userId)
+                    .orElseGet(EventContribution::new);
             applyScore(event, batch, contribution, userId, type, leaderEvaluation, actorId, CONTRIBUTION_STATUS_DRAFT, now);
             contributionRepository.save(contribution);
         }
@@ -184,19 +267,19 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     @Transactional
     public ContributionBatchResponse openAppealWindow(Integer eventId, Integer actorId) {
         ContributionBatch batch = findBatchByEvent(eventId);
-        if (batch.getStatus() != ContributionBatchStatus.SCORING) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "CONTRIBUTION_BATCH_NOT_SCORING");
+        if (!isDraftStatus(batch.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CONTRIBUTION_BATCH_NOT_DRAFT");
         }
         if (contributionRepository.findByBatchIDAndIsDeletedFalse(batch.getBatchID()).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CONTRIBUTION_SCORES_REQUIRED");
         }
         LocalDateTime now = LocalDateTime.now();
-        batch.setStatus(ContributionBatchStatus.APPEAL_OPEN);
+        batch.setStatus(ContributionBatchStatus.APPEAL_WINDOW);
         batch.setAppealOpenedAt(now);
         batch.setAppealClosesAt(now.plusHours(24));
         batch.setUpdatedAt(now);
         ContributionBatch saved = contributionBatchRepository.save(batch);
-        auditLogService.record(actorId, "ContributionBatch", saved.getBatchID(), "CONTRIBUTION_APPEAL_OPENED", null, saved.getStatus(), "Opened 24-hour appeal window");
+        auditLogService.recordWithRefs(actorId, "ContributionBatch", saved.getBatchID(), "CONTRIBUTION_APPEAL_OPENED", null, saved.getStatus(), eventId, null, null, "Opened 24-hour appeal window");
         return toBatchResponse(saved);
     }
 
@@ -209,16 +292,16 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         ContributionBatch batch = contributionBatchRepository.findByBatchIDAndIsDeletedFalse(batchId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CONTRIBUTION_BATCH_NOT_FOUND"));
         LocalDateTime now = LocalDateTime.now();
-        if (batch.getStatus() != ContributionBatchStatus.APPEAL_OPEN || batch.getAppealClosesAt() == null || !now.isBefore(batch.getAppealClosesAt())) {
+        if (!isAppealWindowStatus(batch.getStatus()) || batch.getAppealClosesAt() == null || !now.isBefore(batch.getAppealClosesAt())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "APPEAL_WINDOW_CLOSED");
         }
-        Contribution contribution = contributionRepository.findByBatchIDAndUserIDAndIsDeletedFalse(batchId, userId)
+        EventContribution contribution = contributionRepository.findByBatchIDAndUserIDAndIsDeletedFalse(batchId, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "CONTRIBUTION_SCORE_NOT_FOUND"));
         if (appealRepository.existsByBatchIDAndUserIDAndStatusAndIsDeletedFalse(batchId, userId, AppealStatus.PENDING)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "APPEAL_ALREADY_PENDING");
         }
 
-        Appeal appeal = new Appeal();
+        ContributionAppeal appeal = new ContributionAppeal();
         appeal.setBatchID(batchId);
         appeal.setEventID(batch.getEventID());
         appeal.setContributionID(contribution.getContributionID());
@@ -241,20 +324,20 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     @Override
     @Transactional
     public AppealResponse resolveAppeal(Integer appealId, AppealResolveRequest request, Integer actorId) {
-        Appeal appeal = appealRepository.findByAppealIDAndIsDeletedFalse(appealId)
+        ContributionAppeal appeal = appealRepository.findByAppealIDAndIsDeletedFalse(appealId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "APPEAL_NOT_FOUND"));
         if (appeal.getStatus() != AppealStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "APPEAL_ALREADY_RESOLVED");
         }
         ContributionBatch batch = contributionBatchRepository.findByBatchIDAndIsDeletedFalse(appeal.getBatchID())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CONTRIBUTION_BATCH_NOT_FOUND"));
-        if (batch.getStatus() != ContributionBatchStatus.APPEAL_OPEN && batch.getStatus() != ContributionBatchStatus.APPEAL_RESOLUTION) {
+        if (!isAppealWindowStatus(batch.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "CONTRIBUTION_BATCH_NOT_IN_APPEAL");
         }
 
         AppealStatus status = parseResolveStatus(request.getStatus());
         if (status == AppealStatus.APPROVED) {
-            Contribution contribution = contributionRepository.findById(appeal.getContributionID())
+            EventContribution contribution = contributionRepository.findById(appeal.getContributionID())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CONTRIBUTION_SCORE_NOT_FOUND"));
             String type = StringUtils.hasText(request.getContributionType())
                     ? normalizeContributionType(request.getContributionType())
@@ -271,13 +354,8 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         appeal.setResolutionNote(request.getResolutionNote());
         appeal.setResolvedAt(LocalDateTime.now());
         appeal.setResolvedBy(actorId);
-        Appeal saved = appealRepository.save(appeal);
-        if (!appealRepository.existsByBatchIDAndStatusAndIsDeletedFalse(batch.getBatchID(), AppealStatus.PENDING)) {
-            batch.setStatus(ContributionBatchStatus.APPEAL_RESOLUTION);
-            batch.setUpdatedAt(LocalDateTime.now());
-            contributionBatchRepository.save(batch);
-        }
-        auditLogService.record(actorId, "Appeal", saved.getAppealID(), "CONTRIBUTION_APPEAL_RESOLVED", null, saved.getStatus(), request.getResolutionNote());
+        ContributionAppeal saved = appealRepository.save(appeal);
+        auditLogService.recordWithRefs(actorId, "ContributionAppeal", saved.getAppealID(), "CONTRIBUTION_APPEAL_RESOLVED", null, saved.getStatus(), saved.getEventID(), null, null, request.getResolutionNote());
         return toAppealResponse(saved);
     }
 
@@ -289,6 +367,9 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         if (batch.getStatus() == ContributionBatchStatus.FINALIZED) {
             return toBatchResponse(batch);
         }
+        if (!isAppealWindowStatus(batch.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CONTRIBUTION_BATCH_NOT_IN_APPEAL");
+        }
         LocalDateTime now = LocalDateTime.now();
         if (batch.getAppealClosesAt() == null || now.isBefore(batch.getAppealClosesAt())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "APPEAL_WINDOW_NOT_CLOSED");
@@ -297,11 +378,12 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "APPEALS_PENDING");
         }
 
-        List<Contribution> contributions = contributionRepository.findByBatchIDAndIsDeletedFalse(batch.getBatchID());
+        List<EventContribution> contributions = contributionRepository.findByBatchIDAndIsDeletedFalse(batch.getBatchID());
         if (contributions.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CONTRIBUTION_SCORES_REQUIRED");
         }
-        for (Contribution contribution : contributions) {
+        Set<Integer> scoringMemberUserIds = getScoringMemberUserIds(event);
+        for (EventContribution contribution : contributions) {
             if (contribution.getUserID() == null) {
                 continue;
             }
@@ -315,6 +397,8 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
             performance.setBonusPoints(contribution.getBonusPoints());
             performance.setLeaderEvaluation(contribution.getLeaderEvaluation());
             performance.setPenaltyPoints(contribution.getPenaltyPoints());
+            performance.setSourceContributionID(contribution.getContributionID());
+            performance.setIndividualRankingEligible(scoringMemberUserIds.contains(contribution.getUserID()));
             performance.setUpdatedAt(now);
             performance.setIsDeleted(false);
             memberPerformanceRepository.save(performance);
@@ -332,13 +416,13 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         ContributionBatch saved = contributionBatchRepository.save(batch);
         event.setEventStatus(STATUS_CONTRIBUTION_FINALIZED);
         eventRepository.save(event);
-        auditLogService.record(actorId, "ContributionBatch", saved.getBatchID(), "CONTRIBUTION_BATCH_FINALIZED", null, saved.getStatus(), "Finalized contributions into MemberPerformance");
+        auditLogService.recordWithRefs(actorId, "ContributionBatch", saved.getBatchID(), "CONTRIBUTION_BATCH_FINALIZED", null, saved.getStatus(), eventId, null, null, "Finalized contributions into MemberPerformance");
         return toBatchResponse(saved);
     }
 
     private ContributionDTO toContributionDto(
             EventRegistration registration,
-            Contribution saved,
+            EventContribution saved,
             List<EventAssignment> assignments,
             List<AttendanceRecord> attendanceRecords
     ) {
@@ -371,7 +455,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     private void applyScore(
             Event event,
             ContributionBatch batch,
-            Contribution contribution,
+            EventContribution contribution,
             Integer userId,
             String contributionType,
             String leaderEvaluation,
@@ -437,6 +521,16 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CONTRIBUTION_BATCH_NOT_FOUND"));
     }
 
+    private boolean isDraftStatus(ContributionBatchStatus status) {
+        return status == ContributionBatchStatus.DRAFT || status == ContributionBatchStatus.SCORING;
+    }
+
+    private boolean isAppealWindowStatus(ContributionBatchStatus status) {
+        return status == ContributionBatchStatus.APPEAL_WINDOW
+                || status == ContributionBatchStatus.APPEAL_OPEN
+                || status == ContributionBatchStatus.APPEAL_RESOLUTION;
+    }
+
     private Event findEvent(Integer eventId) {
         return eventRepository.findByEventIDAndIsDeletedFalseForUpdate(eventId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
@@ -470,6 +564,9 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     private AppealStatus parseResolveStatus(String value) {
         String normalized = normalize(value);
         if (AppealStatus.APPROVED.name().equals(normalized)) {
+            return AppealStatus.APPROVED;
+        }
+        if ("ACCEPTED".equals(normalized)) {
             return AppealStatus.APPROVED;
         }
         if (AppealStatus.REJECTED.name().equals(normalized)) {
@@ -518,7 +615,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         );
     }
 
-    private AppealResponse toAppealResponse(Appeal appeal) {
+    private AppealResponse toAppealResponse(ContributionAppeal appeal) {
         return new AppealResponse(
                 appeal.getAppealID(),
                 appeal.getBatchID(),

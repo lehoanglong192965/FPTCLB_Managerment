@@ -4,6 +4,7 @@ import com.fptu.fcms.entity.ContributionBatch;
 import com.fptu.fcms.enums.ContributionBatchStatus;
 import com.fptu.fcms.repository.ContributionBatchRepository;
 import com.fptu.fcms.repository.SchedulerLogRepository;
+import com.fptu.fcms.service.ContributionBatchService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -17,17 +18,18 @@ import java.util.List;
 public class AppealFinalizeScheduler extends BaseScheduler {
 
     private final ContributionBatchRepository batchRepository;
+    private final ContributionBatchService contributionBatchService;
 
     public AppealFinalizeScheduler(SchedulerLogRepository schedulerLogRepository,
-                                   ContributionBatchRepository batchRepository) {
+                                   ContributionBatchRepository batchRepository,
+                                   ContributionBatchService contributionBatchService) {
         super(schedulerLogRepository);
         this.batchRepository = batchRepository;
+        this.contributionBatchService = contributionBatchService;
     }
 
     /**
-     * BE-CON-08: Auto-finalize contribution batches that are in APPEAL_RESOLUTION status.
-     * After the appeal window closes (handled by ContributionAppealWindowScheduler),
-     * batches move to APPEAL_RESOLUTION. This scheduler then finalizes them.
+     * BE-CON-08: Auto-finalize contribution batches after the appeal window closes.
      */
     @Scheduled(cron = "${fcms.scheduler.appeal-finalize.cron:0 0 * * * ?}")
     @Transactional
@@ -36,18 +38,18 @@ public class AppealFinalizeScheduler extends BaseScheduler {
         String slotSuffix = String.valueOf(now.getHour());
         executeIdempotentIntraday("AppealFinalizeScheduler", slotSuffix, () -> {
             List<ContributionBatch> batches = batchRepository.findByStatusAndIsDeletedFalse(
-                    ContributionBatchStatus.APPEAL_RESOLUTION);
+                    ContributionBatchStatus.APPEAL_WINDOW);
 
             for (ContributionBatch batch : batches) {
-                batch.setStatus(ContributionBatchStatus.FINALIZED);
-                batch.setUpdatedAt(LocalDateTime.now());
-                log.info("Auto-finalized contribution batch {} from APPEAL_RESOLUTION to CONTRIBUTION_FINALIZED",
-                        batch.getBatchID());
-            }
-
-            if (!batches.isEmpty()) {
-                batchRepository.saveAll(batches);
-                log.info("Finalized {} contribution batches", batches.size());
+                if (batch.getAppealClosesAt() == null || now.isBefore(batch.getAppealClosesAt())) {
+                    continue;
+                }
+                try {
+                    contributionBatchService.finalizeBatch(batch.getEventID(), null);
+                    log.info("Auto-finalized contribution batch {}", batch.getBatchID());
+                } catch (Exception ex) {
+                    log.warn("Skipping auto-finalize for contribution batch {}: {}", batch.getBatchID(), ex.getMessage());
+                }
             }
         });
     }

@@ -32,6 +32,15 @@ public class AuditLog {
     @Column(name = "recordID")
     private Integer recordID;
 
+    @Column(name = "eventID")
+    private Integer eventID;
+
+    @Column(name = "registrationID")
+    private Integer registrationID;
+
+    @Column(name = "attendanceRecordID")
+    private Integer attendanceRecordID;
+
     @Column(name = "oldValue")
     private String oldValue;
 
@@ -49,6 +58,9 @@ public class AuditLog {
 
     @Column(name = "reason", columnDefinition = "NVARCHAR(MAX)")
     private String reason;
+
+    @Column(name = "requestId", length = 80)
+    private String requestId;
 
     @Column(name = "executedAt")
     private LocalDateTime executedAt;

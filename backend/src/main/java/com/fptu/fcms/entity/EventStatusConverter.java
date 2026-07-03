@@ -29,6 +29,7 @@ public class EventStatusConverter implements AttributeConverter<EventStatus, Str
             case CHECKIN_OPEN -> "CHECKIN_OPEN";
             case REPORT_PENDING_APPROVAL -> "REPORT_PENDING_APPROVAL";
             case REPORT_APPROVED -> "REPORT_APPROVED";
+            case REPORT_REJECTED -> "REPORT_REJECTED";
             case CONTRIBUTION_DRAFT -> "CONTRIBUTION_DRAFT";
             case CONTRIBUTION_PENDING_APPROVAL -> "CONTRIBUTION_PENDING_APPROVAL";
             case CONTRIBUTION_APPROVED -> "CONTRIBUTION_APPROVED";

@@ -36,6 +36,7 @@ export const EVENT_STATUS = {
   REPORT_UPLOADED:                { label: 'Đã nộp báo cáo',                color: 'blue',   bg: 'bg-blue-100',   text: 'text-blue-700'   },
   REPORT_PENDING_APPROVAL:        { label: 'Báo cáo chờ IC-PDP duyệt',      color: 'yellow', bg: 'bg-yellow-100', text: 'text-yellow-700' },
   REPORT_APPROVED:                { label: 'Báo cáo đã duyệt',              color: 'green',  bg: 'bg-green-100',  text: 'text-green-700'  },
+  REPORT_REJECTED:                { label: 'Báo cáo bị từ chối',            color: 'red',    bg: 'bg-red-100',    text: 'text-red-700'    },
   CONTRIBUTION_DRAFT:             { label: 'Đánh giá đóng góp — Nháp',      color: 'gray',   bg: 'bg-gray-100',   text: 'text-gray-600'   },
   CONTRIBUTION_CALCULATED:        { label: 'Đã tính điểm đóng góp',         color: 'blue',   bg: 'bg-blue-100',   text: 'text-blue-700'   },
   CONTRIBUTION_SCORING:           { label: 'Đang chấm điểm đóng góp',       color: 'purple', bg: 'bg-purple-100', text: 'text-purple-700' },
@@ -68,10 +69,12 @@ export const PARTICIPANT_TYPE = {
 
 // ── ContributionBatchStatus ──────────────────────────────────────────
 export const CONTRIBUTION_BATCH_STATUS = {
+  DRAFT:             { label: 'Nháp điểm đóng góp', color: 'blue',   bg: 'bg-blue-100',   text: 'text-blue-700'   },
+  APPEAL_WINDOW:     { label: 'Mở cửa sổ kháng cáo', color: 'yellow', bg: 'bg-yellow-100', text: 'text-yellow-700' },
+  FINALIZED:         { label: 'Hoàn tất',          color: 'green',  bg: 'bg-green-100',  text: 'text-green-700'  },
   SCORING:           { label: 'Đang chấm điểm',   color: 'blue',   bg: 'bg-blue-100',   text: 'text-blue-700'   },
   APPEAL_OPEN:       { label: 'Mở cửa sổ kháng cáo', color: 'yellow', bg: 'bg-yellow-100', text: 'text-yellow-700' },
   APPEAL_RESOLUTION: { label: 'Đang xử lý kháng cáo', color: 'orange', bg: 'bg-orange-100', text: 'text-orange-700' },
-  FINALIZED:         { label: 'Hoàn tất',          color: 'green',  bg: 'bg-green-100',  text: 'text-green-700'  },
 };
 
 // ── AppealStatus ─────────────────────────────────────────────────────

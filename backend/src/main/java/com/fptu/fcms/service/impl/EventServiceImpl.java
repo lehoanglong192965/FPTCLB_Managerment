@@ -475,17 +475,6 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
-    @Transactional
-    public void rejectReport(Integer eventId) {
-        Event event = getActiveEventOrThrow(eventId);
-        if (!STATUS_REPORT_UPLOADED.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event must be in ReportUploaded status to reject report.");
-        }
-        event.setEventStatus(STATUS_COMPLETED);
-        eventRepository.save(event);
-    }
-
-    @Override
     @Transactional(readOnly = true)
     public List<EventRegistrationPolicyResponse> getRegistrationPolicies(Integer eventId, UserPrincipal currentUser) {
         return eventRegistrationPolicyService.getPolicies(eventId, currentUser);
@@ -574,6 +563,8 @@ public class EventServiceImpl implements EventService {
             performance.setBonusPoints(calculateScore(type));
             performance.setLeaderEvaluation(leaderEvaluation);
             performance.setPenaltyPoints(LEADER_EVALUATION_NOT_GOOD.equals(leaderEvaluation) ? NOT_GOOD_PENALTY_POINTS : 0);
+            performance.setSourceContributionID(null);
+            performance.setIndividualRankingEligible(isRegularMemberForRanking(event, userId));
             performance.setUpdatedAt(LocalDateTime.now());
             performance.setIsDeleted(false);
             memberPerformanceRepository.save(performance);
@@ -756,6 +747,20 @@ public class EventServiceImpl implements EventService {
             throw new IllegalArgumentException("leaderEvaluation must be GOOD or NOT_GOOD.");
         }
         return normalized;
+    }
+
+    private boolean isRegularMemberForRanking(Event event, Integer userId) {
+        if (event == null || event.getClubID() == null || event.getSemesterID() == null || userId == null) {
+            return false;
+        }
+        return clubRoleRepository.findByRoleNameAndIsDeletedFalse("Member")
+                .map(ClubRole::getClubRoleID)
+                .flatMap(memberRoleId -> clubMembershipRepository.findByClubIDAndUserIDAndSemesterIDAndIsDeletedFalse(
+                        event.getClubID(),
+                        userId,
+                        event.getSemesterID()
+                ).filter(membership -> Objects.equals(membership.getClubRoleID(), memberRoleId)))
+                .isPresent();
     }
 
     private Event getActiveEventOrThrow(Integer eventId) {

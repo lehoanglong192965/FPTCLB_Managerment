@@ -45,7 +45,6 @@ public interface EventService {
     boolean isUserAssigned(Integer eventId, Integer userId);
     List<Event> getEventsByUserAssigned(Integer userId);
     List<Event> getReportUploadedEvents();
-    void rejectReport(Integer eventId);
     List<Map<String, Object>> getCheckedInAttendees(Integer eventId);
     List<EventRegistrationPolicyResponse> getRegistrationPolicies(Integer eventId, UserPrincipal currentUser);
 }

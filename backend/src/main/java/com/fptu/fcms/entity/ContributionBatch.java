@@ -46,7 +46,7 @@ public class ContributionBatch {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private ContributionBatchStatus status = ContributionBatchStatus.SCORING;
+    private ContributionBatchStatus status = ContributionBatchStatus.DRAFT;
 
     @Column(name = "reportApprovedBy")
     private Integer reportApprovedBy;

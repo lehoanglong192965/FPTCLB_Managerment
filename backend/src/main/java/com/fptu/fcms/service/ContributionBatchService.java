@@ -11,6 +11,8 @@ import java.util.List;
 public interface ContributionBatchService {
     ContributionBatchResponse approveReportAndCreateBatch(Integer eventId, Integer actorId);
 
+    void rejectReport(Integer eventId, String reason, Integer actorId);
+
     ContributionBatchResponse getBatchByEvent(Integer eventId);
 
     List<ContributionDTO> getContributionScores(Integer eventId);

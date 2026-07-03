@@ -179,7 +179,10 @@ export default function ContributionManagementPage() {
   const [finalizing, setFinalizing] = useState(false);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
 
-  const isFinalized = batchStatus === 'CLOSED' || batchStatus === 'APPEAL_WINDOW' || batchStatus === 'FINALIZED';
+  const isFinalized = batchStatus === 'CLOSED'
+    || batchStatus === 'APPEAL_WINDOW'
+    || batchStatus === 'APPEAL_OPEN'
+    || batchStatus === 'FINALIZED';
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -255,7 +258,7 @@ export default function ContributionManagementPage() {
     setShowFinalizeModal(false);
     setFinalizing(true);
     try {
-      const res = await contributionService.finalize(eventId);
+      const res = await contributionService.openAppealWindow(eventId);
       const batch = res?.data ?? res;
       if (batch?.batchID) setBatchId(batch.batchID);
       if (batch?.status) setBatchStatus(batch.status);

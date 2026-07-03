@@ -1,7 +1,7 @@
 import axiosClient from "../axiosClient";
 
 // ReportController: /api/v1/reports
-// ContributionBatchController handles approve-report, EventController handles reject-report
+// ContributionBatchController handles report approve/reject.
 const reportService = {
 
   // ── LEADER ────────────────────────────────────────────────────────
@@ -33,13 +33,13 @@ const reportService = {
   },
 
   // ── ICPDP ─────────────────────────────────────────────────────────
-  // PATCH /api/v1/events/{eventId}/approve-report  (ContributionBatchController)
+  // PATCH /api/v1/events/{eventId}/report/approve
   approve: (eventId) =>
-    axiosClient.patch(`/v1/events/${eventId}/approve-report`),
+    axiosClient.patch(`/v1/events/${eventId}/report/approve`),
 
-  // PATCH /api/v1/events/{eventId}/reject-report  (EventController, no request body)
-  reject: (eventId) =>
-    axiosClient.patch(`/v1/events/${eventId}/reject-report`),
+  // PATCH /api/v1/events/{eventId}/report/reject
+  reject: (eventId, { reason }) =>
+    axiosClient.patch(`/v1/events/${eventId}/report/reject`, { reason }),
 };
 
 export default reportService;
