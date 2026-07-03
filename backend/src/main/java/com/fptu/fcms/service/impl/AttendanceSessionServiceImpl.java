@@ -183,9 +183,11 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         Map<Integer, UserAccount> users = loadUsers(session.getEventID());
 
         Stream<AttendanceRegistrationSearchResponse> fptuResults = eventRegistrationRepository.findByEventIDAndIsDeletedFalse(session.getEventID()).stream()
+                .filter(this::isConfirmed)
                 .filter(reg -> matches(reg, users.get(reg.getUserID()), normalized))
                 .map(reg -> toSearchResponse(reg, users.get(reg.getUserID()), attendanceByRegistration.get(reg.getRegistrationID())));
         Stream<AttendanceRegistrationSearchResponse> guestResults = guestEventRegistrationRepository.findByEventIDAndIsDeletedFalse(session.getEventID()).stream()
+                .filter(this::isConfirmed)
                 .filter(reg -> matchesGuest(reg, normalized))
                 .map(reg -> toGuestSearchResponse(reg, attendanceByGuestRegistration.get(reg.getGuestRegistrationID())));
 
@@ -410,3 +412,4 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         return "******" + phone.substring(phone.length() - 4);
     }
 }
+
