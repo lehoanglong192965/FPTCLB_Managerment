@@ -24,6 +24,14 @@ import GuestStatusPage from "../pages/guest/GuestStatusPage";
 // Feedback flow (Sprint 7)
 import FeedbackPage from "../pages/feedback/FeedbackPage";
 import GuestFeedbackPage from "../pages/feedback/GuestFeedbackPage";
+import FeedbackSummaryPage from "../pages/feedback/FeedbackSummaryPage";
+
+// Competition pages (Sprint 8)
+import CompetitionRankingPage from "../pages/competitions/CompetitionRankingPage";
+import CompetitionAwardsPage from "../pages/competitions/CompetitionAwardsPage";
+
+// Member pages (Sprint 6)
+import MemberAppealPage from "../pages/member/MemberAppealPage";
 
 // Dashboard layout (shared sidebar + outlet)
 import DashboardLayout from "../components/layout";
@@ -41,6 +49,8 @@ import IcpdpClubRequests from "../pages/icpdp/IcpdpClubRequests";
 import IcpdpReportReview from "../pages/icpdp/IcpdpReportReview";
 import IcpdpCompetitionList from "../pages/icpdp/IcpdpCompetitionList";
 import IcpdpCompetitionDetail from "../pages/icpdp/IcpdpCompetitionDetail";
+import IcpdpEmergencyOverridePage from "../pages/icpdp/IcpdpEmergencyOverridePage";
+import IcpdpEmergencyOverrideLookup from "../pages/icpdp/IcpdpEmergencyOverrideLookup";
 
 // Admin pages
 import SemesterManagement from "../pages/admin/SemesterManagement";
@@ -62,6 +72,9 @@ import ContributionManagementPage from "../pages/club-leader/ContributionManagem
 import CheckInPage from "../pages/club-leader/CheckInPage";
 import ReportSubmitPage from "../pages/club-leader/ReportSubmitPage";
 import WalkInPage from "../pages/club-leader/WalkInPage";
+import RegistrationMgmtPage from "../pages/club-leader/RegistrationMgmtPage";
+import AttendanceDashboardPage from "../pages/club-leader/AttendanceDashboardPage";
+import AttendanceCorrectionPage from "../pages/club-leader/AttendanceCorrectionPage";
 import { ClubDataProvider } from "../contexts/ClubDataContext";
 
 // Member pages
@@ -118,6 +131,10 @@ export default function AppRoutes() {
       {/* Guest feedback — truy cập qua token trong email, không cần đăng nhập */}
       <Route path="/feedback/guest/:token" element={<GuestFeedbackPage />} />
 
+      {/* Competition public pages (Sprint 8) */}
+      <Route path="/competitions/:competitionId/ranking" element={<CompetitionRankingPage />} />
+      <Route path="/competitions/:competitionId/awards" element={<CompetitionAwardsPage />} />
+
       {/* ── ICPDP dashboard ─────────────────────────────────── */}
       <Route
         path="/icpdp"
@@ -138,6 +155,9 @@ export default function AppRoutes() {
         <Route path="recruitment" element={<IcpdpRecruitment />} />
         <Route path="competition" element={<IcpdpCompetitionList />} />
         <Route path="competition/:competitionId" element={<IcpdpCompetitionDetail />} />
+        <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
+        <Route path="emergency-override" element={<IcpdpEmergencyOverrideLookup />} />
+        <Route path="events/:eventId/emergency-override" element={<IcpdpEmergencyOverridePage />} />
         <Route path="notifications" element={<IcpdpNotifications />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -176,6 +196,10 @@ export default function AppRoutes() {
         <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
         <Route path="events/:eventId/checkin" element={<CheckInPage />} />
         <Route path="events/:eventId/walkin" element={<WalkInPage />} />
+        <Route path="events/:eventId/registrations" element={<RegistrationMgmtPage />} />
+        <Route path="events/:eventId/attendance" element={<AttendanceDashboardPage />} />
+        <Route path="events/:eventId/attendance/:sessionId/correct" element={<AttendanceCorrectionPage />} />
+        <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
         <Route path="reports/:eventId/submit" element={<ReportSubmitPage />} />
         <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
         <Route path="notifications" element={<ClubNotifications />} />
@@ -201,6 +225,10 @@ export default function AppRoutes() {
         <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
         <Route path="events/:eventId/checkin" element={<CheckInPage />} />
         <Route path="events/:eventId/walkin" element={<WalkInPage />} />
+        <Route path="events/:eventId/registrations" element={<RegistrationMgmtPage />} />
+        <Route path="events/:eventId/attendance" element={<AttendanceDashboardPage />} />
+        <Route path="events/:eventId/attendance/:sessionId/correct" element={<AttendanceCorrectionPage />} />
+        <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
         <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
         <Route path="notifications" element={<ClubNotifications />} />
         <Route path="profile" element={<ProfilePage />} />
@@ -259,6 +287,7 @@ export default function AppRoutes() {
         <Route path="notifications" element={<MemberNotifications />} />
         <Route path="notification-settings" element={<MemberNotificationSettings />} />
         <Route path="apply" element={<MemberApply />} />
+        <Route path="events/:eventId/appeal" element={<MemberAppealPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 

@@ -1,8 +1,7 @@
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { CheckCircle2, Clock, XCircle, Calendar, MapPin } from 'lucide-react';
-import { MOCK_GUEST_REGISTRATION } from '../../constants/mockData';
-
-// TODO Sprint 4: thay MOCK_GUEST_REGISTRATION bằng guestService.getStatus(ref)
+import { CheckCircle2, Clock, XCircle, Calendar, MapPin, RefreshCw } from 'lucide-react';
+import guestService from '../../services/api/guest/guestService';
 
 const STATUS_CONFIG = {
   CONFIRMED: {
@@ -41,8 +40,60 @@ const STATUS_CONFIG = {
 
 export default function GuestStatusPage() {
   const { ref } = useParams();
-  const data = MOCK_GUEST_REGISTRATION;
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchStatus = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await guestService.getStatus(ref);
+      setData(res?.data ?? res);
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Không tìm thấy thông tin đăng ký.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchStatus(); }, [ref]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-orange-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-gray-500">Đang tải...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full max-w-md p-8 text-center">
+          <XCircle size={40} className="text-red-400 mx-auto mb-3" />
+          <p className="text-gray-700 font-medium mb-1">Không tìm thấy đăng ký</p>
+          <p className="text-sm text-gray-500 mb-5">{error}</p>
+          <button
+            onClick={fetchStatus}
+            className="flex items-center gap-2 mx-auto text-sm text-orange-500 hover:underline"
+          >
+            <RefreshCw size={14} /> Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const cfg = STATUS_CONFIG[data.status] ?? STATUS_CONFIG.CONFIRMED;
+  const ev = data.event ?? {};
+
+  const dateStr = ev.startDate
+    ? new Date(ev.startDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    : ev.startDate;
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -61,26 +112,34 @@ export default function GuestStatusPage() {
         <div className="space-y-3 text-sm">
           <div className="flex justify-between py-2 border-b border-gray-100">
             <span className="text-gray-500">Mã tham chiếu</span>
-            <span className="font-mono font-medium text-gray-800">{data.guestRef}</span>
+            <span className="font-mono font-medium text-gray-800">{data.guestRef ?? ref}</span>
           </div>
           <div className="flex justify-between py-2 border-b border-gray-100">
             <span className="text-gray-500">Họ tên</span>
             <span className="font-medium text-gray-800">{data.fullName}</span>
           </div>
-          <div className="flex justify-between py-2 border-b border-gray-100">
-            <span className="text-gray-500">Email</span>
-            <span className="text-gray-800">{data.email}</span>
-          </div>
+          {data.email && (
+            <div className="flex justify-between py-2 border-b border-gray-100">
+              <span className="text-gray-500">Email</span>
+              <span className="text-gray-800">{data.email}</span>
+            </div>
+          )}
 
-          <div className="bg-gray-50 rounded-lg p-4 mt-3">
-            <p className="font-semibold text-gray-800 mb-2">{data.event.eventName}</p>
-            <p className="flex items-center gap-2 text-gray-500">
-              <Calendar size={14} /> {data.event.startDate}
-            </p>
-            <p className="flex items-center gap-2 text-gray-500 mt-1">
-              <MapPin size={14} /> {data.event.location}
-            </p>
-          </div>
+          {ev.eventName && (
+            <div className="bg-gray-50 rounded-lg p-4 mt-3">
+              <p className="font-semibold text-gray-800 mb-2">{ev.eventName}</p>
+              {dateStr && (
+                <p className="flex items-center gap-2 text-gray-500">
+                  <Calendar size={14} /> {dateStr}
+                </p>
+              )}
+              {ev.location && (
+                <p className="flex items-center gap-2 text-gray-500 mt-1">
+                  <MapPin size={14} /> {ev.location}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <Link

@@ -1,63 +1,89 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { CheckCircle2, XCircle, User, Search, Users } from 'lucide-react';
-import eventService from '../../services/api/events/eventService';
+import attendanceService from '../../services/api/attendance/attendanceService';
 
-const EventCheckInScanner = ({ eventId, eventStatus }) => {
-    const [searchQuery, setSearchQuery] = useState('');
-    const [isScanning, setIsScanning] = useState(false);
-    const [result, setResult] = useState(null); // { success, name, studentId, message }
-    const [attendees, setAttendees] = useState([]);
+const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
+    const [query, setQuery] = useState('');
+    const [searching, setSearching] = useState(false);
+    const [participants, setParticipants] = useState([]); // search results
+    const [checkInLoading, setCheckInLoading] = useState(null); // registrationId
+    const [result, setResult] = useState(null); // { success, name, message }
+    const [summary, setSummary] = useState(null);
     const [listSearch, setListSearch] = useState('');
+    const searchTimeout = useRef(null);
 
-    const fetchAttendees = useCallback(async () => {
+    const fetchSummary = useCallback(async () => {
+        if (!sessionId) return;
         try {
-            const res = await eventService.getCheckedInAttendees(eventId);
-            const data = Array.isArray(res) ? res : (res?.data ?? []);
-            // Sort newest first
-            setAttendees([...data].sort((a, b) => b.markedAt?.localeCompare(a.markedAt ?? '') ?? 0));
+            const res = await attendanceService.getSessionSummary(sessionId);
+            setSummary(res?.data ?? res);
         } catch {
-            // silently ignore if no session yet
+            // summary is optional
         }
-    }, [eventId]);
+    }, [eventId, sessionId]);
 
+    useEffect(() => { fetchSummary(); }, [fetchSummary]);
+
+    // Search participants as user types (debounced)
     useEffect(() => {
-        fetchAttendees();
-    }, [fetchAttendees]);
+        if (!query.trim() || !sessionId) {
+            setParticipants([]);
+            return;
+        }
+        clearTimeout(searchTimeout.current);
+        searchTimeout.current = setTimeout(async () => {
+            setSearching(true);
+            try {
+                const res = await attendanceService.searchParticipants(sessionId, query.trim());
+                const list = Array.isArray(res) ? res : (res?.data ?? res?.content ?? []);
+                setParticipants(list);
+            } catch {
+                setParticipants([]);
+            } finally {
+                setSearching(false);
+            }
+        }, 350);
+        return () => clearTimeout(searchTimeout.current);
+    }, [query, eventId, sessionId]);
 
-    if (eventStatus !== 'Approved' && eventStatus !== 'Upcoming' && eventStatus !== 'Ongoing') {
-        return null;
+    if (sessionStatus !== 'OPEN') {
+        return (
+            <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-5 text-center text-sm text-yellow-700">
+                Phiên này đã đóng. Mở phiên để bắt đầu điểm danh.
+            </div>
+        );
     }
 
-    const handleCheckIn = async (e) => {
-        e.preventDefault();
-        if (!searchQuery.trim()) return;
-
-        setIsScanning(true);
+    const handleCheckIn = async (participant) => {
+        const regId = participant.registrationId ?? participant.id;
+        setCheckInLoading(regId);
         setResult(null);
         try {
-            const res = await eventService.checkIn(eventId, searchQuery.trim());
-            const data = res?.data ?? res ?? {};
+            await attendanceService.checkIn(sessionId, {
+                registrationId: regId,
+                verificationMethod: 'MANUAL',
+            });
             setResult({
                 success: true,
-                name: data.fullName || searchQuery.trim(),
-                studentId: data.studentId || searchQuery.trim(),
+                name: participant.fullName || participant.name || query.trim(),
+                studentId: participant.studentId,
             });
-            setSearchQuery('');
-            fetchAttendees();
-        } catch (error) {
-            const msg = error?.response?.data?.message
-                || error?.message
-                || 'Không tìm thấy người đăng ký hoặc đã điểm danh rồi.';
+            setQuery('');
+            setParticipants([]);
+            fetchSummary();
+        } catch (err) {
+            const msg = err?.response?.data?.message || 'Check-in thất bại.';
             setResult({ success: false, message: msg });
         } finally {
-            setIsScanning(false);
+            setCheckInLoading(null);
         }
     };
 
-    const filteredAttendees = attendees.filter((a) => {
+    const checkedInList = summary?.records ?? [];
+    const filtered = checkedInList.filter((a) => {
         const q = listSearch.toLowerCase();
         return (
-            (a.fullName || '').toLowerCase().includes(q) ||
+            (a.fullName || a.name || '').toLowerCase().includes(q) ||
             (a.studentId || '').toLowerCase().includes(q)
         );
     });
@@ -70,43 +96,82 @@ const EventCheckInScanner = ({ eventId, eventStatus }) => {
     };
 
     return (
-        <div className="mt-6 space-y-5">
-            {/* Check-in form card */}
+        <div className="space-y-5">
+            {/* Summary bar */}
+            {summary && (
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-blue-50 rounded-xl p-4 text-center">
+                        <p className="text-2xl font-bold text-blue-700">{summary.totalRegistered ?? '—'}</p>
+                        <p className="text-xs text-blue-600 mt-1">Đã đăng ký</p>
+                    </div>
+                    <div className="bg-green-50 rounded-xl p-4 text-center">
+                        <p className="text-2xl font-bold text-green-700">{summary.totalCheckedIn ?? 0}</p>
+                        <p className="text-xs text-green-600 mt-1">Đã điểm danh</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-xl p-4 text-center">
+                        <p className="text-2xl font-bold text-gray-700">{summary.totalAbsent ?? '—'}</p>
+                        <p className="text-xs text-gray-500 mt-1">Vắng mặt</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Check-in search */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h3 className="text-xl font-bold text-gray-800 mb-2 border-b pb-3">
-                    <i className="fas fa-qrcode text-blue-600 mr-2"></i> Quầy Check-in Sự kiện
+                <h3 className="text-lg font-bold text-gray-800 mb-2 border-b pb-3">
+                    Quầy Check-in
                 </h3>
-                <p className="text-gray-500 text-sm mb-6">
-                    Quét mã QR hoặc nhập Mã số sinh viên để điểm danh nhanh.
+                <p className="text-gray-500 text-sm mb-5">
+                    Nhập tên, MSSV hoặc 4 số cuối SĐT để tìm người tham dự.
                 </p>
 
-                <form onSubmit={handleCheckIn} className="flex gap-4 max-w-2xl mx-auto bg-gray-50 p-6 rounded-xl border border-gray-200 border-dashed">
-                    <div className="flex-1 relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <i className="fas fa-search text-gray-400"></i>
-                        </div>
-                        <input
-                            type="text"
-                            className="w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-lg shadow-sm"
-                            placeholder="Nhập MSSV (VD: SE150000)"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            autoFocus
-                        />
+                <div className="relative max-w-2xl mx-auto">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <input
+                        type="text"
+                        autoFocus
+                        value={query}
+                        onChange={(e) => { setQuery(e.target.value); setResult(null); }}
+                        placeholder="Tìm theo MSSV, tên, 4 số cuối SĐT..."
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none text-base shadow-sm"
+                    />
+                    {searching && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">Đang tìm...</span>
+                    )}
+                </div>
+
+                {/* Search results */}
+                {participants.length > 0 && (
+                    <div className="mt-3 max-w-2xl mx-auto border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
+                        {participants.map((p) => {
+                            const regId = p.registrationId ?? p.id;
+                            const isChecking = checkInLoading === regId;
+                            return (
+                                <div key={regId} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                                            <User size={16} className="text-blue-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-gray-900 text-sm">{p.fullName || p.name}</p>
+                                            <p className="text-xs text-gray-500">{p.studentId || p.phone || '—'}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleCheckIn(p)}
+                                        disabled={isChecking}
+                                        className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-colors"
+                                    >
+                                        {isChecking ? '...' : 'Check-in'}
+                                    </button>
+                                </div>
+                            );
+                        })}
                     </div>
-                    <button
-                        type="submit"
-                        disabled={isScanning || !searchQuery.trim()}
-                        className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900 text-white font-medium rounded-lg transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                        {isScanning ? (
-                            <i className="fas fa-spinner fa-spin"></i>
-                        ) : (
-                            <i className="fas fa-check-circle"></i>
-                        )}
-                        Check-in
-                    </button>
-                </form>
+                )}
+
+                {query.trim() && !searching && participants.length === 0 && (
+                    <p className="text-center text-sm text-gray-400 mt-4">Không tìm thấy người đăng ký.</p>
+                )}
 
                 {/* Result banner */}
                 {result && (
@@ -118,64 +183,53 @@ const EventCheckInScanner = ({ eventId, eventStatus }) => {
                         }}
                     >
                         {result.success ? (
-                            <CheckCircle2 size={40} className="text-green-500 flex-shrink-0" />
+                            <CheckCircle2 size={36} className="text-green-500 shrink-0" />
                         ) : (
-                            <XCircle size={40} className="text-red-400 flex-shrink-0" />
+                            <XCircle size={36} className="text-red-400 shrink-0" />
                         )}
-
                         {result.success ? (
                             <div>
-                                <p className="text-green-700 font-bold text-lg leading-tight">
-                                    Điểm danh thành công!
-                                </p>
+                                <p className="text-green-700 font-bold text-base">Điểm danh thành công!</p>
                                 <div className="flex items-center gap-2 mt-1">
-                                    <User size={15} className="text-green-600" />
-                                    <span className="text-green-800 font-semibold text-base">
-                                        {result.name}
-                                    </span>
-                                    <span className="text-green-600 text-sm">
-                                        ({result.studentId})
-                                    </span>
+                                    <User size={14} className="text-green-600" />
+                                    <span className="text-green-800 font-semibold">{result.name}</span>
+                                    {result.studentId && <span className="text-green-600 text-sm">({result.studentId})</span>}
                                 </div>
                             </div>
                         ) : (
-                            <p className="text-red-600 font-semibold text-base">{result.message}</p>
+                            <p className="text-red-600 font-semibold">{result.message}</p>
                         )}
                     </div>
                 )}
             </div>
 
-            {/* Attendee list card */}
+            {/* Checked-in list */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-4 border-b pb-3">
-                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                        <Users size={20} className="text-blue-600" />
-                        Danh sách đã điểm danh
+                    <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                        <Users size={18} className="text-blue-600" /> Danh sách đã điểm danh
                     </h3>
                     <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                        {attendees.length} người
+                        {checkedInList.length} người
                     </span>
                 </div>
 
-                {/* Search */}
-                <div className="relative mb-4" style={{ maxWidth: 320 }}>
-                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <div className="relative mb-4 max-w-xs">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     <input
                         type="text"
-                        className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm outline-none bg-gray-50 focus:border-blue-400 focus:bg-white transition-colors"
-                        placeholder="Tìm theo tên hoặc MSSV..."
                         value={listSearch}
                         onChange={(e) => setListSearch(e.target.value)}
+                        placeholder="Tìm theo tên hoặc MSSV..."
+                        className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm outline-none bg-gray-50 focus:border-blue-400 focus:bg-white"
                     />
                 </div>
 
-                {filteredAttendees.length === 0 ? (
+                {filtered.length === 0 ? (
                     <div className="text-center py-10 text-gray-400">
-                        <Users size={36} className="mx-auto mb-2 opacity-30" />
+                        <Users size={32} className="mx-auto mb-2 opacity-30" />
                         <p className="text-sm">
-                            {attendees.length === 0
-                                ? 'Chưa có ai điểm danh.'
-                                : 'Không tìm thấy kết quả.'}
+                            {checkedInList.length === 0 ? 'Chưa có ai điểm danh.' : 'Không tìm thấy kết quả.'}
                         </p>
                     </div>
                 ) : (
@@ -183,29 +237,26 @@ const EventCheckInScanner = ({ eventId, eventStatus }) => {
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="bg-gray-50 text-gray-500 text-left">
-                                    <th className="px-4 py-2 font-semibold rounded-tl-lg">#</th>
+                                    <th className="px-4 py-2 font-semibold">#</th>
                                     <th className="px-4 py-2 font-semibold">Họ và tên</th>
                                     <th className="px-4 py-2 font-semibold">MSSV</th>
-                                    <th className="px-4 py-2 font-semibold rounded-tr-lg">Thời gian</th>
+                                    <th className="px-4 py-2 font-semibold">Thời gian</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredAttendees.map((a, idx) => (
-                                    <tr
-                                        key={a.userId ?? idx}
-                                        className="border-t border-gray-100 hover:bg-gray-50 transition-colors"
-                                    >
+                                {filtered.map((a, idx) => (
+                                    <tr key={a.recordId ?? idx} className="border-t border-gray-100 hover:bg-gray-50">
                                         <td className="px-4 py-3 text-gray-400">{idx + 1}</td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                                    <User size={14} className="text-blue-600" />
+                                                <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                                                    <User size={13} className="text-blue-600" />
                                                 </div>
-                                                <span className="font-medium text-gray-800">{a.fullName || '—'}</span>
+                                                <span className="font-medium text-gray-800">{a.fullName || a.name || '—'}</span>
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 text-gray-600 font-mono">{a.studentId || '—'}</td>
-                                        <td className="px-4 py-3 text-gray-500">{formatTime(a.markedAt)}</td>
+                                        <td className="px-4 py-3 text-gray-500">{formatTime(a.checkedInAt ?? a.markedAt)}</td>
                                     </tr>
                                 ))}
                             </tbody>

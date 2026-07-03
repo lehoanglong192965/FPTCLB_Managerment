@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, FileText, ExternalLink, CheckCircle } from "lucide-react";
+import reportService from "../../services/api/report/reportService";
 import eventService from "../../services/api/events/eventService";
 
 const getImageUrl = (url) => {
@@ -83,7 +84,7 @@ export default function IcpdpReportReview() {
 
   const fetchReportFor = async (eventId) => {
     try {
-      const res = await eventService.getReportByEventId(eventId);
+      const res = await reportService.getByEventId(eventId);
       const data = res?.data ?? res;
       setReports((prev) => ({ ...prev, [eventId]: data }));
     } catch {
@@ -104,21 +105,21 @@ export default function IcpdpReportReview() {
   }, []);
 
   const handleClose = async (eventId) => {
-    if (!window.confirm("Xác nhận đóng sự kiện và ghi nhận điểm? Hành động không thể hoàn tác.")) return;
+    if (!window.confirm("Xác nhận phê duyệt báo cáo? Hành động không thể hoàn tác.")) return;
     setClosingId(eventId);
     try {
-      await eventService.close(eventId);
+      await reportService.approve(eventId);
       setClosedIds((prev) => new Set([...prev, eventId]));
     } catch (e) {
-      alert(e.response?.data?.message || e.message || "Lỗi khi đóng sự kiện.");
+      alert(e.response?.data?.message || e.message || "Lỗi khi phê duyệt báo cáo.");
     } finally {
       setClosingId(null);
     }
   };
 
-  const handleReject = async (eventId, _reason) => {
+  const handleReject = async (eventId, reason) => {
     try {
-      await eventService.rejectReport(eventId);
+      await reportService.reject(eventId, { reason });
       setRejectedIds((prev) => new Set([...prev, eventId]));
       setRejectTarget(null);
     } catch (e) {
@@ -206,7 +207,7 @@ export default function IcpdpReportReview() {
                   {/* Actions */}
                   {isClosed ? (
                     <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-[13px] font-semibold text-green-700">
-                      <CheckCircle size={15} /> Đã đóng và xác nhận điểm
+                      <CheckCircle size={15} /> Đã phê duyệt báo cáo
                     </div>
                   ) : (
                     <div className="flex gap-3">
@@ -226,7 +227,7 @@ export default function IcpdpReportReview() {
                         }`}
                         style={{ flex: 2 }}
                       >
-                        {isClosingThis ? "Đang xử lý..." : "Xác nhận điểm & Đóng sự kiện"}
+                        {isClosingThis ? "Đang xử lý..." : "Phê duyệt báo cáo"}
                       </button>
                     </div>
                   )}

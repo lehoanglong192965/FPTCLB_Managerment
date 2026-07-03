@@ -633,6 +633,9 @@ export default function ClubEventsMgmt() {
                   <button onClick={() => navigate(`${selectedEv.eventID}/assignments`, { relative: "path" })} style={btnStyle("#2563eb")}>
                     <Users size={14} /> Phân công
                   </button>
+                  <button onClick={() => navigate(`${selectedEv.eventID}/registrations`, { relative: "path" })} style={btnStyle("#0891b2")}>
+                    Quản lý đăng ký
+                  </button>
                   <button
                     disabled={closingRegId === selectedEv.eventID}
                     onClick={async () => {
@@ -659,6 +662,9 @@ export default function ClubEventsMgmt() {
                   <button onClick={() => navigate(`${selectedEv.eventID}/assignments`, { relative: "path" })} style={btnStyle("#2563eb")}>
                     <Users size={14} /> Phân công
                   </button>
+                  <button onClick={() => navigate(`${selectedEv.eventID}/registrations`, { relative: "path" })} style={btnStyle("#0891b2")}>
+                    Quản lý đăng ký
+                  </button>
                   <button
                     disabled={startingId === selectedEv.eventID}
                     onClick={async () => {
@@ -680,6 +686,9 @@ export default function ClubEventsMgmt() {
                 {status === "ONGOING" && (<>
                   <button onClick={() => navigate(`${selectedEv.eventID}/checkin`, { relative: "path" })} style={btnStyle("#0891b2")}>
                     Điểm danh
+                  </button>
+                  <button onClick={() => navigate(`${selectedEv.eventID}/attendance`, { relative: "path" })} style={btnStyle("#2563eb")}>
+                    Thống kê điểm danh
                   </button>
                   <button onClick={() => setFinishTarget(selectedEv.eventID)} style={btnStyle("#7c3aed")}>
                     Kết thúc sự kiện
