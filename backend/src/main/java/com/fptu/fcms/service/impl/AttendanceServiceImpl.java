@@ -21,6 +21,7 @@ import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.service.AttendanceService;
+import com.fptu.fcms.service.event.RegistrationLifecycle;
 import com.fptu.fcms.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -76,7 +77,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (registrationStatus == null && registration.getStatus() != null) {
             registrationStatus = RegistrationStatus.fromValue(registration.getStatus());
         }
-        if (!RegistrationStatus.CONFIRMED.equals(registrationStatus)) {
+        if (!RegistrationLifecycle.CONFIRMED_STATUSES.contains(registrationStatus)) {
             throw new IllegalArgumentException("Registration is not confirmed for check-in.");
         }
         var existingRecord = attendanceRecordRepository.findBySessionIDAndRegistrationID(sessionId, registration.getRegistrationID());
@@ -161,7 +162,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (registrationStatus == null && registration.getStatus() != null) {
             registrationStatus = RegistrationStatus.fromValue(registration.getStatus());
         }
-        if (!RegistrationStatus.CONFIRMED.equals(registrationStatus)) {
+        if (!RegistrationLifecycle.CONFIRMED_STATUSES.contains(registrationStatus)) {
             throw new IllegalArgumentException("Registration is not confirmed for check-in.");
         }
 
@@ -325,3 +326,4 @@ public class AttendanceServiceImpl implements AttendanceService {
         return value == null ? "" : value.trim().replaceAll("\\s+", " ");
     }
 }
+
