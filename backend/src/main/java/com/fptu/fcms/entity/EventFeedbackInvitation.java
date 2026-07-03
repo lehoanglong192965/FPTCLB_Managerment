@@ -15,6 +15,9 @@ import java.time.LocalDateTime;
 @Table(name = "EventFeedbackInvitation", indexes = {
         @Index(name = "IX_FeedbackInvitation_TokenHash", columnList = "tokenHash"),
         @Index(name = "IX_FeedbackInvitation_Event_Status", columnList = "eventID,status")
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "UQ_FeedbackInvitation_TokenHash", columnNames = {"tokenHash"}),
+        @UniqueConstraint(name = "UQ_FeedbackInvitation_Event_Registration", columnNames = {"eventID", "registrationID"})
 })
 @Getter
 @Setter

@@ -59,7 +59,8 @@ public class MemberRankingServiceImpl implements MemberRankingService {
     private static final Set<com.fptu.fcms.enums.EventStatus> RANKING_ELIGIBLE_EVENT_STATUSES = Set.of(
             com.fptu.fcms.enums.EventStatus.COMPLETED,
             com.fptu.fcms.enums.EventStatus.CLOSED,
-            com.fptu.fcms.enums.EventStatus.CONTRIBUTION_CALCULATED
+            com.fptu.fcms.enums.EventStatus.CONTRIBUTION_CALCULATED,
+            com.fptu.fcms.enums.EventStatus.CONTRIBUTION_FINALIZED
     );
     private static final int TIER_S_MIN_SCORE = 150;
     private static final int TIER_A_MIN_SCORE = 80;
