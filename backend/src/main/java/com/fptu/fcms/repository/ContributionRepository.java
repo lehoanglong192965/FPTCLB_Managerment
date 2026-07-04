@@ -17,4 +17,6 @@ public interface ContributionRepository extends JpaRepository<EventContribution,
     Optional<EventContribution> findByBatchIDAndUserIDAndIsDeletedFalse(Integer batchID, Integer userID);
 
     List<EventContribution> findByBatchIDAndUserIDInAndIsDeletedFalse(Integer batchID, Collection<Integer> userIDs);
+
+    boolean existsByBatchIDAndUserIDAndIsDeletedFalse(Integer batchID, Integer userID);
 }

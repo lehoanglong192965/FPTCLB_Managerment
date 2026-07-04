@@ -55,8 +55,8 @@ public class EventStateMachineServiceImpl implements EventStateMachineService {
 
     @Override
     public void ensureCanClose(Event event) {
-        if (event == null || !isAnyStatus(event.getEventStatus(), EventStatus.COMPLETED, EventStatus.REPORT_UPLOADED)) {
-            throw invalidState("Event must be Completed or ReportUploaded before closing.");
+        if (event == null || !isAnyStatus(event.getEventStatus(), EventStatus.COMPLETED, EventStatus.REPORT_UPLOADED, EventStatus.CONTRIBUTION_FINALIZED)) {
+            throw invalidState("Event must be Completed, ReportUploaded, or ContributionFinalized before closing.");
         }
     }
 
