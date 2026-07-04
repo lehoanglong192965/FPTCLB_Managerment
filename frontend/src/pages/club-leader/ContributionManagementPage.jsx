@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Lock, AlertTriangle, X, Users } from 'lucide-react';
+import { ArrowLeft, Save, Lock, AlertTriangle, X, Users, Clock } from 'lucide-react';
 import contributionService from '../../services/api/contribution/contributionService';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -25,18 +25,18 @@ function FinalizeModal({ count, onConfirm, onClose }) {
           <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
             <AlertTriangle size={20} className="text-orange-600" />
           </div>
-          <h3 className="font-bold text-gray-900">Khoá đánh giá đóng góp</h3>
+          <h3 className="font-bold text-gray-900">Chốt điểm đóng góp</h3>
         </div>
         <p className="text-sm text-gray-600 mb-2">
-          Xác nhận khoá đánh giá cho <strong>{count}</strong> thành viên?
+          Xác nhận chốt điểm cho <strong>{count}</strong> thành viên?
         </p>
         <p className="text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2 mb-5">
-          Sau khi khoá, các thành viên có <strong>24 giờ</strong> để nộp kháng cáo. Hành động không thể hoàn tác.
+          Sau khi chốt, các thành viên có <strong>24 giờ</strong> để nộp khiếu nại. Hành động không thể hoàn tác.
         </p>
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Huỷ</button>
           <button onClick={onConfirm} className="flex-1 py-2.5 text-sm text-white bg-orange-500 hover:bg-orange-600 rounded-lg font-semibold">
-            Khoá ngay
+            Chốt điểm
           </button>
         </div>
       </div>
@@ -174,6 +174,7 @@ export default function ContributionManagementPage() {
   const [appeals, setAppeals] = useState([]);
   const [batchId, setBatchId] = useState(null);
   const [batchStatus, setBatchStatus] = useState(null);
+  const [appealClosesAt, setAppealClosesAt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
@@ -192,18 +193,24 @@ export default function ContributionManagementPage() {
         contributionService.getBatch(eventId),
       ]);
       if (contribRes.status === 'fulfilled') {
-        const data = Array.isArray(contribRes.value) ? contribRes.value : (contribRes.value?.data ?? []);
+        const raw = contribRes.value;
+        const data = Array.isArray(raw) ? raw : (raw?.data ?? raw?.content ?? []);
+        console.log('[Contribution] getDraft raw:', raw, '→ data:', data);
         setContributions(data.map((c) => ({
           ...c,
           tier: c.tier || 'B',
           rationale: c.rationale || '',
         })));
+      } else {
+        console.error('[Contribution] getDraft failed:', contribRes.reason);
+        toast.error('Không tải được danh sách đóng góp: ' + (contribRes.reason?.response?.status ?? contribRes.reason?.message ?? 'lỗi không xác định'));
       }
       if (batchRes.status === 'fulfilled') {
         const batch = batchRes.value?.data ?? batchRes.value;
         if (batch?.batchID) {
           setBatchId(batch.batchID);
           setBatchStatus(batch.status);
+          setAppealClosesAt(batch.appealClosesAt ?? null);
         }
       }
     } catch (err) {
@@ -262,7 +269,8 @@ export default function ContributionManagementPage() {
       const batch = res?.data ?? res;
       if (batch?.batchID) setBatchId(batch.batchID);
       if (batch?.status) setBatchStatus(batch.status);
-      toast.success('Đã khoá đánh giá. Thành viên có 24h để kháng cáo.');
+      if (batch?.appealClosesAt) setAppealClosesAt(batch.appealClosesAt);
+      toast.success('Đã chốt điểm. Thành viên có 24h để khiếu nại.');
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Khoá thất bại.');
     } finally {
@@ -299,17 +307,39 @@ export default function ContributionManagementPage() {
               disabled={finalizing || contributions.length === 0}
               className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
             >
-              <Lock size={15} /> Khoá đánh giá
+              <Lock size={15} /> Chốt điểm
             </button>
           </div>
         )}
       </div>
 
-      {isFinalized && (
-        <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 mb-5 text-sm text-orange-700 font-medium">
-          <Lock size={15} /> Đánh giá đã khoá — đang trong cửa sổ kháng cáo 24h
+      {batchStatus === 'APPEAL_WINDOW' || batchStatus === 'APPEAL_OPEN' ? (
+        <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5">
+          <Clock size={16} className="text-blue-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-blue-700">Đang mở khiếu nại</p>
+            {appealClosesAt && (
+              <p className="text-xs text-blue-500 mt-0.5">
+                Thành viên có thể khiếu nại đến{' '}
+                <strong>
+                  {new Date(appealClosesAt).toLocaleString('vi-VN', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                  })}
+                </strong>
+              </p>
+            )}
+          </div>
         </div>
-      )}
+      ) : batchStatus === 'FINALIZED' ? (
+        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-5 text-sm text-green-700 font-medium">
+          <Lock size={15} /> Đã chốt điểm cuối — không thể chỉnh sửa
+        </div>
+      ) : isFinalized ? (
+        <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 mb-5 text-sm text-orange-700 font-medium">
+          <Lock size={15} /> Đánh giá đã khoá
+        </div>
+      ) : null}
 
       {/* Appeals panel */}
       {appeals.length > 0 && (

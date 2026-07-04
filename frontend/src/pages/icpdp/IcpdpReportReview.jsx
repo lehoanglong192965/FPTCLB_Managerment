@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { X, FileText, ExternalLink, CheckCircle2, AlertCircle, Clock, Search, XCircle, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { X, FileText, ExternalLink, CheckCircle2, AlertCircle, Clock, Search, XCircle, ChevronRight, BarChart2 } from "lucide-react";
 import reportService from "../../services/api/report/reportService";
 import eventService from "../../services/api/events/eventService";
 
@@ -43,7 +44,7 @@ function StatusBadge({ status }) {
 }
 
 /* ── Detail modal ── */
-function DetailModal({ ev, report, onApprove, onReject, onClose, approving }) {
+function DetailModal({ ev, report, onApprove, onReject, onClose, approving, onViewContributions }) {
   const [showReject, setShowReject]   = useState(false);
   const [reason, setReason]           = useState("");
   const [touched, setTouched]         = useState(false);
@@ -144,9 +145,19 @@ function DetailModal({ ev, report, onApprove, onReject, onClose, approving }) {
         {/* Footer actions */}
         <div className="px-6 pb-5 pt-3 border-t border-gray-100 shrink-0">
           {status === "approved" ? (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold"
-              style={{ background: "#D1FAE5", color: "#065F46" }}>
-              <CheckCircle2 size={15} /> Đã phê duyệt báo cáo
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold"
+                style={{ background: "#D1FAE5", color: "#065F46" }}>
+                <CheckCircle2 size={15} /> Đã phê duyệt báo cáo
+              </div>
+              <button
+                onClick={() => onViewContributions(ev.eventID)}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors w-full"
+                style={{ background: "#EDE9FE", color: "#6D28D9", border: "1px solid #DDD6FE" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "#DDD6FE"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "#EDE9FE"; }}>
+                <BarChart2 size={14} /> Xem đóng góp thành viên
+              </button>
             </div>
           ) : status === "rejected" ? (
             <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold"
@@ -182,6 +193,7 @@ function DetailModal({ ev, report, onApprove, onReject, onClose, approving }) {
 
 /* ── Main page ── */
 export default function IcpdpReportReview() {
+  const navigate = useNavigate();
   const [events, setEvents]         = useState([]);
   const [reports, setReports]       = useState({});
   const [loading, setLoading]       = useState(true);
@@ -392,6 +404,10 @@ export default function IcpdpReportReview() {
           onApprove={handleApprove}
           onReject={handleReject}
           onClose={() => setSelected(null)}
+          onViewContributions={(eventId) => {
+            setSelected(null);
+            navigate(`/icpdp/events/${eventId}/contributions`);
+          }}
         />
       )}
     </div>

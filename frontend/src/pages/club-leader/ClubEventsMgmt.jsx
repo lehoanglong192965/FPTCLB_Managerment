@@ -877,6 +877,19 @@ export default function ClubEventsMgmt() {
                   </button>
                 </>)}
 
+                {/* ReportApproved — ICPDP đã duyệt → chấm đóng góp */}
+                {status === "REPORTAPPROVED" && (<>
+                  <div style={{ padding: "10px 14px", borderRadius: 10, background: "#ccfbf1", border: "1.5px solid #99f6e4", fontSize: 13, color: "#0f766e", fontWeight: 600 }}>
+                    ✓ Báo cáo đã được ICPDP phê duyệt
+                  </div>
+                  <button
+                    onClick={() => navigate(`../contributions/${selectedEv.eventID}`, { relative: "path" })}
+                    style={btnStyle("#0f766e")}
+                  >
+                    Chấm đóng góp thành viên
+                  </button>
+                </>)}
+
                 {/* ReportUploaded — đã nộp, chờ ICPDP */}
                 {status === "REPORTUPLOADED" && (<>
                   <div style={{ padding: "10px 14px", borderRadius: 10, background: "#f5f3ff", border: "1.5px solid #ddd6fe", fontSize: 13, color: "#6d28d9", fontWeight: 600 }}>
