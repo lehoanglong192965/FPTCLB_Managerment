@@ -152,7 +152,7 @@ export default function MemberEvents() {
             <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
               {filtered.length} sự kiện
             </p>
-            <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+            <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
               {filtered.length === 0 ? (
                 <p className="col-span-full text-center py-10 text-gray-400 text-sm m-0">
                   Không tìm thấy sự kiện phù hợp.

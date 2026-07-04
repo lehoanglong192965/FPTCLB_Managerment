@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { UserPlus, Search, Rocket, Calendar, Users, Bot, BarChart2, ArrowRight } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 import ClubsSection from "../../components/clubs/ClubsSection";
 import EventsSection from "../../components/events/EventsSection";
 import AiChat from "../../components/AiChat";
@@ -154,13 +155,6 @@ function Hero() {
         </div>
       </div>
 
-      {/* Scroll cue */}
-      <div className="absolute bottom-7 left-[5%] flex flex-col items-start gap-1.5 z-10">
-        <span className="text-[10px] tracking-[2.5px] uppercase" style={{ color: "rgba(255,255,255,0.24)" }}>
-          Cuộn xuống
-        </span>
-        <div className="w-px h-10 bg-gradient-to-b from-[rgba(255,107,0,0.55)] to-transparent" />
-      </div>
     </section>
   );
 }
@@ -206,15 +200,6 @@ function HowItWorks() {
 
         {/* Steps row */}
         <div className="relative flex flex-col md:flex-row gap-10 md:gap-0">
-          {/* Gradient connector line */}
-          <div
-            className="hidden md:block absolute top-8 h-px pointer-events-none"
-            style={{
-              left: "calc(33.33% - 8px)",
-              right: "calc(33.33% - 8px)",
-              background: "linear-gradient(90deg, rgba(255,107,0,0.25), rgba(55,138,221,0.25), rgba(46,204,113,0.25))",
-            }}
-          />
 
           {HOW_STEPS.map((step) => (
             <div key={step.num} className="flex-1 relative">
@@ -381,6 +366,7 @@ function FeaturesSection() {
 /* ── CTA Banner — asymmetric flex ─────────────────── */
 function CTABanner() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   return (
     <section className="px-[5%] py-28 relative overflow-hidden" style={{ background: "#F7F8FC" }}>
       {/* Ambient glow */}
@@ -414,11 +400,16 @@ function CTABanner() {
           {/* Right: CTA button */}
           <div className="flex-shrink-0">
             <button
-              onClick={() => navigate("/register")}
-              className="inline-flex items-center gap-2.5 px-9 py-4 text-white font-bold text-[16px] rounded-2xl border-none cursor-pointer transition-all duration-200 hover:-translate-y-0.5 active:scale-95"
+              onClick={() => !user && navigate("/register")}
+              disabled={!!user}
+              className="inline-flex items-center gap-2.5 px-9 py-4 text-white font-bold text-[16px] rounded-2xl border-none transition-all duration-200"
               style={{
-                background: "linear-gradient(135deg, #FF6B00, #FF8C33)",
-                boxShadow: "0 8px 40px rgba(255,107,0,0.28)",
+                background: user
+                  ? "linear-gradient(135deg, #ccc, #bbb)"
+                  : "linear-gradient(135deg, #FF6B00, #FF8C33)",
+                boxShadow: user ? "none" : "0 8px 40px rgba(255,107,0,0.28)",
+                cursor: user ? "not-allowed" : "pointer",
+                opacity: user ? 0.5 : 1,
               }}
             >
               Đăng Ký Miễn Phí <ArrowRight size={18} />

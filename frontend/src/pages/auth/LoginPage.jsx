@@ -47,8 +47,6 @@ const ROLE_REDIRECT = {
 };
 
 
-// Public pages that a member can be sent back to after login
-const PUBLIC_PATHS = ["/", "/events", "/clubs"];
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -83,8 +81,10 @@ export default function LoginPage() {
       const { role, email: userEmail } = await authService.login(email, password);
       login({ email: userEmail, role });
       const from = location.state?.from;
-      const dest = (from && PUBLIC_PATHS.some((p) => from === p || from.startsWith(p + "/")))
+      const dest = (role === 'MEMBER' && from)
         ? from
+        : role === 'MEMBER'
+        ? '/'
         : (ROLE_REDIRECT[role] ?? "/member");
       navigate(dest, { replace: true });
     } catch (err) {

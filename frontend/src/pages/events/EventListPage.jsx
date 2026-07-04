@@ -56,11 +56,7 @@ export default function EventListPage() {
         if (cancelled) return;
 
         if (evRes) {
-          const evList = (Array.isArray(evRes) ? evRes : (evRes?.content ?? evRes?.data ?? []))
-            .filter((e) => {
-              const s = (e.eventStatus ?? e.status ?? "").toUpperCase().replace(/_/g, "");
-              return s !== "APPROVED";
-            });
+          const evList = Array.isArray(evRes) ? evRes : (evRes?.content ?? evRes?.data ?? []);
           setRawEvents(evList);
         }
         if (clubRes) setClubs(Array.isArray(clubRes) ? clubRes : (clubRes?.content ?? clubRes?.data ?? []));
@@ -102,7 +98,6 @@ export default function EventListPage() {
   });
 
   const filtered = allEvents.filter((event) => {
-    if (registeredIds.has(Number(event.id))) return false;
     const matchFilter = activeFilter === "Tất cả" || event.badge === activeFilter;
     const matchSearch =
       event.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -111,15 +106,8 @@ export default function EventListPage() {
   });
 
   return (
-    <div className="max-w-[900px] mx-auto px-[5%] pt-[calc(var(--header-h,68px)+48px)] pb-20">
-      <button
-        className="inline-flex items-center gap-1.5 mb-7 px-4 py-2 rounded-lg border border-gray-200 bg-white text-[#4B5674] text-sm font-semibold cursor-pointer hover:border-[#FF6B00] hover:text-[#FF6B00] transition-all font-[inherit]"
-        onClick={() => navigate("/")}
-      >
-        ← Trang Chủ
-      </button>
-
-      <div className="mb-9">
+    <div className="max-w-[1200px] mx-auto px-[5%] pt-[calc(var(--header-h,68px)+48px)] pb-20">
+      <div className="mb-10">
         <h1 className="text-[clamp(1.8rem,4vw,2.6rem)] font-black text-[#0D1B3E] tracking-[-1.5px] mb-2.5">
           Danh Sách Sự Kiện
         </h1>
@@ -156,17 +144,37 @@ export default function EventListPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4">
-        {loading ? (
-          <p className="text-center py-16">Đang tải sự kiện...</p>
-        ) : error ? (
-          <p className="text-center py-16 text-red-500">{error}</p>
-        ) : filtered.length > 0 ? (
-          filtered.map((event) => <EventCard key={event.id} event={event} />)
-        ) : (
-          <p className="text-center text-gray-400 text-[15px] py-16">Không tìm thấy sự kiện nào.</p>
-        )}
-      </div>
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <div className="w-10 h-10 border-4 border-gray-200 border-t-[#FF6B00] rounded-full animate-spin" />
+          <p className="text-[14px] text-gray-400">Đang tải danh sách sự kiện...</p>
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <p className="text-[15px] text-red-500">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-5 py-2 rounded-lg bg-[#FF6B00] text-white text-sm font-semibold cursor-pointer hover:bg-[#E05A00] transition-colors"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+          {filtered.length > 0
+            ? filtered.map((event) => <EventCard key={event.id} event={event} />)
+            : (
+              <p className="col-span-full text-center text-gray-400 text-[15px] py-16">
+                Không tìm thấy sự kiện nào.
+              </p>
+            )
+          }
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, NavLink } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 
 const ROLE_DASHBOARD = {
@@ -66,6 +66,34 @@ export default function Header() {
           <span className="text-[15px] font-extrabold text-[#F37021] tracking-[-0.3px]">FPTU Clubs</span>
         </div>
       </a>
+
+      {/* Nav links */}
+      {!isAuthPage && (
+        <nav className="hidden md:flex items-center gap-1">
+          {[
+            { to: "/",       label: "Trang chủ" },
+            { to: "/clubs",  label: "Câu lạc bộ" },
+            { to: "/events", label: "Sự kiện" },
+          ].map(({ to, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === "/"}
+              className={({ isActive }) =>
+                "relative px-4 py-2 rounded-sm text-[14px] font-semibold no-underline bg-transparent border-0 cursor-pointer font-[inherit] transition-all duration-200 " +
+                (isActive ? "bg-[rgba(243,112,33,0.12)]" : "hover:bg-[rgba(243,112,33,0.12)]")
+              }
+              style={({ isActive }) => ({
+                color: isActive ? "#F37021" : "rgba(114,114,114,0.75)",
+              })}
+              onMouseEnter={e => { e.currentTarget.style.color = "#F37021"; }}
+              onMouseLeave={e => { if (e.currentTarget.getAttribute("aria-current") !== "page") e.currentTarget.style.color = "rgba(114,114,114,0.75)"; }}
+            >
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+      )}
 
       <div className="flex items-center gap-[10px]">
         {user ? (
