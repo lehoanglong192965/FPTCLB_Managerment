@@ -52,7 +52,7 @@ public class CompetitionServiceImpl implements CompetitionService {
     @Override
     @Transactional
     public Competition createCompetition(Competition competition) {
-        competition.setStatus(CompetitionStatus.Draft);
+        competition.setStatus(CompetitionStatus.DRAFT);
         return competitionRepository.save(competition);
     }
 
@@ -60,7 +60,7 @@ public class CompetitionServiceImpl implements CompetitionService {
     @Transactional
     public Competition updateCompetition(Integer id, Competition updated) {
         Competition existing = getCompetitionById(id);
-        if (!"Draft".equals(existing.getStatus())) {
+        if (existing.getStatus() != CompetitionStatus.DRAFT) {
             throw new IllegalStateException("Chỉ có thể sửa Competition ở trạng thái Draft");
         }
         existing.setTitle(updated.getTitle());
@@ -74,10 +74,10 @@ public class CompetitionServiceImpl implements CompetitionService {
     @Transactional
     public void approveCompetition(Integer id) {
         Competition competition = getCompetitionById(id);
-        if (!"Calculated".equals(competition.getStatus())) {
+        if (competition.getStatus() != CompetitionStatus.CALCULATED) {
             throw new IllegalStateException("Phải tính điểm trước khi approve. Trạng thái hiện tại: " + competition.getStatus());
         }
-        competition.setStatus(CompetitionStatus.Approved);
+        competition.setStatus(CompetitionStatus.APPROVED);
         competitionRepository.save(competition);
         log.info("Competition {} approved", id);
     }
@@ -86,10 +86,10 @@ public class CompetitionServiceImpl implements CompetitionService {
     @Transactional
     public void publishCompetition(Integer id) {
         Competition competition = getCompetitionById(id);
-        if (!"Approved".equals(competition.getStatus())) {
+        if (competition.getStatus() != CompetitionStatus.APPROVED) {
             throw new IllegalStateException("Phải approve trước khi publish. Trạng thái hiện tại: " + competition.getStatus());
         }
-        competition.setStatus(CompetitionStatus.Published);
+        competition.setStatus(CompetitionStatus.PUBLISHED);
         competitionRepository.save(competition);
         log.info("Competition {} published", id);
     }
@@ -145,7 +145,7 @@ public class CompetitionServiceImpl implements CompetitionService {
         log.info("Calculating scores for competition {}...", competitionId);
 
         Competition competition = getCompetitionById(competitionId);
-        if ("Published".equals(competition.getStatus())) {
+        if (competition.getStatus() == CompetitionStatus.PUBLISHED) {
             throw new IllegalStateException("Không thể tính lại điểm cho Competition đã Published");
         }
 
@@ -195,7 +195,7 @@ public class CompetitionServiceImpl implements CompetitionService {
         scoreRepository.saveAll(newScores);
 
         // 5. Update status
-        competition.setStatus(CompetitionStatus.Calculated);
+        competition.setStatus(CompetitionStatus.CALCULATED);
         competitionRepository.save(competition);
 
         log.info("Successfully calculated and saved scores for {} members in competition {}.", newScores.size(), competitionId);
@@ -207,7 +207,7 @@ public class CompetitionServiceImpl implements CompetitionService {
     @Transactional
     public void assignAwards(Integer competitionId) {
         Competition competition = getCompetitionById(competitionId);
-        if (!"Published".equals(competition.getStatus())) {
+        if (competition.getStatus() != CompetitionStatus.PUBLISHED) {
             throw new IllegalStateException("Chỉ gán Award cho Competition đã Published");
         }
 

@@ -6,7 +6,7 @@ import jakarta.persistence.Converter;
 
 import java.util.Locale;
 
-@Converter(autoApply = false)
+@Converter(autoApply = true)
 public class CompetitionStatusConverter implements AttributeConverter<CompetitionStatus, String> {
 
     @Override
@@ -14,16 +14,7 @@ public class CompetitionStatusConverter implements AttributeConverter<Competitio
         if (attribute == null) {
             return null;
         }
-        return switch (attribute) {
-            case Draft -> "DRAFT";
-            case Published -> "PUBLISHED";
-            case DRAFT -> "Draft";
-            case OPEN -> "Open";
-            case CLOSED -> "Closed";
-            case Approved -> "Approved";
-            case Rejected -> "Rejected";
-            case Calculated -> "Calculated";
-        };
+        return attribute.name();
     }
 
     @Override
@@ -31,12 +22,10 @@ public class CompetitionStatusConverter implements AttributeConverter<Competitio
         if (dbData == null) {
             return null;
         }
-        String normalized = dbData.trim().toUpperCase(Locale.ROOT);
-        return switch (normalized) {
-            case "DRAFT" -> CompetitionStatus.DRAFT;
-            case "OPEN" -> CompetitionStatus.OPEN;
-            case "CLOSED" -> CompetitionStatus.CLOSED;
-            default -> CompetitionStatus.DRAFT;
-        };
+        try {
+            return CompetitionStatus.valueOf(dbData.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return CompetitionStatus.DRAFT;
+        }
     }
 }
