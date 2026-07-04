@@ -9,6 +9,7 @@ import com.fptu.fcms.entity.AuditLog;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventAssignment;
 import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.enums.ParticipantType;
 import com.fptu.fcms.enums.RegistrationChannel;
@@ -23,6 +24,7 @@ import com.fptu.fcms.repository.EventAssignmentRepository;
 import com.fptu.fcms.repository.EventRegistrationPolicyRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.AuditLogService;
@@ -62,6 +64,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     private static final String DEFAULT_SORT_BY = "registeredAt";
 
     private final EventRegistrationRepository registrationRepo;
+    private final GuestEventRegistrationRepository guestRegistrationRepository;
     private final EventRepository eventRepository;
     private final ClubMembershipRepository membershipRepo;
     private final ClubBlacklistRepository blacklistRepository;
@@ -184,8 +187,14 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             UserPrincipal currentUser
     ) {
         ensureCanManageRegistrations(currentUser);
-        List<RegistrationListItemResponse> filtered = registrationRepo.findByEventIDAndIsDeletedFalse(eventId).stream()
+        List<RegistrationListItemResponse> fptuViews = registrationRepo.findByEventIDAndIsDeletedFalse(eventId).stream()
                 .map(reg -> toView(reg, currentUser))
+                .toList();
+        List<RegistrationListItemResponse> guestViews = guestRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
+                .map(reg -> toGuestView(reg, currentUser))
+                .toList();
+
+        List<RegistrationListItemResponse> filtered = java.util.stream.Stream.concat(fptuViews.stream(), guestViews.stream())
                 .filter(view -> matchesParticipantType(view, participantType))
                 .filter(view -> matchesStatus(view, status))
                 .filter(view -> matchesKeyword(view, keyword))
@@ -426,6 +435,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         boolean canViewGuestContact = canViewGuestContact(currentUser);
         return new RegistrationListItemResponse(
                 registration.getRegistrationID(),
+                null,
                 registration.getEventID(),
                 registration.getUserID(),
                 registration.getParticipantType(),
@@ -440,6 +450,24 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         );
     }
 
+    private RegistrationListItemResponse toGuestView(GuestEventRegistration registration, UserPrincipal currentUser) {
+        boolean canViewGuestContact = canViewGuestContact(currentUser);
+        return new RegistrationListItemResponse(
+                null,
+                registration.getGuestRegistrationID(),
+                registration.getEventID(),
+                null,
+                ParticipantType.GUEST,
+                currentGuestRegistrationStatus(registration),
+                registration.getRegisteredAt(),
+                null,
+                null,
+                null,
+                registration.getGuestFullName(),
+                canViewGuestContact ? registration.getGuestEmail() : null,
+                canViewGuestContact ? registration.getGuestPhone() : null
+        );
+    }
     private boolean matchesParticipantType(RegistrationListItemResponse view, String participantType) {
         if (!StringUtils.hasText(participantType)) {
             return true;
@@ -452,6 +480,16 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             return true;
         }
         return view.getStatus() != null && status.equalsIgnoreCase(view.getStatus().name());
+    }
+
+    private RegistrationStatus currentGuestRegistrationStatus(GuestEventRegistration registration) {
+        if (registration == null) {
+            return null;
+        }
+        if (registration.getRegistrationStatus() != null) {
+            return registration.getRegistrationStatus();
+        }
+        return RegistrationStatus.fromValue(registration.getStatus());
     }
 
     private RegistrationStatus currentRegistrationStatus(EventRegistration registration) {

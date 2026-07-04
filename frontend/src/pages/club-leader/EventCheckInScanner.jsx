@@ -57,7 +57,8 @@ const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
     const handleCheckIn = async (participant) => {
         const guestRegId = participant.guestRegistrationId ?? participant.guestRegistrationID;
         const regId = guestRegId ?? participant.registrationId ?? participant.id;
-        setCheckInLoading(regId);
+        const participantKey = participant.participantKey ?? (guestRegId ? 'guest-' + guestRegId : 'fptu-' + regId);
+        setCheckInLoading(participantKey);
         setResult(null);
         try {
             await attendanceService.checkIn(sessionId, {
@@ -147,9 +148,10 @@ const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
                         {participants.map((p) => {
                             const guestRegId = p.guestRegistrationId ?? p.guestRegistrationID;
                             const regId = guestRegId ?? p.registrationId ?? p.id;
-                            const isChecking = checkInLoading === regId;
+                            const participantKey = p.participantKey ?? (guestRegId ? 'guest-' + guestRegId : 'fptu-' + regId);
+                            const isChecking = checkInLoading === participantKey;
                             return (
-                                <div key={regId} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+                                <div key={participantKey} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
                                     <div className="flex items-center gap-3">
                                         <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
                                             <User size={16} className="text-blue-600" />
@@ -248,7 +250,7 @@ const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
                             </thead>
                             <tbody>
                                 {filtered.map((a, idx) => (
-                                    <tr key={a.recordId ?? idx} className="border-t border-gray-100 hover:bg-gray-50">
+                                    <tr key={a.participantKey ?? a.recordId ?? idx} className="border-t border-gray-100 hover:bg-gray-50">
                                         <td className="px-4 py-3 text-gray-400">{idx + 1}</td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-2">

@@ -174,12 +174,12 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         AttendanceSession session = findSession(sessionId);
         String normalized = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
         List<AttendanceRecord> records = attendanceRecordRepository.findBySessionID(sessionId);
-        Map<Integer, AttendanceStatus> attendanceByRegistration = records.stream()
+        Map<Integer, AttendanceRecord> attendanceByRegistration = records.stream()
                 .filter(record -> record.getRegistrationID() != null)
-                .collect(Collectors.toMap(AttendanceRecord::getRegistrationID, AttendanceRecord::getAttendanceStatus, (a, b) -> a));
-        Map<Integer, AttendanceStatus> attendanceByGuestRegistration = records.stream()
+                .collect(Collectors.toMap(AttendanceRecord::getRegistrationID, Function.identity(), (a, b) -> a));
+        Map<Integer, AttendanceRecord> attendanceByGuestRegistration = records.stream()
                 .filter(record -> record.getGuestRegistrationID() != null)
-                .collect(Collectors.toMap(AttendanceRecord::getGuestRegistrationID, AttendanceRecord::getAttendanceStatus, (a, b) -> a));
+                .collect(Collectors.toMap(AttendanceRecord::getGuestRegistrationID, Function.identity(), (a, b) -> a));
         Map<Integer, UserAccount> users = loadUsers(session.getEventID());
 
         Stream<AttendanceRegistrationSearchResponse> fptuResults = eventRegistrationRepository.findByEventIDAndIsDeletedFalse(session.getEventID()).stream()
@@ -206,8 +206,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "REGISTRATION_NOT_IN_SESSION_EVENT");
             }
             UserAccount user = registration.getUserID() == null ? null : userRepository.findByUserIDAndIsDeletedFalse(registration.getUserID()).orElse(null);
-            AttendanceStatus attendance = attendanceRecordRepository.findBySessionIDAndRegistrationID(sessionId, registrationId)
-                    .map(AttendanceRecord::getAttendanceStatus)
+            AttendanceRecord attendance = attendanceRecordRepository.findBySessionIDAndRegistrationID(sessionId, registrationId)
                     .orElse(null);
             return toSearchResponse(registration, user, attendance);
         }
@@ -217,8 +216,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         if (!session.getEventID().equals(guestRegistration.getEventID())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "REGISTRATION_NOT_IN_SESSION_EVENT");
         }
-        AttendanceStatus attendance = attendanceRecordRepository.findBySessionIDAndGuestRegistrationID(sessionId, registrationId)
-                .map(AttendanceRecord::getAttendanceStatus)
+        AttendanceRecord attendance = attendanceRecordRepository.findBySessionIDAndGuestRegistrationID(sessionId, registrationId)
                 .orElse(null);
         return toGuestSearchResponse(guestRegistration, attendance);
     }
@@ -255,7 +253,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
             GuestEventRegistration guestRegistration = guestEventRegistrationRepository
                     .findByGuestRegistrationIDAndIsDeletedFalse(record.getGuestRegistrationID())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "REGISTRATION_NOT_FOUND"));
-            return toGuestSearchResponse(guestRegistration, record.getAttendanceStatus());
+            return toGuestSearchResponse(guestRegistration, record);
         }
         return preview(record.getSessionID(), record.getRegistrationID());
     }
@@ -314,7 +312,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 || contains(reg.getRegistrationCode(), keyword);
     }
 
-    private AttendanceRegistrationSearchResponse toSearchResponse(EventRegistration reg, UserAccount user, AttendanceStatus attendanceStatus) {
+    private AttendanceRegistrationSearchResponse toSearchResponse(EventRegistration reg, UserAccount user, AttendanceRecord attendance) {
         String participantType = reg.getUserID() == null ? "GUEST" : reg.getParticipantType().name();
         String displayName = user != null ? user.getFullName() : reg.getGuestFullName();
         String email = user != null ? user.getEmail() : reg.getGuestEmail();
@@ -324,32 +322,40 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 : "STUDENT_CARD";
         return new AttendanceRegistrationSearchResponse(
                 reg.getRegistrationID(),
+                null,
+                attendance == null ? null : attendance.getRecordID(),
                 reg.getRegistrationCode(),
+                user == null ? null : user.getStudentId(),
                 displayName,
                 participantType,
                 reg.getStatus(),
-                attendanceStatus == null ? null : attendanceStatus.name(),
+                attendance == null || attendance.getAttendanceStatus() == null ? null : attendance.getAttendanceStatus().name(),
+                attendance == null ? null : attendance.getCheckedInAt(),
+                attendance == null ? null : attendance.getMarkedAt(),
                 maskEmail(email),
                 maskPhone(phone),
                 verification
         );
     }
 
-    private AttendanceRegistrationSearchResponse toGuestSearchResponse(GuestEventRegistration reg, AttendanceStatus attendanceStatus) {
+    private AttendanceRegistrationSearchResponse toGuestSearchResponse(GuestEventRegistration reg, AttendanceRecord attendance) {
         return new AttendanceRegistrationSearchResponse(
+                null,
                 reg.getGuestRegistrationID(),
-                reg.getGuestRegistrationID(),
+                attendance == null ? null : attendance.getRecordID(),
+                reg.getRegistrationCode(),
                 reg.getRegistrationCode(),
                 reg.getGuestFullName(),
                 "GUEST",
                 reg.getStatus(),
-                attendanceStatus == null ? null : attendanceStatus.name(),
+                attendance == null || attendance.getAttendanceStatus() == null ? null : attendance.getAttendanceStatus().name(),
+                attendance == null ? null : attendance.getCheckedInAt(),
+                attendance == null ? null : attendance.getMarkedAt(),
                 maskEmail(reg.getGuestEmail()),
                 maskPhone(reg.getGuestPhone()),
                 "PHONE_LAST4"
         );
     }
-
     private boolean isConfirmed(EventRegistration registration) {
         return registration != null
                 && RegistrationLifecycle.CONFIRMED_STATUSES.contains(registration.getRegistrationStatus());

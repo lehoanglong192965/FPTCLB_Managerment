@@ -3,13 +3,19 @@ import axiosClient from "../axiosClient";
 // Normalize AttendanceRegistrationSearchResponse fields to match page expectations
 const normalizeRecord = (r) => {
   const guestRegistrationId = r.guestRegistrationId ?? r.guestRegistrationID;
+  const registrationId = r.registrationId ?? r.registrationID;
+  const participantKey = guestRegistrationId
+    ? 'guest-' + guestRegistrationId
+    : 'fptu-' + (registrationId ?? r.recordId ?? r.id);
   return {
     ...r,
+    registrationId,
     guestRegistrationId,
+    participantKey,
     fullName:  r.displayName      ?? r.fullName,
-    studentId: r.registrationCode ?? r.studentId,
+    studentId: r.studentId ?? r.registrationCode,
     status:    r.attendanceStatus ?? r.status,
-    recordId:  guestRegistrationId ?? r.registrationId ?? r.recordId,
+    recordId:  r.recordId ?? participantKey,
   };
 };
 
@@ -78,8 +84,20 @@ const attendanceService = {
 
   // ── EVENT SUMMARY ─────────────────────────────────────────────────
   // GET /api/v1/events/{eventId}/attendance-summary
-  getEventAttendanceSummary: (eventId) =>
-    axiosClient.get(`/v1/events/${eventId}/attendance-summary`),
+  getEventAttendanceSummary: async (eventId) => {
+    const summary = await axiosClient.get(`/v1/events/${eventId}/attendance-summary`);
+    const totalRegistered = summary.totalRegistered ?? summary.confirmedCount ?? 0;
+    const totalPresent = summary.totalPresent ?? summary.presentCount ?? summary.totalCheckedIn ?? 0;
+    const totalAbsent = summary.totalAbsent ?? summary.absentCount ?? Math.max(totalRegistered - totalPresent, 0);
+    return {
+      ...summary,
+      totalRegistered,
+      totalPresent,
+      totalCheckedIn: totalPresent,
+      totalAbsent,
+      attendanceRate: totalRegistered > 0 ? ((totalPresent / totalRegistered) * 100).toFixed(1) : 0,
+    };
+  },
 
   // ── CORRECTION ───────────────────────────────────────────────────
   // PATCH /api/v1/attendance-records/{attendanceRecordId}

@@ -14,24 +14,36 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class AuditLogServiceImpl implements AuditLogService {
 
+    private static final int VALUE_PREVIEW_LIMIT = 240;
+
     private final AuditLogRepository auditLogRepository;
     private final ObjectMapper objectMapper;
 
     @Override
     public void record(Integer actorId, String tableName, Integer recordId, String actionType, Object beforeState, Object afterState, String reason) {
+        String beforeJson = serialize(beforeState);
+        String afterJson = serialize(afterState);
+
         AuditLog auditLog = new AuditLog();
         auditLog.setActorID(actorId);
         auditLog.setActionType(actionType);
         auditLog.setTableName(tableName);
         auditLog.setRecordID(recordId);
-        auditLog.setOldValue(serialize(beforeState));
-        auditLog.setNewValue(serialize(afterState));
-        auditLog.setOverrideReason(reason);
-        auditLog.setBeforeJson(serialize(beforeState));
-        auditLog.setAfterJson(serialize(afterState));
+        auditLog.setOldValue(preview(beforeJson));
+        auditLog.setNewValue(preview(afterJson));
+        auditLog.setOverrideReason(reason == null ? "" : reason);
+        auditLog.setBeforeJson(beforeJson);
+        auditLog.setAfterJson(afterJson);
         auditLog.setReason(reason);
         auditLog.setExecutedAt(LocalDateTime.now());
         auditLogRepository.save(auditLog);
+    }
+
+    private String preview(String value) {
+        if (value == null || value.length() <= VALUE_PREVIEW_LIMIT) {
+            return value;
+        }
+        return value.substring(0, VALUE_PREVIEW_LIMIT - 3) + "...";
     }
 
     private String serialize(Object value) {

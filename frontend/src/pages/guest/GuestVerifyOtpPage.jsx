@@ -13,19 +13,21 @@ export default function GuestVerifyOtpPage() {
   const { guestReference, email } = location.state || {};
   const maskedEmail = email ? maskEmail(email) : '(email không xác định)';
 
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState(Array(6).fill(''));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [resending, setResending] = useState(false);
   const [resendMsg, setResendMsg] = useState(null);
 
+  const isOtpFilled = otp.every(Boolean);
+
   const handleVerify = async (e) => {
     e.preventDefault();
-    if (otp.length < 6 || loading) return;
+    if (!isOtpFilled || loading) return;
     setLoading(true);
     setError(null);
     try {
-      await guestService.verifyOtp(guestReference, { otp });
+      await guestService.verifyOtp(guestReference, { otp: otp.join('') });
       navigate(`/guest/status/${guestReference}`, { replace: true });
     } catch (err) {
       setError(err?.response?.data?.message || 'Mã OTP không đúng hoặc đã hết hạn.');
@@ -74,11 +76,11 @@ export default function GuestVerifyOtpPage() {
         )}
 
         <form onSubmit={handleVerify} className="space-y-5">
-          <OTPInput length={6} value={otp} onChange={(v) => { setOtp(v); setError(null); }} />
+          <OTPInput otp={otp} onChange={(v) => { setOtp(v); setError(null); }} disabled={loading} />
 
           <button
             type="submit"
-            disabled={otp.length < 6 || loading}
+            disabled={!isOtpFilled || loading}
             className="w-full py-3 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
           >
             {loading ? 'Đang xác thực...' : 'Xác nhận'}

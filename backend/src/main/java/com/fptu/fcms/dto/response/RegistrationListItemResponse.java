@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class RegistrationListItemResponse {
     private Integer registrationID;
+    private Integer guestRegistrationID;
     private Integer eventID;
     private Integer userID;
     private ParticipantType participantType;
