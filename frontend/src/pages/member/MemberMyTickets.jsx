@@ -107,23 +107,21 @@ export default function MemberMyTickets() {
         </div>
 
         {/* Filter tabs */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-          {FILTER_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              style={{
-                padding: "5px 14px", borderRadius: 99, fontSize: 13, fontWeight: 500,
-                cursor: "pointer", border: "1.5px solid",
-                fontFamily: "inherit", transition: "all 0.15s",
-                background:  activeTab === tab.key ? "#E6430A" : "#fff",
-                color:       activeTab === tab.key ? "#fff"    : "#6b7280",
-                borderColor: activeTab === tab.key ? "#E6430A" : "#e5e7eb",
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex gap-0 border-b-2 border-gray-200 mb-5">
+          {FILTER_TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-1.5 px-[18px] py-2.5 text-sm font-medium border-b-2 -mb-0.5 cursor-pointer transition-colors duration-150 font-[inherit] bg-transparent ${
+                  isActive ? "text-[#e6430a] border-[#e6430a] font-semibold" : "text-gray-500 border-transparent hover:text-[#e6430a]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
         {loading ? (

@@ -223,24 +223,23 @@ export default function ClubApplicationsMgmt() {
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-2 flex-wrap mb-5">
+        <div className="flex gap-0 border-b-2 border-gray-200 mb-5">
           {FILTER_TABS.map((tab) => {
             const count = tab.key === "CV" ? apps.filter((a) => isCVPending(a.status)).length
                         : tab.key === "INTERVIEW" ? apps.filter((a) => isIVPending(a.status)).length
                         : 0;
+            const isActive = activeFilter === tab.key;
             return (
               <button
                 key={tab.key}
                 onClick={() => { setActiveFilter(tab.key); setSelected(null); }}
-                className={`px-3.5 py-1.5 rounded-full border text-[12.5px] font-semibold cursor-pointer transition-all font-[inherit] ${
-                  activeFilter === tab.key
-                    ? "bg-[#E6430A] border-[#E6430A] text-white"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-[#E6430A] hover:text-[#E6430A]"
+                className={`flex items-center gap-1.5 px-[18px] py-2.5 text-sm font-medium border-b-2 -mb-0.5 cursor-pointer transition-colors duration-150 font-[inherit] bg-transparent ${
+                  isActive ? "text-[#e6430a] border-[#e6430a] font-semibold" : "text-gray-500 border-transparent hover:text-[#e6430a]"
                 }`}
               >
                 {tab.label}
                 {count > 0 && (
-                  <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-white text-[#E6430A] text-[10px] font-bold">
+                  <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold text-white ${isActive ? "bg-[#e6430a]" : "bg-gray-500"}`}>
                     {count}
                   </span>
                 )}

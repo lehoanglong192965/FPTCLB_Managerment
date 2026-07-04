@@ -26,6 +26,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   // Hàm fetchProfile để lấy thông tin profile của user từ backend.
   const fetchProfile = useCallback(async () => {
     setProfileLoading(true);
@@ -52,6 +53,7 @@ export const AuthProvider = ({ children }) => {
         removeUserFromStorage();
       }
     }
+    setInitialized(true);
   }, [fetchProfile]);
 
   // Lắng nghe sự kiện logout từ axiosClient (refresh token hết hạn / fail)
@@ -81,7 +83,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, profile, profileLoading, fetchProfile }}>
+    <AuthContext.Provider value={{ user, login, logout, profile, profileLoading, fetchProfile, initialized }}>
       {children}
     </AuthContext.Provider>
   );

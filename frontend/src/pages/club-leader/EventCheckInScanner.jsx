@@ -82,7 +82,9 @@ const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
         }
     };
 
-    const checkedInList = summary?.records ?? [];
+    const checkedInList = (summary?.records ?? []).filter(
+      (r) => (r.status ?? r.attendanceStatus) === 'PRESENT'
+    );
     const filtered = checkedInList.filter((a) => {
         const q = listSearch.toLowerCase();
         return (
