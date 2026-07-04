@@ -123,10 +123,10 @@ export default function Header() {
           /* ── Chưa đăng nhập: hiện nút Đăng nhập / Đăng ký ── */
           <>
             <button
-              className="px-5 py-[9px] rounded-sm text-[14px] font-bold text-white border-0 cursor-pointer font-[inherit] transition-all duration-200 hover:-translate-y-px"
-              style={{ background: "linear-gradient(135deg, var(--orange), var(--orange-light))", boxShadow: "var(--shadow-orange)" }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 12px 36px rgba(255,107,0,0.40)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "var(--shadow-orange)"; }}
+              className="px-[18px] py-2 rounded-sm text-[14px] font-semibold bg-transparent border cursor-pointer font-[inherit] transition-all duration-200"
+              style={{ color: "#9ca3af", borderColor: "#9ca3af" }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "#F37021"; e.currentTarget.style.borderColor = "#F37021"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "#9ca3af"; e.currentTarget.style.borderColor = "#9ca3af"; }}
               onClick={() => navigate("/login")}
             >
               Đăng Nhập

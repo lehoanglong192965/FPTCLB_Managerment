@@ -1,6 +1,7 @@
 package com.fptu.fcms.controller;
 
 import com.fptu.fcms.dto.request.CancelEventRequest;
+import com.fptu.fcms.dto.request.ContributionEmergencyOverrideRequest;
 import com.fptu.fcms.dto.request.CreateEventProposalRequest;
 import com.fptu.fcms.dto.request.EventApprovalRequest;
 import com.fptu.fcms.dto.request.EventAssignmentRequest;
@@ -224,6 +225,29 @@ public class EventController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         contributionBatchService.saveContributionScores(eventId, contributions, currentUser == null ? null : currentUser.getUserId());
         return ResponseEntity.ok(Map.of("message", "Contributions saved successfully."));
+    }
+
+    @PatchMapping("/{eventId}/contributions")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    public ResponseEntity<Map<String, String>> patchContributions(
+            @PathVariable Integer eventId,
+            @RequestBody List<com.fptu.fcms.dto.response.ContributionDTO> contributions,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        contributionBatchService.saveContributionScores(eventId, contributions, currentUser == null ? null : currentUser.getUserId());
+        return ResponseEntity.ok(Map.of("message", "Contributions saved successfully."));
+    }
+
+    @PatchMapping("/{eventId}/contributions/emergency-override")
+    @PreAuthorize("hasAnyRole('ICPDP', 'Admin')")
+    public ResponseEntity<com.fptu.fcms.dto.response.ContributionDTO> emergencyOverrideContribution(
+            @PathVariable Integer eventId,
+            @Valid @RequestBody ContributionEmergencyOverrideRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(contributionBatchService.emergencyOverrideContribution(
+                eventId,
+                request,
+                currentUser == null ? null : currentUser.getUserId()
+        ));
     }
 
     @PostMapping("/{eventId}/assignments")

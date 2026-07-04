@@ -47,11 +47,38 @@ public class EventContribution {
     @Column(name = "userID")
     private Integer userID;
 
+    @Column(name = "registrationID")
+    private Integer registrationID;
+
+    @Column(name = "attendanceRecordID")
+    private Integer attendanceRecordID;
+
+    @Column(name = "assignmentID")
+    private Integer assignmentID;
+
+    @Column(name = "membershipID")
+    private Integer membershipID;
+
+    @Column(name = "clubRoleIDSnapshot")
+    private Integer clubRoleIDSnapshot;
+
+    @Column(name = "clubRoleSnapshot", length = 50)
+    private String clubRoleSnapshot;
+
+    @Column(name = "individualRankingEligible")
+    private Boolean individualRankingEligible = true;
+
     @Column(name = "contributionType", length = 40)
     private String contributionType;
 
     @Column(name = "leaderEvaluation", length = 40)
     private String leaderEvaluation;
+
+    @Column(name = "tier", length = 20)
+    private String tier;
+
+    @Column(name = "rationale", length = 2000)
+    private String rationale;
 
     @Column(name = "basePoints")
     private Integer basePoints;
@@ -73,6 +100,15 @@ public class EventContribution {
 
     @Column(name = "calculatedAt")
     private LocalDateTime calculatedAt;
+
+    @Column(name = "finalizedAt")
+    private LocalDateTime finalizedAt;
+
+    @Column(name = "finalizedBy")
+    private Integer finalizedBy;
+
+    @Column(name = "releasedToPerformance")
+    private Boolean releasedToPerformance = false;
 
     @Column(name = "updatedAt")
     private LocalDateTime updatedAt;

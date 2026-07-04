@@ -18,7 +18,9 @@ import com.fptu.fcms.entity.Semester;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.CheckInMethod;
+import com.fptu.fcms.enums.ContributionBatchStatus;
 import com.fptu.fcms.enums.EventStatus;
+import com.fptu.fcms.enums.EventReportStatus;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
@@ -35,6 +37,8 @@ import com.fptu.fcms.repository.SystemRoleRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.ClubRoleRepository;
+import com.fptu.fcms.repository.ContributionBatchRepository;
+import com.fptu.fcms.repository.EventReportRepository;
 import com.fptu.fcms.entity.ClubRole;
 import com.fptu.fcms.event.EventLifecycleChangedEvent;
 import com.fptu.fcms.security.UserPrincipal;
@@ -108,6 +112,8 @@ public class EventServiceImpl implements EventService {
     private final MemberPerformanceRepository memberPerformanceRepository;
     private final ClubMembershipRepository clubMembershipRepository;
     private final ClubRoleRepository clubRoleRepository;
+    private final EventReportRepository eventReportRepository;
+    private final ContributionBatchRepository contributionBatchRepository;
 
     @Override
     public boolean isUserAssigned(Integer eventId, Integer userId) {
@@ -464,6 +470,16 @@ public class EventServiceImpl implements EventService {
     public void closeEvent(Integer eventId) {
         Event event = getActiveEventOrThrow(eventId);
         stateMachineService.ensureCanClose(event);
+        if (eventReportRepository.findByEventIDAndIsDeletedFalse(eventId)
+                .filter(report -> EventReportStatus.APPROVED.equals(report.getStatus()))
+                .isEmpty()) {
+            throw new BusinessRuleException("EVENT_REPORT_NOT_APPROVED");
+        }
+        if (contributionBatchRepository.findByEventIDAndIsDeletedFalse(eventId)
+                .filter(batch -> ContributionBatchStatus.FINALIZED.equals(batch.getStatus()))
+                .isEmpty()) {
+            throw new BusinessRuleException("CONTRIBUTION_BATCH_NOT_FINALIZED");
+        }
         event.setEventStatus(STATUS_CLOSED);
         eventRepository.save(event);
     }

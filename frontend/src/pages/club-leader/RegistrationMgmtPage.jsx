@@ -82,9 +82,7 @@ export default function RegistrationMgmtPage() {
     setLoading(true);
     setError(null);
     try {
-      const params = {};
-      if (tab) params.status = tab;
-      const res = await eventService.listRegistrations(eventId, params);
+      const res = await eventService.listRegistrations(eventId, {});
       const raw = Array.isArray(res) ? res : (res?.content ?? res?.data ?? []);
       const data = raw.map((r) => ({
         ...r,
@@ -96,11 +94,15 @@ export default function RegistrationMgmtPage() {
       }));
       setRegistrations(data);
     } catch (err) {
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') {
+        setLoading(false);
+        return;
+      }
       setError(err?.response?.data?.message || 'Không thể tải danh sách đăng ký.');
     } finally {
       setLoading(false);
     }
-  }, [eventId, tab]);
+  }, [eventId]);
 
   useEffect(() => { fetchRegistrations(); }, [fetchRegistrations]);
 
@@ -146,6 +148,7 @@ export default function RegistrationMgmtPage() {
   };
 
   const filtered = registrations.filter((r) => {
+    if (tab && r.status !== tab) return false;
     const q = search.toLowerCase();
     return (
       (r.fullName || r.name || '').toLowerCase().includes(q) ||
@@ -187,19 +190,19 @@ export default function RegistrationMgmtPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit mb-5">
+      <div className="flex gap-0 border-b-2 border-gray-200 mb-5">
         {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
-              tab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            className={`flex items-center gap-1.5 px-[18px] py-2.5 text-sm font-medium border-b-2 -mb-0.5 cursor-pointer transition-colors duration-150 ${
+              tab === t.id ? 'text-[#e6430a] border-[#e6430a] font-semibold' : 'text-gray-500 border-transparent hover:text-[#e6430a]'
             }`}
           >
             {t.label}
             {counts[t.id] > 0 && (
-              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                tab === t.id ? 'bg-gray-100 text-gray-700' : 'bg-gray-200 text-gray-500'
+              <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold text-white ${
+                tab === t.id ? 'bg-[#e6430a]' : 'bg-gray-500'
               }`}>{counts[t.id]}</span>
             )}
           </button>

@@ -2,6 +2,7 @@ package com.fptu.fcms.service;
 
 import com.fptu.fcms.dto.request.AppealCreateRequest;
 import com.fptu.fcms.dto.request.AppealResolveRequest;
+import com.fptu.fcms.dto.request.ContributionEmergencyOverrideRequest;
 import com.fptu.fcms.dto.response.AppealResponse;
 import com.fptu.fcms.dto.response.ContributionBatchResponse;
 import com.fptu.fcms.dto.response.ContributionDTO;
@@ -28,4 +29,6 @@ public interface ContributionBatchService {
     AppealResponse resolveAppeal(Integer appealId, AppealResolveRequest request, Integer actorId);
 
     ContributionBatchResponse finalizeBatch(Integer eventId, Integer actorId);
+
+    ContributionDTO emergencyOverrideContribution(Integer eventId, ContributionEmergencyOverrideRequest request, Integer actorId);
 }

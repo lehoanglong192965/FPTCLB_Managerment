@@ -2,11 +2,14 @@ package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.dto.request.AppealCreateRequest;
 import com.fptu.fcms.dto.request.AppealResolveRequest;
+import com.fptu.fcms.dto.request.ContributionEmergencyOverrideRequest;
 import com.fptu.fcms.dto.response.AppealResponse;
 import com.fptu.fcms.dto.response.ContributionBatchResponse;
 import com.fptu.fcms.dto.response.ContributionDTO;
 import com.fptu.fcms.entity.AttendanceRecord;
 import com.fptu.fcms.entity.AttendanceSession;
+import com.fptu.fcms.entity.ClubMembership;
+import com.fptu.fcms.entity.ClubRole;
 import com.fptu.fcms.entity.ContributionAppeal;
 import com.fptu.fcms.entity.ContributionBatch;
 import com.fptu.fcms.entity.Event;
@@ -26,6 +29,7 @@ import com.fptu.fcms.repository.AppealRepository;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
 import com.fptu.fcms.repository.ClubMembershipRepository;
+import com.fptu.fcms.repository.ClubRoleRepository;
 import com.fptu.fcms.repository.ContributionBatchRepository;
 import com.fptu.fcms.repository.ContributionRepository;
 import com.fptu.fcms.repository.EventAssignmentRepository;
@@ -70,6 +74,8 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     private static final String LEADER_EVALUATION_NOT_GOOD = "NOT_GOOD";
     private static final int NOT_GOOD_PENALTY_POINTS = 10;
     private static final int REGISTERED_MEMBER_BASE_POINTS = 100;
+    private static final int CLUB_ROLE_LEADER_ID = 1;
+    private static final int CLUB_ROLE_VICE_LEADER_ID = 2;
     private static final int CLUB_ROLE_MEMBER_ID = 3;
 
     private final EventRepository eventRepository;
@@ -82,6 +88,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final ClubMembershipRepository clubMembershipRepository;
+    private final ClubRoleRepository clubRoleRepository;
     private final UserRepository userRepository;
     private final MemberPerformanceRepository memberPerformanceRepository;
     private final AuditLogService auditLogService;
@@ -126,6 +133,8 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         report.setRejectedAt(null);
         report.setRejectionReason(null);
         eventReportRepository.save(report);
+
+        generateDraftContributions(event, batch, actorId, now);
 
         event.setEventStatus(STATUS_REPORT_APPROVED);
         eventRepository.save(event);
@@ -209,22 +218,10 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     @Override
     @Transactional(readOnly = true)
     public List<ContributionDTO> getContributionScores(Integer eventId) {
-        Event event = findEvent(eventId);
         ContributionBatch batch = findBatchByEvent(eventId);
-        Set<Integer> scoringMemberUserIds = getScoringMemberUserIds(event);
-        Map<Integer, EventContribution> savedByUser = contributionRepository.findByBatchIDAndUserIDInAndIsDeletedFalse(batch.getBatchID(), scoringMemberUserIds)
+        return contributionRepository.findByBatchIDAndIsDeletedFalse(batch.getBatchID())
                 .stream()
-                .collect(Collectors.toMap(EventContribution::getUserID, Function.identity(), (a, b) -> a));
-        List<EventRegistration> registrations = eventRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId);
-        List<EventAssignment> assignments = eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId);
-        AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElse(null);
-        List<AttendanceRecord> attendanceRecords = session == null ? List.of() : attendanceRecordRepository.findBySessionID(session.getSessionID());
-
-        return registrations.stream()
-                .filter(reg -> reg.getUserID() != null)
-                .filter(reg -> scoringMemberUserIds.contains(reg.getUserID()))
-                .filter(this::isConfirmedRegistration)
-                .map(reg -> toContributionDto(reg, savedByUser.get(reg.getUserID()), assignments, attendanceRecords))
+                .map(this::toContributionDto)
                 .toList();
     }
 
@@ -232,26 +229,40 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     @Transactional
     public ContributionBatchResponse saveContributionScores(Integer eventId, List<ContributionDTO> contributions, Integer actorId) {
         Event event = findEvent(eventId);
+        assertEventNotClosed(event);
         ContributionBatch batch = findBatchByEvent(eventId);
         if (!isDraftStatus(batch.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "CONTRIBUTION_BATCH_NOT_DRAFT");
         }
 
-        Set<Integer> scoringMemberUserIds = getScoringMemberUserIds(event);
         LocalDateTime now = LocalDateTime.now();
         for (ContributionDTO dto : contributions == null ? List.<ContributionDTO>of() : contributions) {
             Integer userId = dto.getUserID();
-            if (userId == null || !scoringMemberUserIds.contains(userId)) {
+            if (userId == null) {
                 continue;
             }
             String type = normalizeContributionType(dto.getContributionType());
             String leaderEvaluation = normalizeLeaderEvaluation(dto.getLeaderEvaluation());
-            if (!StringUtils.hasText(type) && !StringUtils.hasText(leaderEvaluation)) {
+            String tier = normalizeTier(dto.getTier());
+            String rationale = trimToNull(dto.getRationale());
+            if (!StringUtils.hasText(type)
+                    && !StringUtils.hasText(leaderEvaluation)
+                    && !StringUtils.hasText(tier)
+                    && !StringUtils.hasText(rationale)) {
                 continue;
             }
             EventContribution contribution = contributionRepository.findByBatchIDAndUserIDAndIsDeletedFalse(batch.getBatchID(), userId)
-                    .orElseGet(EventContribution::new);
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "CONTRIBUTION_SCORE_NOT_FOUND"));
+            assertNoSelfMutation(actorId, contribution, "SELF_EVALUATION_NOT_ALLOWED");
+            if (!StringUtils.hasText(type)) {
+                type = contribution.getContributionType();
+            }
+            if (!StringUtils.hasText(leaderEvaluation)) {
+                leaderEvaluation = contribution.getLeaderEvaluation();
+            }
             applyScore(event, batch, contribution, userId, type, leaderEvaluation, actorId, CONTRIBUTION_STATUS_DRAFT, now);
+            contribution.setTier(StringUtils.hasText(tier) ? tier : resolveTier(contribution.getFinalPoints()));
+            contribution.setRationale(rationale);
             contributionRepository.save(contribution);
         }
 
@@ -266,12 +277,17 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     @Override
     @Transactional
     public ContributionBatchResponse openAppealWindow(Integer eventId, Integer actorId) {
+        Event event = findEvent(eventId);
+        assertEventNotClosed(event);
         ContributionBatch batch = findBatchByEvent(eventId);
         if (!isDraftStatus(batch.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "CONTRIBUTION_BATCH_NOT_DRAFT");
         }
         if (contributionRepository.findByBatchIDAndIsDeletedFalse(batch.getBatchID()).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CONTRIBUTION_SCORES_REQUIRED");
+        }
+        if (actorId != null && contributionRepository.existsByBatchIDAndUserIDAndIsDeletedFalse(batch.getBatchID(), actorId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "SELF_FINALIZATION_NOT_ALLOWED");
         }
         LocalDateTime now = LocalDateTime.now();
         batch.setStatus(ContributionBatchStatus.APPEAL_WINDOW);
@@ -291,6 +307,8 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         }
         ContributionBatch batch = contributionBatchRepository.findByBatchIDAndIsDeletedFalse(batchId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CONTRIBUTION_BATCH_NOT_FOUND"));
+        Event event = findEvent(batch.getEventID());
+        assertEventNotClosed(event);
         LocalDateTime now = LocalDateTime.now();
         if (!isAppealWindowStatus(batch.getStatus()) || batch.getAppealClosesAt() == null || !now.isBefore(batch.getAppealClosesAt())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "APPEAL_WINDOW_CLOSED");
@@ -306,7 +324,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         appeal.setEventID(batch.getEventID());
         appeal.setContributionID(contribution.getContributionID());
         appeal.setUserID(userId);
-        appeal.setReason(request.getReason().trim());
+        appeal.setReason(trimToBlank(request.getReason()));
         appeal.setStatus(AppealStatus.PENDING);
         appeal.setRequestedAt(now);
         appeal.setIsDeleted(false);
@@ -331,8 +349,16 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         }
         ContributionBatch batch = contributionBatchRepository.findByBatchIDAndIsDeletedFalse(appeal.getBatchID())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CONTRIBUTION_BATCH_NOT_FOUND"));
+        Event event = findEvent(batch.getEventID());
+        assertEventNotClosed(event);
         if (!isAppealWindowStatus(batch.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "CONTRIBUTION_BATCH_NOT_IN_APPEAL");
+        }
+        if (!StringUtils.hasText(request.getResolutionNote())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "APPEAL_RESOLUTION_REASON_REQUIRED");
+        }
+        if (Objects.equals(actorId, appeal.getUserID())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "SELF_APPEAL_RESOLUTION_NOT_ALLOWED");
         }
 
         AppealStatus status = parseResolveStatus(request.getStatus());
@@ -345,8 +371,8 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
             String leaderEvaluation = StringUtils.hasText(request.getLeaderEvaluation())
                     ? normalizeLeaderEvaluation(request.getLeaderEvaluation())
                     : contribution.getLeaderEvaluation();
-            Event event = findEvent(batch.getEventID());
             applyScore(event, batch, contribution, appeal.getUserID(), type, leaderEvaluation, actorId, CONTRIBUTION_STATUS_DRAFT, LocalDateTime.now());
+            contribution.setTier(resolveTier(contribution.getFinalPoints()));
             contributionRepository.save(contribution);
         }
 
@@ -367,6 +393,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         if (batch.getStatus() == ContributionBatchStatus.FINALIZED) {
             return toBatchResponse(batch);
         }
+        assertEventNotClosed(event);
         if (!isAppealWindowStatus(batch.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "CONTRIBUTION_BATCH_NOT_IN_APPEAL");
         }
@@ -382,29 +409,35 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         if (contributions.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CONTRIBUTION_SCORES_REQUIRED");
         }
-        Set<Integer> scoringMemberUserIds = getScoringMemberUserIds(event);
         for (EventContribution contribution : contributions) {
             if (contribution.getUserID() == null) {
                 continue;
             }
-            MemberPerformance performance = memberPerformanceRepository
-                    .findByEventIDAndUserIDAndIsDeletedFalse(eventId, contribution.getUserID())
-                    .orElseGet(MemberPerformance::new);
-            performance.setClubID(event.getClubID());
-            performance.setEventID(eventId);
-            performance.setUserID(contribution.getUserID());
-            performance.setBasePoints(contribution.getBasePoints());
-            performance.setBonusPoints(contribution.getBonusPoints());
-            performance.setLeaderEvaluation(contribution.getLeaderEvaluation());
-            performance.setPenaltyPoints(contribution.getPenaltyPoints());
-            performance.setSourceContributionID(contribution.getContributionID());
-            performance.setIndividualRankingEligible(scoringMemberUserIds.contains(contribution.getUserID()));
-            performance.setUpdatedAt(now);
-            performance.setIsDeleted(false);
-            memberPerformanceRepository.save(performance);
+            if (Boolean.TRUE.equals(contribution.getIndividualRankingEligible())) {
+                MemberPerformance performance = memberPerformanceRepository
+                        .findByEventIDAndUserIDAndIsDeletedFalse(eventId, contribution.getUserID())
+                        .orElseGet(MemberPerformance::new);
+                performance.setClubID(event.getClubID());
+                performance.setEventID(eventId);
+                performance.setUserID(contribution.getUserID());
+                performance.setBasePoints(nullToZero(contribution.getBasePoints()));
+                performance.setBonusPoints(nullToZero(contribution.getBonusPoints()));
+                performance.setLeaderEvaluation(contribution.getLeaderEvaluation());
+                performance.setPenaltyPoints(nullToZero(contribution.getPenaltyPoints()));
+                performance.setSourceContributionID(contribution.getContributionID());
+                performance.setIndividualRankingEligible(true);
+                performance.setUpdatedAt(now);
+                performance.setIsDeleted(false);
+                memberPerformanceRepository.save(performance);
+                contribution.setReleasedToPerformance(true);
+            } else {
+                contribution.setReleasedToPerformance(false);
+            }
 
             contribution.setStatus(CONTRIBUTION_STATUS_FINALIZED);
             contribution.setCalculatedAt(now);
+            contribution.setFinalizedAt(now);
+            contribution.setFinalizedBy(actorId);
             contribution.setUpdatedAt(now);
             contributionRepository.save(contribution);
         }
@@ -420,19 +453,195 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         return toBatchResponse(saved);
     }
 
-    private ContributionDTO toContributionDto(
-            EventRegistration registration,
-            EventContribution saved,
-            List<EventAssignment> assignments,
-            List<AttendanceRecord> attendanceRecords
-    ) {
-        Integer userId = registration.getUserID();
+    @Override
+    @Transactional
+    public ContributionDTO emergencyOverrideContribution(Integer eventId, ContributionEmergencyOverrideRequest request, Integer actorId) {
+        if (request == null || !StringUtils.hasText(request.getReason())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "EMERGENCY_OVERRIDE_REASON_REQUIRED");
+        }
+        Event event = findEvent(eventId);
+        assertEventNotClosed(event);
+        ContributionBatch batch = findBatchByEvent(eventId);
+        EventContribution contribution = findOverrideTarget(batch, request);
+        String before = snapshotContribution(contribution);
+
+        String type = StringUtils.hasText(request.getContributionType())
+                ? normalizeContributionType(request.getContributionType())
+                : contribution.getContributionType();
+        String leaderEvaluation = StringUtils.hasText(request.getLeaderEvaluation())
+                ? normalizeLeaderEvaluation(request.getLeaderEvaluation())
+                : contribution.getLeaderEvaluation();
+        String tier = normalizeTier(request.getTier());
+        LocalDateTime now = LocalDateTime.now();
+        String contributionStatus = batch.getStatus() == ContributionBatchStatus.FINALIZED
+                ? CONTRIBUTION_STATUS_FINALIZED
+                : CONTRIBUTION_STATUS_DRAFT;
+        applyScore(event, batch, contribution, contribution.getUserID(), type, leaderEvaluation, actorId, contributionStatus, now);
+        contribution.setTier(StringUtils.hasText(tier) ? tier : resolveTier(contribution.getFinalPoints()));
+        contribution.setRationale(trimToNull(request.getRationale()));
+        if (batch.getStatus() == ContributionBatchStatus.FINALIZED) {
+            contribution.setFinalizedAt(now);
+            contribution.setFinalizedBy(actorId);
+            releasePerformanceIfEligible(event, contribution, now);
+        }
+        EventContribution saved = contributionRepository.save(contribution);
+        auditLogService.recordWithRefs(
+                actorId,
+                "EventContribution",
+                saved.getContributionID(),
+                "CONTRIBUTION_EMERGENCY_OVERRIDE",
+                before,
+                snapshotContribution(saved),
+                eventId,
+                null,
+                null,
+                request.getReason().trim()
+        );
+        return toContributionDto(saved);
+    }
+
+    private EventContribution findOverrideTarget(ContributionBatch batch, ContributionEmergencyOverrideRequest request) {
+        EventContribution contribution;
+        if (request.getContributionID() != null) {
+            contribution = contributionRepository.findById(request.getContributionID())
+                    .filter(item -> Objects.equals(item.getBatchID(), batch.getBatchID()))
+                    .filter(item -> !Boolean.TRUE.equals(item.getIsDeleted()))
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CONTRIBUTION_SCORE_NOT_FOUND"));
+        } else if (request.getUserID() != null) {
+            contribution = contributionRepository.findByBatchIDAndUserIDAndIsDeletedFalse(batch.getBatchID(), request.getUserID())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CONTRIBUTION_SCORE_NOT_FOUND"));
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CONTRIBUTION_TARGET_REQUIRED");
+        }
+        return contribution;
+    }
+
+    private void releasePerformanceIfEligible(Event event, EventContribution contribution, LocalDateTime now) {
+        if (!Boolean.TRUE.equals(contribution.getIndividualRankingEligible())) {
+            contribution.setReleasedToPerformance(false);
+            return;
+        }
+        MemberPerformance performance = memberPerformanceRepository
+                .findByEventIDAndUserIDAndIsDeletedFalse(event.getEventID(), contribution.getUserID())
+                .orElseGet(MemberPerformance::new);
+        performance.setClubID(event.getClubID());
+        performance.setEventID(event.getEventID());
+        performance.setUserID(contribution.getUserID());
+        performance.setBasePoints(nullToZero(contribution.getBasePoints()));
+        performance.setBonusPoints(nullToZero(contribution.getBonusPoints()));
+        performance.setLeaderEvaluation(contribution.getLeaderEvaluation());
+        performance.setPenaltyPoints(nullToZero(contribution.getPenaltyPoints()));
+        performance.setSourceContributionID(contribution.getContributionID());
+        performance.setIndividualRankingEligible(true);
+        performance.setUpdatedAt(now);
+        performance.setIsDeleted(false);
+        memberPerformanceRepository.save(performance);
+        contribution.setReleasedToPerformance(true);
+    }
+
+    private String snapshotContribution(EventContribution contribution) {
+        if (contribution == null) {
+            return "";
+        }
+        return "type=%s,evaluation=%s,tier=%s,base=%s,bonus=%s,penalty=%s,final=%s,eligible=%s"
+                .formatted(
+                        contribution.getContributionType(),
+                        contribution.getLeaderEvaluation(),
+                        contribution.getTier(),
+                        contribution.getBasePoints(),
+                        contribution.getBonusPoints(),
+                        contribution.getPenaltyPoints(),
+                        contribution.getFinalPoints(),
+                        contribution.getIndividualRankingEligible()
+                );
+    }
+
+    private void generateDraftContributions(Event event, ContributionBatch batch, Integer actorId, LocalDateTime now) {
+        List<EventContribution> existing = contributionRepository.findByBatchIDAndIsDeletedFalse(batch.getBatchID());
+        if (!existing.isEmpty()) {
+            return;
+        }
+
+        List<EventRegistration> registrations = eventRegistrationRepository.findByEventIDAndIsDeletedFalse(event.getEventID());
+        Map<Integer, EventRegistration> confirmedRegistrationByUser = registrations.stream()
+                .filter(reg -> reg.getUserID() != null)
+                .filter(this::isConfirmedRegistration)
+                .collect(Collectors.toMap(EventRegistration::getUserID, Function.identity(), (a, b) -> a));
+        if (confirmedRegistrationByUser.isEmpty()) {
+            return;
+        }
+
+        Map<Integer, ClubMembership> membershipByUser = clubMembershipRepository
+                .findByClubIDAndSemesterIDAndIsDeletedFalse(event.getClubID(), event.getSemesterID())
+                .stream()
+                .filter(membership -> membership.getUserID() != null)
+                .filter(membership -> confirmedRegistrationByUser.containsKey(membership.getUserID()))
+                .collect(Collectors.toMap(ClubMembership::getUserID, Function.identity(), (a, b) -> a));
+        if (membershipByUser.isEmpty()) {
+            return;
+        }
+
+        Map<Integer, String> roleNameById = clubRoleRepository.findAllById(
+                        membershipByUser.values().stream()
+                                .map(ClubMembership::getClubRoleID)
+                                .filter(Objects::nonNull)
+                                .collect(Collectors.toSet())
+                )
+                .stream()
+                .collect(Collectors.toMap(ClubRole::getClubRoleID, ClubRole::getRoleName, (a, b) -> a));
+        Map<Integer, EventAssignment> assignmentByUser = eventAssignmentRepository.findByEventIDAndIsDeletedFalse(event.getEventID())
+                .stream()
+                .filter(assignment -> assignment.getUserID() != null)
+                .collect(Collectors.toMap(EventAssignment::getUserID, Function.identity(), (a, b) -> a));
+        AttendanceSession session = attendanceSessionRepository.findByEventID(event.getEventID()).orElse(null);
+        Map<Integer, AttendanceRecord> attendanceByUser = session == null ? Map.of() : attendanceRecordRepository.findBySessionID(session.getSessionID())
+                .stream()
+                .filter(record -> record.getUserID() != null)
+                .collect(Collectors.toMap(AttendanceRecord::getUserID, Function.identity(), (a, b) -> a));
+
+        for (ClubMembership membership : membershipByUser.values()) {
+            Integer userId = membership.getUserID();
+            EventRegistration registration = confirmedRegistrationByUser.get(userId);
+            EventAssignment assignment = assignmentByUser.get(userId);
+            AttendanceRecord attendanceRecord = attendanceByUser.get(userId);
+            String contributionType = resolveDefaultContributionType(userId, assignmentByUser.values().stream().toList(), attendanceByUser.values().stream().toList());
+            EventContribution contribution = new EventContribution();
+            applyScore(event, batch, contribution, userId, contributionType, null, actorId, CONTRIBUTION_STATUS_DRAFT, now);
+            contribution.setRegistrationID(registration.getRegistrationID());
+            contribution.setAttendanceRecordID(attendanceRecord == null ? null : attendanceRecord.getRecordID());
+            contribution.setAssignmentID(assignment == null ? null : assignment.getAssignmentID());
+            contribution.setMembershipID(membership.getMembershipID());
+            contribution.setClubRoleIDSnapshot(membership.getClubRoleID());
+            String roleName = roleNameById.get(membership.getClubRoleID());
+            contribution.setClubRoleSnapshot(roleName);
+            contribution.setIndividualRankingEligible(isMemberRole(membership.getClubRoleID(), roleName));
+            contribution.setTier(resolveTier(contribution.getFinalPoints()));
+            contribution.setRationale(null);
+            contribution.setReleasedToPerformance(false);
+            contributionRepository.save(contribution);
+        }
+    }
+
+    private ContributionDTO toContributionDto(EventContribution contribution) {
+        Integer userId = contribution.getUserID();
         String userName = userRepository.findById(userId).map(UserAccount::getFullName).orElse("Unknown");
-        String type = saved != null && StringUtils.hasText(saved.getContributionType())
-                ? saved.getContributionType()
-                : resolveDefaultContributionType(userId, assignments, attendanceRecords);
-        String leaderEvaluation = saved == null ? "" : nullToBlank(saved.getLeaderEvaluation());
-        return new ContributionDTO(userId, userName, nullToBlank(type), leaderEvaluation);
+        ContributionDTO dto = new ContributionDTO(userId, userName, nullToBlank(contribution.getContributionType()), nullToBlank(contribution.getLeaderEvaluation()));
+        dto.setContributionID(contribution.getContributionID());
+        dto.setRegistrationID(contribution.getRegistrationID());
+        dto.setAttendanceRecordID(contribution.getAttendanceRecordID());
+        dto.setAssignmentID(contribution.getAssignmentID());
+        dto.setMembershipID(contribution.getMembershipID());
+        dto.setClubRoleIDSnapshot(contribution.getClubRoleIDSnapshot());
+        dto.setClubRoleSnapshot(contribution.getClubRoleSnapshot());
+        dto.setIndividualRankingEligible(Boolean.TRUE.equals(contribution.getIndividualRankingEligible()));
+        dto.setTier(contribution.getTier());
+        dto.setRationale(contribution.getRationale());
+        dto.setBasePoints(contribution.getBasePoints());
+        dto.setBonusPoints(contribution.getBonusPoints());
+        dto.setPenaltyPoints(contribution.getPenaltyPoints());
+        dto.setFinalPoints(contribution.getFinalPoints());
+        dto.setStatus(contribution.getStatus());
+        return dto;
     }
 
     private String resolveDefaultContributionType(Integer userId, List<EventAssignment> assignments, List<AttendanceRecord> attendanceRecords) {
@@ -536,6 +745,25 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
     }
 
+    private void assertEventNotClosed(Event event) {
+        if (event != null && EventStatus.CLOSED.equals(event.getEventStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "EVENT_CLOSED");
+        }
+    }
+
+    private void assertNoSelfMutation(Integer actorId, EventContribution contribution, String errorCode) {
+        if (actorId != null && contribution != null && Objects.equals(actorId, contribution.getUserID())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorCode);
+        }
+    }
+
+    private boolean isMemberRole(Integer roleId, String roleName) {
+        if (roleId != null) {
+            return roleId == CLUB_ROLE_MEMBER_ID;
+        }
+        return "MEMBER".equals(normalize(roleName));
+    }
+
     private String normalizeContributionType(String contributionType) {
         if (!StringUtils.hasText(contributionType)) {
             return "";
@@ -548,6 +776,31 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CONTRIBUTION_TYPE_INVALID");
         }
         return normalized;
+    }
+
+    private String normalizeTier(String tier) {
+        if (!StringUtils.hasText(tier)) {
+            return null;
+        }
+        String normalized = tier.trim().toUpperCase(Locale.ROOT);
+        if (!"A".equals(normalized) && !"B".equals(normalized) && !"C".equals(normalized) && !"D".equals(normalized)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CONTRIBUTION_TIER_INVALID");
+        }
+        return normalized;
+    }
+
+    private String resolveTier(Integer finalPoints) {
+        int points = finalPoints == null ? 0 : finalPoints;
+        if (points >= 140) {
+            return "A";
+        }
+        if (points >= 120) {
+            return "B";
+        }
+        if (points >= 90) {
+            return "C";
+        }
+        return "D";
     }
 
     private String normalizeLeaderEvaluation(String leaderEvaluation) {
@@ -594,6 +847,24 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
 
     private String nullToBlank(String value) {
         return value == null ? "" : value;
+    }
+
+    private String trimToNull(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    private String trimToBlank(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        return value.trim();
+    }
+
+    private int nullToZero(Integer value) {
+        return value == null ? 0 : value;
     }
 
     private ContributionBatchResponse toBatchResponse(ContributionBatch batch) {

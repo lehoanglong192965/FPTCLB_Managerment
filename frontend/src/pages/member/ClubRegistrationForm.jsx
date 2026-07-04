@@ -90,7 +90,7 @@ export default function ClubRegistrationForm({ mode = "member" }) {
         return next;
       });
 
-      setValidationSuccess((prev) => ({ ...prev, [key]: `Đã tìm thấy: ${user.fullName}` }));
+      setValidationSuccess((prev) => ({ ...prev, [key]: "" }));
       setValidationErrors((prev) => ({ ...prev, [key]: "" }));
     } catch {
       setValidationErrors((prev) => ({
