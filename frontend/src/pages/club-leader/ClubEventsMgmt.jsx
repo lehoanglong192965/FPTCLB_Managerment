@@ -411,31 +411,27 @@ export default function ClubEventsMgmt() {
           </div>
 
           {/* Bộ lọc trạng thái */}
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {[{ key: "ALL", label: "Tất cả", color: "#374151", bg: "#f3f4f6" },
+          <div className="flex gap-0 border-b-2 border-gray-200 mb-1">
+            {[{ key: "ALL", label: "Tất cả" },
               ...availableStatuses.map((s) => {
                 const cfg = STATUS_CFG[s] || STATUS_CFG["Draft"];
-                return { key: s, label: cfg.label, color: cfg.color, bg: cfg.bg };
+                return { key: s, label: cfg.label };
               })
-            ].map(({ key, label, color, bg }) => {
+            ].map(({ key, label }) => {
               const active = statusFilter === key;
+              const count  = key === "ALL" ? events.length : events.filter((e) => (e.eventStatus || "Draft").toUpperCase() === key).length;
               return (
                 <button
                   key={key}
                   onClick={() => setStatusFilter(key)}
-                  style={{
-                    padding: "4px 12px", borderRadius: 99, fontSize: 12, fontWeight: 600,
-                    cursor: "pointer", border: "1.5px solid",
-                    borderColor: active ? color : "#e5e7eb",
-                    background: active ? bg : "#fff",
-                    color: active ? color : "#6b7280",
-                    transition: "all .15s",
-                  }}
+                  className={`flex items-center gap-1.5 px-[18px] py-2.5 text-sm font-medium border-b-2 -mb-0.5 cursor-pointer transition-colors duration-150 font-[inherit] bg-transparent ${
+                    active ? "text-[#e6430a] border-[#e6430a] font-semibold" : "text-gray-500 border-transparent hover:text-[#e6430a]"
+                  }`}
                 >
                   {label}
-                  {key !== "ALL" && (
-                    <span style={{ marginLeft: 5, fontWeight: 700 }}>
-                      {events.filter((e) => (e.eventStatus || "Draft").toUpperCase() === key).length}
+                  {count > 0 && (
+                    <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold text-white ${active ? "bg-[#e6430a]" : "bg-gray-500"}`}>
+                      {count}
                     </span>
                   )}
                 </button>
@@ -599,13 +595,19 @@ export default function ClubEventsMgmt() {
                 {isEditing ? (<>
                   <div>
                     <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Ngày tổ chức</label>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <input type="date" value={editForm.date} onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))}
-                        style={{ flex: 1, fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", outline: "none" }} />
+                    <input type="date" value={editForm.date} onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))}
+                      style={{ width: "100%", fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", boxSizing: "border-box", outline: "none" }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Giờ bắt đầu</label>
                       <input type="time" value={editForm.time} onChange={(e) => setEditForm((f) => ({ ...f, time: e.target.value }))}
-                        style={{ width: 96, fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", outline: "none" }} />
+                        style={{ width: "100%", fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", boxSizing: "border-box", outline: "none" }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Giờ kết thúc</label>
                       <input type="time" value={editForm.endTime} onChange={(e) => setEditForm((f) => ({ ...f, endTime: e.target.value }))}
-                        style={{ width: 96, fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", outline: "none" }} />
+                        style={{ width: "100%", fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", boxSizing: "border-box", outline: "none" }} />
                     </div>
                   </div>
                   <div>

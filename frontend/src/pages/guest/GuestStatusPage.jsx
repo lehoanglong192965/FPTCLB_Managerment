@@ -51,6 +51,7 @@ export default function GuestStatusPage() {
       const res = await guestService.getStatus(ref);
       setData(res?.data ?? res);
     } catch (err) {
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
       setError(err?.response?.data?.message || 'Không tìm thấy thông tin đăng ký.');
     } finally {
       setLoading(false);
@@ -110,14 +111,6 @@ export default function GuestStatusPage() {
 
         {/* Info */}
         <div className="space-y-3 text-sm">
-          <div className="flex justify-between py-2 border-b border-gray-100">
-            <span className="text-gray-500">Mã tham chiếu</span>
-            <span className="font-mono font-medium text-gray-800">{data.guestRef ?? ref}</span>
-          </div>
-          <div className="flex justify-between py-2 border-b border-gray-100">
-            <span className="text-gray-500">Họ tên</span>
-            <span className="font-medium text-gray-800">{data.fullName}</span>
-          </div>
           {data.email && (
             <div className="flex justify-between py-2 border-b border-gray-100">
               <span className="text-gray-500">Email</span>

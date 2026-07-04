@@ -22,8 +22,10 @@ const ROLE_HOME = {
  *   undefined hoặc [] → chỉ yêu cầu đăng nhập, không kiểm tra role
  */
 const PrivateRoute = ({ children, allowedRoles }) => {
-  const { user } = useAuth();
+  const { user, initialized } = useAuth();
   const location = useLocation();
+
+  if (!initialized) return null;
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;

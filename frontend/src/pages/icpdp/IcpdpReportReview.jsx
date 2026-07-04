@@ -1,7 +1,17 @@
 import { useState, useEffect } from "react";
-import { X, FileText, ExternalLink, CheckCircle } from "lucide-react";
+import { X, FileText, ExternalLink, CheckCircle2, AlertCircle, Clock, Search, XCircle, ChevronRight } from "lucide-react";
 import reportService from "../../services/api/report/reportService";
 import eventService from "../../services/api/events/eventService";
+
+const LS_KEY = "icpdp_reviewed_events";
+
+function loadReviewedFromStorage() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
+  catch { return {}; }
+}
+function saveReviewedToStorage(map) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(map)); } catch {}
+}
 
 const getImageUrl = (url) => {
   if (!url) return "";
@@ -12,122 +22,246 @@ const getImageUrl = (url) => {
 
 function formatDate(isoStr) {
   if (!isoStr) return "";
-  const d = new Date(isoStr);
-  return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return new Date(isoStr).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-function RejectModal({ event, onConfirm, onClose }) {
-  const [reason, setReason]   = useState("");
-  const [touched, setTouched] = useState(false);
+const STATUS_CFG = {
+  pending:  { label: "Chờ duyệt", bg: "#EDE9FE", color: "#6D28D9", icon: Clock,         border: "#7C3AED" },
+  approved: { label: "Đã duyệt",  bg: "#D1FAE5", color: "#065F46", icon: CheckCircle2,  border: "#10B981" },
+  rejected: { label: "Đã từ chối",bg: "#FEE2E2", color: "#991B1B", icon: XCircle,       border: "#EF4444" },
+};
 
+function StatusBadge({ status }) {
+  const cfg = STATUS_CFG[status] ?? STATUS_CFG.pending;
+  const Icon = cfg.icon;
+  return (
+    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold"
+      style={{ background: cfg.bg, color: cfg.color }}>
+      <Icon size={10} /> {cfg.label}
+    </span>
+  );
+}
+
+/* ── Detail modal ── */
+function DetailModal({ ev, report, onApprove, onReject, onClose, approving }) {
+  const [showReject, setShowReject]   = useState(false);
+  const [reason, setReason]           = useState("");
+  const [touched, setTouched]         = useState(false);
   const isValid = reason.trim().length >= 10;
+  const reportUrl = report?.reportUrl ? getImageUrl(report.reportUrl) : null;
+  const status    = ev._reviewStatus;
 
   return (
     <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(13,27,62,0.55)", backdropFilter: "blur(6px)" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.45)" }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-[15px] font-bold text-gray-900 m-0">Từ chối báo cáo</h2>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 cursor-pointer border-none bg-transparent">
-            <X size={16} />
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col" style={{ maxHeight: "90vh" }}>
+
+        {/* Top stripe */}
+        <div className="h-1 w-full shrink-0" style={{ background: STATUS_CFG[status]?.border ?? "#7C3AED" }} />
+
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-100 shrink-0">
+          <div className="flex-1 min-w-0">
+            <StatusBadge status={status} />
+            <h2 className="text-base font-bold mt-1.5 leading-snug" style={{ color: "#0D1B3E" }}>{ev.eventName}</h2>
+            <p className="text-xs mt-0.5" style={{ color: "#94A3B8" }}>
+              {ev.startDate ? `Tổ chức: ${formatDate(ev.startDate)}` : ""}
+              {ev.location ? ` · ${ev.location}` : ""}
+            </p>
+          </div>
+          <button onClick={onClose}
+            className="w-8 h-8 shrink-0 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
+            <X size={15} />
           </button>
         </div>
-        <div className="px-6 py-5">
-          <p className="text-[13.5px] text-gray-600 mb-4 leading-relaxed">
-            Báo cáo của sự kiện <strong>"{event.eventName}"</strong> sẽ bị từ chối.
-            Ban tổ chức sẽ cần nộp lại báo cáo mới.
-          </p>
-          <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">
-            Lý do từ chối <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            value={reason}
-            onChange={(e) => { setReason(e.target.value); setTouched(true); }}
-            placeholder="Nhập lý do từ chối báo cáo..."
-            rows={4}
-            className={`w-full resize-none rounded-xl border text-[13.5px] text-gray-800 px-3.5 py-3 outline-none transition-colors leading-relaxed ${
-              touched && !isValid ? "border-red-400 bg-red-50/40" : "border-gray-200 focus:border-[#e6430a] bg-white"
-            }`}
-            style={{ boxSizing: "border-box" }}
-          />
-          {touched && !isValid && (
-            <p className="text-[12px] text-red-600 mt-1">Lý do phải có ít nhất 10 ký tự.</p>
+
+        {/* Body — scrollable */}
+        <div className="px-6 py-5 overflow-y-auto flex-1">
+          {report ? (
+            <>
+              <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#94A3B8", letterSpacing: "0.1em" }}>
+                Tóm tắt báo cáo
+              </p>
+              <p className="text-sm leading-relaxed whitespace-pre-line rounded-xl px-4 py-3 mb-4"
+                style={{ color: "#374151", background: "#F8FAFC", border: "1px solid #E2E8F0" }}>
+                {report.summary || "Không có tóm tắt."}
+              </p>
+              {reportUrl ? (
+                <a href={reportUrl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+                  style={{ color: "#6D28D9", background: "#EDE9FE", border: "1px solid #DDD6FE" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "#DDD6FE"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "#EDE9FE"; }}>
+                  <FileText size={14} /> Mở file PDF <ExternalLink size={12} />
+                </a>
+              ) : (
+                <p className="text-xs italic" style={{ color: "#CBD5E1" }}>Không có file đính kèm</p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm italic" style={{ color: "#CBD5E1" }}>Đang tải thông tin báo cáo...</p>
+          )}
+
+          {/* Reject inline form */}
+          {showReject && status === "pending" && (
+            <div className="mt-5 p-4 rounded-xl" style={{ background: "#FFF5F5", border: "1px solid #FECACA" }}>
+              <p className="text-sm font-semibold mb-2" style={{ color: "#991B1B" }}>Lý do từ chối</p>
+              <textarea
+                value={reason}
+                onChange={(e) => { setReason(e.target.value); setTouched(true); }}
+                placeholder="Mô tả cụ thể lý do..."
+                rows={3}
+                className="w-full resize-none rounded-xl border text-sm text-gray-800 px-3 py-2.5 outline-none"
+                style={{ border: touched && !isValid ? "1px solid #EF4444" : "1px solid #FECACA", background: "#fff" }}
+              />
+              {touched && !isValid && (
+                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                  <AlertCircle size={11} /> Lý do phải có ít nhất 10 ký tự.
+                </p>
+              )}
+              <div className="flex gap-2 mt-3">
+                <button onClick={() => setShowReject(false)}
+                  className="flex-1 py-2 rounded-xl border text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+                  style={{ borderColor: "#E2E8F0" }}>
+                  Huỷ
+                </button>
+                <button
+                  onClick={() => { setTouched(true); if (isValid) onReject(ev.eventID, reason.trim()); }}
+                  className="flex-1 py-2 rounded-xl text-white text-sm font-semibold transition-colors"
+                  style={{ background: "#EF4444" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "#DC2626"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "#EF4444"; }}>
+                  Xác nhận từ chối
+                </button>
+              </div>
+            </div>
           )}
         </div>
-        <div className="flex gap-2.5 px-6 pb-5">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 text-[13.5px] font-semibold hover:bg-gray-50 cursor-pointer">
-            Hủy
-          </button>
-          <button
-            onClick={() => { setTouched(true); if (isValid) onConfirm(reason.trim()); }}
-            className="flex-1 py-2.5 rounded-xl text-white text-[13.5px] font-semibold border-none bg-red-600 hover:bg-red-700 cursor-pointer"
-          >
-            Xác nhận từ chối
-          </button>
+
+        {/* Footer actions */}
+        <div className="px-6 pb-5 pt-3 border-t border-gray-100 shrink-0">
+          {status === "approved" ? (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold"
+              style={{ background: "#D1FAE5", color: "#065F46" }}>
+              <CheckCircle2 size={15} /> Đã phê duyệt báo cáo
+            </div>
+          ) : status === "rejected" ? (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold"
+              style={{ background: "#FEE2E2", color: "#991B1B" }}>
+              <XCircle size={15} /> Đã từ chối báo cáo
+            </div>
+          ) : !showReject ? (
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowReject(true)}
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                style={{ color: "#EF4444", background: "#FFF5F5", border: "1px solid #FECACA" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "#FEE2E2"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "#FFF5F5"; }}>
+                Từ chối
+              </button>
+              <button
+                disabled={approving}
+                onClick={() => onApprove(ev.eventID)}
+                className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-colors disabled:opacity-50"
+                style={{ background: "#F37021" }}
+                onMouseEnter={(e) => { if (!approving) e.currentTarget.style.background = "#E06518"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "#F37021"; }}>
+                {approving ? "Đang xử lý..." : "Phê duyệt báo cáo"}
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
   );
 }
 
+/* ── Main page ── */
 export default function IcpdpReportReview() {
-  const [events, setEvents]           = useState([]);
-  const [reports, setReports]         = useState({});
-  const [loading, setLoading]         = useState(true);
-  const [rejectTarget, setRejectTarget] = useState(null);
-  const [closingId, setClosingId]     = useState(null);
-  const [closedIds, setClosedIds]     = useState(new Set());
-  const [rejectedIds, setRejectedIds] = useState(new Set());
+  const [events, setEvents]         = useState([]);
+  const [reports, setReports]       = useState({});
+  const [loading, setLoading]       = useState(true);
+  const [selected, setSelected]     = useState(null);
+  const [approvingId, setApprovingId] = useState(null);
+  const [search, setSearch]         = useState("");
+  const [statusFilter, setStatusFilter] = useState("pending");
 
   const fetchReportFor = async (eventId) => {
     try {
       const res = await reportService.getByEventId(eventId);
-      const data = res?.data ?? res;
-      setReports((prev) => ({ ...prev, [eventId]: data }));
-    } catch {
-      // no report yet — skip
-    }
+      setReports((prev) => ({ ...prev, [eventId]: res?.data ?? res }));
+    } catch {}
   };
 
   useEffect(() => {
     setLoading(true);
     eventService.getReportUploadedEvents()
       .then((res) => {
-        const list = Array.isArray(res) ? res : (res?.data ?? res?.content ?? []);
-        setEvents(list);
-        list.forEach((e) => fetchReportFor(e.eventID));
+        const pending = (Array.isArray(res) ? res : (res?.data ?? res?.content ?? []))
+          .map((e) => ({ ...e, _reviewStatus: "pending" }));
+        const stored = loadReviewedFromStorage();
+        const reviewedList = Object.values(stored).map((r) => ({ ...r.event, _reviewStatus: r.status }));
+        const pendingFiltered = pending.filter((e) => !stored[e.eventID]);
+        const all = [...pendingFiltered, ...reviewedList];
+        setEvents(all);
+        all.forEach((e) => fetchReportFor(e.eventID));
       })
-      .catch(console.error)
+      .catch((err) => {
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+      })
       .finally(() => setLoading(false));
   }, []);
 
-  const handleClose = async (eventId) => {
+  const handleApprove = async (eventId) => {
     if (!window.confirm("Xác nhận phê duyệt báo cáo? Hành động không thể hoàn tác.")) return;
-    setClosingId(eventId);
+    setApprovingId(eventId);
     try {
       await reportService.approve(eventId);
-      setClosedIds((prev) => new Set([...prev, eventId]));
+      const stored = loadReviewedFromStorage();
+      const ev = events.find((e) => e.eventID === eventId);
+      stored[eventId] = { event: ev, status: "approved" };
+      saveReviewedToStorage(stored);
+      setEvents((prev) => prev.map((e) => e.eventID === eventId ? { ...e, _reviewStatus: "approved" } : e));
+      setSelected((prev) => prev?.eventID === eventId ? { ...prev, _reviewStatus: "approved" } : prev);
     } catch (e) {
       alert(e.response?.data?.message || e.message || "Lỗi khi phê duyệt báo cáo.");
     } finally {
-      setClosingId(null);
+      setApprovingId(null);
     }
   };
 
   const handleReject = async (eventId, reason) => {
     try {
       await reportService.reject(eventId, { reason });
-      setRejectedIds((prev) => new Set([...prev, eventId]));
-      setRejectTarget(null);
+      const stored = loadReviewedFromStorage();
+      const ev = events.find((e) => e.eventID === eventId);
+      stored[eventId] = { event: ev, status: "rejected", reason };
+      saveReviewedToStorage(stored);
+      setEvents((prev) => prev.map((e) => e.eventID === eventId ? { ...e, _reviewStatus: "rejected" } : e));
+      setSelected((prev) => prev?.eventID === eventId ? { ...prev, _reviewStatus: "rejected" } : prev);
     } catch (e) {
       alert(e.response?.data?.message || e.message || "Lỗi khi từ chối báo cáo.");
     }
   };
 
-  const visible = events.filter((e) => !closedIds.has(e.eventID) && !rejectedIds.has(e.eventID));
+  const counts = {
+    all:      events.length,
+    pending:  events.filter((e) => e._reviewStatus === "pending").length,
+    approved: events.filter((e) => e._reviewStatus === "approved").length,
+    rejected: events.filter((e) => e._reviewStatus === "rejected").length,
+  };
+
+  const visible = events.filter((e) => {
+    if (statusFilter === "pending"  && e._reviewStatus !== "pending")  return false;
+    if (statusFilter === "approved" && e._reviewStatus !== "approved") return false;
+    if (statusFilter === "rejected" && e._reviewStatus !== "rejected") return false;
+    if (search.trim() && !e.eventName?.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
 
   return (
     <div>
@@ -136,113 +270,128 @@ export default function IcpdpReportReview() {
         <p className="page-subtitle">Xem xét báo cáo đã nộp và xác nhận điểm cho các sự kiện đã hoàn thành</p>
       </div>
 
+      {/* Search bar */}
+      {!loading && events.length > 0 && (
+        <div className="max-w-3xl mb-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#94A3B8" }} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm theo tên sự kiện..."
+              className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl outline-none transition-colors"
+              style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", color: "#1E293B" }}
+              onFocus={(e) => { e.target.style.borderColor = "#7C3AED"; }}
+              onBlur={(e)  => { e.target.style.borderColor = "#E2E8F0"; }}
+            />
+          </div>
+
+          {/* Filter tabs — below search */}
+          <div className="flex gap-0 border-b-2 border-gray-200 mt-3">
+            {[
+              { key: "all",      label: "Tất cả" },
+              { key: "pending",  label: "Chờ duyệt" },
+              { key: "approved", label: "Đã duyệt" },
+              { key: "rejected", label: "Từ chối" },
+            ].map(({ key, label }) => {
+              const isActive = statusFilter === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setStatusFilter(key)}
+                  className={`flex items-center gap-1.5 px-[18px] py-2.5 text-sm font-medium border-b-2 -mb-0.5 cursor-pointer transition-colors duration-150 ${
+                    isActive ? "text-[#e6430a] border-[#e6430a] font-semibold" : "text-gray-500 border-transparent hover:text-[#e6430a]"
+                  }`}
+                >
+                  {label}
+                  {counts[key] > 0 && (
+                    <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold text-white ${isActive ? "bg-[#e6430a]" : "bg-gray-500"}`}>
+                      {counts[key]}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {loading ? (
-        <p className="text-center py-16 text-gray-400 text-sm">Đang tải...</p>
+        <div className="py-20 text-center">
+          <div className="w-8 h-8 border-2 rounded-full animate-spin mx-auto mb-3"
+            style={{ borderColor: "#7C3AED", borderTopColor: "transparent" }} />
+          <p className="text-sm" style={{ color: "#94A3B8" }}>Đang tải...</p>
+        </div>
       ) : visible.length === 0 ? (
-        <div className="text-center py-16">
-          <CheckCircle size={48} className="mx-auto mb-4 text-green-300" />
-          <p className="text-gray-500 font-semibold">Không có báo cáo nào cần duyệt.</p>
+        <div className="py-20 text-center max-w-3xl">
+          {search ? (
+            <>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "#F1F5F9" }}>
+                <Search size={24} style={{ color: "#94A3B8" }} />
+              </div>
+              <p className="font-semibold text-gray-600">Không tìm thấy kết quả.</p>
+              <p className="text-sm mt-1" style={{ color: "#94A3B8" }}>Thử thay đổi từ khoá hoặc bộ lọc.</p>
+            </>
+          ) : (
+            <>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "#D1FAE5" }}>
+                <CheckCircle2 size={26} style={{ color: "#10B981" }} />
+              </div>
+              <p className="font-semibold text-gray-600">Không có báo cáo nào cần duyệt.</p>
+              <p className="text-sm mt-1" style={{ color: "#94A3B8" }}>Tất cả báo cáo đã được xử lý.</p>
+            </>
+          )}
         </div>
       ) : (
-        <div className="flex flex-col gap-4">
+        /* List items */
+        <div className="flex flex-col gap-2 max-w-3xl">
           {visible.map((ev) => {
-            const report   = reports[ev.eventID];
-            const isClosed = closedIds.has(ev.eventID);
-            const isClosingThis = closingId === ev.eventID;
-            const reportUrl = report?.reportUrl ? getImageUrl(report.reportUrl) : null;
-
+            const cfg = STATUS_CFG[ev._reviewStatus] ?? STATUS_CFG.pending;
             return (
-              <div
+              <button
                 key={ev.eventID}
-                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+                onClick={() => setSelected(ev)}
+                className="w-full text-left bg-white rounded-2xl px-5 py-4 flex items-center gap-4 transition-all group"
+                style={{
+                  boxShadow: "0 1px 3px rgba(13,27,62,0.07)",
+                  borderLeft: `4px solid ${cfg.border}`,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(13,27,62,0.1)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 1px 3px rgba(13,27,62,0.07)"; }}
               >
-                {/* Event header */}
-                <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-gray-100">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
-                        Đã nộp báo cáo
-                      </span>
-                    </div>
-                    <h3 className="text-[16px] font-bold text-gray-900 m-0 mb-0.5 truncate">{ev.eventName}</h3>
-                    <p className="text-[13px] text-gray-500 m-0">
-                      {ev.startDate ? `Tổ chức: ${formatDate(ev.startDate)}` : ""}
-                      {ev.location ? ` · ${ev.location}` : ""}
-                    </p>
+                {/* Status dot */}
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: cfg.border }} />
+
+                {/* Text */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className="font-semibold text-sm truncate" style={{ color: "#0D1B3E" }}>{ev.eventName}</p>
+                    <StatusBadge status={ev._reviewStatus} />
                   </div>
+                  <p className="text-xs truncate" style={{ color: "#94A3B8" }}>
+                    {ev.startDate ? formatDate(ev.startDate) : ""}
+                    {ev.location ? ` · ${ev.location}` : ""}
+                  </p>
                 </div>
 
-                {/* Report content */}
-                <div className="px-6 py-5">
-                  {report ? (<>
-                    <div className="mb-4">
-                      <p className="text-[11.5px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
-                        Tóm tắt báo cáo
-                      </p>
-                      <p className="text-[13.5px] text-gray-700 leading-relaxed whitespace-pre-line bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
-                        {report.summary || "Không có tóm tắt."}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-3 mb-5">
-                      <FileText size={16} className="text-purple-500 shrink-0" />
-                      <span className="text-[13px] text-gray-600 font-medium">File báo cáo:</span>
-                      {reportUrl ? (
-                        <a
-                          href={reportUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-purple-600 hover:text-purple-800 transition-colors"
-                        >
-                          Mở file PDF <ExternalLink size={12} />
-                        </a>
-                      ) : (
-                        <span className="text-[13px] text-gray-400 italic">Không có file</span>
-                      )}
-                    </div>
-                  </>) : (
-                    <p className="text-[13px] text-gray-400 italic mb-5">Đang tải thông tin báo cáo...</p>
-                  )}
-
-                  {/* Actions */}
-                  {isClosed ? (
-                    <div className="flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-[13px] font-semibold text-green-700">
-                      <CheckCircle size={15} /> Đã phê duyệt báo cáo
-                    </div>
-                  ) : (
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => setRejectTarget(ev)}
-                        className="flex-1 py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-700 text-[13.5px] font-semibold hover:bg-red-100 cursor-pointer transition-colors"
-                      >
-                        Từ chối báo cáo
-                      </button>
-                      <button
-                        disabled={isClosingThis}
-                        onClick={() => handleClose(ev.eventID)}
-                        className={`flex-2 px-6 py-2.5 rounded-xl text-white text-[13.5px] font-semibold border-none transition-colors ${
-                          isClosingThis
-                            ? "bg-gray-300 cursor-not-allowed"
-                            : "bg-[#374151] hover:bg-[#1f2937] cursor-pointer"
-                        }`}
-                        style={{ flex: 2 }}
-                      >
-                        {isClosingThis ? "Đang xử lý..." : "Phê duyệt báo cáo"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
+                {/* Arrow */}
+                <ChevronRight size={16} className="shrink-0 transition-transform group-hover:translate-x-0.5"
+                  style={{ color: "#CBD5E1" }} />
+              </button>
             );
           })}
         </div>
       )}
 
-      {rejectTarget && (
-        <RejectModal
-          event={rejectTarget}
-          onConfirm={(reason) => handleReject(rejectTarget.eventID, reason)}
-          onClose={() => setRejectTarget(null)}
+      {selected && (
+        <DetailModal
+          ev={selected}
+          report={reports[selected.eventID]}
+          approving={approvingId === selected.eventID}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onClose={() => setSelected(null)}
         />
       )}
     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Calendar, MapPin, Clock, ChevronRight } from "lucide-react";
+import { X, Calendar, MapPin, Clock, ChevronRight, Search } from "lucide-react";
 import eventService from "../../services/api/events/eventService";
 
 const getImageUrl = (url) => {
@@ -257,6 +257,7 @@ export default function IcpdpEventApproval() {
   const [loading, setLoading]           = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
+  const [search, setSearch]             = useState("");
 
   const fetchEvents = () => {
     setLoading(true);
@@ -349,7 +350,10 @@ export default function IcpdpEventApproval() {
     setSelectedEvent(null);
   };
 
-  const filtered = activeTab === "all" ? events : events.filter((e) => e.status === activeTab);
+  const byTab    = activeTab === "all" ? events : events.filter((e) => e.status === activeTab);
+  const filtered = search.trim()
+    ? byTab.filter((e) => e.name?.toLowerCase().includes(search.toLowerCase()) || e.club?.toLowerCase().includes(search.toLowerCase()))
+    : byTab;
   const countOf  = (key) => key === "all" ? events.length : events.filter((e) => e.status === key).length;
 
   return (
@@ -357,6 +361,21 @@ export default function IcpdpEventApproval() {
       <div className="page-header">
         <h1 className="page-title">Phê Duyệt Sự Kiện</h1>
         <p className="page-subtitle">Xét duyệt đề xuất tổ chức sự kiện từ các câu lạc bộ</p>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-sm mb-4">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#94A3B8' }} />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Tìm theo tên sự kiện hoặc câu lạc bộ..."
+          className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl outline-none transition-colors bg-white"
+          style={{ border: '1px solid #E2E8F0', color: '#1E293B' }}
+          onFocus={(e) => { e.target.style.borderColor = '#e6430a'; }}
+          onBlur={(e) => { e.target.style.borderColor = '#E2E8F0'; }}
+        />
       </div>
 
       {/* Tabs */}
