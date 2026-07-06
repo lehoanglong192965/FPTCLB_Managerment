@@ -13,4 +13,8 @@ public interface EventFeedbackRepository extends JpaRepository<EventFeedback, In
     boolean existsByEventIDAndGuestRegistrationIDAndIsDeletedFalse(Integer eventID, Integer guestRegistrationID);
 
     List<EventFeedback> findByEventIDAndIsDeletedFalse(Integer eventID);
+
+    List<EventFeedback> findByEventIDAndRegistrationIDIsNotNullAndIsDeletedFalseOrderBySubmittedAtDesc(Integer eventID);
+
+    List<EventFeedback> findByEventIDAndIsDeletedFalseOrderBySubmittedAtDesc(Integer eventID);
 }

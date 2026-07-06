@@ -3,12 +3,11 @@ import { useParams } from 'react-router-dom';
 import { Star, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import feedbackService from '../../services/api/feedback/feedbackService';
 
-// All 4 questions matching FeedbackSubmitRequest @NotNull fields
 const QUESTIONS = [
   { id: 'organization', field: 'organizationRating', label: 'Công tác tổ chức sự kiện' },
-  { id: 'content',      field: 'contentRating',      label: 'Nội dung chương trình' },
-  { id: 'logistics',    field: 'logisticsRating',    label: 'Địa điểm và cơ sở vật chất' },
-  { id: 'overall',      field: 'overallRating',      label: 'Đánh giá tổng thể' },
+  { id: 'content', field: 'contentRating', label: 'Nội dung chương trình' },
+  { id: 'logistics', field: 'logisticsRating', label: 'Địa điểm và cơ sở vật chất' },
+  { id: 'overall', field: 'overallRating', label: 'Đánh giá tổng thể' },
 ];
 
 function StarRating({ value, onChange, disabled }) {
@@ -38,7 +37,7 @@ function StarRating({ value, onChange, disabled }) {
 export default function GuestFeedbackPage() {
   const { token } = useParams();
 
-  const [tokenInfo, setTokenInfo] = useState(null); // FeedbackGuestTokenResponse: { valid, eventId, registrationId, guestRegistrationId, expiresAt, reason }
+  const [tokenInfo, setTokenInfo] = useState(null);
   const [tokenLoading, setTokenLoading] = useState(true);
   const [ratings, setRatings] = useState({});
   const [comment, setComment] = useState('');
@@ -47,15 +46,17 @@ export default function GuestFeedbackPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) return undefined;
     feedbackService.validateGuestToken(token)
       .then((res) => setTokenInfo(res?.data ?? res))
-      .catch(() => setTokenInfo({ valid: false }))
+      .catch((err) => setTokenInfo({ valid: false, reason: err?.response?.data?.message }))
       .finally(() => setTokenLoading(false));
+    return undefined;
   }, [token]);
 
-  const setRating = (id, val) => setRatings((p) => ({ ...p, [id]: val }));
-  const canSubmit = QUESTIONS.every((q) => ratings[q.id]) && !submitting;
+  const setRating = (id, val) => setRatings((prev) => ({ ...prev, [id]: val }));
+  const canSubmit = QUESTIONS.every((question) => ratings[question.id]) && !submitting;
+  const alreadySubmitted = submitted || tokenInfo?.reason === 'FEEDBACK_ALREADY_SUBMITTED';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,17 +65,22 @@ export default function GuestFeedbackPage() {
     setError(null);
     try {
       await feedbackService.submitGuest(token, {
-        registrationId:  tokenInfo?.guestRegistrationId ? undefined : tokenInfo?.registrationId,
+        registrationId: tokenInfo?.guestRegistrationId ? undefined : tokenInfo?.registrationId,
         guestRegistrationId: tokenInfo?.guestRegistrationId,
         organizationRating: ratings.organization,
-        contentRating:      ratings.content,
-        logisticsRating:    ratings.logistics,
-        overallRating:      ratings.overall,
+        contentRating: ratings.content,
+        logisticsRating: ratings.logistics,
+        overallRating: ratings.overall,
         comment,
       });
       setSubmitted(true);
     } catch (err) {
-      setError(err?.response?.data?.message || 'Gửi đánh giá thất bại. Vui lòng thử lại.');
+      const reason = err?.response?.data?.message || err?.response?.data?.code;
+      if (reason === 'FEEDBACK_ALREADY_SUBMITTED') {
+        setSubmitted(true);
+        return;
+      }
+      setError(reason || 'Gửi đánh giá thất bại. Vui lòng thử lại.');
     } finally {
       setSubmitting(false);
     }
@@ -88,6 +94,18 @@ export default function GuestFeedbackPage() {
     );
   }
 
+  if (alreadySubmitted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-sm w-full text-center">
+          <CheckCircle2 size={52} className="text-green-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900">Bạn đã feedback cho sự kiện này</h2>
+          <p className="text-gray-500 text-sm mt-2">Cảm ơn bạn, phản hồi của bạn đã được ghi nhận.</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!tokenInfo?.valid) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -95,20 +113,8 @@ export default function GuestFeedbackPage() {
           <XCircle size={52} className="text-red-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900">Link không hợp lệ</h2>
           <p className="text-gray-500 text-sm mt-2">
-            {tokenInfo?.reason || 'Link đánh giá đã hết hạn hoặc đã được sử dụng.'}
+            {tokenInfo?.reason || 'Link đánh giá đã hết hạn hoặc không tồn tại.'}
           </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (submitted) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 max-w-sm w-full text-center">
-          <CheckCircle2 size={52} className="text-green-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900">Cảm ơn bạn!</h2>
-          <p className="text-gray-500 text-sm mt-2">Phản hồi của bạn đã được ghi nhận.</p>
         </div>
       </div>
     );
@@ -128,12 +134,12 @@ export default function GuestFeedbackPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {QUESTIONS.map((q) => (
-            <div key={q.id}>
-              <p className="text-sm font-medium text-gray-700 mb-2">{q.label} *</p>
+          {QUESTIONS.map((question) => (
+            <div key={question.id}>
+              <p className="text-sm font-medium text-gray-700 mb-2">{question.label} *</p>
               <StarRating
-                value={ratings[q.id] ?? 0}
-                onChange={(v) => setRating(q.id, v)}
+                value={ratings[question.id] ?? 0}
+                onChange={(value) => setRating(question.id, value)}
                 disabled={submitting}
               />
             </div>

@@ -32,6 +32,7 @@ import CompetitionAwardsPage from "../pages/competitions/CompetitionAwardsPage";
 
 // Member pages (Sprint 6)
 import MemberAppealPage from "../pages/member/MemberAppealPage";
+import MemberPendingFeedback from "../pages/member/MemberPendingFeedback";
 import MemberMyContributionsPage from "../pages/member/MemberMyContributionsPage";
 
 // Dashboard layout (shared sidebar + outlet)
@@ -177,6 +178,7 @@ export default function AppRoutes() {
         <Route index element={<SemesterManagement />} />
         <Route path="users" element={<UserManagement />} />
         <Route path="system-config" element={<SystemConfigPage />} />
+        <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -286,6 +288,7 @@ export default function AppRoutes() {
         <Route path="club-register" element={<Navigate to="/member/clubs" replace />} />
         <Route path="club-register-history" element={<MemberRegistrationHistory />} />
         <Route path="events" element={<MemberEvents />} />
+        <Route path="pending-feedback" element={<MemberPendingFeedback />} />
         <Route path="tickets" element={<MemberMyTickets />} />
         <Route path="notifications" element={<MemberNotifications />} />
         <Route path="notification-settings" element={<MemberNotificationSettings />} />
@@ -313,3 +316,5 @@ export default function AppRoutes() {
     </Routes>
   );
 }
+
+

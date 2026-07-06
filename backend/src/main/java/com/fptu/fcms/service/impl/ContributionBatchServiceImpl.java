@@ -226,6 +226,29 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<ContributionDTO> getMyContributionScores(Integer userId) {
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "AUTH_REQUIRED");
+        }
+        return contributionRepository.findByUserIDAndIsDeletedFalse(userId)
+                .stream()
+                .map(this::toContributionDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ContributionDTO getMyContributionScore(Integer eventId, Integer userId) {
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "AUTH_REQUIRED");
+        }
+        EventContribution contribution = contributionRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CONTRIBUTION_SCORE_NOT_FOUND"));
+        return toContributionDto(contribution);
+    }
+
+    @Override
     @Transactional
     public ContributionBatchResponse saveContributionScores(Integer eventId, List<ContributionDTO> contributions, Integer actorId) {
         Event event = findEvent(eventId);
@@ -243,11 +266,9 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
             }
             String type = normalizeContributionType(dto.getContributionType());
             String leaderEvaluation = normalizeLeaderEvaluation(dto.getLeaderEvaluation());
-            String tier = normalizeTier(dto.getTier());
             String rationale = trimToNull(dto.getRationale());
             if (!StringUtils.hasText(type)
                     && !StringUtils.hasText(leaderEvaluation)
-                    && !StringUtils.hasText(tier)
                     && !StringUtils.hasText(rationale)) {
                 continue;
             }
@@ -261,7 +282,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
                 leaderEvaluation = contribution.getLeaderEvaluation();
             }
             applyScore(event, batch, contribution, userId, type, leaderEvaluation, actorId, CONTRIBUTION_STATUS_DRAFT, now);
-            contribution.setTier(StringUtils.hasText(tier) ? tier : resolveTier(contribution.getFinalPoints()));
+            contribution.setTier(resolveTier(contribution.getFinalPoints()));
             contribution.setRationale(rationale);
             contributionRepository.save(contribution);
         }
@@ -315,8 +336,8 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         }
         EventContribution contribution = contributionRepository.findByBatchIDAndUserIDAndIsDeletedFalse(batchId, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "CONTRIBUTION_SCORE_NOT_FOUND"));
-        if (appealRepository.existsByBatchIDAndUserIDAndStatusAndIsDeletedFalse(batchId, userId, AppealStatus.PENDING)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "APPEAL_ALREADY_PENDING");
+        if (appealRepository.existsByBatchIDAndUserIDAndIsDeletedFalse(batchId, userId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "APPEAL_ALREADY_SUBMITTED");
         }
 
         ContributionAppeal appeal = new ContributionAppeal();
@@ -627,6 +648,9 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         String userName = userRepository.findById(userId).map(UserAccount::getFullName).orElse("Unknown");
         ContributionDTO dto = new ContributionDTO(userId, userName, nullToBlank(contribution.getContributionType()), nullToBlank(contribution.getLeaderEvaluation()));
         dto.setContributionID(contribution.getContributionID());
+        dto.setBatchID(contribution.getBatchID());
+        dto.setEventID(contribution.getEventID());
+        dto.setClubID(contribution.getClubID());
         dto.setRegistrationID(contribution.getRegistrationID());
         dto.setAttendanceRecordID(contribution.getAttendanceRecordID());
         dto.setAssignmentID(contribution.getAssignmentID());
@@ -641,6 +665,22 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         dto.setPenaltyPoints(contribution.getPenaltyPoints());
         dto.setFinalPoints(contribution.getFinalPoints());
         dto.setStatus(contribution.getStatus());
+        contributionBatchRepository.findByBatchIDAndIsDeletedFalse(contribution.getBatchID()).ifPresent(batch -> {
+            dto.setBatchStatus(batch.getStatus() == null ? null : batch.getStatus().name());
+            dto.setAppealClosesAt(batch.getAppealClosesAt());
+        });
+        eventRepository.findById(contribution.getEventID()).ifPresent(event -> {
+            dto.setEventName(event.getEventName());
+            dto.setEventStartDate(event.getStartDate());
+        });
+        appealRepository.findTopByBatchIDAndUserIDAndIsDeletedFalseOrderByRequestedAtDesc(contribution.getBatchID(), contribution.getUserID()).ifPresent(appeal -> {
+            dto.setAppealID(appeal.getAppealID());
+            dto.setAppealStatus(appeal.getStatus() == null ? null : appeal.getStatus().name());
+            dto.setAppealReason(appeal.getReason());
+            dto.setAppealResolutionNote(appeal.getResolutionNote());
+            dto.setAppealRequestedAt(appeal.getRequestedAt());
+            dto.setAppealResolvedAt(appeal.getResolvedAt());
+        });
         return dto;
     }
 

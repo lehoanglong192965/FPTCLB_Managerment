@@ -17,6 +17,13 @@ import axiosClient from "../axiosClient";
  */
 const contributionService = {
 
+  // ── MEMBER — ĐÓNG GÓP CỦA TÔI ─────────────────────────────────
+  getMine: () =>
+    axiosClient.get('/v1/contributions/me'),
+
+  getMyEventContribution: (eventId) =>
+    axiosClient.get('/v1/events/' + eventId + '/contribution/me'),
+
   // ── LEADER — DANH SÁCH & CẬP NHẬT ─────────────────────────────────
   // GET /api/v1/events/:eventId/contributions
   getDraft: (eventId) =>

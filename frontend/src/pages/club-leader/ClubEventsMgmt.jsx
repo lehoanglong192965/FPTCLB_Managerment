@@ -742,6 +742,23 @@ export default function ClubEventsMgmt() {
                   </p>
                 )}
 
+                {[
+                  "COMPLETED",
+                  "REPORTUPLOADED",
+                  "REPORTPENDINGAPPROVAL",
+                  "REPORTAPPROVED",
+                  "REPORTREJECTED",
+                  "CONTRIBUTIONDRAFT",
+                  "CONTRIBUTIONPENDINGAPPROVAL",
+                  "CONTRIBUTIONAPPROVED",
+                  "CONTRIBUTIONSCORING",
+                  "CONTRIBUTIONFINALIZED",
+                  "CLOSED",
+                ].includes(status) && !isEditing && (
+                  <button onClick={() => navigate(`${selectedEv.eventID}/feedback`, { relative: "path" })} style={btnStyle("#ea580c")}>
+                    Feedback / Event Report
+                  </button>
+                )}
                 {/* Draft */}
                 {status === "DRAFT" && !isEditing && (<>
                   <button onClick={() => startEdit(selectedEv)} style={btnStyle("#f59e0b")}>
@@ -1049,3 +1066,4 @@ export default function ClubEventsMgmt() {
     </div>
   );
 }
+

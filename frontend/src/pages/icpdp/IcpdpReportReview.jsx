@@ -6,14 +6,6 @@ import eventService from "../../services/api/events/eventService";
 
 const LS_KEY = "icpdp_reviewed_events";
 
-function loadReviewedFromStorage() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
-  catch { return {}; }
-}
-function saveReviewedToStorage(map) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(map)); } catch {}
-}
-
 const getImageUrl = (url) => {
   if (!url) return "";
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
@@ -211,32 +203,24 @@ export default function IcpdpReportReview() {
 
   useEffect(() => {
     setLoading(true);
+    try { localStorage.removeItem(LS_KEY); } catch {}
     eventService.getReportUploadedEvents()
       .then((res) => {
         const pending = (Array.isArray(res) ? res : (res?.data ?? res?.content ?? []))
           .map((e) => ({ ...e, _reviewStatus: "pending" }));
-        const stored = loadReviewedFromStorage();
-        const reviewedList = Object.values(stored).map((r) => ({ ...r.event, _reviewStatus: r.status }));
-        const pendingFiltered = pending.filter((e) => !stored[e.eventID]);
-        const all = [...pendingFiltered, ...reviewedList];
-        setEvents(all);
-        all.forEach((e) => fetchReportFor(e.eventID));
+        setEvents(pending);
+        pending.forEach((e) => fetchReportFor(e.eventID));
       })
       .catch((err) => {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
       })
       .finally(() => setLoading(false));
   }, []);
-
   const handleApprove = async (eventId) => {
     if (!window.confirm("Xác nhận phê duyệt báo cáo? Hành động không thể hoàn tác.")) return;
     setApprovingId(eventId);
     try {
       await reportService.approve(eventId);
-      const stored = loadReviewedFromStorage();
-      const ev = events.find((e) => e.eventID === eventId);
-      stored[eventId] = { event: ev, status: "approved" };
-      saveReviewedToStorage(stored);
       setEvents((prev) => prev.map((e) => e.eventID === eventId ? { ...e, _reviewStatus: "approved" } : e));
       setSelected((prev) => prev?.eventID === eventId ? { ...prev, _reviewStatus: "approved" } : prev);
     } catch (e) {
@@ -249,10 +233,6 @@ export default function IcpdpReportReview() {
   const handleReject = async (eventId, reason) => {
     try {
       await reportService.reject(eventId, { reason });
-      const stored = loadReviewedFromStorage();
-      const ev = events.find((e) => e.eventID === eventId);
-      stored[eventId] = { event: ev, status: "rejected", reason };
-      saveReviewedToStorage(stored);
       setEvents((prev) => prev.map((e) => e.eventID === eventId ? { ...e, _reviewStatus: "rejected" } : e));
       setSelected((prev) => prev?.eventID === eventId ? { ...prev, _reviewStatus: "rejected" } : prev);
     } catch (e) {

@@ -6,6 +6,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -61,6 +63,41 @@ public class EventFeedback {
     @Column(name = "submittedAt", nullable = false)
     private LocalDateTime submittedAt = LocalDateTime.now();
 
+    @Column(name = "createdAt")
+    private LocalDateTime createdAt;
+
+    @Column(name = "updatedAt")
+    private LocalDateTime updatedAt;
+
     @Column(name = "isDeleted", nullable = false)
     private Boolean isDeleted = false;
+
+    @PrePersist
+    private void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        if (submittedAt == null) {
+            submittedAt = now;
+        }
+        if (createdAt == null) {
+            createdAt = submittedAt != null ? submittedAt : now;
+        }
+        updatedAt = now;
+        if (isIncludedInExternalScore == null) {
+            isIncludedInExternalScore = false;
+        }
+        if (isDeleted == null) {
+            isDeleted = false;
+        }
+    }
+
+    @PreUpdate
+    private void onUpdate() {
+        updatedAt = LocalDateTime.now();
+        if (isIncludedInExternalScore == null) {
+            isIncludedInExternalScore = false;
+        }
+        if (isDeleted == null) {
+            isDeleted = false;
+        }
+    }
 }
