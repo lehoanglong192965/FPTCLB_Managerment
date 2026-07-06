@@ -166,7 +166,7 @@ export default function MemberMyTickets() {
                 </p>
               </div>
             ) : (
-              <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+              <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
                 {filtered.map((ev) => (
                   <EventCard key={ev.id} event={ev} />
                 ))}

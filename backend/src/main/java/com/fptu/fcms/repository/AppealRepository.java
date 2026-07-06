@@ -14,7 +14,11 @@ public interface AppealRepository extends JpaRepository<ContributionAppeal, Inte
 
     List<ContributionAppeal> findByBatchIDAndIsDeletedFalse(Integer batchID);
 
+    Optional<ContributionAppeal> findTopByBatchIDAndUserIDAndIsDeletedFalseOrderByRequestedAtDesc(Integer batchID, Integer userID);
+
     boolean existsByBatchIDAndStatusAndIsDeletedFalse(Integer batchID, AppealStatus status);
 
     boolean existsByBatchIDAndUserIDAndStatusAndIsDeletedFalse(Integer batchID, Integer userID, AppealStatus status);
+
+    boolean existsByBatchIDAndUserIDAndIsDeletedFalse(Integer batchID, Integer userID);
 }

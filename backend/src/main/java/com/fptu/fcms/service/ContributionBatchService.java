@@ -18,6 +18,10 @@ public interface ContributionBatchService {
 
     List<ContributionDTO> getContributionScores(Integer eventId);
 
+    List<ContributionDTO> getMyContributionScores(Integer userId);
+
+    ContributionDTO getMyContributionScore(Integer eventId, Integer userId);
+
     ContributionBatchResponse saveContributionScores(Integer eventId, List<ContributionDTO> contributions, Integer actorId);
 
     ContributionBatchResponse openAppealWindow(Integer eventId, Integer actorId);

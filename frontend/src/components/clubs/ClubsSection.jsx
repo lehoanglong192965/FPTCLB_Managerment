@@ -50,8 +50,8 @@ export default function ClubsSection() {
       {/* Grid */}
       {!loading && !error && (
         <div
-          className="grid gap-[22px] max-w-[1200px] mx-auto"
-          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))" }}
+          className="grid gap-6 max-w-[1200px] mx-auto"
+          style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
         >
           {preview.map((club) => (
             <ClubCard key={club.abbr} club={club} />

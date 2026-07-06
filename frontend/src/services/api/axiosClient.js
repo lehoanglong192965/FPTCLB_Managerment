@@ -34,6 +34,8 @@ const PUBLIC_PREFIXES = [
   "/auth/register",
   "/auth/forgot-password",
   "/auth/reset-password",
+  "/guest-feedback",
+  "/v1/feedback/guest",
 ];
 
 function isPublicEndpoint(url = "") {

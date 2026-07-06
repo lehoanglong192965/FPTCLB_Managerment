@@ -21,6 +21,8 @@ import {
   ClipboardList,
   PlusCircle,
   Trophy,
+  Award,
+  MessageSquare,
 } from "lucide-react";
 
 /*
@@ -102,7 +104,9 @@ export const SIDEBAR_CONFIGS = {
     { key: "clubs",         label: "Khám Phá CLB",         icon: Star,            path: "/member/clubs" },
     { key: "apply",         label: "Đơn Ứng Tuyển",       icon: Send,            path: "/member/apply" },
     { key: "events",        label: "Khám Phá Sự Kiện",     icon: Calendar,        path: "/member/events" },
-    { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList,   path: "/member/tickets" },
+    { key: "tickets",        label: "Vé Của Tôi",           icon: ClipboardList,   path: "/member/tickets" },
+    { key: "pending-feedback", label: "Feedback Cần Gửi",   icon: MessageSquare,    path: "/member/pending-feedback" },
+    { key: "contributions", label: "Đóng Góp Của Tôi",    icon: Award,           path: "/member/contributions" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/member/notifications" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/member/profile" },
   ],
@@ -131,3 +135,4 @@ export const ROLE_LABELS = {
 export function getSidebarConfig(role) {
   return SIDEBAR_CONFIGS[role] ?? SIDEBAR_CONFIGS.MEMBER;
 }
+

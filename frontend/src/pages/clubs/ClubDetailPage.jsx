@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import clubService from "../../services/api/clubs/clubService";
 import applicationApi from "../../services/api/member/applicationApi";
 import { normalizeClub } from "../../hooks/usePublicClubs";
 import ClubDetailCard from "../../components/clubs/ClubDetailCard";
 import ApplyClubModal from "../../components/clubs/ApplyClubModal";
+import AlertModal from "../../components/ui/AlertModal";
 import { useAuth } from "../../contexts/AuthContext";
 
 const ACTIVE_STATUSES = new Set(["Submitted", "Reviewing", "ACCEPTED"]);
@@ -12,6 +13,7 @@ const ACTIVE_STATUSES = new Set(["Submitted", "Reviewing", "ACCEPTED"]);
 export default function ClubDetailPage() {
   const { abbr } = useParams();
   const navigate  = useNavigate();
+  const location  = useLocation();
   const { user, profile }  = useAuth();
 
   const [club, setClub]               = useState(null);
@@ -19,6 +21,7 @@ export default function ClubDetailPage() {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState("");
   const [showApply, setShowApply]     = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [toast, setToast]             = useState(null);
   const [alreadyApplied, setAlreadyApplied] = useState(false);
 
@@ -104,7 +107,7 @@ export default function ClubDetailPage() {
 
   const getPrimaryAction = () => {
     if (!user) {
-      return { label: "Đăng ký tài khoản để tham gia", onClick: () => navigate("/register") };
+      return { label: "Nộp đơn ứng tuyển", onClick: () => setShowLoginPrompt(true) };
     }
     if (!club?.recruiting) return null;
     if (alreadyApplied) {
@@ -178,6 +181,19 @@ export default function ClubDetailPage() {
           clubId={club.abbr ?? abbr}
           onClose={() => setShowApply(false)}
           onSubmitted={handleApplySubmitted}
+        />
+      )}
+
+      {showLoginPrompt && (
+        <AlertModal
+          type="error"
+          title="CHƯA ĐĂNG NHẬP"
+          message="Bạn chưa đăng nhập."
+          subMessage="Vui lòng đăng nhập để nộp đơn ứng tuyển câu lạc bộ."
+          confirmLabel="Đăng nhập ngay"
+          cancelLabel="Để sau"
+          onConfirm={() => navigate('/login', { state: { from: location.pathname } })}
+          onClose={() => setShowLoginPrompt(false)}
         />
       )}
     </div>

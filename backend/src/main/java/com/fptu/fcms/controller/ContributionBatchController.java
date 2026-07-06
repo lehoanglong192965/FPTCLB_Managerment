@@ -5,6 +5,7 @@ import com.fptu.fcms.dto.request.AppealResolveRequest;
 import com.fptu.fcms.dto.request.ReportRejectRequest;
 import com.fptu.fcms.dto.response.AppealResponse;
 import com.fptu.fcms.dto.response.ContributionBatchResponse;
+import com.fptu.fcms.dto.response.ContributionDTO;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.ContributionBatchService;
 import jakarta.validation.Valid;
@@ -53,6 +54,24 @@ public class ContributionBatchController {
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     public ResponseEntity<ContributionBatchResponse> getBatch(@PathVariable Integer eventId) {
         return ResponseEntity.ok(contributionBatchService.getBatchByEvent(eventId));
+    }
+
+    
+    @GetMapping("/contributions/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<ContributionDTO>> getMyContributions(
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        return ResponseEntity.ok(contributionBatchService.getMyContributionScores(userId(principal)));
+    }
+
+    @GetMapping("/events/{eventId}/contribution/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ContributionDTO> getMyEventContribution(
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        return ResponseEntity.ok(contributionBatchService.getMyContributionScore(eventId, userId(principal)));
     }
 
     @PostMapping("/events/{eventId}/contribution-batch/open-appeal")

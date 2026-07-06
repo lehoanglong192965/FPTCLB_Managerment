@@ -117,8 +117,8 @@ export default function EventsSection() {
 
       {/* Grid */}
       <div
-        className="relative z-10 grid gap-5 max-w-[1200px] mx-auto"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}
+        className="relative z-10 grid gap-6 max-w-[1200px] mx-auto"
+        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
       >
         {loading ? (
           <div className="col-span-full text-center py-10">

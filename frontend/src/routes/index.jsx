@@ -32,6 +32,8 @@ import CompetitionAwardsPage from "../pages/competitions/CompetitionAwardsPage";
 
 // Member pages (Sprint 6)
 import MemberAppealPage from "../pages/member/MemberAppealPage";
+import MemberPendingFeedback from "../pages/member/MemberPendingFeedback";
+import MemberMyContributionsPage from "../pages/member/MemberMyContributionsPage";
 
 // Dashboard layout (shared sidebar + outlet)
 import DashboardLayout from "../components/layout";
@@ -51,6 +53,7 @@ import IcpdpCompetitionList from "../pages/icpdp/IcpdpCompetitionList";
 import IcpdpCompetitionDetail from "../pages/icpdp/IcpdpCompetitionDetail";
 import IcpdpEmergencyOverridePage from "../pages/icpdp/IcpdpEmergencyOverridePage";
 import IcpdpEmergencyOverrideLookup from "../pages/icpdp/IcpdpEmergencyOverrideLookup";
+import IcpdpContributionPage from "../pages/icpdp/IcpdpContributionPage";
 
 // Admin pages
 import SemesterManagement from "../pages/admin/SemesterManagement";
@@ -158,6 +161,7 @@ export default function AppRoutes() {
         <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
         <Route path="emergency-override" element={<IcpdpEmergencyOverrideLookup />} />
         <Route path="events/:eventId/emergency-override" element={<IcpdpEmergencyOverridePage />} />
+        <Route path="events/:eventId/contributions" element={<IcpdpContributionPage />} />
         <Route path="notifications" element={<IcpdpNotifications />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -174,6 +178,7 @@ export default function AppRoutes() {
         <Route index element={<SemesterManagement />} />
         <Route path="users" element={<UserManagement />} />
         <Route path="system-config" element={<SystemConfigPage />} />
+        <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -283,10 +288,12 @@ export default function AppRoutes() {
         <Route path="club-register" element={<Navigate to="/member/clubs" replace />} />
         <Route path="club-register-history" element={<MemberRegistrationHistory />} />
         <Route path="events" element={<MemberEvents />} />
+        <Route path="pending-feedback" element={<MemberPendingFeedback />} />
         <Route path="tickets" element={<MemberMyTickets />} />
         <Route path="notifications" element={<MemberNotifications />} />
         <Route path="notification-settings" element={<MemberNotificationSettings />} />
         <Route path="apply" element={<MemberApply />} />
+        <Route path="contributions" element={<MemberMyContributionsPage />} />
         <Route path="events/:eventId/appeal" element={<MemberAppealPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -309,3 +316,5 @@ export default function AppRoutes() {
     </Routes>
   );
 }
+
+

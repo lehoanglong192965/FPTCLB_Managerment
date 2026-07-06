@@ -1,17 +1,10 @@
 import { useState, useEffect } from "react";
-import { X, FileText, ExternalLink, CheckCircle2, AlertCircle, Clock, Search, XCircle, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { X, FileText, ExternalLink, CheckCircle2, AlertCircle, Clock, Search, XCircle, ChevronRight, BarChart2 } from "lucide-react";
 import reportService from "../../services/api/report/reportService";
 import eventService from "../../services/api/events/eventService";
 
 const LS_KEY = "icpdp_reviewed_events";
-
-function loadReviewedFromStorage() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
-  catch { return {}; }
-}
-function saveReviewedToStorage(map) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(map)); } catch {}
-}
 
 const getImageUrl = (url) => {
   if (!url) return "";
@@ -43,7 +36,7 @@ function StatusBadge({ status }) {
 }
 
 /* ── Detail modal ── */
-function DetailModal({ ev, report, onApprove, onReject, onClose, approving }) {
+function DetailModal({ ev, report, onApprove, onReject, onClose, approving, onViewContributions }) {
   const [showReject, setShowReject]   = useState(false);
   const [reason, setReason]           = useState("");
   const [touched, setTouched]         = useState(false);
@@ -144,9 +137,19 @@ function DetailModal({ ev, report, onApprove, onReject, onClose, approving }) {
         {/* Footer actions */}
         <div className="px-6 pb-5 pt-3 border-t border-gray-100 shrink-0">
           {status === "approved" ? (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold"
-              style={{ background: "#D1FAE5", color: "#065F46" }}>
-              <CheckCircle2 size={15} /> Đã phê duyệt báo cáo
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold"
+                style={{ background: "#D1FAE5", color: "#065F46" }}>
+                <CheckCircle2 size={15} /> Đã phê duyệt báo cáo
+              </div>
+              <button
+                onClick={() => onViewContributions(ev.eventID)}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors w-full"
+                style={{ background: "#EDE9FE", color: "#6D28D9", border: "1px solid #DDD6FE" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "#DDD6FE"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "#EDE9FE"; }}>
+                <BarChart2 size={14} /> Xem đóng góp thành viên
+              </button>
             </div>
           ) : status === "rejected" ? (
             <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold"
@@ -182,6 +185,7 @@ function DetailModal({ ev, report, onApprove, onReject, onClose, approving }) {
 
 /* ── Main page ── */
 export default function IcpdpReportReview() {
+  const navigate = useNavigate();
   const [events, setEvents]         = useState([]);
   const [reports, setReports]       = useState({});
   const [loading, setLoading]       = useState(true);
@@ -199,32 +203,24 @@ export default function IcpdpReportReview() {
 
   useEffect(() => {
     setLoading(true);
+    try { localStorage.removeItem(LS_KEY); } catch {}
     eventService.getReportUploadedEvents()
       .then((res) => {
         const pending = (Array.isArray(res) ? res : (res?.data ?? res?.content ?? []))
           .map((e) => ({ ...e, _reviewStatus: "pending" }));
-        const stored = loadReviewedFromStorage();
-        const reviewedList = Object.values(stored).map((r) => ({ ...r.event, _reviewStatus: r.status }));
-        const pendingFiltered = pending.filter((e) => !stored[e.eventID]);
-        const all = [...pendingFiltered, ...reviewedList];
-        setEvents(all);
-        all.forEach((e) => fetchReportFor(e.eventID));
+        setEvents(pending);
+        pending.forEach((e) => fetchReportFor(e.eventID));
       })
       .catch((err) => {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
       })
       .finally(() => setLoading(false));
   }, []);
-
   const handleApprove = async (eventId) => {
     if (!window.confirm("Xác nhận phê duyệt báo cáo? Hành động không thể hoàn tác.")) return;
     setApprovingId(eventId);
     try {
       await reportService.approve(eventId);
-      const stored = loadReviewedFromStorage();
-      const ev = events.find((e) => e.eventID === eventId);
-      stored[eventId] = { event: ev, status: "approved" };
-      saveReviewedToStorage(stored);
       setEvents((prev) => prev.map((e) => e.eventID === eventId ? { ...e, _reviewStatus: "approved" } : e));
       setSelected((prev) => prev?.eventID === eventId ? { ...prev, _reviewStatus: "approved" } : prev);
     } catch (e) {
@@ -237,10 +233,6 @@ export default function IcpdpReportReview() {
   const handleReject = async (eventId, reason) => {
     try {
       await reportService.reject(eventId, { reason });
-      const stored = loadReviewedFromStorage();
-      const ev = events.find((e) => e.eventID === eventId);
-      stored[eventId] = { event: ev, status: "rejected", reason };
-      saveReviewedToStorage(stored);
       setEvents((prev) => prev.map((e) => e.eventID === eventId ? { ...e, _reviewStatus: "rejected" } : e));
       setSelected((prev) => prev?.eventID === eventId ? { ...prev, _reviewStatus: "rejected" } : prev);
     } catch (e) {
@@ -392,6 +384,10 @@ export default function IcpdpReportReview() {
           onApprove={handleApprove}
           onReject={handleReject}
           onClose={() => setSelected(null)}
+          onViewContributions={(eventId) => {
+            setSelected(null);
+            navigate(`/icpdp/events/${eventId}/contributions`);
+          }}
         />
       )}
     </div>

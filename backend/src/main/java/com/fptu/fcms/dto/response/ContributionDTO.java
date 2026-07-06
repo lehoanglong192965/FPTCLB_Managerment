@@ -5,11 +5,26 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class ContributionDTO {
     private Integer contributionID;
+    private Integer batchID;
+    private Integer eventID;
+    private Integer clubID;
+    private String eventName;
+    private LocalDateTime eventStartDate;
+    private String batchStatus;
+    private LocalDateTime appealClosesAt;
+    private Integer appealID;
+    private String appealStatus;
+    private String appealReason;
+    private String appealResolutionNote;
+    private LocalDateTime appealRequestedAt;
+    private LocalDateTime appealResolvedAt;
 
     @JsonAlias("userId")
     private Integer userID;

@@ -9,33 +9,7 @@ public class EventStatusConverter implements AttributeConverter<EventStatus, Str
 
     @Override
     public String convertToDatabaseColumn(EventStatus attribute) {
-        if (attribute == null) {
-            return null;
-        }
-        return switch (attribute) {
-            case DRAFT -> "Draft";
-            case PENDING -> "Pending";
-            case PENDING_APPROVAL -> "PENDING_APPROVAL";
-            case APPROVED -> "Approved";
-            case REJECTED -> "Rejected";
-            case CANCELLED -> "Cancelled";
-            case REGISTRATION_OPEN -> "REGISTRATION_OPEN";
-            case REGISTRATION_CLOSED -> "REGISTRATION_CLOSED";
-            case ONGOING -> "Ongoing";
-            case COMPLETED -> "Completed";
-            case CLOSED -> "Closed";
-            case REPORT_UPLOADED -> "REPORT_UPLOADED";
-            case CONTRIBUTION_CALCULATED -> "CONTRIBUTION_CALCULATED";
-            case CHECKIN_OPEN -> "CHECKIN_OPEN";
-            case REPORT_PENDING_APPROVAL -> "REPORT_PENDING_APPROVAL";
-            case REPORT_APPROVED -> "REPORT_APPROVED";
-            case REPORT_REJECTED -> "REPORT_REJECTED";
-            case CONTRIBUTION_DRAFT -> "CONTRIBUTION_DRAFT";
-            case CONTRIBUTION_PENDING_APPROVAL -> "CONTRIBUTION_PENDING_APPROVAL";
-            case CONTRIBUTION_APPROVED -> "CONTRIBUTION_APPROVED";
-            case CONTRIBUTION_SCORING -> "CONTRIBUTION_SCORING";
-            case CONTRIBUTION_FINALIZED -> "CONTRIBUTION_FINALIZED";
-        };
+        return attribute == null ? null : attribute.name();
     }
 
     @Override
