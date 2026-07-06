@@ -252,6 +252,8 @@ export default function ClubEventsMgmt() {
     "ONGOING",
     "COMPLETED",
     "REPORT_UPLOADED", "REPORTUPLOADED",
+    "REPORT_APPROVED", "REPORTAPPROVED",
+    "CONTRIBUTION_FINALIZED", "CONTRIBUTIONFINALIZED",
     "CLOSED",
     "CANCELLED",
   ];
@@ -920,6 +922,16 @@ export default function ClubEventsMgmt() {
                     eventStatus={selectedEv.eventStatus}
                     onCloseSuccess={() => window.location.reload()}
                   />
+                </>)}
+
+                {/* ReportApproved — đã tạo batch đóng góp */}
+                {status === "REPORTAPPROVED" && (<>
+                  <div style={{ padding: "10px 14px", borderRadius: 10, background: "#ecfdf5", border: "1.5px solid #a7f3d0", fontSize: 13, color: "#047857", fontWeight: 600 }}>
+                    ✓ Báo cáo đã được duyệt — có thể chốt đóng góp
+                  </div>
+                  <button onClick={() => navigate(`../contributions/${selectedEv.eventID}`, { relative: "path" })} style={btnStyle("#2563eb")}>
+                    Chốt đóng góp
+                  </button>
                 </>)}
 
                 {/* Cancelled / Closed / Rejected / PendingApproval — không có thao tác */}

@@ -3,12 +3,16 @@ import { Ticket, Search, Loader2 } from "lucide-react";
 import EventCard from "../../components/events/EventCard";
 import eventService from "../../services/api/events/eventService";
 import clubService from "../../services/api/clubs/clubService";
+import contributionService from "../../services/api/contribution/contributionService";
 
 const FILTER_TABS = [
   { key: "all",        label: "Tất cả"       },
   { key: "registered", label: "Đã đăng ký"   },
   { key: "ongoing",    label: "Đang làm BTC" },
 ];
+
+const isAppealWindowStatus = (status) =>
+  status === "APPEAL_WINDOW" || status === "APPEAL_OPEN";
 
 export default function MemberMyTickets() {
   const [search, setSearch]       = useState("");
@@ -69,7 +73,25 @@ export default function MemberMyTickets() {
           }
         });
 
-        setTickets(combined);
+        const appealChecks = await Promise.all(
+          combined
+            .filter((ticket) => ticket.ticketStatus === "ongoing")
+            .map(async (ticket) => {
+              try {
+                const batchRes = await contributionService.getBatch(ticket.id);
+                const batch = batchRes?.data ?? batchRes;
+                return [ticket.id, isAppealWindowStatus(batch?.status)];
+              } catch {
+                return [ticket.id, false];
+              }
+            })
+        );
+        const appealOpenIds = new Set(appealChecks.filter(([, open]) => open).map(([id]) => id));
+
+        setTickets(combined.map((ticket) => ({
+          ...ticket,
+          canAppealContribution: ticket.ticketStatus === "ongoing" && appealOpenIds.has(ticket.id),
+        })));
       } catch (err) {
         console.error("Lỗi khi tải danh sách vé:", err);
       } finally {

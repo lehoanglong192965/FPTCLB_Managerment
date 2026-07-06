@@ -8,6 +8,7 @@ const APPEAL_STATUS_CFG = {
   PENDING:  { label: 'Đang xét',     icon: <Clock size={16} className="text-yellow-500" />, bg: 'bg-yellow-50', border: 'border-yellow-200' },
   APPROVED: { label: 'Đã chấp nhận', icon: <CheckCircle2 size={16} className="text-green-500" />, bg: 'bg-green-50', border: 'border-green-200' },
   ACCEPTED: { label: 'Đã chấp nhận', icon: <CheckCircle2 size={16} className="text-green-500" />, bg: 'bg-green-50', border: 'border-green-200' },
+  APPROVED: { label: 'Đã chấp nhận', icon: <CheckCircle2 size={16} className="text-green-500" />, bg: 'bg-green-50', border: 'border-green-200' },
   REJECTED: { label: 'Đã từ chối',   icon: <XCircle size={16} className="text-red-400" />, bg: 'bg-red-50', border: 'border-red-200' },
 };
 

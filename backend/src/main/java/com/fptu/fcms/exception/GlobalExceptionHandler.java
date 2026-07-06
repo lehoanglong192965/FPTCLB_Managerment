@@ -3,6 +3,7 @@ package com.fptu.fcms.exception;
 import com.fptu.fcms.dto.response.ApiErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -55,6 +56,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessRuleException.class)
     public ResponseEntity<ApiErrorResponse> handleBusinessRuleException(BusinessRuleException ex) {
         return buildErrorResponse(ex.getStatus(), ex.getErrorCode(), ex.getMessage());
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
+        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+        if (status == null) {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
+        String reason = ex.getReason();
+        String message = StringUtils.hasText(reason) ? reason : status.getReasonPhrase();
+        String code = StringUtils.hasText(reason) ? reason : status.name();
+        return buildErrorResponse(status, code, message);
     }
 
     // =====================================================================

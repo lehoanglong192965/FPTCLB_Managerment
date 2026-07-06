@@ -392,8 +392,9 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
             String leaderEvaluation = StringUtils.hasText(request.getLeaderEvaluation())
                     ? normalizeLeaderEvaluation(request.getLeaderEvaluation())
                     : contribution.getLeaderEvaluation();
+            String tier = normalizeTier(request.getTier());
             applyScore(event, batch, contribution, appeal.getUserID(), type, leaderEvaluation, actorId, CONTRIBUTION_STATUS_DRAFT, LocalDateTime.now());
-            contribution.setTier(resolveTier(contribution.getFinalPoints()));
+            contribution.setTier(StringUtils.hasText(tier) ? tier : resolveTier(contribution.getFinalPoints()));
             contributionRepository.save(contribution);
         }
 
