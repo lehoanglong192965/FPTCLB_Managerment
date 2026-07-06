@@ -1,5 +1,7 @@
 ﻿import { useNavigate } from "react-router-dom";
 
+import { MessageSquare } from "lucide-react";
+
 const getImageUrl = (url) => {
   if (!url) return "";
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
@@ -28,6 +30,7 @@ export default function EventCard({ event }) {
     `/events/${event.id}`,
     isTicketMode ? { state: { fromTickets: true, ticketStatus: event.ticketStatus } } : undefined
   );
+  const toAppeal = () => navigate(`/member/events/${event.id}/appeal`);
 
   const badge = BADGE[event.badgeType] ?? BADGE.upcoming;
   const ticket = TICKET_STATUS[event.ticketStatus] ?? TICKET_STATUS.registered;
@@ -87,9 +90,21 @@ export default function EventCard({ event }) {
 
         <div className="flex items-center justify-between gap-2 pt-3" style={{ borderTop: "1px solid #F1F1F1" }}>
           {isTicketMode ? (
-            <span className="text-[12px] truncate" style={{ color: "#6B7280" }}>
-              {event.location ?? ""}
-            </span>
+            <>
+              <span className="text-[12px] truncate" style={{ color: "#6B7280" }}>
+                {event.location ?? ""}
+              </span>
+              {event.canAppealContribution && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); toAppeal(); }}
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-[12px] font-semibold text-orange-600 transition-colors hover:border-orange-300 hover:bg-orange-100"
+                  aria-label="Khiếu nại đóng góp"
+                >
+                  <MessageSquare size={13} /> Khiếu nại
+                </button>
+              )}
+            </>
           ) : hasCapacityInfo ? (
             <>
               <div className="flex flex-col leading-tight">

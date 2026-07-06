@@ -15,17 +15,17 @@ public class EventStatusConverter implements AttributeConverter<EventStatus, Str
         return switch (attribute) {
             case DRAFT -> "Draft";
             case PENDING -> "Pending";
-            case PENDING_APPROVAL -> "PendingApproval";
+            case PENDING_APPROVAL -> "PENDING_APPROVAL";
             case APPROVED -> "Approved";
             case REJECTED -> "Rejected";
             case CANCELLED -> "Cancelled";
-            case REGISTRATION_OPEN -> "RegistrationOpen";
-            case REGISTRATION_CLOSED -> "RegistrationClosed";
+            case REGISTRATION_OPEN -> "REGISTRATION_OPEN";
+            case REGISTRATION_CLOSED -> "REGISTRATION_CLOSED";
             case ONGOING -> "Ongoing";
             case COMPLETED -> "Completed";
             case CLOSED -> "Closed";
-            case REPORT_UPLOADED -> "ReportUploaded";
-            case CONTRIBUTION_CALCULATED -> "ContributionCalculated";
+            case REPORT_UPLOADED -> "REPORT_UPLOADED";
+            case CONTRIBUTION_CALCULATED -> "CONTRIBUTION_CALCULATED";
             case CHECKIN_OPEN -> "CHECKIN_OPEN";
             case REPORT_PENDING_APPROVAL -> "REPORT_PENDING_APPROVAL";
             case REPORT_APPROVED -> "REPORT_APPROVED";

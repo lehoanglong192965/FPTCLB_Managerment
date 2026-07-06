@@ -2,9 +2,8 @@ package com.fptu.fcms.entity;
 
 import com.fptu.fcms.enums.ContributionBatchStatus;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -44,7 +43,7 @@ public class ContributionBatch {
     @Column(name = "semesterID")
     private Integer semesterID;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = ContributionBatchStatusConverter.class)
     @Column(name = "status", nullable = false, length = 30)
     private ContributionBatchStatus status = ContributionBatchStatus.DRAFT;
 

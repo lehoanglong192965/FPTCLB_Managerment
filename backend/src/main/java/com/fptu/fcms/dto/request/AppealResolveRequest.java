@@ -17,4 +17,6 @@ public class AppealResolveRequest {
     private String contributionType;
 
     private String leaderEvaluation;
+
+    private String tier;
 }
