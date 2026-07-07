@@ -3,14 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { X, FileText, ExternalLink, CheckCircle2, AlertCircle, Clock, Search, XCircle, ChevronRight, BarChart2 } from "lucide-react";
 import reportService from "../../services/api/report/reportService";
 import eventService from "../../services/api/events/eventService";
+import { useConfirm } from "../../contexts/ConfirmContext";
+import { useToast } from "../../contexts/ToastContext";
+import { getServerOrigin } from "../../services/api/axiosClient";
 
-const LS_KEY = "icpdp_reviewed_events";
 
 const getImageUrl = (url) => {
   if (!url) return "";
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
-  return apiBase.replace(/\/api\/?$/, "") + url;
+  return getServerOrigin() + url;
 };
 
 function formatDate(isoStr) {
@@ -185,6 +186,8 @@ function DetailModal({ ev, report, onApprove, onReject, onClose, approving, onVi
 
 /* ── Main page ── */
 export default function IcpdpReportReview() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const navigate = useNavigate();
   const [events, setEvents]         = useState([]);
   const [reports, setReports]       = useState({});
@@ -198,12 +201,11 @@ export default function IcpdpReportReview() {
     try {
       const res = await reportService.getByEventId(eventId);
       setReports((prev) => ({ ...prev, [eventId]: res?.data ?? res }));
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   useEffect(() => {
     setLoading(true);
-    try { localStorage.removeItem(LS_KEY); } catch {}
     eventService.getReportUploadedEvents()
       .then((res) => {
         const pending = (Array.isArray(res) ? res : (res?.data ?? res?.content ?? []))
@@ -216,15 +218,16 @@ export default function IcpdpReportReview() {
       })
       .finally(() => setLoading(false));
   }, []);
+
   const handleApprove = async (eventId) => {
-    if (!window.confirm("Xác nhận phê duyệt báo cáo? Hành động không thể hoàn tác.")) return;
+    if (!(await confirm("Xác nhận phê duyệt báo cáo? Hành động không thể hoàn tác.", { confirmLabel: "Phê duyệt" }))) return;
     setApprovingId(eventId);
     try {
       await reportService.approve(eventId);
       setEvents((prev) => prev.map((e) => e.eventID === eventId ? { ...e, _reviewStatus: "approved" } : e));
       setSelected((prev) => prev?.eventID === eventId ? { ...prev, _reviewStatus: "approved" } : prev);
     } catch (e) {
-      alert(e.response?.data?.message || e.message || "Lỗi khi phê duyệt báo cáo.");
+      toast.error(e.response?.data?.message || e.message || "Lỗi khi phê duyệt báo cáo.");
     } finally {
       setApprovingId(null);
     }
@@ -236,7 +239,7 @@ export default function IcpdpReportReview() {
       setEvents((prev) => prev.map((e) => e.eventID === eventId ? { ...e, _reviewStatus: "rejected" } : e));
       setSelected((prev) => prev?.eventID === eventId ? { ...prev, _reviewStatus: "rejected" } : prev);
     } catch (e) {
-      alert(e.response?.data?.message || e.message || "Lỗi khi từ chối báo cáo.");
+      toast.error(e.response?.data?.message || e.message || "Lỗi khi từ chối báo cáo.");
     }
   };
 

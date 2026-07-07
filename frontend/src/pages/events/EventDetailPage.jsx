@@ -5,12 +5,12 @@ import eventService from "../../services/api/events/eventService";
 import clubService from "../../services/api/clubs/clubService";
 import EventRegistrationBtn from "../../components/events/EventRegistrationBtn";
 import { useAuth } from "../../contexts/AuthContext";
+import { getServerOrigin } from "../../services/api/axiosClient";
 
 const getImageUrl = (url) => {
   if (!url) return "";
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
-  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
-  return apiBase.replace(/\/api\/?$/, "") + url;
+  return getServerOrigin() + url;
 };
 
 const STATUS_BADGE = {

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Lock, CheckCircle2 } from "lucide-react";
+import axiosClient from "../../services/api/axiosClient";
 
 const LS_KEY = "fptclb_notif_settings";
 
@@ -80,8 +81,13 @@ export default function MemberNotificationSettings() {
     setSaved(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     localStorage.setItem(LS_KEY, JSON.stringify(settings));
+    try {
+      await axiosClient.put("/member/notification-settings", settings);
+    } catch {
+      // localStorage save succeeded; server sync is best-effort
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };

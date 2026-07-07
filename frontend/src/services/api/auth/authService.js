@@ -1,13 +1,7 @@
 import authApi from "./authApi";
 import { TokenService } from "../axiosClient";
-import { decodeJwtPayload } from "../../../lib/tokenGuard";
-
-const ROLE_MAP = {
-  1: "ADMIN",
-  2: "ICPDP",
-  3: "MEMBER",
-  4: "ALUMNI",
-};
+import { decodeJwtPayload } from "../../../utils/tokenGuard";
+import { ROLE_MAP } from "../../../constants/roles";
 
 const authService = {
   login: async (email, password) => {
@@ -22,12 +16,20 @@ const authService = {
     if (role === "MEMBER") {
       try {
         const res = await authApi.getMyClubRole();
-        if (res.clubRoleID === 1) {
-          role = "CLUB_LEADER";
-          clubId = res.clubID ?? null;
-        } else if (res.clubRoleID === 2) {
-          role = "VICE_LEADER";
-          clubId = res.clubID ?? null;
+        // Chỉ nâng quyền khi user thực sự thuộc một CLB (clubID hợp lệ)
+        if (res?.clubID) {
+          // clubRoleID: 1=Leader, 2=ViceLeader, 3=Member (thường), 5=ClubManager
+          if (res.clubRoleID === 1) {
+            role = "CLUB_LEADER";
+            clubId = res.clubID;
+          } else if (res.clubRoleID === 2) {
+            role = "VICE_LEADER";
+            clubId = res.clubID;
+          } else if (res.clubRoleID === 5) {
+            role = "CLUB_MANAGER";
+            clubId = res.clubID;
+          }
+          // clubRoleID === 3 hoặc 4 = Member thường → giữ nguyên role "MEMBER"
         }
         TokenService.save({ access_token: data.token, refresh_token: data.refreshToken, role, clubId });
       } catch (e) {

@@ -1,21 +1,8 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  CalendarDays, Clock, Send, CheckCircle2, Bell,
-  ShieldCheck, AlarmClock, Settings, ArrowRight,
-} from "lucide-react";
+import { Bell, CheckCircle2, Settings, ArrowRight } from "lucide-react";
 import { useNotifications } from "../../contexts/NotificationsContext";
-
-/* ── Metadata loại thông báo ─────────────────────────────────────── */
-
-const TYPE_META = {
-  event:    { Icon: CalendarDays, iconBg: "bg-blue-50",   iconColor: "text-blue-600",   tagBg: "bg-blue-600",   tagLabel: "Sự kiện"     },
-  deadline: { Icon: Clock,        iconBg: "bg-rose-50",   iconColor: "text-rose-600",   tagBg: "bg-rose-600",   tagLabel: "Hạn chót"    },
-  recruit:  { Icon: Send,         iconBg: "bg-orange-50", iconColor: "text-orange-500", tagBg: "bg-orange-500", tagLabel: "Tuyển thành viên" },
-  approval: { Icon: ShieldCheck,  iconBg: "bg-green-50",  iconColor: "text-green-600",  tagBg: "bg-green-600",  tagLabel: "Kết quả duyệt" },
-  reminder: { Icon: AlarmClock,   iconBg: "bg-amber-50",  iconColor: "text-amber-500",  tagBg: "bg-amber-500",  tagLabel: "Nhắc lịch"   },
-  general:  { Icon: Bell,         iconBg: "bg-purple-50", iconColor: "text-purple-600", tagBg: "bg-purple-600", tagLabel: "Thông báo"   },
-};
+import { TYPE_META, relativeTime } from "../../utils/notificationUtils";
 
 const FILTER_TABS = [
   { key: "all",      label: "Tất cả"    },
@@ -27,20 +14,6 @@ const FILTER_TABS = [
   { key: "reminder", label: "Nhắc lịch" },
 ];
 
-/* ── Helpers ─────────────────────────────────────────────────────── */
-
-function relativeTime(dateStr) {
-  const diff  = Date.now() - new Date(dateStr).getTime();
-  const mins  = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days  = Math.floor(diff / 86400000);
-  if (mins  <  1) return "Vừa xong";
-  if (mins  < 60) return `${mins} phút trước`;
-  if (hours < 24) return `${hours} giờ trước`;
-  if (days  <  7) return `${days} ngày trước`;
-  const d = new Date(dateStr);
-  return `${d.getDate()} thg ${d.getMonth() + 1}`;
-}
 
 function dateGroup(dateStr) {
   const d       = new Date(dateStr);

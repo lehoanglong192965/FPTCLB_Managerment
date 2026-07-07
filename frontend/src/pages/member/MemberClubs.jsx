@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Search, SlidersHorizontal, Loader2 } from "lucide-react";
 import ClubCard from "../../components/clubs/ClubCard";
 import ClubDetailCard from "../../components/clubs/ClubDetailCard";
 import ApplyClubModal from "../../components/clubs/ApplyClubModal";
-import { usePublicClubs, CATEGORY_LABEL } from "../../hooks/usePublicClubs";
+import { usePublicClubs } from "../../hooks/usePublicClubs";
 import { useAuth } from "../../contexts/AuthContext";
 import applicationApi from "../../services/api/member/applicationApi";
+import authApi from "../../services/api/auth/authApi";
+import { useToast } from "../../contexts/ToastContext";
 
 const ACTIVE_STATUSES = new Set(["Submitted", "Reviewing", "ACCEPTED"]);
 
@@ -22,6 +24,7 @@ const ALL_TAGS = [
 ];
 
 export default function MemberClubs() {
+  const toast = useToast();
   const { clubs, loading, error } = usePublicClubs();
   const { user }                  = useAuth();
   const [search, setSearch]       = useState("");
@@ -30,13 +33,16 @@ export default function MemberClubs() {
   const [viewingClub, setViewingClub] = useState(null);
   const [applyClub, setApplyClub]     = useState(null);
   const [alreadyApplied, setAlreadyApplied] = useState(false);
-  const [toast, setToast]             = useState(null);
+  const [joinedClubId, setJoinedClubId] = useState(null);
   const filterRef = useRef(null);
 
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+  // Lấy CLB user đã tham gia để ẩn khỏi danh sách khám phá
+  useEffect(() => {
+    if (!user) return;
+    authApi.getMyClubRole()
+      .then((res) => { if (res?.clubID) setJoinedClubId(res.clubID); })
+      .catch(() => {});
+  }, [user]);
 
   // Khi chọn xem CLB, kiểm tra member đã nộp đơn chưa
   useEffect(() => {
@@ -58,10 +64,10 @@ export default function MemberClubs() {
         cvUrl: payload.cvUrl ?? "",
       });
       setAlreadyApplied(true);
-      showToast(`Nộp đơn vào ${viewingClub.name} thành công!`);
+      toast.success(`Nộp đơn vào ${viewingClub.name} thành công!`);
     } catch (err) {
       const msg = err?.response?.data?.message ?? "Không thể nộp đơn. Vui lòng thử lại.";
-      showToast(msg, "error");
+      toast.error(msg);
     }
   };
 
@@ -76,23 +82,15 @@ export default function MemberClubs() {
   }, []);
 
   const filtered = clubs.filter((c) => {
+    if (joinedClubId && c.id === joinedClubId) return false;
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase());
     const matchTag    = activeTag === "Tất cả" || c.tag === activeTag;
     return matchSearch && matchTag;
   });
 
-  const toastEl = toast && (
-    <div className={`fixed top-5 right-7 z-[999] px-5 py-3 rounded-lg text-[13.5px] font-medium shadow-lg ${
-      toast.type === "error" ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-900"
-    }`}>
-      {toast.msg}
-    </div>
-  );
-
   if (viewingClub) {
     return (
       <>
-        {toastEl}
         <ClubDetailCard
           club={viewingClub}
           clubEvents={[]}
@@ -118,7 +116,6 @@ export default function MemberClubs() {
 
   return (
     <div>
-      {toastEl}
       <div className="page-header">
         <h1 className="page-title">Khám Phá CLB</h1>
         <p className="page-subtitle">Tìm và đăng ký tham gia câu lạc bộ phù hợp với bạn</p>

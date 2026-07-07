@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Trophy, ArrowLeft, Calculator, CheckCircle2, Send, Lock, Eye, RefreshCw } from 'lucide-react';
-import competitionService from '../../services/api/competition/competitionService';
+import competitionService from '../../services/api/competitions/competitionService';
+import { useConfirm } from '../../contexts/ConfirmContext';
+import { useToast } from '../../contexts/ToastContext';
 
 const STATUS_BADGE = {
   Draft:     'bg-gray-100 text-gray-600',
@@ -28,12 +30,14 @@ const SCORE_COLS = [
 ];
 
 export default function IcpdpCompetitionDetail() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const { competitionId } = useParams();
   const navigate = useNavigate();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [acting, setActing] = useState(null); // 'calculate'|'approve'|'publish'|'close'
+  const [acting, setActing] = useState(null);
 
   const load = () => {
     setLoading(true);
@@ -46,13 +50,13 @@ export default function IcpdpCompetitionDetail() {
   useEffect(load, [competitionId]);
 
   const doAction = async (action, confirmMsg, fn) => {
-    if (!window.confirm(confirmMsg)) return;
+    if (!(await confirm(confirmMsg))) return;
     setActing(action);
     try {
       await fn();
       load();
     } catch (e) {
-      alert(e?.response?.data?.message || e.message || 'Có lỗi xảy ra.');
+      toast.error(e?.response?.data?.message || e.message || 'Có lỗi xảy ra.');
     } finally {
       setActing(null);
     }

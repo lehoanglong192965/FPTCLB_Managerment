@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Send } from "lucide-react";
+import icpdpNotificationApi from "../../services/api/icpdp/icpdpBroadcastApi";
+import { useToast } from "../../contexts/ToastContext";
 
 const AUDIENCE_OPTIONS = [
   { value: "all_members",   label: "Toàn bộ sinh viên tham gia CLB" },
@@ -18,25 +20,25 @@ const TYPE_OPTIONS = [
 const INITIAL = { audience: "all_members", type: "general", title: "", content: "" };
 
 export default function IcpdpNotifications() {
+  const toast = useToast();
   const [form, setForm]     = useState(INITIAL);
   const [sending, setSending] = useState(false);
-  const [toast, setToast]   = useState(null);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
   const handleBroadcast = async () => {
     if (!form.title.trim() || !form.content.trim()) {
-      setToast({ type: "error", msg: "Vui lòng nhập tiêu đề và nội dung thông báo." });
+      toast.error("Vui lòng nhập tiêu đề và nội dung thông báo.");
       return;
     }
     setSending(true);
-    setToast(null);
     try {
-      await new Promise((r) => setTimeout(r, 900));
-      setToast({ type: "success", msg: "Thông báo đã được phát sóng thành công!" });
+      await icpdpNotificationApi.broadcast(form);
+      toast.success("Thông báo đã được phát sóng thành công!");
       setForm(INITIAL);
-    } catch {
-      setToast({ type: "error", msg: "Có lỗi xảy ra, vui lòng thử lại." });
+    } catch (err) {
+      const msg = err?.response?.data?.message ?? "Có lỗi xảy ra, vui lòng thử lại.";
+      toast.error(msg);
     } finally {
       setSending(false);
     }
@@ -101,14 +103,6 @@ export default function IcpdpNotifications() {
             onChange={set("content")}
           />
         </div>
-
-        {toast && (
-          <div className={`mt-3.5 px-4 py-2.5 rounded-lg text-[13.5px] font-medium ${
-            toast.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-          }`}>
-            {toast.msg}
-          </div>
-        )}
 
         <div className="flex justify-end mt-2">
           <button

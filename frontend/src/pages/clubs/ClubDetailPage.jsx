@@ -7,6 +7,7 @@ import ClubDetailCard from "../../components/clubs/ClubDetailCard";
 import ApplyClubModal from "../../components/clubs/ApplyClubModal";
 import AlertModal from "../../components/ui/AlertModal";
 import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext";
 
 const ACTIVE_STATUSES = new Set(["Submitted", "Reviewing", "ACCEPTED"]);
 
@@ -14,7 +15,7 @@ export default function ClubDetailPage() {
   const { abbr } = useParams();
   const navigate  = useNavigate();
   const location  = useLocation();
-  const { user, profile }  = useAuth();
+  const { user }  = useAuth();
 
   const [club, setClub]               = useState(null);
   const [clubEvents, setClubEvents]   = useState([]);
@@ -22,7 +23,7 @@ export default function ClubDetailPage() {
   const [error, setError]             = useState("");
   const [showApply, setShowApply]     = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [toast, setToast]             = useState(null);
+  const toast = useToast();
   const [alreadyApplied, setAlreadyApplied] = useState(false);
 
   useEffect(() => {
@@ -84,11 +85,6 @@ export default function ClubDetailPage() {
       .catch(() => setAlreadyApplied(false));
   }, [user, club?.id]);
 
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
   const handleApplySubmitted = async (payload) => {
     setShowApply(false);
     try {
@@ -98,10 +94,10 @@ export default function ClubDetailPage() {
         cvUrl: payload.cvUrl ?? "",
       });
       setAlreadyApplied(true);
-      showToast(`Nộp đơn vào ${club.name} thành công!`);
+      toast.success(`Nộp đơn vào ${club.name} thành công!`);
     } catch (err) {
       const msg = err?.response?.data?.message ?? "Không thể nộp đơn. Vui lòng thử lại.";
-      showToast(msg, "error");
+      toast.error(msg);
     }
   };
 
@@ -155,18 +151,6 @@ export default function ClubDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#F2F4F7] pt-[calc(68px+28px)] px-[5%] pb-15 font-['Be_Vietnam_Pro','Inter',sans-serif]">
-      {toast && (
-        <div
-          className={`fixed top-5 right-7 z-[999] px-5 py-3 rounded-lg text-[13.5px] font-medium shadow-lg ${
-            toast.type === "error"
-              ? "bg-red-100 text-red-800"
-              : "bg-emerald-100 text-emerald-900"
-          }`}
-        >
-          {toast.msg}
-        </div>
-      )}
-
       <div className="max-w-[1100px] mx-auto">
         <ClubDetailCard
           club={club}

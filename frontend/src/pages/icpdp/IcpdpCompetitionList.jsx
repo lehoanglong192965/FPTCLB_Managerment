@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trophy, Plus, ChevronRight, Calendar, X, AlertCircle } from 'lucide-react';
-import competitionService from '../../services/api/competition/competitionService';
+import competitionService from '../../services/api/competitions/competitionService';
 
 const STATUS_BADGE = {
   Draft:     'bg-gray-100 text-gray-600',

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useToast } from "../../contexts/ToastContext";
 import { useNavigate } from "react-router-dom";
 import {
   FileText,
@@ -14,22 +15,19 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import clubRegistrationApi from "../../services/api/clubs/clubRegistrationApi";
-import axiosClient from "../../services/api/axiosClient";
+import axiosClient, { getServerOrigin } from "../../services/api/axiosClient";
 
 const CATEGORIES = ["IT", "Music", "Sports", "Art", "Culture", "Kỹ thuật", "Ngôn ngữ", "Học thuật", "Cộng đồng", "Khác"];
 
 const getImageUrl = (url) => {
   if (!url) return "";
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
-    return url;
-  }
-  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
-  const origin = apiBase.replace(/\/api\/?$/, "");
-  return `${origin}${url}`;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  return getServerOrigin() + url;
 };
 
 export default function ClubRegistrationForm({ mode = "member" }) {
   const navigate = useNavigate();
+  const toast = useToast();
   const isStaffMode = mode === "icpdp";
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -148,7 +146,7 @@ export default function ClubRegistrationForm({ mode = "member" }) {
 
   const removeMember = (index) => {
     if (foundingMembers.length <= 5) {
-      alert("Đơn đăng ký yêu cầu tối thiểu 5 nhân sự (1 Chủ nhiệm, 1 Phó chủ nhiệm, 3 Thành viên sáng lập).");
+      toast.error("Đơn đăng ký yêu cầu tối thiểu 5 nhân sự (1 Chủ nhiệm, 1 Phó chủ nhiệm, 3 Thành viên sáng lập).");
       return;
     }
     setFoundingMembers((prev) => prev.filter((_, i) => i !== index));

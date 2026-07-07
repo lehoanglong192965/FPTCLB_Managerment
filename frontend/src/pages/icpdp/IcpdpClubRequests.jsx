@@ -3,8 +3,6 @@ import {
   FileText,
   AlertCircle,
   CheckCircle,
-  XCircle,
-  Calendar,
   Compass,
   Users,
   MessageSquare,
@@ -14,31 +12,24 @@ import {
   RefreshCw,
 } from "lucide-react";
 import clubRegistrationApi from "../../services/api/clubs/clubRegistrationApi";
+import { useToast } from "../../contexts/ToastContext";
+import { getServerOrigin } from "../../services/api/axiosClient";
 
 const getImageUrl = (url) => {
   if (!url) return "";
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
-    return url;
-  }
-  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
-  const origin = apiBase.replace(/\/api\/?$/, "");
-  return `${origin}${url}`;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+  return getServerOrigin() + url;
 };
 
 export default function IcpdpClubRequests() {
+  const toast = useToast();
   const [requests, setRequests] = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState(null);
   const [comment, setComment] = useState("");
   const [previewImage, setPreviewImage] = useState(null);
-
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const loadRequests = async () => {
     setLoading(true);
@@ -64,14 +55,14 @@ export default function IcpdpClubRequests() {
 
   const handleReview = async (status) => {
     if (status === "REJECTED" && !comment.trim()) {
-      alert("Vui lòng nhập lý do từ chối đăng ký thành lập CLB.");
+      toast.error("Vui lòng nhập lý do từ chối đăng ký thành lập CLB.");
       return;
     }
 
     setActionLoading(true);
     try {
       await clubRegistrationApi.review(selected.registrationID, status, comment);
-      showToast(
+      toast.success(
         status === "APPROVED"
           ? "Đã phê duyệt và kích hoạt câu lạc bộ thành công!"
           : "Đã từ chối đơn đăng ký thành lập."
@@ -80,7 +71,7 @@ export default function IcpdpClubRequests() {
       setSelected(null);
       loadRequests();
     } catch (err) {
-      alert(err.response?.data?.error || err.response?.data?.message || "Xử lý duyệt thất bại.");
+      toast.error(err.response?.data?.error || err.response?.data?.message || "Xử lý duyệt thất bại.");
     } finally {
       setActionLoading(false);
     }
@@ -88,14 +79,6 @@ export default function IcpdpClubRequests() {
 
   return (
     <div>
-      {toast && (
-        <div className={`fixed top-5 right-7 z-[999] px-5 py-3 rounded-lg text-[13.5px] font-medium shadow-lg ${
-          toast.type === "success" ? "bg-emerald-100 text-emerald-900" : "bg-red-100 text-red-800"
-        }`}>
-          {toast.msg}
-        </div>
-      )}
-
       <div className="page-header flex items-start justify-between gap-4">
         <div>
           <h1 className="page-title">Duyệt Đăng Ký CLB</h1>

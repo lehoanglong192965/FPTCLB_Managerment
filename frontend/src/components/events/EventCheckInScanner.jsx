@@ -20,7 +20,7 @@ const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
         } catch {
             // summary is optional
         }
-    }, [eventId, sessionId]);
+    }, [sessionId]);
 
     useEffect(() => { fetchSummary(); }, [fetchSummary]);
 

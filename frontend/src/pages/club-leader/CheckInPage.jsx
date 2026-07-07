@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Play, Square, Users, ScanLine } from 'lucide-react';
 import eventService from '../../services/api/events/eventService';
 import attendanceService from '../../services/api/attendance/attendanceService';
-import EventCheckInScanner from './EventCheckInScanner';
+import EventCheckInScanner from '../../components/events/EventCheckInScanner';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 const SESSION_STATUS_CFG = {
   OPEN:   { label: 'Đang mở',  dotColor: '#10B981', textColor: '#065F46', bgColor: '#D1FAE5', borderColor: '#10B981' },
@@ -66,6 +67,7 @@ export default function CheckInPage() {
   const toast = useToast();
 
   const [event, setEvent] = useState(null);
+  const confirm = useConfirm();
   const [sessions, setSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -122,7 +124,7 @@ export default function CheckInPage() {
   };
 
   const handleCloseSession = async (session) => {
-    if (!window.confirm(`Đóng phiên "${session.sessionName}"? Những ai chưa điểm danh sẽ bị đánh ABSENT.`)) return;
+    if (!(await confirm(`Đóng phiên "${session.sessionName}"? Những ai chưa điểm danh sẽ bị đánh ABSENT.`, { danger: true, confirmLabel: "Đóng phiên" }))) return;
     setActionLoading(session.sessionId ?? session.id);
     try {
       await attendanceService.closeSession(session.sessionId ?? session.id);

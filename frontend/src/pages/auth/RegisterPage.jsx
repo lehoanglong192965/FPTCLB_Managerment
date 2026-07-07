@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import authService from "../../services/api/auth/authService";
+import { getServerOrigin } from "../../services/api/axiosClient";
 
 function GoogleIcon() {
   return (
@@ -16,6 +17,7 @@ function GoogleIcon() {
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [form, setForm] = useState({
     username: "",
@@ -33,7 +35,9 @@ export default function RegisterPage() {
 
   const handleSSO = () => {
     setLoading("google");
-    window.location.href = "http://localhost:8080/oauth2/authorization/google";
+    const from = location.state?.from;
+    if (from) sessionStorage.setItem("oauth_return_to", from);
+    window.location.href = `${getServerOrigin()}/oauth2/authorization/google`;
   };
 
   const handleChange = (e) => {
@@ -77,7 +81,7 @@ export default function RegisterPage() {
       });
       setSuccess(true);
       localStorage.setItem("pending_verify_email", form.email);
-      setTimeout(() => navigate("/verify-otp", { state: { email: form.email } }), 2000);
+      setTimeout(() => navigate("/verify-otp", { state: { email: form.email, from: location.state?.from } }), 2000);
     } catch (err) {
       const status = err?.response?.status;
       if (status === 409) {

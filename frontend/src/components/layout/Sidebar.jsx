@@ -2,29 +2,8 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { TokenService } from "../../services/api/axiosClient";
-import { decodeJwtPayload } from "../../lib/tokenGuard";
 import { ROLE_LABELS } from "./sidebarConfigs";
-import authService from "../../services/api/auth/authService";
-
-function resolveUserInfo(authUser) {
-  const token =
-    TokenService.getAccess() || sessionStorage.getItem("auth_token");
-  const payload = token ? decodeJwtPayload(token) : null;
-
-  const name =
-    authUser?.name ||
-    payload?.name ||
-    payload?.email?.split("@")[0] ||
-    "Người dùng";
-
-  const role =
-    authUser?.role ||
-    (TokenService.getRole() !== "GUEST" ? TokenService.getRole() : null) ||
-    payload?.roles?.[0]?.toUpperCase() ||
-    "MEMBER";
-
-  return { name, role };
-}
+import { resolveUserInfo } from "../../utils/notificationUtils";
 
 export default function Sidebar({ navItems }) {
   const { user, logout, profile } = useAuth();
@@ -37,10 +16,9 @@ export default function Sidebar({ navItems }) {
 
   const handleLogout = async () => {
     try {
-      await authService.logout();
+      await logout();
     } catch {
       TokenService.clear();
-      logout();
       navigate("/login");
     }
   };

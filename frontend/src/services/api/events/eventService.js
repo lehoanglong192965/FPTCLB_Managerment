@@ -60,10 +60,7 @@ const eventService = {
   registerWalkIn: (eventId, payload) => axiosClient.post(`/events/${eventId}/registrations/walk-in`, payload),
   getMyRegistrations: () => axiosClient.get("/registrations/me/events"),
 
-  // Legacy compatibility while old screens still call eventId-based unregister.
-  unregister: (eventId) => axiosClient.delete(`/event-registrations/unregister/${eventId}`),
-
-  // New registration management API
+  // Registration management
   listRegistrations: (eventId, params = {}) =>
     axiosClient.get(`/events/${eventId}/registrations`, { params }),
   listPendingRegistrations: (eventId, params = {}) =>

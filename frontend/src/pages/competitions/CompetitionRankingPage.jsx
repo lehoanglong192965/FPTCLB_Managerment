@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Trophy, Medal, AlertCircle } from 'lucide-react';
-import competitionService from '../../services/api/competition/competitionService';
+import competitionService from '../../services/api/competitions/competitionService';
 
 const RANK_STYLE = {
   1: 'bg-yellow-100 text-yellow-700 border-yellow-200',

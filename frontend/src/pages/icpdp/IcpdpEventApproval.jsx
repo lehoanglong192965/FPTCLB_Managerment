@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { X, Calendar, MapPin, Clock, ChevronRight, Search } from "lucide-react";
 import eventService from "../../services/api/events/eventService";
+import { useToast } from "../../contexts/ToastContext";
+import { getServerOrigin } from "../../services/api/axiosClient";
 
 const getImageUrl = (url) => {
   if (!url) return "";
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
-  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
-  return apiBase.replace(/\/api\/?$/, "") + url;
+  return getServerOrigin() + url;
 };
 
 const BUDGET_LIMIT = 5_000_000;
@@ -228,30 +229,9 @@ function DetailPopup({ event, onClose, onApprove, onReject }) {
   );
 }
 
-/* ── localStorage helpers ──────────────────────────────── */
-const LS_KEY = "icpdp_processed_events";
-
-function loadProcessed() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { return []; }
-}
-
-function saveProcessed(events) {
-  // Chỉ lưu sự kiện bị từ chối — approved được lấy từ API thật khi reload
-  localStorage.setItem(LS_KEY, JSON.stringify(events.filter((e) => e.status === "rejected")));
-}
-
-function savePublicApproved(events) {
-  localStorage.setItem("public_approved_events", JSON.stringify(
-    events.filter((e) => e.status === "approved").map((e) => ({
-      id: e.id, title: e.name, club: e.club, emoji: "🎉", color: "#E6430A",
-      badgeType: "upcoming", date: e.eventDate, location: e.location ?? "",
-      maxParticipants: 0, currentParticipants: 0,
-    }))
-  ));
-}
-
 /* ── Main ──────────────────────────────────────────────── */
 export default function IcpdpEventApproval() {
+  const toast = useToast();
   const [activeTab, setActiveTab]       = useState("pending");
   const [events, setEvents]             = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -268,8 +248,6 @@ export default function IcpdpEventApproval() {
       .then(([pendingRes, approvedRes]) => {
         const pendingList   = Array.isArray(pendingRes)  ? pendingRes  : (pendingRes?.data  ?? []);
         const approvedList  = Array.isArray(approvedRes) ? approvedRes : (approvedRes?.content ?? approvedRes?.data ?? []);
-
-        const pendingIds    = new Set(pendingList.map((e) => e.eventID));
 
         const fromPending = pendingList.map((e) => ({
           id:               e.eventID,
@@ -302,49 +280,33 @@ export default function IcpdpEventApproval() {
           scheduleConflict: false,
         }));
 
-        const approvedIds = new Set(fromApproved.map((e) => e.id));
-
-        // Sự kiện bị từ chối chỉ có trong localStorage (BE không có endpoint riêng)
-        const rejectedFromStorage = loadProcessed().filter(
-          (e) => e.status === "rejected" && !pendingIds.has(e.id) && !approvedIds.has(e.id)
-        );
-
-        setEvents([...fromPending, ...fromApproved, ...rejectedFromStorage]);
+        setEvents([...fromPending, ...fromApproved]);
       })
-      .catch(() => setEvents(loadProcessed()))
+      .catch(() => setEvents([]))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchEvents(); }, []);
 
-  const updateAndPersist = (updater) => {
-    setEvents((prev) => {
-      const next = updater(prev);
-      saveProcessed(next);
-      savePublicApproved(next);
-      return next;
-    });
-  };
-
   const approve = async (id) => {
     try {
       await eventService.approveForIcpdp(id);
-      updateAndPersist((prev) =>
+      setEvents((prev) =>
         prev.map((e) => e.id === id ? { ...e, status: "approved", statusLabel: "Đã phê duyệt" } : e)
       );
     } catch (err) {
-      alert(err?.response?.data?.message ?? "Phê duyệt thất bại.");
+      toast.error(err?.response?.data?.message ?? "Phê duyệt thất bại.");
     }
   };
 
   const reject = async (id, reason) => {
     try {
       await eventService.rejectForIcpdp(id, reason);
-      updateAndPersist((prev) =>
+      setEvents((prev) =>
         prev.map((e) => e.id === id ? { ...e, status: "rejected", statusLabel: "Đã từ chối", rejectionReason: reason } : e)
       );
     } catch (err) {
-      alert(err?.response?.data?.message ?? "Từ chối thất bại.");
+      toast.error(err?.response?.data?.message ?? "Từ chối thất bại.");
     }
     setRejectTarget(null);
     setSelectedEvent(null);
