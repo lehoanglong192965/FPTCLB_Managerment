@@ -68,9 +68,19 @@ export default function ClubRegistrationForm({ mode = "member" }) {
     const trimmedId = studentId.trim();
     const key = `member_${memberIndex}`;
 
-    if (trimmedId.length < 8) {
-      setValidationErrors((prev) => ({ ...prev, [key]: "" }));
-      setValidationSuccess((prev) => ({ ...prev, [key]: "" }));
+    // Validate alphanumeric format and length
+    const studentIdRegex = /^[a-zA-Z0-9]{8,15}$/;
+    if (!studentIdRegex.test(trimmedId)) {
+      if (trimmedId.length < 8) {
+        setValidationErrors((prev) => ({ ...prev, [key]: "" }));
+        setValidationSuccess((prev) => ({ ...prev, [key]: "" }));
+      } else {
+        setValidationErrors((prev) => ({
+          ...prev,
+          [key]: "Mã số sinh viên không hợp lệ (chứa ký tự đặc biệt hoặc khoảng trắng).",
+        }));
+        setValidationSuccess((prev) => ({ ...prev, [key]: "" }));
+      }
       return;
     }
 
@@ -184,7 +194,28 @@ export default function ClubRegistrationForm({ mode = "member" }) {
       await clubRegistrationApi.submit(payload);
       setSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.message || "Nộp đơn đăng ký thất bại.");
+      let errMsg = err.response?.data?.message || err.response?.data?.error || "Nộp đơn đăng ký thất bại.";
+      
+      // Translate common backend error messages to friendly Vietnamese
+      if (errMsg.includes("Proposed Leader already leads another club in this semester")) {
+        errMsg = "Sinh viên được chọn làm Chủ nhiệm đã là Chủ nhiệm của một CLB khác trong học kỳ này.";
+      } else if (errMsg.includes("Club code already exists")) {
+        errMsg = "Mã câu lạc bộ đã tồn tại trong hệ thống. Vui lòng chọn mã khác.";
+      } else if (errMsg.includes("Club name already exists")) {
+        errMsg = "Tên câu lạc bộ đã tồn tại trong hệ thống. Vui lòng chọn tên khác.";
+      } else if (errMsg.includes("Active semester not found")) {
+        errMsg = "Không tìm thấy học kỳ đang hoạt động trong hệ thống.";
+      } else if (errMsg.includes("Proposed Vice Leader already leads another club")) {
+        errMsg = "Sinh viên được chọn làm Phó chủ nhiệm đã là Chủ nhiệm của một CLB khác.";
+      } else if (errMsg.includes("Proposed founding member has too many club memberships")) {
+        errMsg = "Có thành viên sáng lập đã tham gia quá giới hạn số lượng CLB (tối đa 4 CLB).";
+      } else if (errMsg.includes("Proposed Leader has active discipline log")) {
+        errMsg = "Sinh viên được chọn làm Chủ nhiệm đang có biên bản kỷ luật hoạt động.";
+      } else if (errMsg.includes("Proposed Vice Leader has active discipline log")) {
+        errMsg = "Sinh viên được chọn làm Phó chủ nhiệm đang có biên bản kỷ luật hoạt động.";
+      }
+      
+      setError(errMsg);
     } finally {
       setLoading(false);
     }

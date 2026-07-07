@@ -71,7 +71,7 @@ export default function IcpdpClubRequests() {
       setSelected(null);
       loadRequests();
     } catch (err) {
-      toast.error(err.response?.data?.error || err.response?.data?.message || "Xử lý duyệt thất bại.");
+      toast.error(err.response?.data?.message || err.response?.data?.error || "Xử lý duyệt thất bại.");
     } finally {
       setActionLoading(false);
     }
