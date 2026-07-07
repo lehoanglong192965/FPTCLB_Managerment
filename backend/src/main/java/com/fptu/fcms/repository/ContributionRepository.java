@@ -12,6 +12,10 @@ import java.util.Optional;
 public interface ContributionRepository extends JpaRepository<EventContribution, Integer> {
     List<EventContribution> findByEventIDAndIsDeletedFalse(Integer eventID);
 
+    List<EventContribution> findByUserIDAndIsDeletedFalse(Integer userID);
+
+    Optional<EventContribution> findByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
+
     List<EventContribution> findByBatchIDAndIsDeletedFalse(Integer batchID);
 
     Optional<EventContribution> findByBatchIDAndUserIDAndIsDeletedFalse(Integer batchID, Integer userID);

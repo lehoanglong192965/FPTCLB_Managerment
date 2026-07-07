@@ -3,7 +3,6 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, ArrowRight, AlertCircle } from 'lucide-react';
 import guestService from '../../services/api/guest/guestService';
 import eventService from '../../services/api/events/eventService';
-import { maskEmail } from '../../utils/piiMask';
 
 export default function GuestRegisterPage() {
   const { eventId } = useParams();

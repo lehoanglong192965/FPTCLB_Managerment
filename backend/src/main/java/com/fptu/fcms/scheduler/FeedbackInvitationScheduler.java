@@ -50,7 +50,7 @@ public class FeedbackInvitationScheduler {
     private final UserRepository userRepository;
     private final EmailService emailService;
 
-    @Value("${fcms.feedback.public-base-url:http://localhost:8080/api/guest-feedback/}")
+    @Value("${fcms.feedback.public-base-url:http://localhost:5173/feedback/guest}")
     private String publicFeedbackBaseUrl;
 
     @Scheduled(cron = "0 */5 * * * ?")
@@ -153,12 +153,19 @@ public class FeedbackInvitationScheduler {
     }
 
     private void sendFeedbackEmail(Event event, String email, String rawToken) {
-        String link = publicFeedbackBaseUrl.endsWith("/") ? publicFeedbackBaseUrl + rawToken : publicFeedbackBaseUrl + "/" + rawToken;
+        String link = buildFeedbackLink(rawToken);
         emailService.sendSimpleEmail(
                 email,
                 "FCMS Event Feedback",
                 "Please submit feedback for event " + event.getEventName() + " using this link: " + link
         );
+    }
+
+    private String buildFeedbackLink(String rawToken) {
+        String base = publicFeedbackBaseUrl == null || publicFeedbackBaseUrl.isBlank()
+                ? "http://localhost:5173/feedback/guest"
+                : publicFeedbackBaseUrl.trim();
+        return base.endsWith("/") ? base + rawToken : base + "/" + rawToken;
     }
 
     private String resolveEmail(EventRegistration registration) {

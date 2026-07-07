@@ -43,7 +43,7 @@ export default function VerifyOTP() {
         localStorage.removeItem("pending_verify_email");
         setSuccess("Xác thực thành công! Đang chuyển hướng đăng nhập...");
         setTimeout(() => {
-          navigate("/login", { replace: true });
+          navigate("/login", { replace: true, state: { from: state?.from } });
         }, 2000);
       }
     } catch (err) {

@@ -1,16 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-
-const ROLE_HOME = {
-  ADMIN:        '/admin',
-  ICPDP:        '/icpdp',
-  MEMBER:       '/member',
-  ALUMNI:       '/alumni',
-  CLUB_LEADER:  '/club-leader',
-  VICE_LEADER:  '/club-leader',
-  CORE_TEAM:    '/core-team',
-  CLUB_MANAGER: '/manager',
-};
+import { ROLE_REDIRECT } from '../../constants/roles';
 
 /**
  * Bảo vệ route theo role.
@@ -32,7 +22,7 @@ const PrivateRoute = ({ children, allowedRoles }) => {
   }
 
   if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-    return <Navigate to={ROLE_HOME[user.role] ?? '/'} replace />;
+    return <Navigate to={ROLE_REDIRECT[user.role] ?? '/'} replace />;
   }
 
   return children;

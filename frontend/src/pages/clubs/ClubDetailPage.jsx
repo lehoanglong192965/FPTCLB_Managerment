@@ -1,25 +1,29 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import clubService from "../../services/api/clubs/clubService";
 import applicationApi from "../../services/api/member/applicationApi";
 import { normalizeClub } from "../../hooks/usePublicClubs";
 import ClubDetailCard from "../../components/clubs/ClubDetailCard";
 import ApplyClubModal from "../../components/clubs/ApplyClubModal";
+import AlertModal from "../../components/ui/AlertModal";
 import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext";
 
 const ACTIVE_STATUSES = new Set(["Submitted", "Reviewing", "ACCEPTED"]);
 
 export default function ClubDetailPage() {
   const { abbr } = useParams();
   const navigate  = useNavigate();
-  const { user, profile }  = useAuth();
+  const location  = useLocation();
+  const { user }  = useAuth();
 
   const [club, setClub]               = useState(null);
   const [clubEvents, setClubEvents]   = useState([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState("");
   const [showApply, setShowApply]     = useState(false);
-  const [toast, setToast]             = useState(null);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const toast = useToast();
   const [alreadyApplied, setAlreadyApplied] = useState(false);
 
   useEffect(() => {
@@ -81,11 +85,6 @@ export default function ClubDetailPage() {
       .catch(() => setAlreadyApplied(false));
   }, [user, club?.id]);
 
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
   const handleApplySubmitted = async (payload) => {
     setShowApply(false);
     try {
@@ -95,16 +94,16 @@ export default function ClubDetailPage() {
         cvUrl: payload.cvUrl ?? "",
       });
       setAlreadyApplied(true);
-      showToast(`Nộp đơn vào ${club.name} thành công!`);
+      toast.success(`Nộp đơn vào ${club.name} thành công!`);
     } catch (err) {
       const msg = err?.response?.data?.message ?? "Không thể nộp đơn. Vui lòng thử lại.";
-      showToast(msg, "error");
+      toast.error(msg);
     }
   };
 
   const getPrimaryAction = () => {
     if (!user) {
-      return { label: "Đăng ký tài khoản để tham gia", onClick: () => navigate("/register") };
+      return { label: "Nộp đơn ứng tuyển", onClick: () => setShowLoginPrompt(true) };
     }
     if (!club?.recruiting) return null;
     if (alreadyApplied) {
@@ -152,18 +151,6 @@ export default function ClubDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#F2F4F7] pt-[calc(68px+28px)] px-[5%] pb-15 font-['Be_Vietnam_Pro','Inter',sans-serif]">
-      {toast && (
-        <div
-          className={`fixed top-5 right-7 z-[999] px-5 py-3 rounded-lg text-[13.5px] font-medium shadow-lg ${
-            toast.type === "error"
-              ? "bg-red-100 text-red-800"
-              : "bg-emerald-100 text-emerald-900"
-          }`}
-        >
-          {toast.msg}
-        </div>
-      )}
-
       <div className="max-w-[1100px] mx-auto">
         <ClubDetailCard
           club={club}
@@ -178,6 +165,19 @@ export default function ClubDetailPage() {
           clubId={club.abbr ?? abbr}
           onClose={() => setShowApply(false)}
           onSubmitted={handleApplySubmitted}
+        />
+      )}
+
+      {showLoginPrompt && (
+        <AlertModal
+          type="error"
+          title="CHƯA ĐĂNG NHẬP"
+          message="Bạn chưa đăng nhập."
+          subMessage="Vui lòng đăng nhập để nộp đơn ứng tuyển câu lạc bộ."
+          confirmLabel="Đăng nhập ngay"
+          cancelLabel="Để sau"
+          onConfirm={() => navigate('/login', { state: { from: location.pathname } })}
+          onClose={() => setShowLoginPrompt(false)}
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNotifications } from '../../contexts/NotificationsContext';
 import eventService from '../../services/api/events/eventService';
 

@@ -5,6 +5,7 @@ import {
 } from "antd";
 import { Plus, Trash2, RotateCcw, Eye } from "lucide-react";
 import DynamicForm from "../../components/ui/DynamicForm";
+import { useToast } from "../../contexts/ToastContext";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -103,12 +104,12 @@ const tdStyle = {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SystemConfigPage() {
+  const toast = useToast();
   const [config, setConfig]           = useState(MOCK_CONFIG);
   const [formKey, setFormKey]         = useState(0);
   const [multipliers, setMultipliers] = useState(MOCK_MULTIPLIERS);
   const [holidays, setHolidays]       = useState(MOCK_HOLIDAYS);
   const [versions, setVersions]       = useState(MOCK_VERSIONS);
-  const [toast, setToast]             = useState(null);
 
   // Add multiplier form
   const [newCondition, setNewCondition]   = useState("");
@@ -121,11 +122,6 @@ export default function SystemConfigPage() {
   // Diff modal
   const [diffVersion, setDiffVersion] = useState(null);
 
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
   // ── Tab 1: Cấu hình chung ─────────────────────────────────────────────────
 
   const handleSaveConfig = (values) => {
@@ -137,37 +133,37 @@ export default function SystemConfigPage() {
     };
     setVersions((prev) => [snapshot, ...prev]);
     setConfig(values);
-    showToast("Đã lưu cấu hình thành công.");
+    toast.success("Đã lưu cấu hình thành công.");
   };
 
   // ── Tab 2: Hệ số nhân điểm ────────────────────────────────────────────────
 
   const addMultiplier = () => {
     if (!newCondition.trim())
-      return showToast("Vui lòng nhập điều kiện.", "error");
+      return toast.error("Vui lòng nhập điều kiện.");
     if (!newMultiplier || newMultiplier <= 0)
-      return showToast("Hệ số nhân phải lớn hơn 0.", "error");
+      return toast.error("Hệ số nhân phải lớn hơn 0.");
     setMultipliers((prev) => [
       ...prev,
       { id: Date.now(), condition: newCondition.trim(), multiplier: newMultiplier },
     ]);
     setNewCondition("");
     setNewMultiplier(2);
-    showToast("Đã thêm quy tắc nhân điểm.");
+    toast.success("Đã thêm quy tắc nhân điểm.");
   };
 
   const deleteMultiplier = (id) => {
     setMultipliers((prev) => prev.filter((m) => m.id !== id));
-    showToast("Đã xóa quy tắc.", "error");
+    toast.success("Đã xóa quy tắc.");
   };
 
   // ── Tab 3: Ngày lễ công cộng ──────────────────────────────────────────────
 
   const addHoliday = () => {
     if (!newHolidayDate)
-      return showToast("Vui lòng chọn ngày.", "error");
+      return toast.error("Vui lòng chọn ngày.");
     if (!newHolidayName.trim())
-      return showToast("Vui lòng nhập tên ngày lễ.", "error");
+      return toast.error("Vui lòng nhập tên ngày lễ.");
     setHolidays((prev) => [
       ...prev,
       {
@@ -178,12 +174,12 @@ export default function SystemConfigPage() {
     ]);
     setNewHolidayDate(null);
     setNewHolidayName("");
-    showToast("Đã thêm ngày lễ.");
+    toast.success("Đã thêm ngày lễ.");
   };
 
   const deleteHoliday = (id) => {
     setHolidays((prev) => prev.filter((h) => h.id !== id));
-    showToast("Đã xóa ngày lễ.", "error");
+    toast.success("Đã xóa ngày lễ.");
   };
 
   // ── Tab 4: Lịch sử phiên bản ──────────────────────────────────────────────
@@ -198,7 +194,7 @@ export default function SystemConfigPage() {
     setVersions((prev) => [snapshot, ...prev]);
     setConfig(ver.config);
     setFormKey((k) => k + 1); // force DynamicForm re-mount với initialValues mới
-    showToast(`Đã khôi phục về phiên bản ${ver.version}.`);
+    toast.success(`Đã khôi phục về phiên bản ${ver.version}.`);
   };
 
   // ── Diff helpers ──────────────────────────────────────────────────────────
@@ -451,8 +447,6 @@ export default function SystemConfigPage() {
         <h1 className="page-title">Cấu Hình Hệ Thống</h1>
         <p className="page-subtitle">Quản lý các tham số cấu hình toàn hệ thống</p>
       </div>
-
-      {toast && <div className={`co-toast co-toast-${toast.type}`}>{toast.msg}</div>}
 
       <Tabs items={tabItems} />
 

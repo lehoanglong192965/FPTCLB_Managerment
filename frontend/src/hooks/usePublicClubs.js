@@ -42,21 +42,22 @@ export function usePublicClubs() {
   const [error, setError]     = useState("");
 //Khi component vừa hiện ra màn hình → bật loading, xóa lỗi cũ.
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setError("");
-    //Gọi API để lấy danh sách câu lạc bộ công khai. 
-    // Nếu thành công, chuyển đổi dữ liệu và lưu vào state. 
-    // Nếu thất bại, lưu lỗi vào state. Cuối cùng, tắt loading.
     clubService.getAllPublic()
       .then((res) => {
+        if (cancelled) return;
         const raw = Array.isArray(res) ? res : (res?.content ?? res?.data ?? []);
         setClubs(raw.map(normalizeClub));
       })
       .catch((err) => {
+        if (cancelled) return;
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
         setError(err?.message ?? "Không thể tải danh sách câu lạc bộ");
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   return { clubs, loading, error };

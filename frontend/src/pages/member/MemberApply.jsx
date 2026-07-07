@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { FileText, CheckCircle, Clock, Calendar, XCircle, Inbox, RotateCcw, RefreshCw } from "lucide-react";
 import applicationApi from "../../services/api/member/applicationApi";
+import { useToast } from "../../contexts/ToastContext";
 
 const APP_STATUS_MAP = {
   Submitted:  { label: "Chờ duyệt CV",   cls: "bg-amber-100 text-amber-700" },
@@ -22,17 +23,12 @@ const isPending = (s) => s === "Submitted" || s === "Reviewing" || s === "ACCEPT
 const isDone    = (s) => s === "PASSED" || s === "REJECTED" || s === "FAILED" || s === "Withdrawn";
 
 export default function MemberApply() {
+  const toast = useToast();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading]           = useState(true);
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [selectedApp, setSelectedApp]   = useState(null);
   const [withdrawing, setWithdrawing]   = useState(false);
-  const [toast, setToast]               = useState(null);
-
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const loadApplications = useCallback(async () => {
     setLoading(true);
@@ -40,8 +36,9 @@ export default function MemberApply() {
       const data = await applicationApi.getMyApplications();
       const arr = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
       setApplications(arr);
-    } catch {
-      showToast("Không thể tải danh sách đơn ứng tuyển.", "error");
+    } catch (err) {
+      if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+      toast.error("Không thể tải danh sách đơn ứng tuyển.");
     } finally {
       setLoading(false);
     }
@@ -57,10 +54,10 @@ export default function MemberApply() {
         prev.map((a) => a.applicationID === app.applicationID ? { ...a, status: "Withdrawn" } : a)
       );
       setSelectedApp((prev) => prev?.applicationID === app.applicationID ? { ...prev, status: "Withdrawn" } : prev);
-      showToast("Đã rút đơn ứng tuyển.");
+      toast.success("Đã rút đơn ứng tuyển.");
     } catch (err) {
       const msg = err?.response?.data?.message ?? "Không thể rút đơn. Vui lòng thử lại.";
-      showToast(msg, "error");
+      toast.error(msg);
     } finally {
       setWithdrawing(false);
     }
@@ -79,10 +76,6 @@ export default function MemberApply() {
         <h1 className="page-title">Đơn Ứng Tuyển</h1>
         <p className="page-subtitle">Theo dõi các đơn bạn đã nộp để tham gia câu lạc bộ</p>
       </div>
-
-      {toast && (
-        <div className={`co-toast co-toast-${toast.type}`}>{toast.msg}</div>
-      )}
 
       <div className="content-card">
         <div className="flex justify-between items-center mb-4">

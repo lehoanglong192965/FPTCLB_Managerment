@@ -1,17 +1,18 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Calendar, Clock, MapPin, Search, X, AlertTriangle, Users, ChevronRight } from "lucide-react";
-import { TokenService } from "../../services/api/axiosClient";
+import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
 import clubService from "../../services/api/clubs/clubService";
 import eventService from "../../services/api/events/eventService";
 import FinishEventModal from "../../components/events/FinishEventModal";
-import CloseEventButton from "../icpdp/CloseEventButton";
+import CloseEventButton from "../../components/events/CloseEventButton";
+import { useConfirm } from "../../contexts/ConfirmContext";
+import { useToast } from "../../contexts/ToastContext";
 
 const getImageUrl = (url) => {
   if (!url) return "";
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
-  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
-  return apiBase.replace(/\/api\/?$/, "") + url;
+  return getServerOrigin() + url;
 };
 
 const STATUS_DEFS = [
@@ -159,7 +160,6 @@ function resolveClubId() {
   }
 }
 
-// Chuẩn hóa event từ cả 2 nguồn (localStorage format cũ & API format mới)
 function normalizeEvent(ev) {
   return {
     eventID:         ev.eventID         ?? ev.id          ?? null,
@@ -179,23 +179,16 @@ function normalizeEvent(ev) {
   };
 }
 
-function loadLocal(clubId) {
-  try {
-    const raw = JSON.parse(localStorage.getItem(`club_events_${clubId}`) || "[]");
-    return raw.map(normalizeEvent);
-  } catch {
-    return [];
-  }
-}
-
 export default function ClubEventsMgmt() {
+  const confirm  = useConfirm();
+  const toast    = useToast();
   const clubId   = resolveClubId();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [, setSearchParams] = useSearchParams();
 
   const [search, setSearch]             = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
-  const [events, setEvents]             = useState(() => loadLocal(clubId));
+  const [events, setEvents]             = useState([]);
   const [cancelTarget, setCancelTarget]         = useState(null);
   const [finishTarget, setFinishTarget]         = useState(null);
   const [startingId, setStartingId]             = useState(null);
@@ -225,7 +218,6 @@ export default function ClubEventsMgmt() {
         }
         const normalized = raw.map(normalizeEvent);
         setEvents(normalized);
-        localStorage.setItem(`club_events_${clubId}`, JSON.stringify(raw));
 
         // Khôi phục popup nếu URL có ?event= (ví dụ: quay lại từ trang phân công)
         const returnId = Number(new URLSearchParams(window.location.search).get("event"));
@@ -252,6 +244,8 @@ export default function ClubEventsMgmt() {
     "ONGOING",
     "COMPLETED",
     "REPORT_UPLOADED", "REPORTUPLOADED",
+    "REPORT_APPROVED", "REPORTAPPROVED",
+    "CONTRIBUTION_FINALIZED", "CONTRIBUTIONFINALIZED",
     "CLOSED",
     "CANCELLED",
   ];
@@ -334,7 +328,7 @@ export default function ClubEventsMgmt() {
         ? `${editForm.date}T${editForm.endTime}:00`
         : null;
       if (startDate && endDate && endDate <= startDate) {
-        alert("Giờ kết thúc phải sau giờ bắt đầu.");
+        toast.error("Giờ kết thúc phải sau giờ bắt đầu.");
         return;
       }
       await eventService.update(selectedEv.eventID, {
@@ -369,7 +363,7 @@ export default function ClubEventsMgmt() {
       });
       setIsEditing(false);
     } catch (e) {
-      alert("Lỗi lưu thay đổi: " + (e.response?.data?.message || e.message));
+      toast.error("Lỗi lưu thay đổi: " + (e.response?.data?.message || e.message));
     } finally {
       setSaving(false);
     }
@@ -387,7 +381,7 @@ export default function ClubEventsMgmt() {
       updateEvent(eventID, { eventStatus: "Cancelled" });
       setCancelTarget(null);
     } catch (error) {
-      alert("Lỗi khi hủy sự kiện: " + (error.response?.data?.message || error.message));
+      toast.error("Lỗi khi hủy sự kiện: " + (error.response?.data?.message || error.message));
     }
   };
 
@@ -742,6 +736,23 @@ export default function ClubEventsMgmt() {
                   </p>
                 )}
 
+                {[
+                  "COMPLETED",
+                  "REPORTUPLOADED",
+                  "REPORTPENDINGAPPROVAL",
+                  "REPORTAPPROVED",
+                  "REPORTREJECTED",
+                  "CONTRIBUTIONDRAFT",
+                  "CONTRIBUTIONPENDINGAPPROVAL",
+                  "CONTRIBUTIONAPPROVED",
+                  "CONTRIBUTIONSCORING",
+                  "CONTRIBUTIONFINALIZED",
+                  "CLOSED",
+                ].includes(status) && !isEditing && (
+                  <button onClick={() => navigate(`${selectedEv.eventID}/feedback`, { relative: "path" })} style={btnStyle("#ea580c")}>
+                    Feedback / Event Report
+                  </button>
+                )}
                 {/* Draft */}
                 {status === "DRAFT" && !isEditing && (<>
                   <button onClick={() => startEdit(selectedEv)} style={btnStyle("#f59e0b")}>
@@ -752,7 +763,7 @@ export default function ClubEventsMgmt() {
                       await eventService.submit(selectedEv.eventID);
                       updateEvent(selectedEv.eventID, { eventStatus: "PendingApproval" });
                     } catch (e) {
-                      alert("Lỗi gửi đề xuất: " + (e.response?.data?.message || e.message));
+                      toast.error("Lỗi gửi đề xuất: " + (e.response?.data?.message || e.message));
                     }
                   }} style={btnStyle("#059669")}>
                     Gửi đề xuất
@@ -779,13 +790,13 @@ export default function ClubEventsMgmt() {
                   <button
                     disabled={openingRegId === selectedEv.eventID}
                     onClick={async () => {
-                      if (!window.confirm("Bạn có chắc muốn mở đăng ký? Thành viên sẽ thấy và có thể đăng ký tham gia.")) return;
+                      if (!(await confirm("Bạn có chắc muốn mở đăng ký? Thành viên sẽ thấy và có thể đăng ký tham gia.", { confirmLabel: "Mở đăng ký" }))) return;
                       setOpeningRegId(selectedEv.eventID);
                       try {
                         await eventService.openRegistration(selectedEv.eventID);
                         updateEvent(selectedEv.eventID, { eventStatus: "RegistrationOpen" });
                       } catch (e) {
-                        alert("Lỗi mở đăng ký: " + (e.response?.data?.message || e.message));
+                        toast.error("Lỗi mở đăng ký: " + (e.response?.data?.message || e.message));
                       } finally { setOpeningRegId(null); }
                     }}
                     style={btnStyle(openingRegId === selectedEv.eventID ? "#67e8f9" : "#0891b2", openingRegId === selectedEv.eventID)}
@@ -808,13 +819,13 @@ export default function ClubEventsMgmt() {
                   <button
                     disabled={closingRegId === selectedEv.eventID}
                     onClick={async () => {
-                      if (!window.confirm("Bạn có chắc muốn đóng đăng ký? Thành viên sẽ không thể đăng ký thêm.")) return;
+                      if (!(await confirm("Bạn có chắc muốn đóng đăng ký? Thành viên sẽ không thể đăng ký thêm.", { danger: true, confirmLabel: "Đóng đăng ký" }))) return;
                       setClosingRegId(selectedEv.eventID);
                       try {
                         await eventService.closeRegistration(selectedEv.eventID);
                         updateEvent(selectedEv.eventID, { eventStatus: "RegistrationClosed" });
                       } catch (e) {
-                        alert("Lỗi đóng đăng ký: " + (e.response?.data?.message || e.message));
+                        toast.error("Lỗi đóng đăng ký: " + (e.response?.data?.message || e.message));
                       } finally { setClosingRegId(null); }
                     }}
                     style={btnStyle(closingRegId === selectedEv.eventID ? "#9ca3af" : "#f59e0b", closingRegId === selectedEv.eventID)}
@@ -842,7 +853,7 @@ export default function ClubEventsMgmt() {
                         await eventService.start(selectedEv.eventID);
                         updateEvent(selectedEv.eventID, { eventStatus: "Ongoing" });
                       } catch (e) {
-                        alert("Lỗi bắt đầu sự kiện: " + (e.response?.data?.message || e.message));
+                        toast.error("Lỗi bắt đầu sự kiện: " + (e.response?.data?.message || e.message));
                       } finally { setStartingId(null); }
                     }}
                     style={btnStyle(startingId === selectedEv.eventID ? "#86efac" : "#059669", startingId === selectedEv.eventID)}
@@ -877,9 +888,22 @@ export default function ClubEventsMgmt() {
                   </button>
                 </>)}
 
+                {/* ReportApproved — ICPDP đã duyệt → chấm đóng góp */}
+                {status === "REPORTAPPROVED" && (<>
+                  <div style={{ padding: "10px 14px", borderRadius: 10, background: "#ccfbf1", border: "1.5px solid #99f6e4", fontSize: 13, color: "#0f766e", fontWeight: 600 }}>
+                    ✓ Báo cáo đã được ICPDP phê duyệt
+                  </div>
+                  <button
+                    onClick={() => navigate(`../contributions/${selectedEv.eventID}`, { relative: "path" })}
+                    style={btnStyle("#0f766e")}
+                  >
+                    Chấm đóng góp thành viên
+                  </button>
+                </>)}
+
                 {/* ReportUploaded — đã nộp, chờ ICPDP */}
                 {status === "REPORTUPLOADED" && (<>
-                  <div style={{ padding: "10px 14px", borderRadius: 10, background: "#f5f3ff", border: "1.5px solid #ddd6fe", fontSize: 13, color: "#6d28d9", fontWeight: 600 }}>
+                  <div style={{ padding: "10px 14px", borderRadius: 10, background: "#f5f3ff", border: "1.5px solid #ddd6fe", fontSize: 13, color: "#6d28d9", fontWeight: 600, textAlign: "center" }}>
                     ✓ Đã nộp báo cáo — đang chờ ICPDP duyệt
                   </div>
                   <button onClick={() => navigate(`../contributions/${selectedEv.eventID}`, { relative: "path" })} style={btnStyle("#2563eb")}>
@@ -890,6 +914,16 @@ export default function ClubEventsMgmt() {
                     eventStatus={selectedEv.eventStatus}
                     onCloseSuccess={() => window.location.reload()}
                   />
+                </>)}
+
+                {/* ReportApproved — đã tạo batch đóng góp */}
+                {status === "REPORTAPPROVED" && (<>
+                  <div style={{ padding: "10px 14px", borderRadius: 10, background: "#ecfdf5", border: "1.5px solid #a7f3d0", fontSize: 13, color: "#047857", fontWeight: 600 }}>
+                    ✓ Báo cáo đã được duyệt — có thể chốt đóng góp
+                  </div>
+                  <button onClick={() => navigate(`../contributions/${selectedEv.eventID}`, { relative: "path" })} style={btnStyle("#2563eb")}>
+                    Chốt đóng góp
+                  </button>
                 </>)}
 
                 {/* Cancelled / Closed / Rejected / PendingApproval — không có thao tác */}
@@ -1036,3 +1070,4 @@ export default function ClubEventsMgmt() {
     </div>
   );
 }
+

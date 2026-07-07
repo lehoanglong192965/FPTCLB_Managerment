@@ -4,6 +4,7 @@ import {
   CheckCircle2, FileText, Clock, RefreshCw,
 } from "lucide-react";
 import disciplineLogApi from "../../services/api/icpdp/disciplineLogApi";
+import { useToast } from "../../contexts/ToastContext";
 
 const STATUS_CONFIG = {
   Active:   { label: "Đang xử lý",    color: "orange" },
@@ -44,13 +45,8 @@ export default function IcpdpDisciplineLog() {
   const [showModal, setShowModal]   = useState(false);
   const [detail, setDetail]         = useState(null);
   const [form, setForm]             = useState(INIT_FORM);
+  const toast = useToast();
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast]           = useState(null);
-
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3200);
-  };
 
   const loadLogs = async () => {
     setLoading(true);
@@ -58,7 +54,7 @@ export default function IcpdpDisciplineLog() {
       const data = await disciplineLogApi.getAll();
       setLogs(Array.isArray(data) ? data : []);
     } catch {
-      showToast("Không thể tải dữ liệu nhật ký.", "error");
+      toast.error("Không thể tải dữ liệu nhật ký.");
     } finally {
       setLoading(false);
     }
@@ -70,7 +66,7 @@ export default function IcpdpDisciplineLog() {
 
   const handleAdd = async () => {
     if (!form.userID || !form.semesterID || !form.reason.trim()) {
-      showToast("Vui lòng điền đầy đủ thông tin.", "error");
+      toast.error("Vui lòng điền đầy đủ thông tin.");
       return;
     }
     setSubmitting(true);
@@ -83,10 +79,10 @@ export default function IcpdpDisciplineLog() {
       });
       setForm(INIT_FORM);
       setShowModal(false);
-      showToast("Đã ghi nhận vi phạm vào nhật ký.");
+      toast.success("Đã ghi nhận vi phạm vào nhật ký.");
       loadLogs();
     } catch (err) {
-      showToast(err?.response?.data?.error ?? "Ghi nhận thất bại.", "error");
+      toast.error(err?.response?.data?.error ?? "Ghi nhận thất bại.");
     } finally {
       setSubmitting(false);
     }
@@ -101,10 +97,10 @@ export default function IcpdpDisciplineLog() {
         disciplineStatus: "Resolved",
       });
       setDetail(null);
-      showToast("Đã đánh dấu vi phạm là Đã giải quyết.");
+      toast.success("Đã đánh dấu vi phạm là Đã giải quyết.");
       loadLogs();
     } catch (err) {
-      showToast(err?.response?.data?.error ?? "Cập nhật thất bại.", "error");
+      toast.error(err?.response?.data?.error ?? "Cập nhật thất bại.");
     }
   };
 
@@ -137,14 +133,6 @@ export default function IcpdpDisciplineLog() {
           Ghi nhận và tra cứu lịch sử vi phạm của sinh viên trong hệ thống CLB
         </p>
       </div>
-
-      {toast && (
-        <div className={`fixed top-5 right-7 z-[999] px-5 py-3 rounded-lg text-[13.5px] font-medium shadow-lg animate-[fadeIn_0.2s_ease] ${
-          toast.type === "success" ? "bg-green-100 text-green-900" : "bg-red-100 text-red-900"
-        }`}>
-          {toast.msg}
-        </div>
-      )}
 
       <div className="grid grid-cols-4 gap-3.5 mb-5">
         <div className="flex items-center gap-3.5 px-5 py-4 bg-white rounded-xl shadow-sm border-l-4 border-l-[#e6430a]">

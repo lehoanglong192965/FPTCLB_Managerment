@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Plus, Zap, Loader, Edit2, Trash2, CheckCircle } from "lucide-react";
 import semesterApi from "../../services/api/admin/semesterApi";
+import { useConfirm } from "../../contexts/ConfirmContext";
+import { useToast } from "../../contexts/ToastContext";
 
 function SemesterCard({ sem, onEnd, onActivate, onEdit, onDelete }) {
   const isActive = sem.isActive === true;
@@ -60,6 +62,8 @@ function SemesterCard({ sem, onEnd, onActivate, onEdit, onDelete }) {
 const EMPTY_FORM = { semesterCode: "", startDate: "", endDate: "", isActive: false };
 
 export default function SemesterManagement() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [semesters, setSemesters]     = useState([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState("");
@@ -156,32 +160,32 @@ export default function SemesterManagement() {
   }
 
   async function handleEnd(sem) {
-    if (!window.confirm(`Kết thúc học kỳ "${sem.semesterCode}"?`)) return;
+    if (!(await confirm(`Kết thúc học kỳ "${sem.semesterCode}"?`, { danger: true }))) return;
     try {
       await semesterApi.update(sem.semesterID, { ...sem, isActive: false });
       await fetchSemesters();
     } catch {
-      alert("Kết thúc học kỳ thất bại. Vui lòng thử lại.");
+      toast.error("Kết thúc học kỳ thất bại. Vui lòng thử lại.");
     }
   }
 
   async function handleActivate(sem) {
-    if (!window.confirm(`Kích hoạt học kỳ "${sem.semesterCode}"?`)) return;
+    if (!(await confirm(`Kích hoạt học kỳ "${sem.semesterCode}"?`))) return;
     try {
       await semesterApi.update(sem.semesterID, { ...sem, isActive: true });
       await fetchSemesters();
     } catch {
-      alert("Kích hoạt học kỳ thất bại. Vui lòng thử lại.");
+      toast.error("Kích hoạt học kỳ thất bại. Vui lòng thử lại.");
     }
   }
 
   async function handleDelete(sem) {
-    if (!window.confirm(`Xoá học kỳ "${sem.semesterCode}"?\nThao tác này không thể hoàn tác.`)) return;
+    if (!(await confirm(`Xoá học kỳ "${sem.semesterCode}"? Thao tác này không thể hoàn tác.`, { danger: true, confirmLabel: "Xoá" }))) return;
     try {
       await semesterApi.delete(sem.semesterID);
       await fetchSemesters();
     } catch {
-      alert("Xoá học kỳ thất bại. Vui lòng thử lại.");
+      toast.error("Xoá học kỳ thất bại. Vui lòng thử lại.");
     }
   }
 

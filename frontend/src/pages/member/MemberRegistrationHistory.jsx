@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Clock, Calendar, CheckCircle2, XCircle, ChevronRight, AlertCircle, FileText, User } from "lucide-react";
+import { Clock, Calendar, AlertCircle, FileText } from "lucide-react";
 import clubRegistrationApi from "../../services/api/clubs/clubRegistrationApi";
 
 const STATUS_MAP = {

@@ -1,6 +1,8 @@
 ﻿import { useState, useEffect } from "react";
 import { Plus, Trash2, RefreshCw, Bell, X, ChevronDown } from "lucide-react";
 import recruitmentApi from "../../services/api/icpdp/recruitmentApi";
+import { useToast } from "../../contexts/ToastContext";
+import { useConfirm } from "../../contexts/ConfirmContext";
 
 const STATUS_CONFIG = {
   Open:   { label: "Đang mở",   color: "#059669", bg: "#ecfdf5" },
@@ -20,18 +22,14 @@ function StatusBadge({ status }) {
 const INIT_FORM = { title: "", startDate: "", status: "Open", questionsJson: "" };
 
 export default function IcpdpRecruitment() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [cycles, setCycles]         = useState([]);
   const [loading, setLoading]       = useState(true);
   const [showModal, setShowModal]   = useState(false);
   const [form, setForm]             = useState(INIT_FORM);
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast]           = useState(null);
   const [reminding, setReminding]   = useState({});
-
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3200);
-  };
 
   const load = async () => {
     setLoading(true);
@@ -39,7 +37,7 @@ export default function IcpdpRecruitment() {
       const data = await recruitmentApi.getAll();
       setCycles(Array.isArray(data) ? data : []);
     } catch {
-      showToast("Không thể tải danh sách đợt tuyển dụng.", "error");
+      toast.error("Không thể tải danh sách đợt tuyển dụng.");
     } finally {
       setLoading(false);
     }
@@ -51,7 +49,7 @@ export default function IcpdpRecruitment() {
 
   const handleCreate = async () => {
     if (!form.title.trim() || !form.startDate) {
-      showToast("Vui lòng điền tiêu đề và ngày bắt đầu.", "error");
+      toast.error("Vui lòng điền tiêu đề và ngày bắt đầu.");
       return;
     }
     setSubmitting(true);
@@ -64,23 +62,23 @@ export default function IcpdpRecruitment() {
       });
       setForm(INIT_FORM);
       setShowModal(false);
-      showToast("Đã tạo đợt tuyển dụng mới.");
+      toast.success("Đã tạo đợt tuyển dụng mới.");
       load();
     } catch (err) {
-      showToast(err?.response?.data?.error ?? "Tạo thất bại.", "error");
+      toast.error(err?.response?.data?.error ?? "Tạo thất bại.");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (cycle) => {
-    if (!window.confirm(`Xóa đợt tuyển dụng "${cycle.title}"?`)) return;
+    if (!(await confirm(`Xóa đợt tuyển dụng "${cycle.title}"?`, { danger: true, confirmLabel: "Xóa" }))) return;
     try {
       await recruitmentApi.delete(cycle.cycleID);
-      showToast("Đã xóa đợt tuyển dụng.");
+      toast.success("Đã xóa đợt tuyển dụng.");
       load();
     } catch (err) {
-      showToast(err?.response?.data?.error ?? "Xóa thất bại.", "error");
+      toast.error(err?.response?.data?.error ?? "Xóa thất bại.");
     }
   };
 
@@ -88,9 +86,9 @@ export default function IcpdpRecruitment() {
     setReminding((p) => ({ ...p, [cycle.cycleID]: true }));
     try {
       await recruitmentApi.sendReminder(cycle.cycleID);
-      showToast(`Đã gửi nhắc cho đợt "${cycle.title}".`);
+      toast.success(`Đã gửi nhắc cho đợt "${cycle.title}".`);
     } catch (err) {
-      showToast(err?.response?.data?.error ?? "Gửi nhắc thất bại.", "error");
+      toast.error(err?.response?.data?.error ?? "Gửi nhắc thất bại.");
     } finally {
       setReminding((p) => ({ ...p, [cycle.cycleID]: false }));
     }
@@ -104,14 +102,6 @@ export default function IcpdpRecruitment() {
         <h1 className="page-title">Quản Lý Tuyển Dụng</h1>
         <p className="page-subtitle">Tạo và quản lý các đợt tuyển thành viên CLB</p>
       </div>
-
-      {toast && (
-        <div className={`fixed top-5 right-7 z-[999] px-5 py-3 rounded-lg text-[13.5px] font-medium shadow-lg ${
-          toast.type === "success" ? "bg-emerald-100 text-emerald-900" : "bg-red-100 text-red-800"
-        }`}>
-          {toast.msg}
-        </div>
-      )}
 
       <div className="content-card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>

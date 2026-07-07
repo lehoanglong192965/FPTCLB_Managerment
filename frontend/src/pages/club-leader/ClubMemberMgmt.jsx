@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Users, Mail, Search, X, Phone, BookOpen, Calendar, Hash, ShieldOff, ChevronRight, Ban, Loader2 } from "lucide-react";
 import { useClubData } from "../../contexts/ClubDataContext";
+import { useToast } from "../../contexts/ToastContext";
+import { CLUB_ROLE_NAMES } from "../../constants/roles";
 
 const ROLE_BADGE = {
   Leader:     { label: "Trưởng CLB",    color: "#E6430A", bg: "#FFF3EE" },
@@ -47,13 +49,13 @@ function InfoRow({ icon: Icon, label, value }) {
   );
 }
 
-function ActionSection({ label, buttonStyle, icon: Icon, confirmTitle, onConfirm }) {
+function ActionSection({ label, buttonStyle, icon: Icon, confirmTitle, onConfirm, noReason = false }) {
   const [open, setOpen]     = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError]   = useState("");
 
   const handleConfirm = () => {
-    if (!reason.trim()) { setError("Vui lòng nhập lý do."); return; }
+    if (!noReason && !reason.trim()) { setError("Vui lòng nhập lý do."); return; }
     onConfirm(reason.trim());
   };
 
@@ -78,21 +80,25 @@ function ActionSection({ label, buttonStyle, icon: Icon, confirmTitle, onConfirm
       <p style={{ fontSize: 13, fontWeight: 600, color: buttonStyle.color, margin: "0 0 10px", display: "flex", alignItems: "center", gap: 6 }}>
         <Icon size={14} /> {confirmTitle}
       </p>
-      <label style={{ fontSize: 12, fontWeight: 600, color: "#4b5563", display: "block", marginBottom: 4 }}>
-        Lý do <span style={{ color: "#ef4444" }}>*</span>
-      </label>
-      <textarea
-        value={reason}
-        onChange={(e) => { setReason(e.target.value); setError(""); }}
-        rows={3}
-        placeholder="Nhập lý do..."
-        style={{
-          width: "100%", padding: "8px 10px", borderRadius: 8, fontFamily: "inherit",
-          border: `1.5px solid ${error ? "#ef4444" : (buttonStyle.borderColor ?? "#fca5a5")}`,
-          fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box", background: "#fff",
-        }}
-      />
-      {error && <p style={{ color: "#ef4444", fontSize: 12, margin: "4px 0 0" }}>{error}</p>}
+      {!noReason && (
+        <>
+          <label style={{ fontSize: 12, fontWeight: 600, color: "#4b5563", display: "block", marginBottom: 4 }}>
+            Lý do <span style={{ color: "#ef4444" }}>*</span>
+          </label>
+          <textarea
+            value={reason}
+            onChange={(e) => { setReason(e.target.value); setError(""); }}
+            rows={3}
+            placeholder="Nhập lý do..."
+            style={{
+              width: "100%", padding: "8px 10px", borderRadius: 8, fontFamily: "inherit",
+              border: `1.5px solid ${error ? "#ef4444" : (buttonStyle.borderColor ?? "#fca5a5")}`,
+              fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box", background: "#fff",
+            }}
+          />
+          {error && <p style={{ color: "#ef4444", fontSize: 12, margin: "4px 0 0" }}>{error}</p>}
+        </>
+      )}
       <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
         <button
           onClick={handleConfirm}
@@ -120,7 +126,7 @@ function ActionSection({ label, buttonStyle, icon: Icon, confirmTitle, onConfirm
 }
 
 function MemberModal({ member, isBlacklisted, onClose, onExpel, onBlacklist }) {
-  const canAct = member.clubRoleName !== "Leader";
+  const canAct = member.clubRoleName !== CLUB_ROLE_NAMES.LEADER;
 
   const formatDate = (iso) =>
     iso ? new Date(iso).toLocaleDateString("vi-VN", { year: "numeric", month: "long", day: "numeric" }) : "—";
@@ -174,6 +180,7 @@ function MemberModal({ member, isBlacklisted, onClose, onExpel, onBlacklist }) {
               label="Khai trừ thành viên"
               icon={ShieldOff}
               confirmTitle={`Xác nhận khai trừ ${member.fullName}?`}
+              noReason
               buttonStyle={{
                 border: "1.5px solid #fee2e2", background: "#fff", color: "#ef4444",
                 borderColor: "#fca5a5", confirmBg: "#fff5f5", confirmColor: "#ef4444",
@@ -212,26 +219,21 @@ function MemberModal({ member, isBlacklisted, onClose, onExpel, onBlacklist }) {
 }
 
 export default function ClubMemberMgmt() {
+  const toast = useToast();
   const { members, blacklist, loading, error, expelMember, addToBlacklist } = useClubData();
   const [search, setSearch]     = useState("");
   const [selected, setSelected] = useState(null);
-  const [toast, setToast]       = useState(null);
 
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const handleExpel = (member, reason) => {
+  const handleExpel = (member) => {
     expelMember(member);
     setSelected(null);
-    showToast(`Đã khai trừ ${member.fullName}.`);
+    toast.success(`Đã khai trừ ${member.fullName}.`);
   };
 
   const handleBlacklist = (member, reason) => {
     addToBlacklist(member, reason);
     setSelected(null);
-    showToast(`Đã thêm ${member.fullName} vào danh sách đen.`);
+    toast.success(`Đã thêm ${member.fullName} vào danh sách đen.`);
   };
 
   const filtered = members.filter((m) => {
@@ -248,8 +250,6 @@ export default function ClubMemberMgmt() {
         <h1 className="page-title">Quản Lý Thành Viên</h1>
         <p className="page-subtitle">Danh sách thành viên câu lạc bộ</p>
       </div>
-
-      {toast && <div className={`co-toast co-toast-${toast.type}`}>{toast.msg}</div>}
 
       <div className="content-card">
         {loading ? (

@@ -85,7 +85,7 @@ export default function AttendanceCorrectionPage() {
       const res = await attendanceService.getSessionSummary(sessionId);
       const data = res?.data ?? res;
       setRecords(data?.records ?? []);
-    } catch (err) {
+    } catch {
       toast.error('Không thể tải dữ liệu điểm danh.');
     } finally {
       setLoading(false);

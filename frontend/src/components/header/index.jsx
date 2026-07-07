@@ -1,20 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, NavLink } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-
-const ROLE_DASHBOARD = {
-  Leader:      "/club-leader",
-  ViceLeader:  "/club-leader",
-  MEMBER:      "/member",
-  Member:      "/member",
-  ICPDP:       "/icpdp",
-  Admin:       "/admin",
-};
-
-function getDashboardPath(user) {
-  if (!user) return "/";
-  return ROLE_DASHBOARD[user.role] ?? "/member";
-}
+import { ROLE_REDIRECT } from "../../constants/roles";
 
 export default function Header() {
   const [scrolled, setScrolled]   = useState(false);
@@ -43,7 +30,7 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const dashboardPath = getDashboardPath(user);
+  const dashboardPath = user ? (ROLE_REDIRECT[user.role] ?? "/member") : "/";
 
   return (
     <header
@@ -66,6 +53,34 @@ export default function Header() {
           <span className="text-[15px] font-extrabold text-[#F37021] tracking-[-0.3px]">FPTU Clubs</span>
         </div>
       </a>
+
+      {/* Nav links */}
+      {!isAuthPage && (
+        <nav className="hidden md:flex items-center gap-1">
+          {[
+            { to: "/",       label: "Trang chủ" },
+            { to: "/clubs",  label: "Câu lạc bộ" },
+            { to: "/events", label: "Sự kiện" },
+          ].map(({ to, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === "/"}
+              className={({ isActive }) =>
+                "relative px-4 py-2 rounded-sm text-[14px] font-semibold no-underline bg-transparent border-0 cursor-pointer font-[inherit] transition-all duration-200 " +
+                (isActive ? "bg-[rgba(243,112,33,0.12)]" : "hover:bg-[rgba(243,112,33,0.12)]")
+              }
+              style={({ isActive }) => ({
+                color: isActive ? "#F37021" : "rgba(114,114,114,0.75)",
+              })}
+              onMouseEnter={e => { e.currentTarget.style.color = "#F37021"; }}
+              onMouseLeave={e => { if (e.currentTarget.getAttribute("aria-current") !== "page") e.currentTarget.style.color = "rgba(114,114,114,0.75)"; }}
+            >
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+      )}
 
       <div className="flex items-center gap-[10px]">
         {user ? (
@@ -127,7 +142,7 @@ export default function Header() {
               style={{ color: "#9ca3af", borderColor: "#9ca3af" }}
               onMouseEnter={(e) => { e.currentTarget.style.color = "#F37021"; e.currentTarget.style.borderColor = "#F37021"; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = "#9ca3af"; e.currentTarget.style.borderColor = "#9ca3af"; }}
-              onClick={() => navigate("/login")}
+              onClick={() => navigate("/login", { state: { from: pathname } })}
             >
               Đăng Nhập
             </button>
@@ -136,7 +151,7 @@ export default function Header() {
               style={{ background: "linear-gradient(135deg, var(--orange), var(--orange-light))", boxShadow: "var(--shadow-orange)" }}
               onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 12px 36px rgba(255,107,0,0.40)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "var(--shadow-orange)"; }}
-              onClick={() => navigate("/register")}
+              onClick={() => navigate("/register", { state: { from: pathname } })}
             >
               Đăng Ký
             </button>

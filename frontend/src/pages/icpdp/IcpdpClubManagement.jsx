@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Search, Loader2, CheckCircle, Ban, RefreshCw } from "lucide-react";
 import clubService from "../../services/api/clubs/clubService";
+import { useToast } from "../../contexts/ToastContext";
 
 const STATUS_MAP = {
   active:    { label: "Hoạt động",   cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -16,12 +17,11 @@ const FILTER_OPTIONS = [
 ];
 
 export default function IcpdpClubManagement() {
+  const toast = useToast();
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
-
-  useEffect(() => { fetchClubs(); }, []);
 
   const fetchClubs = async () => {
     setLoading(true);
@@ -29,24 +29,26 @@ export default function IcpdpClubManagement() {
       const response = await clubService.getAll();
       const data = Array.isArray(response) ? response : (Array.isArray(response.data) ? response.data : []);
       setClubs(data);
-    } catch (error) { 
-        console.error("Lỗi tải CLB:", error); 
+    } catch (error) {
+        console.error("Lỗi tải CLB:", error);
         setClubs([]);
     }
     finally { setLoading(false); }
   };
 
+  useEffect(() => { fetchClubs(); }, []);
+
   const handleUpdateStatus = async (club, status) => {
     // API uses clubID based on logs
     const clubId = club.clubID;
     if (!clubId) {
-        alert("Không thể cập nhật: Thiếu ID câu lạc bộ.");
+        toast.error("Không thể cập nhật: Thiếu ID câu lạc bộ.");
         return;
     }
     try {
       await clubService.review(clubId, { status, reason: "Cập nhật từ ICPDP" });
       fetchClubs();
-    } catch (e) { alert("Lỗi: " + e.message); }
+    } catch (e) { toast.error("Lỗi: " + e.message); }
   };
 
   const filtered = useMemo(() => {

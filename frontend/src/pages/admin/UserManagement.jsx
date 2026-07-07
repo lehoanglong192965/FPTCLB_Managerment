@@ -1,35 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useConfirm } from "../../contexts/ConfirmContext";
+import { useToast } from "../../contexts/ToastContext";
 import {
   Search, X, Plus, ShieldAlert, Clock,
-  CheckCircle2, FileText, ChevronLeft,
+  CheckCircle2, FileText, ChevronLeft, Loader2,
 } from "lucide-react";
 import SuspendButton from "../../components/admin/SuspendButton";
+import adminApi from "../../services/api/admin/adminApi";
 
 const ROLE_LABEL = { 1: "Admin", 2: "ICPDP", 3: "Sinh viên" };
 
-const INITIAL_USERS = [
-  { userID: 1, fullName: "Nguyễn Văn A",  email: "a.nguyenvan@fpt.edu.vn",  roleID: 1, accountStatus: "Active",    major: "SE", createdAt: "2025-09-01" },
-  { userID: 2, fullName: "Trần Thị B",    email: "b.tranthi@fpt.edu.vn",    roleID: 3, accountStatus: "Active",    major: "AI", createdAt: "2025-09-05" },
-  { userID: 3, fullName: "Lê Văn C",      email: "c.levan@fpt.edu.vn",      roleID: 3, accountStatus: "Suspended", major: "SE", createdAt: "2025-10-01" },
-  { userID: 4, fullName: "Phạm Thị D",    email: "d.phamthi@fpt.edu.vn",    roleID: 2, accountStatus: "Active",    major: "BA", createdAt: "2025-08-20" },
-  { userID: 5, fullName: "Hoàng Văn E",   email: "e.hoangvan@fpt.edu.vn",   roleID: 3, accountStatus: "Suspended", major: "GD", createdAt: "2025-11-01" },
-  { userID: 6, fullName: "Đinh Thị F",    email: "f.dinhthi@fpt.edu.vn",    roleID: 3, accountStatus: "Active",    major: "IA", createdAt: "2025-11-10" },
-  { userID: 7, fullName: "Vũ Minh G",     email: "g.vuminh@fpt.edu.vn",     roleID: 3, accountStatus: "Active",    major: "SE", createdAt: "2025-12-01" },
-  { userID: 8, fullName: "Bùi Thị H",     email: "h.buithi@fpt.edu.vn",     roleID: 3, accountStatus: "Suspended", major: "AI", createdAt: "2026-01-15" },
-];
-
-const INIT_DISCIPLINES = {
-  3: [
-    { id: 1, reason: "Nghỉ không phép 3 buổi sinh hoạt CLB liên tiếp mà không báo cáo với ban điều hành.", semester: "SP2026", status: "Active",   createdAt: "2026-01-10" },
-    { id: 2, reason: "Sử dụng điện thoại trong giờ họp ban điều hành.", semester: "FA2025", status: "Resolved", createdAt: "2025-11-05" },
-  ],
-  5: [
-    { id: 3, reason: "Vi phạm nội quy tổ chức sự kiện — không hoàn thành nhiệm vụ được giao đúng hạn.", semester: "FA2025", status: "Resolved", createdAt: "2025-12-01" },
-  ],
-  8: [
-    { id: 4, reason: "Gây mất trật tự trong buổi workshop, không chấp hành nhắc nhở của MC sự kiện.", semester: "SP2026", status: "Active",   createdAt: "2026-02-15" },
-  ],
-};
 
 const PANEL_TABS = [
   { key: "info",       label: "Thông tin" },
@@ -54,21 +34,28 @@ function formatDate(s) {
 }
 
 export default function UserManagement() {
-  const [users,          setUsers]          = useState(INITIAL_USERS);
+  const confirm = useConfirm();
+  const toast = useToast();
+  const [users,          setUsers]          = useState([]);
+  const [usersLoading,   setUsersLoading]   = useState(true);
   const [search,         setSearch]         = useState("");
   const [filter,         setFilter]         = useState("all");
   const [selectedUser,   setSelectedUser]   = useState(null);
   const [activeTab,      setActiveTab]      = useState("info");
-  const [disciplinesMap, setDisciplinesMap] = useState(INIT_DISCIPLINES);
+  const [disciplinesMap, setDisciplinesMap] = useState({});
   const [showAddForm,    setShowAddForm]    = useState(false);
   const [addForm,        setAddForm]        = useState(EMPTY_FORM);
   const [addError,       setAddError]       = useState("");
-  const [toast,          setToast]          = useState(null);
 
-  const pushToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 2800);
-  };
+  useEffect(() => {
+    adminApi.getAllUsers()
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
+        setUsers(list);
+      })
+      .catch(() => setUsers([]))
+      .finally(() => setUsersLoading(false));
+  }, []);
 
   function openUser(user, tab = "info") {
     setSelectedUser(user);
@@ -83,24 +70,33 @@ export default function UserManagement() {
     setShowAddForm(false);
   }
 
-  function handleToggle(user, type) {
+  async function handleToggle(user, type) {
     const msg = type === "suspend"
       ? `Tạm khóa tài khoản "${user.fullName}"?`
       : `Mở khóa tài khoản "${user.fullName}"?`;
-    if (!window.confirm(msg)) return;
+    if (!(await confirm(msg))) return;
 
-    const newStatus = type === "suspend" ? "Suspended" : "Active";
-    setUsers((prev) =>
-      prev.map((u) => u.userID === user.userID ? { ...u, accountStatus: newStatus } : u)
-    );
-    if (selectedUser?.userID === user.userID) {
-      setSelectedUser((prev) => ({ ...prev, accountStatus: newStatus }));
-    }
-    pushToast(
-      type === "suspend"
+    try {
+      if (type === "suspend") {
+        await adminApi.suspendUser(user.userID);
+      } else {
+        await adminApi.activateUser(user.userID);
+      }
+      const newStatus = type === "suspend" ? "Suspended" : "Active";
+      setUsers((prev) =>
+        prev.map((u) => u.userID === user.userID ? { ...u, accountStatus: newStatus } : u)
+      );
+      if (selectedUser?.userID === user.userID) {
+        setSelectedUser((prev) => ({ ...prev, accountStatus: newStatus }));
+      }
+      toast.success(type === "suspend"
         ? `Đã tạm khóa tài khoản "${user.fullName}".`
         : `Đã mở khóa tài khoản "${user.fullName}".`
-    );
+      );
+    } catch (err) {
+      const errMsg = err?.response?.data?.message ?? "Thao tác thất bại. Vui lòng thử lại.";
+      toast.error(errMsg);
+    }
   }
 
   function handleAddDiscipline() {
@@ -122,7 +118,7 @@ export default function UserManagement() {
     setAddForm(EMPTY_FORM);
     setShowAddForm(false);
     setAddError("");
-    pushToast("Đã ghi nhận vi phạm kỷ luật thành công.");
+    toast.success("Đã ghi nhận vi phạm kỷ luật thành công.");
   }
 
   function resolveLog(logId) {
@@ -132,7 +128,7 @@ export default function UserManagement() {
         d.id === logId ? { ...d, status: "Resolved" } : d
       ),
     }));
-    pushToast("Đã đánh dấu vi phạm là Đã giải quyết.");
+    toast.success("Đã đánh dấu vi phạm là Đã giải quyết.");
   }
 
   const filtered = useMemo(() => {
@@ -155,15 +151,6 @@ export default function UserManagement() {
 
   return (
     <div>
-      {/* Toast */}
-      {toast && (
-        <div className={`fixed top-5 right-7 z-[300] px-5 py-3 rounded-lg text-[13.5px] font-medium shadow-lg ${
-          toast.type === "success" ? "bg-emerald-100 text-emerald-900" : "bg-red-100 text-red-900"
-        }`}>
-          {toast.msg}
-        </div>
-      )}
-
       {/* Page header */}
       <div className="page-header flex items-center justify-between gap-4 flex-wrap">
         <div>
@@ -211,7 +198,13 @@ export default function UserManagement() {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {usersLoading ? (
+              <tr>
+                <td colSpan={6} className="text-center py-12 px-4">
+                  <Loader2 className="animate-spin inline text-gray-400" size={24} />
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center py-12 px-4 text-gray-400 text-[14px]">
                   Không tìm thấy người dùng nào.

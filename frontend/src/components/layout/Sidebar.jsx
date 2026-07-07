@@ -2,29 +2,8 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { TokenService } from "../../services/api/axiosClient";
-import { decodeJwtPayload } from "../../lib/tokenGuard";
 import { ROLE_LABELS } from "./sidebarConfigs";
-import authService from "../../services/api/auth/authService";
-
-function resolveUserInfo(authUser) {
-  const token =
-    TokenService.getAccess() || sessionStorage.getItem("auth_token");
-  const payload = token ? decodeJwtPayload(token) : null;
-
-  const name =
-    authUser?.name ||
-    payload?.name ||
-    payload?.email?.split("@")[0] ||
-    "Người dùng";
-
-  const role =
-    authUser?.role ||
-    (TokenService.getRole() !== "GUEST" ? TokenService.getRole() : null) ||
-    payload?.roles?.[0]?.toUpperCase() ||
-    "MEMBER";
-
-  return { name, role };
-}
+import { resolveUserInfo } from "../../utils/notificationUtils";
 
 export default function Sidebar({ navItems }) {
   const { user, logout, profile } = useAuth();
@@ -37,10 +16,9 @@ export default function Sidebar({ navItems }) {
 
   const handleLogout = async () => {
     try {
-      await authService.logout();
+      await logout();
     } catch {
       TokenService.clear();
-      logout();
       navigate("/login");
     }
   };
@@ -49,7 +27,10 @@ export default function Sidebar({ navItems }) {
     <aside
       className="w-60 bg-white border-r border-[#F0F0F0] flex flex-col fixed top-0 left-0 h-screen z-[100] overflow-y-auto overflow-x-hidden [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[#E5E7EB] [&::-webkit-scrollbar-thumb]:rounded"
     >
-      <div className="px-[18px] pt-5 pb-4 text-[17px] font-extrabold tracking-tight shrink-0 border-b border-[#F0F0F0] flex items-center gap-[10px]">
+      <div
+        className="px-[18px] pt-5 pb-4 text-[17px] font-extrabold tracking-tight shrink-0 border-b border-[#F0F0F0] flex items-center gap-[10px] cursor-pointer"
+        onClick={() => navigate('/')}
+      >
         <div
           className="w-[30px] h-[30px] rounded-lg flex items-center justify-center shrink-0 text-white text-sm font-black shadow-[0_2px_8px_rgba(230,67,10,0.3)]"
           style={{ background: "linear-gradient(135deg,#F37021,#E6430A)" }}

@@ -33,11 +33,7 @@ export default function EventsSection() {
         const clubRes = await safeGet(() => clubService.getAll(), 100);
         if (cancelled) return;
 
-        const evList   = (Array.isArray(evRes) ? evRes : (evRes?.content ?? evRes?.data ?? []))
-          .filter((e) => {
-            const s = (e.eventStatus ?? e.status ?? "").toUpperCase().replace(/_/g, "");
-            return s !== "APPROVED";
-          });
+        const evList   = Array.isArray(evRes) ? evRes : (evRes?.content ?? evRes?.data ?? []);
         const clubList = clubRes
           ? (Array.isArray(clubRes) ? clubRes : (clubRes?.content ?? clubRes?.data ?? []))
           : [];
@@ -45,6 +41,15 @@ export default function EventsSection() {
         const mapped = evList.map((e) => {
           const clubObj = clubList.find((c) => c.clubID === e.clubID);
           const startDt = e.startDate ? new Date(e.startDate) : null;
+          const max = e.maxParticipants ?? 0;
+          const cur = e.currentParticipants ?? 0;
+          const isFull = max > 0 && cur >= max;
+          const s = (e.eventStatus ?? e.status ?? "").toUpperCase();
+          const badgeType = isFull                       ? "full"
+            : s === "REGISTRATIONCLOSED"                 ? "closed"
+            : s === "APPROVED" || s === "UPCOMING"       ? "upcoming"
+            : s === "ONGOING"                            ? "upcoming"
+            : "open";
           return {
             id:                  e.eventID,
             title:               e.eventName ?? "",
@@ -54,9 +59,9 @@ export default function EventsSection() {
             date:                startDt ? startDt.toLocaleDateString("vi-VN") : "",
             time:                startDt ? startDt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
             location:            e.location ?? "",
-            badgeType:           "open",
-            maxParticipants:     e.maxParticipants     ?? 0,
-            currentParticipants: e.currentParticipants ?? 0,
+            badgeType,
+            maxParticipants:     max,
+            currentParticipants: cur,
             bannerUrl:           e.bannerUrl ?? null,
           };
         });
@@ -117,8 +122,8 @@ export default function EventsSection() {
 
       {/* Grid */}
       <div
-        className="relative z-10 grid gap-5 max-w-[1200px] mx-auto"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}
+        className="relative z-10 grid gap-6 max-w-[1200px] mx-auto"
+        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
       >
         {loading ? (
           <div className="col-span-full text-center py-10">

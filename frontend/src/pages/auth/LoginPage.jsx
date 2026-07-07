@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams, Link } from "react-router-dom";
 import authService from "../../services/api/auth/authService";
 import { useAuth } from "../../contexts/AuthContext";
+import { ROLE_REDIRECT } from "../../constants/roles";
+import { getServerOrigin } from "../../services/api/axiosClient";
 
 function GoogleIcon() {
   return (
@@ -37,33 +39,25 @@ function Logo() {
   );
 }
 
-const ROLE_REDIRECT = {
-  ADMIN:       "/admin",
-  ICPDP:       "/icpdp",
-  MEMBER:      "/member",
-  ALUMNI:      "/alumni",
-  CLUB_LEADER: "/club-leader",
-  VICE_LEADER: "/club-leader",
-};
-
-
-// Public pages that a member can be sent back to after login
-const PUBLIC_PATHS = ["/", "/events", "/clubs"];
-
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
   const [email, setEmail]           = useState("");
   const [password, setPassword]     = useState("");
   const [showPass, setShowPass]     = useState(false);
   const [loading, setLoading]       = useState(null);
   const [errors, setErrors]         = useState({ email: "", password: "" });
+  const [ssoError, setSsoError]     = useState(searchParams.get("ssoError") || "");
 
   const handleSSO = (provider) => {
+    setSsoError("");
     setErrors({ email: "", password: "" });
     setLoading(provider);
-    window.location.href = `http://localhost:8080/oauth2/authorization/${provider}`;
+    const from = location.state?.from;
+    if (from) sessionStorage.setItem("oauth_return_to", from);
+    window.location.href = `${getServerOrigin()}/oauth2/authorization/${provider}`;
   };
 
   const handleSubmit = async (e) => {
@@ -83,9 +77,14 @@ export default function LoginPage() {
       const { role, email: userEmail } = await authService.login(email, password);
       login({ email: userEmail, role });
       const from = location.state?.from;
-      const dest = (from && PUBLIC_PATHS.some((p) => from === p || from.startsWith(p + "/")))
-        ? from
-        : (ROLE_REDIRECT[role] ?? "/member");
+      let dest;
+      if (role === "MEMBER") {
+        const isReturnPage = from && (from.startsWith("/events/") || from.startsWith("/clubs/"));
+        dest = isReturnPage ? from : "/";
+      } else {
+        const home = ROLE_REDIRECT[role] ?? "/";
+        dest = (from && from.startsWith(home)) ? from : home;
+      }
       navigate(dest, { replace: true });
     } catch (err) {
       const msg = err?.response?.data?.error ?? "";
@@ -127,6 +126,12 @@ export default function LoginPage() {
           <p className="text-[13px] text-[#6B6B6B] m-0">để tiếp tục vào hệ thống của bạn</p>
         </div>
 
+        {ssoError && (
+          <div className="w-full mb-3 px-4 py-3 rounded-lg bg-[#FDF2F2] border border-[#F5C6C6] text-[13px] text-[#D0453A] text-center leading-[1.5]">
+            {ssoError}
+          </div>
+        )}
+
         <form className="w-full flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
           <div className="relative">
             <input
@@ -135,7 +140,7 @@ export default function LoginPage() {
                 errors.email
                   ? "border-b-[#D0453A]"
                   : "border-b-[#E4E4E4] focus:border-b-[#4A90D9]",
-                !!loading ? "opacity-60 cursor-not-allowed" : "",
+                loading ? "opacity-60 cursor-not-allowed" : "",
               ].join(" ")}
               type="email"
               placeholder="Email"
@@ -144,7 +149,7 @@ export default function LoginPage() {
                 setEmail(e.target.value); // Cập nhật state email khi người dùng nhập thêm.
                 if (errors.email) setErrors((p) => ({ ...p, email: "" }));  // Nếu trước đó có lỗi email, xóa lỗi khi người dùng bắt đầu sửa.
               }}
-              disabled={!!loading} // Vô hiệu hóa input khi đang ở trạng thái loading 
+              disabled={loading} // Vô hiệu hóa input khi đang ở trạng thái loading 
               autoComplete="email" // Gợi ý trình duyệt tự động điền email đã lưu
             />
             {errors.email && (
@@ -160,7 +165,7 @@ export default function LoginPage() {
                   errors.password
                     ? "border-b-[#D0453A]"
                     : "border-b-[#E4E4E4] focus:border-b-[#4A90D9]",
-                  !!loading ? "opacity-60 cursor-not-allowed" : "",
+                  loading ? "opacity-60 cursor-not-allowed" : "",
                 ].join(" ")}
                 type={showPass ? "text" : "password"}
                 placeholder="Mật khẩu"
@@ -169,7 +174,7 @@ export default function LoginPage() {
                   setPassword(e.target.value);
                   if (errors.password) setErrors((p) => ({ ...p, password: "" }));
                 }}
-                disabled={!!loading}
+                disabled={loading}
                 autoComplete="current-password"
               />
               <button
@@ -200,7 +205,7 @@ export default function LoginPage() {
           <button
             type="submit"
             className="w-full py-3 border-0 rounded-lg bg-[#F37022] text-white text-[14px] font-semibold tracking-[0.06em] cursor-pointer transition-all duration-150 mt-1 hover:enabled:bg-[#3578C4] active:enabled:scale-[0.99] disabled:opacity-65 disabled:cursor-not-allowed"
-            disabled={!!loading}
+            disabled={loading}
           >
             {loading === "email" ? "Đang kiểm tra..." : "ĐĂNG NHẬP"}
           </button>
@@ -218,7 +223,7 @@ export default function LoginPage() {
 
         <button
           className="w-full flex items-center justify-center gap-[10px] px-4 py-[11px] border border-[#E4E4E4] rounded-lg bg-white text-[14px] text-[#1A1A1A] cursor-pointer transition-all duration-150 mb-[10px] hover:enabled:bg-[#FAFAFA] hover:enabled:border-[#C8C8C8] disabled:opacity-60 disabled:cursor-not-allowed"
-          disabled={!!loading}
+          disabled={loading}
           onClick={() => handleSSO("google")}
         >
           <GoogleIcon />
@@ -231,7 +236,7 @@ export default function LoginPage() {
             href="#"
             className="font-semibold no-underline hover:underline"
             style={{ color: "#F37021" }}
-            onClick={(e) => { e.preventDefault(); navigate("/register"); }}
+            onClick={(e) => { e.preventDefault(); navigate("/register", { state: { from: location.state?.from } }); }}
           >
             Tạo tài khoản
           </a>

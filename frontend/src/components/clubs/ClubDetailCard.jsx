@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { displayCategory } from "../../hooks/usePublicClubs";
+import { getServerOrigin } from "../../services/api/axiosClient";
 
 function UsersIcon() {
   return (
@@ -48,8 +49,7 @@ function MapPinIcon() {
 const resolveImg = (url) => {
   if (!url) return null;
   if (url.startsWith("http") || url.startsWith("data:")) return url;
-  const base = (import.meta.env.VITE_API_URL || "http://localhost:8080/api").replace(/\/api\/?$/, "");
-  return `${base}${url}`;
+  return getServerOrigin() + url;
 };
 
 export default function ClubDetailCard({ club, clubEvents = [], primaryAction, onBack }) {

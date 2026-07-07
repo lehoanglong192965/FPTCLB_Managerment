@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNotifications } from '../../contexts/NotificationsContext';
+import { useToast } from '../../contexts/ToastContext';
 import eventService from '../../services/api/events/eventService';
 
 const FinishEventModal = ({ eventId, isOpen, onClose, onFinishSuccess }) => {
     const { addNotification } = useNotifications();
+    const toast = useToast();
     const [isLoading, setIsLoading] = useState(false);
 
     if (!isOpen) return null;
@@ -12,11 +14,11 @@ const FinishEventModal = ({ eventId, isOpen, onClose, onFinishSuccess }) => {
         setIsLoading(true);
         try {
             await eventService.finish(eventId);
-            addNotification('Đã khóa sổ sự kiện. Hệ thống đang tự động đánh vắng mặt những người không tham gia.', 'success');
+            addNotification({ title: 'Đã khóa sổ sự kiện', content: 'Hệ thống đang tự động đánh vắng mặt những người không tham gia.' });
             if (onFinishSuccess) onFinishSuccess();
             onClose();
         } catch (error) {
-            addNotification(error.response?.data?.message || 'Lỗi khi kết thúc sự kiện.', 'error');
+            toast.error(error.response?.data?.message || 'Lỗi khi kết thúc sự kiện.');
         } finally {
             setIsLoading(false);
         }

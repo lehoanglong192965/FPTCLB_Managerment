@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { usePublicClubs, CATEGORY_LABEL } from "../../hooks/usePublicClubs";
+import { usePublicClubs } from "../../hooks/usePublicClubs";
 import ClubCard from "../../components/clubs/ClubCard";
 
 // value = giá trị DB dùng để filter, label = nhãn hiển thị tiếng Việt
@@ -17,7 +16,6 @@ const CATEGORIES = [
 ];
 
 export default function ClubListPage() {
-  const navigate = useNavigate();
   const { clubs, loading, error } = usePublicClubs();
   const [search, setSearch]       = useState("");
   const [activeTag, setActiveTag] = useState("Tất cả");
@@ -32,13 +30,6 @@ export default function ClubListPage() {
   return (
     <div className="max-w-[1200px] mx-auto px-[5%] pt-[calc(var(--header-h,68px)+48px)] pb-20">
       
-      <button
-        className="inline-flex items-center gap-1.5 mb-7 px-4 py-2 rounded-lg border border-gray-200 bg-white text-[#4B5674] text-sm font-semibold cursor-pointer hover:border-[#FF6B00] hover:text-[#FF6B00] transition-all"
-        onClick={() => navigate("/")}
-      >
-        ← Trở về
-      </button>
-
       <div className="mb-10">
         <h1 className="text-[clamp(1.8rem,4vw,2.6rem)] font-black text-[#0D1B3E] tracking-[-1.5px] mb-2.5">
           Danh Sách Câu Lạc Bộ
@@ -99,7 +90,7 @@ export default function ClubListPage() {
       )}
 
       {!loading && !error && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
           {filtered.length > 0
             ? filtered.map((club) => <ClubCard key={club.abbr} club={club} />)
             : (

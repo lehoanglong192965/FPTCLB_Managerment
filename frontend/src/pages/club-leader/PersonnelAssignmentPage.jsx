@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
 import eventService from "../../services/api/events/eventService";
 import { useClubData } from "../../contexts/ClubDataContext";
+import { useConfirm } from "../../contexts/ConfirmContext";
+import { useToast } from "../../contexts/ToastContext";
 
 const EVENT_ROLES = [
   { id: 1, label: "Trưởng ban tổ chức (Core)" },
@@ -14,7 +16,9 @@ const EVENT_ROLES = [
 export default function PersonnelAssignmentPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const { members } = useClubData(); // Get real members from context
+  const confirm = useConfirm();
+  const toast = useToast();
+  const { members } = useClubData();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -40,54 +44,38 @@ export default function PersonnelAssignmentPage() {
     m => !assignments.some(a => a.userID === m.userID)
   );
 
-  const formatAssignedAt = (dateStr) => {
-    if (!dateStr) return "---";
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleString("vi-VN", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch (e) {
-      return dateStr;
-    }
-  };
-
   useEffect(() => {
     fetchAssignments();
   }, [eventId]);
 
   const handleAddAssignment = async () => {
     if (!newUserId || !newRoleId) {
-      alert("Vui lòng chọn thành viên và vai trò.");
+      toast.error("Vui lòng chọn thành viên và vai trò.");
       return;
     }
 
     setAdding(true);
     try {
       await eventService.addAssignment(eventId, { userID: parseInt(newUserId), eventRoleID: parseInt(newRoleId) });
-      alert("Đã phân công thành viên thành công.");
+      toast.success("Đã phân công thành viên thành công.");
       setNewUserId("");
       setNewRoleId("");
       await fetchAssignments(); // Refresh assignments list
     } catch (error) {
-      alert("Lỗi khi phân công: " + error.response?.data?.message || error.message);
+      toast.error("Lỗi khi phân công: " + (error.response?.data?.message || error.message));
     } finally {
       setAdding(false);
     }
   };
 
   const handleRemoveAssignment = async (userId) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa phân công này?")) return;
+    if (!(await confirm("Bạn có chắc chắn muốn xóa phân công này?", { danger: true, confirmLabel: "Xóa" }))) return;
     try {
       await eventService.removeAssignment(eventId, userId);
-      alert("Đã xóa phân công.");
+      toast.success("Đã xóa phân công.");
       await fetchAssignments(); // Refresh assignments list
     } catch (error) {
-      alert("Lỗi khi xóa: " + error.response?.data?.message || error.message);
+      toast.error("Lỗi khi xóa: " + (error.response?.data?.message || error.message));
     }
   };
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Star, Loader2 } from "lucide-react";
 import ClubCard from "../../components/clubs/ClubCard";
-import ClubSpace from "./ClubSpace";
+import ClubSpace from "../../components/clubs/ClubSpace";
 import authApi from "../../services/api/auth/authApi";
 import clubService from "../../services/api/clubs/clubService";
 import { normalizeClub } from "../../hooks/usePublicClubs";
@@ -91,7 +91,7 @@ export default function MemberMyClubs() {
             <p className="text-sm m-0">Bạn chưa tham gia CLB nào.</p>
           </div>
         ) : (
-          <div className="grid gap-[18px]" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+          <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
             {joinedClubs.map((club) => (
               <ClubCard key={club.id ?? club.abbr} club={club} onSelect={() => setSelectedClub(club)} />
             ))}
