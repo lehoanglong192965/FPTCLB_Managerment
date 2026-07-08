@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import {
-  ArrowLeft, Users, Calendar, Megaphone,
+  ArrowLeft, Users, Megaphone,
   Pin, Search, MapPin, Clock, Trophy, Medal,
-  Crown, Award, Loader2,
+  Crown, Award, Loader2, Send, X,
 } from "lucide-react";
 import clubService from "../../services/api/clubs/clubService";
 import memberApi from "../../services/api/clubs/memberApi";
+import { useAuth } from "../../contexts/AuthContext";
+import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
+import { normalizeClub } from "../../hooks/usePublicClubs";
 
 const SPACE_DATA = {
   1: {
@@ -501,38 +504,120 @@ function LeaderboardView({ club, members, rankings, loading, error, search, onSe
   );
 }
 
-const TABS = [
-  { key: "feed",        label: "Bảng tin",       icon: Megaphone },
-  { key: "members",     label: "Thành viên",     icon: Users     },
-  { key: "leaderboard", label: "BXH thành viên", icon: Trophy    },
-  { key: "events",      label: "Sự kiện",        icon: Calendar  },
-];
+function PostComposer({ onPost, user }) {
+  const [expanded, setExpanded] = useState(false);
+  const [text, setText] = useState("");
 
-export default function ClubSpace({ club, onBack }) {
-  const [tab, setTab]             = useState("feed");
-  const [memberSearch, setMS]     = useState("");
+  const initials = user?.name
+    ? user.name.trim().split(/\s+/).map((w) => w[0]).slice(-2).join("").toUpperCase()
+    : "?";
+
+  const handlePost = () => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    onPost(trimmed);
+    setText("");
+    setExpanded(false);
+  };
+
+  if (!expanded) {
+    return (
+      <button
+        className="w-full flex items-center gap-3 px-4 py-3.5 bg-white rounded-2xl border border-gray-200 shadow-sm text-left hover:border-gray-300 transition-colors cursor-pointer font-[inherit]"
+        onClick={() => setExpanded(true)}
+      >
+        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 bg-[#e6430a22] text-[#e6430a]">
+          {initials}
+        </div>
+        <span className="text-sm text-gray-400">Đăng bài lên bảng tin câu lạc bộ...</span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 bg-[#e6430a22] text-[#e6430a]">
+          {initials}
+        </div>
+        <span className="text-sm font-semibold text-gray-700">{user?.name ?? "Leader"}</span>
+      </div>
+      <textarea
+        className="w-full border border-gray-200 rounded-xl p-3 text-sm text-gray-800 resize-none outline-none focus:border-[#E6430A] font-[inherit] placeholder:text-gray-300"
+        rows={4}
+        placeholder="Nhập nội dung bài đăng..."
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && e.ctrlKey) handlePost(); }}
+        autoFocus
+      />
+      <div className="flex items-center justify-between mt-3">
+        <span className="text-xs text-gray-400">Ctrl+Enter để đăng</span>
+        <div className="flex gap-2">
+          <button
+            className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer border-none bg-transparent font-[inherit]"
+            onClick={() => { setExpanded(false); setText(""); }}
+          >
+            <X size={14} className="inline mr-1" />Hủy
+          </button>
+          <button
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-semibold bg-[#E6430A] text-white hover:bg-[#c73808] transition-colors cursor-pointer border-none font-[inherit] disabled:opacity-40"
+            onClick={handlePost}
+            disabled={!text.trim()}
+          >
+            <Send size={14} />Đăng
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ClubSpace({ club: clubProp, onBack }) {
+  const { user }    = useAuth();
+  const isLeader    = user?.role === "CLUB_LEADER" || user?.role === "VICE_LEADER";
+  const isClubLeader = user?.role === "CLUB_LEADER";
+
+  // Self-fetch khi không có club prop (leader my-club page)
+  const [selfClub, setSelfClub]       = useState(null);
+  const [selfLoading, setSelfLoading] = useState(!clubProp);
+
+  const [tab, setTab]                     = useState("feed");
+  const [memberSearch, setMS]             = useState("");
   const [rankingSearch, setRankingSearch] = useState("");
-  const [members, setMembers]     = useState([]);
+  const [members, setMembers]             = useState([]);
   const [membersLoading, setMembersLoading] = useState(true);
-  const [membersError, setMembersError] = useState("");
-  const [rankings, setRankings]   = useState([]);
+  const [membersError, setMembersError]   = useState("");
+  const [rankings, setRankings]           = useState([]);
   const [rankingsLoading, setRankingsLoading] = useState(false);
   const [rankingsError, setRankingsError] = useState("");
-  const [realEvents, setRealEvents]     = useState([]);
+  const [realEvents, setRealEvents]       = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
-  const space = getSpace(club.id);
+  const [feed, setFeed]                   = useState(() => clubProp ? getSpace(clubProp.id).feed : []);
 
   useEffect(() => {
-    if (!club?.id) {
-      setMembers([]);
-      setMembersLoading(false);
-      return;
-    }
+    if (clubProp) return;
+    const clubId = TokenService.getClubId();
+    if (!clubId) { setSelfLoading(false); return; }
+    clubService.getById(clubId)
+      .then((res) => setSelfClub(normalizeClub(res?.data ?? res)))
+      .catch(() => {})
+      .finally(() => setSelfLoading(false));
+  }, [clubProp]);
 
+  const club = clubProp ?? selfClub;
+
+  // Khởi feed mockdata khi club self-fetch xong
+  useEffect(() => {
+    if (!clubProp && club?.id !== undefined) setFeed(getSpace(club.id).feed);
+  }, [club?.id, clubProp]);
+
+  // Fetch members
+  useEffect(() => {
+    if (!club?.id) { setMembers([]); setMembersLoading(false); return; }
     let cancelled = false;
     setMembersLoading(true);
     setMembersError("");
-
     memberApi.getAll(club.id, { page: 0, size: 500 })
       .then((res) => {
         if (cancelled) return;
@@ -541,149 +626,147 @@ export default function ClubSpace({ club, onBack }) {
       })
       .catch((err) => {
         if (cancelled || err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
-        console.error("Lỗi khi tải thành viên CLB:", err);
         setMembers([]);
-        setMembersError("Không thể tải danh sách thành viên thật.");
+        setMembersError("Không thể tải danh sách thành viên.");
       })
-      .finally(() => {
-        if (!cancelled) setMembersLoading(false);
-      });
-
+      .finally(() => { if (!cancelled) setMembersLoading(false); });
     return () => { cancelled = true; };
   }, [club?.id]);
 
+  // Fetch events (chỉ cho member view, leader dùng ClubEventsMgmt)
   useEffect(() => {
-    if (tab === "events" && club?.id) {
-      clubService.getAllEvents(club.id)
-        .then((res) => {
-          const data = Array.isArray(res) ? res : (res.data || []);
-          setRealEvents(data);
-        })
-        .catch((err) => {
-          console.error("Lỗi khi tải sự kiện CLB:", err);
-        })
-        .finally(() => {
-          setEventsLoading(false);
-        });
-    }
-  }, [tab, club?.id]);
+    if (tab !== "events" || isLeader || !club?.id) return;
+    clubService.getAllEvents(club.id)
+      .then((res) => setRealEvents(Array.isArray(res) ? res : (res.data || [])))
+      .catch(() => {})
+      .finally(() => setEventsLoading(false));
+  }, [tab, club?.id, isLeader]);
 
+  // Fetch leaderboard
   useEffect(() => {
     if (tab !== "leaderboard" || !club?.id) return;
-
     let cancelled = false;
-
+    setRankingsLoading(true);
+    setRankingsError("");
     clubService.getMemberRankings(club.id)
       .then((data) => {
         if (cancelled) return;
-        const rows = Array.isArray(data) ? data : (data?.data ?? []);
-        setRankings(rows);
+        setRankings(Array.isArray(data) ? data : (data?.data ?? []));
       })
       .catch((err) => {
         if (cancelled || err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
-        console.error("Lỗi khi tải BXH thành viên:", err);
         setRankingsError("Không thể tải BXH thành viên.");
       })
-      .finally(() => {
-        if (!cancelled) setRankingsLoading(false);
-      });
-
+      .finally(() => { if (!cancelled) setRankingsLoading(false); });
     return () => { cancelled = true; };
   }, [tab, club?.id]);
 
   const handleTabChange = (nextTab) => {
     if (nextTab === tab) return;
-
-    if (nextTab === "events") {
-      setEventsLoading(true);
-    }
-
-    if (nextTab === "leaderboard") {
-      setRankingsLoading(true);
-      setRankingsError("");
-    }
-
+    if (nextTab === "events") setEventsLoading(true);
+    if (nextTab === "leaderboard") { setRankingsLoading(true); setRankingsError(""); }
     setTab(nextTab);
   };
+
+  const handleNewPost = (text) => {
+    const name = user?.name ?? user?.email?.split("@")[0] ?? "Leader";
+    setFeed((prev) => [{
+      id: Date.now(), type: "post",
+      author: name, role: isClubLeader ? "Trưởng CLB" : "Phó CLB",
+      avatar: name.trim().split(/\s+/).map((w) => w[0]).slice(-2).join("").toUpperCase(),
+      time: "Vừa xong", content: text,
+    }, ...prev]);
+  };
+
+  // --- Early returns (sau tất cả hooks) ---
+  if (selfLoading) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <Loader2 size={26} className="animate-spin text-gray-400" />
+      </div>
+    );
+  }
+  if (!club) {
+    return <p className="text-center py-10 text-sm text-gray-400">Không tìm thấy thông tin câu lạc bộ.</p>;
+  }
+
+  const space = getSpace(club.id);
+  const rawImg = club.clubImage ?? null;
+  const coverImg = rawImg
+    ? (rawImg.startsWith("http") || rawImg.startsWith("data:") ? rawImg : getServerOrigin() + rawImg)
+    : null;
+  const coverStyle = coverImg
+    ? { backgroundImage: `url(${coverImg})`, backgroundSize: "cover", backgroundPosition: "center" }
+    : { background: space.cover };
 
   const filteredMembers = members.filter((m) =>
     m.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
     m.studentId.toLowerCase().includes(memberSearch.toLowerCase())
   );
 
+  const tabs = [
+    { key: "feed",        label: "Bảng tin",       icon: Megaphone },
+    { key: "members",     label: "Thành viên",     icon: Users     },
+    { key: "leaderboard", label: "BXH thành viên", icon: Trophy    },
+  ];
+
+
   return (
     <div className="animate-[csFadeIn_0.22s_ease-out]">
       <style>{`@keyframes csFadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
-      <div className="flex items-center gap-3.5 mb-4">
-        <button
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white border border-gray-200 text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-50 hover:border-gray-300 transition-colors font-[inherit]"
-          onClick={onBack}
-        >
-          <ArrowLeft size={16} />
-          Quay lại
-        </button>
-        <span className="text-sm font-semibold text-gray-500">{club.name}</span>
-      </div>
+      {/* ── Facebook Group style header ── */}
+      <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-200 mb-5 bg-white">
+        {/* Cover photo */}
+        <div className="relative h-[220px]" style={coverStyle}>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/30 backdrop-blur-sm text-white text-sm font-medium hover:bg-black/45 transition-colors border-none cursor-pointer font-[inherit]"
+            >
+              <ArrowLeft size={15} />
+              Quay lại
+            </button>
+          )}
+        </div>
 
-      <div
-        className="rounded-2xl p-7 flex items-center gap-5 relative overflow-hidden flex-wrap mb-0"
-        style={{ background: space.cover, rowGap: 16 }}
-      >
-        <div className="absolute inset-0 bg-black/[0.12] pointer-events-none rounded-2xl" />
-        <div className="text-[52px] leading-none shrink-0 relative z-10 drop-shadow-[0_2px_6px_rgba(0,0,0,0.2)]">
-          {club.emoji}
-        </div>
-        <div className="flex-1 min-w-0 relative z-10">
-          <h1 className="text-2xl font-extrabold text-white m-0 mb-1.5" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.2)" }}>
-            {club.name}
-          </h1>
-          <p className="inline-block px-3 py-0.5 bg-white/20 rounded-full text-xs font-semibold text-white m-0">
-            {club.tag}
-          </p>
-        </div>
-        <div className="flex items-center bg-white/[0.18] rounded-xl px-4.5 py-2.5 relative z-10 shrink-0">
-          <div className="flex flex-col items-center gap-0.5 px-4">
-            <span className="text-xl font-bold text-white leading-none">{membersLoading ? club.members : members.length}</span>
-            <span className="text-[11px] text-white/80">Thành viên</span>
-          </div>
-          <div className="w-px h-7 bg-white/25" />
-          <div className="flex flex-col items-center gap-0.5 px-4">
-            <span className="text-xl font-bold text-white leading-none">{space.stats.events}</span>
-            <span className="text-[11px] text-white/80">Sự kiện</span>
-          </div>
-          <div className="w-px h-7 bg-white/25" />
-          <div className="flex flex-col items-center gap-0.5 px-4">
-            <span className="text-xl font-bold text-white leading-none">{space.stats.posts}</span>
-            <span className="text-[11px] text-white/80">Bài đăng</span>
+        {/* Club name + member count */}
+        <div className="px-6 pt-4 pb-0">
+          <h1 className="text-[22px] font-extrabold text-gray-950 m-0 mb-1 leading-snug">{club.name}</h1>
+          <div className="flex items-center gap-1.5 text-[13.5px] text-gray-500 pb-3">
+            <Users size={14} className="shrink-0" />
+            <span>{membersLoading ? (club.members ?? "—") : members.length} thành viên</span>
           </div>
         </div>
-        <span className="relative z-10 px-3.5 py-1.5 rounded-full bg-white/90 text-[12.5px] font-semibold text-gray-700 shrink-0">
-          {club.role}
-        </span>
-      </div>
 
-      <div className="flex gap-1 bg-white rounded-b-2xl px-4 border-t border-white/10 shadow-[0_2px_8px_rgba(0,0,0,0.06)] mb-5">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            className={`flex items-center gap-1.5 px-4 py-3.5 border-b-2 text-[13.5px] font-medium cursor-pointer transition-colors bg-none border-l-0 border-r-0 border-t-0 font-[inherit] whitespace-nowrap ${
-              tab === t.key
-                ? "text-[#E6430A] border-b-[#E6430A] font-semibold"
-                : "text-gray-500 border-b-transparent hover:text-gray-700"
-            }`}
-            onClick={() => handleTabChange(t.key)}
-          >
-            <t.icon size={15} />
-            {t.label}
-          </button>
-        ))}
+        {/* Tab bar */}
+        <div className="flex gap-0 px-4 border-t border-gray-100 overflow-x-auto">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              className={`relative flex items-center gap-1.5 px-4 py-3.5 text-[13.5px] font-medium cursor-pointer transition-colors bg-transparent border-none font-[inherit] whitespace-nowrap ${
+                tab === t.key
+                  ? "text-[#E6430A] font-semibold"
+                  : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+              }`}
+              onClick={() => handleTabChange(t.key)}
+            >
+              <t.icon size={15} />
+              {t.label}
+              {tab === t.key && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#E6430A] rounded-t-full" />
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div>
         {tab === "feed" && (
-          <div className="flex flex-col gap-3.5 max-w-[680px]">
-            {space.feed.map((post) => (
+          <div className="flex flex-col gap-3.5">
+            {isLeader && <PostComposer onPost={handleNewPost} user={user} />}
+            {feed.map((post) => (
               <FeedPost key={post.id} post={post} />
             ))}
           </div>
@@ -727,51 +810,6 @@ export default function ClubSpace({ club, onBack }) {
             search={rankingSearch}
             onSearch={setRankingSearch}
           />
-        )}
-
-        {tab === "events" && (
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            {eventsLoading ? (
-              <p className="text-center py-5 text-sm text-gray-400">Đang tải danh sách sự kiện...</p>
-            ) : realEvents.length === 0 ? (
-              <p className="text-center py-5 text-sm text-gray-400">Câu lạc bộ chưa có sự kiện nào.</p>
-            ) : (
-              <>
-                <p className="text-[11.5px] font-semibold text-gray-400 uppercase tracking-wide m-0 mb-3">Sắp diễn ra</p>
-                {realEvents
-                  .filter((e) => e.eventStatus === "Approved" || e.eventStatus === "Upcoming" || e.eventStatus === "Ongoing")
-                  .map((e) => (
-                    <EventRow
-                      key={e.eventID}
-                      event={{
-                        id: e.eventID,
-                        name: e.eventName,
-                        date: e.startDate ? new Date(e.startDate).toLocaleDateString("vi-VN") : "",
-                        time: e.startDate ? new Date(e.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
-                        location: e.location || "Chưa xếp phòng",
-                        status: "upcoming",
-                      }}
-                    />
-                  ))}
-                <p className="text-[11.5px] font-semibold text-gray-400 uppercase tracking-wide m-0 mb-3 mt-5">Đã kết thúc</p>
-                {realEvents
-                  .filter((e) => e.eventStatus === "Completed" || e.eventStatus === "Closed")
-                  .map((e) => (
-                    <EventRow
-                      key={e.eventID}
-                      event={{
-                        id: e.eventID,
-                        name: e.eventName,
-                        date: e.startDate ? new Date(e.startDate).toLocaleDateString("vi-VN") : "",
-                        time: e.startDate ? new Date(e.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
-                        location: e.location || "Chưa xếp phòng",
-                        status: "done",
-                      }}
-                    />
-                  ))}
-              </>
-            )}
-          </div>
         )}
       </div>
     </div>

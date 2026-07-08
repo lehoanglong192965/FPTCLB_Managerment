@@ -56,7 +56,7 @@ export default function Header() {
 
       {/* Nav links */}
       {!isAuthPage && (
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className="hidden sm:flex items-center gap-1">
           {[
             { to: "/",       label: "Trang chủ" },
             { to: "/clubs",  label: "Câu lạc bộ" },

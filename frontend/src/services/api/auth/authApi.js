@@ -29,7 +29,7 @@ const authApi = {
     axiosClient.get("/auth/check-email", { params: { email } }),
 
   getMyClubRole: () =>
-    axiosClient.get("/user/my-club-role"),
+    axiosClient.get("/user/my-club-role", { skipAuthLogout: true }),
 
   verifyOTP: (email, otpCode) =>
     axiosClient.post("/auth/verify-otp", { email, otpCode }),

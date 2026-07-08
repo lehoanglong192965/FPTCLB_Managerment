@@ -159,7 +159,9 @@ axiosClient.interceptors.response.use(
     }
 
     // 401 — token hết hạn hoặc không hợp lệ → logout
-    if (status === 401 && !isPublicEndpoint(originalConfig.url)) {
+    // (bỏ qua nếu request tự đánh dấu skipAuthLogout, vd: request dò quyền phụ trong lúc login,
+    // vốn đã được caller tự xử lý lỗi cục bộ, không nên coi là mất phiên đăng nhập)
+    if (status === 401 && !isPublicEndpoint(originalConfig.url) && !originalConfig.skipAuthLogout) {
       TokenService.clear();
       window.dispatchEvent(
         new CustomEvent("auth:logout", {

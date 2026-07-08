@@ -80,6 +80,9 @@ import RegistrationMgmtPage from "../pages/club-leader/RegistrationMgmtPage";
 import AttendanceDashboardPage from "../pages/club-leader/AttendanceDashboardPage";
 import AttendanceCorrectionPage from "../pages/club-leader/AttendanceCorrectionPage";
 import { ClubDataProvider } from "../contexts/ClubDataContext";
+import ClubManagementLayout from "../components/layout/ClubManagementLayout";
+import ClubSpace from "../components/clubs/ClubSpace";
+import ClubLeaderMyClubs from "../pages/club-leader/ClubLeaderMyClubs";
 
 // Member pages
 import MemberHome from "../pages/member/MemberHome";
@@ -197,23 +200,29 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<ClubOverview />} />
-        <Route path="members" element={<ClubMemberMgmt />} />
-        <Route path="applications" element={<ClubApplicationsMgmt />} />
+        <Route path="my-club">
+          <Route index element={<ClubLeaderMyClubs />} />
+          <Route element={<ClubManagementLayout />}>
+            <Route path="space" element={<ClubSpace />} />
+            <Route path="events" element={<ClubEventsMgmt />} />
+            <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
+            <Route path="events/:eventId/checkin" element={<CheckInPage />} />
+            <Route path="events/:eventId/walkin" element={<WalkInPage />} />
+            <Route path="events/:eventId/registrations" element={<RegistrationMgmtPage />} />
+            <Route path="events/:eventId/attendance" element={<AttendanceDashboardPage />} />
+            <Route path="events/:eventId/attendance/:sessionId/correct" element={<AttendanceCorrectionPage />} />
+            <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
+            <Route path="reports/:eventId/submit" element={<ReportSubmitPage />} />
+            <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
+            <Route path="members" element={<ClubMemberMgmt />} />
+            <Route path="applications" element={<ClubApplicationsMgmt />} />
+            <Route path="reports" element={<ClubReports />} />
+            <Route path="blacklist" element={<ClubBlacklist />} />
+            <Route path="club-info" element={<ClubInfoPage />} />
+          </Route>
+        </Route>
         <Route path="event-create" element={<CreateEventPage />} />
-        <Route path="events" element={<ClubEventsMgmt />} />
-        <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
-        <Route path="events/:eventId/checkin" element={<CheckInPage />} />
-        <Route path="events/:eventId/walkin" element={<WalkInPage />} />
-        <Route path="events/:eventId/registrations" element={<RegistrationMgmtPage />} />
-        <Route path="events/:eventId/attendance" element={<AttendanceDashboardPage />} />
-        <Route path="events/:eventId/attendance/:sessionId/correct" element={<AttendanceCorrectionPage />} />
-        <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
-        <Route path="reports/:eventId/submit" element={<ReportSubmitPage />} />
-        <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
         <Route path="notifications" element={<ClubNotifications />} />
-        <Route path="reports" element={<ClubReports />} />
-        <Route path="blacklist" element={<ClubBlacklist />} />
-        <Route path="club-info" element={<ClubInfoPage />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -230,19 +239,26 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<ClubOverview />} />
-        <Route path="members" element={<ClubMemberMgmt />} />
+        <Route path="my-club">
+          <Route index element={<ClubLeaderMyClubs />} />
+          <Route element={<ClubManagementLayout />}>
+            <Route path="space" element={<ClubSpace />} />
+            <Route path="events" element={<ClubEventsMgmt />} />
+            <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
+            <Route path="events/:eventId/checkin" element={<CheckInPage />} />
+            <Route path="events/:eventId/walkin" element={<WalkInPage />} />
+            <Route path="events/:eventId/registrations" element={<RegistrationMgmtPage />} />
+            <Route path="events/:eventId/attendance" element={<AttendanceDashboardPage />} />
+            <Route path="events/:eventId/attendance/:sessionId/correct" element={<AttendanceCorrectionPage />} />
+            <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
+            <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
+            <Route path="members" element={<ClubMemberMgmt />} />
+            <Route path="reports" element={<ClubReports />} />
+            <Route path="club-info" element={<ClubInfoPage />} />
+          </Route>
+        </Route>
         <Route path="event-create" element={<CreateEventPage />} />
-        <Route path="events" element={<ClubEventsMgmt />} />
-        <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
-        <Route path="events/:eventId/checkin" element={<CheckInPage />} />
-        <Route path="events/:eventId/walkin" element={<WalkInPage />} />
-        <Route path="events/:eventId/registrations" element={<RegistrationMgmtPage />} />
-        <Route path="events/:eventId/attendance" element={<AttendanceDashboardPage />} />
-        <Route path="events/:eventId/attendance/:sessionId/correct" element={<AttendanceCorrectionPage />} />
-        <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
-        <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
         <Route path="notifications" element={<ClubNotifications />} />
-        <Route path="club-info" element={<ClubInfoPage />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -278,7 +294,6 @@ export default function AppRoutes() {
       >
         <Route index element={<MemberHome />} />
         <Route path="my-clubs" element={<MemberMyClubs />} />
-        <Route path="leaderboard" element={<MemberLeaderboardPage />} />
         <Route path="clubs" element={<MemberClubs />} />
         <Route path="club-register" element={<Navigate to="/member/clubs" replace />} />
         <Route path="events" element={<MemberEvents />} />
