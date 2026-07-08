@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Lock, AlertTriangle, X, Users, Clock } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Save, Lock, AlertTriangle, X, Users, Clock, CheckCircle2 } from 'lucide-react';
 import contributionService from '../../services/api/contribution/contributionService';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -66,6 +66,37 @@ function FinalizeModal({ count, onConfirm, onClose }) {
           <button onClick={onClose} className="flex-1 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Huỷ</button>
           <button onClick={onConfirm} className="flex-1 py-2.5 text-sm text-white bg-orange-500 hover:bg-orange-600 rounded-lg font-semibold">
             Chốt điểm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InstantFinalizeModal({ count, onConfirm, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.4)' }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+            <CheckCircle2 size={20} className="text-blue-600" />
+          </div>
+          <h3 className="font-bold text-gray-900">Chốt đóng góp ngay</h3>
+        </div>
+        <p className="text-sm text-gray-600 mb-2">
+          Điểm của <strong>{count}</strong> thành viên sẽ được chốt vào BXH ngay lập tức.
+        </p>
+        <p className="text-xs text-blue-700 bg-blue-50 rounded-lg px-3 py-2 mb-5">
+          Thao tác này bỏ qua thời gian khiếu nại 24 giờ. Sau khi chốt, bảng điểm không thể chỉnh từ màn này.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Hủy</button>
+          <button onClick={onConfirm} className="flex-1 py-2.5 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold">
+            Chốt ngay
           </button>
         </div>
       </div>
@@ -204,6 +235,8 @@ function AppealsPanel({ appeals, contributions, onProcess }) {
 export default function ContributionManagementPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const instantPromptShownRef = useRef(false);
   const toast = useToast();
   const [contributions, setContributions] = useState([]);
   const [appeals, setAppeals] = useState([]);
@@ -214,10 +247,12 @@ export default function ContributionManagementPage() {
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [showInstantFinalizeModal, setShowInstantFinalizeModal] = useState(false);
+
+  const appealWindowOpen = batchStatus === 'APPEAL_WINDOW' || batchStatus === 'APPEAL_OPEN';
 
   const isFinalized = batchStatus === 'CLOSED'
-    || batchStatus === 'APPEAL_WINDOW'
-    || batchStatus === 'APPEAL_OPEN'
+    || appealWindowOpen
     || batchStatus === 'FINALIZED';
 
   const normalizeContribution = (item) => ({
@@ -287,26 +322,73 @@ export default function ContributionManagementPage() {
     if (batchId) fetchAppeals(batchId);
   }, [batchId]);
 
+  useEffect(() => {
+    if (
+      loading
+      || instantPromptShownRef.current
+      || searchParams.get('instant') !== '1'
+      || batchStatus === 'FINALIZED'
+      || batchStatus === 'CLOSED'
+      || contributions.length === 0
+    ) {
+      return;
+    }
+    instantPromptShownRef.current = true;
+    setShowInstantFinalizeModal(true);
+  }, [batchStatus, contributions.length, loading, searchParams]);
+
   const handleFieldChange = (userId, field, value) => {
     setContributions((prev) => prev.map((item) => item.userId === userId ? { ...item, [field]: value } : item));
   };
 
+  const buildContributionPayload = () => contributions.map((item) => ({
+    userId: item.userId,
+    contributionType: item.contributionType,
+    leaderEvaluation: item.leaderEvaluation,
+    rationale: item.rationale,
+  }));
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload = contributions.map((item) => ({
-        userId: item.userId,
-        contributionType: item.contributionType,
-        leaderEvaluation: item.leaderEvaluation,
-        rationale: item.rationale,
-      }));
-      await contributionService.update(eventId, payload);
+      await contributionService.update(eventId, buildContributionPayload());
       toast.success('Đã lưu đánh giá đóng góp.');
       fetchData();
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Lưu thất bại.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleInstantFinalize = async () => {
+    setShowInstantFinalizeModal(false);
+    setFinalizing(true);
+    try {
+      if (!isFinalized) {
+        await contributionService.update(eventId, buildContributionPayload());
+      }
+      const res = await contributionService.finalize(eventId);
+      const batch = res?.data ?? res;
+      if (batch?.batchID) setBatchId(batch.batchID);
+      if (batch?.status) setBatchStatus(batch.status);
+      setAppealClosesAt(batch?.appealClosesAt ?? null);
+      setAppeals([]);
+      toast.success('Đã chốt đóng góp ngay. Điểm đã được cập nhật vào BXH thành viên.');
+      fetchData();
+    } catch (err) {
+      const code = err?.response?.data?.code;
+      if (code === 'SELF_FINALIZATION_NOT_ALLOWED') {
+        toast.error('Bạn không thể tự chốt khi đang có điểm đóng góp trong bảng. Nhờ Phó CLB hoặc ICPDP thực hiện.');
+      } else if (code === 'APPEALS_PENDING') {
+        toast.error('Vẫn còn khiếu nại đang chờ xử lý. Hãy xử lý khiếu nại trước khi chốt ngay.');
+      } else if (code === 'CONTRIBUTION_SCORES_REQUIRED') {
+        toast.error('Chưa có danh sách điểm đóng góp để chốt.');
+      } else {
+        toast.error(err?.response?.data?.message || 'Chốt đóng góp ngay thất bại.');
+      }
+    } finally {
+      setFinalizing(false);
     }
   };
 
@@ -363,12 +445,20 @@ export default function ContributionManagementPage() {
             >
               <Lock size={15} /> Chốt điểm
             </button>
+            <button
+              onClick={() => setShowInstantFinalizeModal(true)}
+              disabled={finalizing || saving || contributions.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+            >
+              <CheckCircle2 size={15} /> Chốt ngay
+            </button>
           </div>
         )}
       </div>
 
-      {batchStatus === 'APPEAL_WINDOW' || batchStatus === 'APPEAL_OPEN' ? (
-        <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5">
+      {appealWindowOpen ? (
+        <div className="flex items-center justify-between gap-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5">
+          <div className="flex items-start gap-3">
           <Clock size={16} className="text-blue-600 mt-0.5 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-blue-700">Đang mở khiếu nại</p>
@@ -378,6 +468,15 @@ export default function ContributionManagementPage() {
               </p>
             )}
           </div>
+          </div>
+          <button
+            onClick={() => setShowInstantFinalizeModal(true)}
+            disabled={finalizing || contributions.length === 0 || appeals.length > 0}
+            className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+            title={appeals.length > 0 ? 'Cần xử lý khiếu nại trước khi chốt ngay' : undefined}
+          >
+            <CheckCircle2 size={15} /> Chốt ngay
+          </button>
         </div>
       ) : batchStatus === 'FINALIZED' ? (
         <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-5 text-sm text-green-700 font-medium">
@@ -486,6 +585,13 @@ export default function ContributionManagementPage() {
           count={contributions.length}
           onConfirm={handleFinalize}
           onClose={() => setShowFinalizeModal(false)}
+        />
+      )}
+      {showInstantFinalizeModal && (
+        <InstantFinalizeModal
+          count={contributions.length}
+          onConfirm={handleInstantFinalize}
+          onClose={() => setShowInstantFinalizeModal(false)}
         />
       )}
     </div>

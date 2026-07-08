@@ -38,6 +38,10 @@ public class UploadController {
         } catch (IOException ex) {
             // Default content type
         }
+        String resourceName = resource.getFilename();
+        if (contentType == null && resourceName != null && resourceName.toLowerCase().endsWith(".pdf")) {
+            contentType = MediaType.APPLICATION_PDF_VALUE;
+        }
         if (contentType == null) {
             contentType = "application/octet-stream";
         }

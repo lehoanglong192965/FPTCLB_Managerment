@@ -3,6 +3,35 @@ import authService from "../services/api/auth/authService";
 import { TokenService } from "../services/api/axiosClient";
 
 export const AuthContext = createContext();
+
+const CLUB_ROLE_TO_APP_ROLE = {
+  1: "CLUB_LEADER",
+  2: "VICE_LEADER",
+  3: "MEMBER",
+  5: "CLUB_MANAGER",
+};
+
+const MANAGED_CLUB_ROLES = new Set(["CLUB_LEADER", "VICE_LEADER", "CLUB_MANAGER"]);
+
+async function refreshManagedClubSession(savedUser) {
+  if (!MANAGED_CLUB_ROLES.has(savedUser?.role)) return savedUser;
+
+  try {
+    const res = await authService.getMyClubRole();
+    const role = CLUB_ROLE_TO_APP_ROLE[res?.clubRoleID] ?? savedUser.role;
+    TokenService.save({
+      access_token: TokenService.getAccess(),
+      refresh_token: TokenService.getRefresh(),
+      role,
+      clubId: res?.clubID ?? null,
+    });
+    return { ...savedUser, role };
+  } catch (error) {
+    console.error("Lỗi đồng bộ quyền CLB:", error);
+    return savedUser;
+  }
+}
+
 // Lấy thông tin user từ localStorage, nếu có lỗi thì trả về null.
 const getUserFromStorage = () => {
   try {
@@ -43,17 +72,27 @@ export const AuthProvider = ({ children }) => {
 
   // Khôi phục session khi reload trang
   useEffect(() => {
-    const savedUser = getUserFromStorage();
-    if (savedUser) {
-      if (TokenService.getAccess()) {
-        setUser(savedUser);
-        fetchProfile();
-      } else {
-        // Token đã bị xóa (refresh hết hạn) nhưng user vẫn còn trong storage → dọn dẹp
-        removeUserFromStorage();
+    let cancelled = false;
+
+    const restoreSession = async () => {
+      const savedUser = getUserFromStorage();
+      if (savedUser) {
+        if (TokenService.getAccess()) {
+          const refreshedUser = await refreshManagedClubSession(savedUser);
+          if (cancelled) return;
+          setUser(refreshedUser);
+          saveUserToStorage(refreshedUser);
+          fetchProfile();
+        } else {
+          // Token đã bị xóa (refresh hết hạn) nhưng user vẫn còn trong storage → dọn dẹp
+          removeUserFromStorage();
+        }
       }
-    }
-    setInitialized(true);
+      if (!cancelled) setInitialized(true);
+    };
+
+    restoreSession();
+    return () => { cancelled = true; };
   }, [fetchProfile]);
 
   // Lắng nghe sự kiện logout từ axiosClient (refresh token hết hạn / fail)

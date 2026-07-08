@@ -242,6 +242,7 @@ export default function AppRoutes() {
         <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
         <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
         <Route path="notifications" element={<ClubNotifications />} />
+        <Route path="club-info" element={<ClubInfoPage />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -277,6 +278,7 @@ export default function AppRoutes() {
       >
         <Route index element={<MemberHome />} />
         <Route path="my-clubs" element={<MemberMyClubs />} />
+        <Route path="leaderboard" element={<MemberLeaderboardPage />} />
         <Route path="clubs" element={<MemberClubs />} />
         <Route path="club-register" element={<Navigate to="/member/clubs" replace />} />
         <Route path="events" element={<MemberEvents />} />

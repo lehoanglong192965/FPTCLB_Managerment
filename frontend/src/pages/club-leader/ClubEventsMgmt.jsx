@@ -927,6 +927,12 @@ export default function ClubEventsMgmt() {
                 </>)}
 
                 {/* Cancelled / Closed / Rejected / PendingApproval — không có thao tác */}
+                {status === "REPORTAPPROVED" && (
+                  <button onClick={() => navigate(`../contributions/${selectedEv.eventID}?instant=1`, { relative: "path" })} style={btnStyle("#1d4ed8")}>
+                    Chốt ngay
+                  </button>
+                )}
+
                 {["CANCELLED", "CLOSED", "REJECTED", "PENDINGAPPROVAL", "PENDING"].includes(status) && (
                   <p style={{ margin: 0, fontSize: 13, color: "#9ca3af", fontStyle: "italic" }}>
                     Không có thao tác khả dụng.

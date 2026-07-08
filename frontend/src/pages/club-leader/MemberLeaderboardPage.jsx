@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Award, Crown, Loader2, Medal, RefreshCw, Search, Trophy } from "lucide-react";
+import authApi from "../../services/api/auth/authApi";
 import clubService from "../../services/api/clubs/clubService";
 import { TokenService } from "../../services/api/axiosClient";
 
@@ -85,6 +86,48 @@ function getTierDetail(memberTier) {
 
 function formatPoints(value) {
   return `${Number(value ?? 0).toLocaleString("vi-VN")} pts`;
+}
+
+function getStoredClubId() {
+  const fromToken = TokenService.getClubId();
+  if (fromToken) return fromToken;
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    return user?.clubId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function pickClubId(item) {
+  return item?.clubID ?? item?.clubId ?? item?.id ?? item?.club?.clubID ?? item?.club?.id ?? null;
+}
+
+async function resolveReadableClubId() {
+  const storedClubId = getStoredClubId();
+  if (storedClubId) return storedClubId;
+
+  try {
+    const role = await authApi.getMyClubRole();
+    const clubId = pickClubId(role);
+    if (clubId) return clubId;
+  } catch (err) {
+    if (err?.code !== "ERR_CANCELED" && err?.name !== "CanceledError") {
+      console.warn("Khong lay duoc CLB tu vai tro hien tai:", err);
+    }
+  }
+
+  try {
+    const clubs = await clubService.getMyClubs();
+    const list = Array.isArray(clubs) ? clubs : (clubs?.data ?? clubs?.clubs ?? clubs?.content ?? []);
+    return pickClubId(list[0]);
+  } catch (err) {
+    if (err?.code !== "ERR_CANCELED" && err?.name !== "CanceledError") {
+      console.warn("Khong lay duoc danh sach CLB cua member:", err);
+    }
+  }
+
+  return null;
 }
 
 function normalizeRankingItem(item, index) {
@@ -175,7 +218,6 @@ function PodiumCard({ member, place }) {
 }
 
 export default function MemberLeaderboardPage() {
-  const clubId = TokenService.getClubId();
   const [clubName, setClubName] = useState("CLB");
   const [rankings, setRankings] = useState([]);
   const [search, setSearch] = useState("");
@@ -183,25 +225,25 @@ export default function MemberLeaderboardPage() {
   const [error, setError] = useState("");
 
   const loadLeaderboard = async () => {
-    if (!clubId) {
-      setError("Không tìm thấy thông tin câu lạc bộ trong tài khoản.");
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     setError("");
     try {
+      const activeClubId = await resolveReadableClubId();
+      if (!activeClubId) {
+        setRankings([]);
+        setError("Không tìm thấy CLB active của tài khoản để xem BXH.");
+        return;
+      }
       const [clubRes, rankingRes] = await Promise.allSettled([
-        clubService.getById(clubId),
-        clubService.getMemberRankings(clubId),
+        clubService.getById(activeClubId),
+        clubService.getMemberRankings(activeClubId),
       ]);
 
       if (clubRes.status === "fulfilled") {
         const club = clubRes.value?.data ?? clubRes.value ?? {};
-        setClubName(club.clubName ?? club.name ?? club.clubCode ?? `CLB #${clubId}`);
+        setClubName(club.clubName ?? club.name ?? club.clubCode ?? `CLB #${activeClubId}`);
       } else {
-        setClubName(`CLB #${clubId}`);
+        setClubName(`CLB #${activeClubId}`);
       }
 
       if (rankingRes.status === "rejected") {
@@ -221,7 +263,7 @@ export default function MemberLeaderboardPage() {
 
   useEffect(() => {
     loadLeaderboard();
-  }, [clubId]);
+  }, []);
 
   const rows = useMemo(
     () => rankings

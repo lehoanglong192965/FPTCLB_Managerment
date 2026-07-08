@@ -5,6 +5,7 @@ import {
   Crown, Award, Loader2,
 } from "lucide-react";
 import clubService from "../../services/api/clubs/clubService";
+import memberApi from "../../services/api/clubs/memberApi";
 
 const SPACE_DATA = {
   1: {
@@ -63,6 +64,34 @@ const DEFAULT_SPACE = SPACE_DATA[1];
 
 function getSpace(clubId) {
   return SPACE_DATA[clubId] ?? DEFAULT_SPACE;
+}
+
+const CLUB_ROLE_LABEL = {
+  Leader: "Trưởng CLB",
+  ViceLeader: "Phó CLB",
+  CoreTeam: "Ban Điều Hành",
+  Member: "Thành viên",
+};
+
+function formatJoinMonth(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("vi-VN", { month: "2-digit", year: "numeric" });
+}
+
+function normalizeClubMember(raw, index) {
+  const name = raw.fullName ?? raw.name ?? raw.user?.fullName ?? "Thành viên CLB";
+  const roleName = raw.clubRoleName ?? raw.roleName ?? raw.role ?? "Member";
+  return {
+    id: raw.membershipID ?? raw.membershipId ?? raw.userID ?? raw.userId ?? index,
+    name,
+    studentId: raw.studentCode ?? raw.studentId ?? raw.user?.studentCode ?? raw.email ?? raw.user?.email ?? "",
+    role: CLUB_ROLE_LABEL[roleName] ?? roleName,
+    joinDate: formatJoinMonth(raw.joinedDate ?? raw.joinDate ?? raw.createdAt),
+    avatar: getInitials(name),
+    color: AVATAR_COLORS[index % AVATAR_COLORS.length],
+  };
 }
 
 function FeedPost({ post }) {
@@ -483,12 +512,45 @@ export default function ClubSpace({ club, onBack }) {
   const [tab, setTab]             = useState("feed");
   const [memberSearch, setMS]     = useState("");
   const [rankingSearch, setRankingSearch] = useState("");
+  const [members, setMembers]     = useState([]);
+  const [membersLoading, setMembersLoading] = useState(true);
+  const [membersError, setMembersError] = useState("");
   const [rankings, setRankings]   = useState([]);
   const [rankingsLoading, setRankingsLoading] = useState(false);
   const [rankingsError, setRankingsError] = useState("");
   const [realEvents, setRealEvents]     = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const space = getSpace(club.id);
+
+  useEffect(() => {
+    if (!club?.id) {
+      setMembers([]);
+      setMembersLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setMembersLoading(true);
+    setMembersError("");
+
+    memberApi.getAll(club.id, { page: 0, size: 500 })
+      .then((res) => {
+        if (cancelled) return;
+        const raw = Array.isArray(res) ? res : (res?.content ?? res?.data ?? res?.members ?? []);
+        setMembers(raw.map(normalizeClubMember));
+      })
+      .catch((err) => {
+        if (cancelled || err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        console.error("Lỗi khi tải thành viên CLB:", err);
+        setMembers([]);
+        setMembersError("Không thể tải danh sách thành viên thật.");
+      })
+      .finally(() => {
+        if (!cancelled) setMembersLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [club?.id]);
 
   useEffect(() => {
     if (tab === "events" && club?.id) {
@@ -544,7 +606,7 @@ export default function ClubSpace({ club, onBack }) {
     setTab(nextTab);
   };
 
-  const filteredMembers = space.members.filter((m) =>
+  const filteredMembers = members.filter((m) =>
     m.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
     m.studentId.toLowerCase().includes(memberSearch.toLowerCase())
   );
@@ -582,7 +644,7 @@ export default function ClubSpace({ club, onBack }) {
         </div>
         <div className="flex items-center bg-white/[0.18] rounded-xl px-4.5 py-2.5 relative z-10 shrink-0">
           <div className="flex flex-col items-center gap-0.5 px-4">
-            <span className="text-xl font-bold text-white leading-none">{club.members}</span>
+            <span className="text-xl font-bold text-white leading-none">{membersLoading ? club.members : members.length}</span>
             <span className="text-[11px] text-white/80">Thành viên</span>
           </div>
           <div className="w-px h-7 bg-white/25" />
@@ -639,8 +701,16 @@ export default function ClubSpace({ club, onBack }) {
               />
             </div>
             <div className="flex flex-col">
-              {filteredMembers.map((m) => <MemberRow key={m.id} member={m} />)}
-              {filteredMembers.length === 0 && (
+              {membersLoading ? (
+                <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-400">
+                  <Loader2 size={18} className="animate-spin" />
+                  Đang tải danh sách thành viên...
+                </div>
+              ) : membersError ? (
+                <p className="text-center py-7 text-sm text-red-400 m-0">{membersError}</p>
+              ) : filteredMembers.length > 0 ? (
+                filteredMembers.map((m) => <MemberRow key={m.id} member={m} />)
+              ) : (
                 <p className="text-center py-7 text-sm text-gray-400 m-0">Không tìm thấy thành viên phù hợp.</p>
               )}
             </div>
@@ -650,7 +720,7 @@ export default function ClubSpace({ club, onBack }) {
         {tab === "leaderboard" && (
           <LeaderboardView
             club={club}
-            members={space.members}
+            members={members}
             rankings={rankings}
             loading={rankingsLoading}
             error={rankingsError}

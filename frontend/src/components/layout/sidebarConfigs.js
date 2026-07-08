@@ -85,6 +85,7 @@ export const SIDEBAR_CONFIGS = {
 
   VICE_LEADER: [
     { key: "overview",      label: "Tổng Quan CLB",        icon: Home,            path: "/vice-leader",              exact: true },
+    { key: "club-info",     label: "Thông Tin CLB",        icon: Building2,       path: "/vice-leader/club-info" },
     { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/vice-leader/members" },
     { key: "event-create",  label: "Tạo Sự Kiện",          icon: PlusCircle,      path: "/vice-leader/event-create" },
     { key: "events",        label: "Quản Lý Sự Kiện",      icon: Calendar,        path: "/vice-leader/events" },
@@ -94,6 +95,7 @@ export const SIDEBAR_CONFIGS = {
   ],
 
   MEMBER: [
+    { key: "leaderboard",   label: "BXH Thành Viên",       icon: Trophy,          path: "/member/leaderboard" },
     { key: "home",          label: "Bảng Điều Khiển",      icon: LayoutDashboard, path: "/member",              exact: true },
     { key: "my-clubs",      label: "Câu Lạc Bộ Của Tôi",   icon: Building2,       path: "/member/my-clubs" },
     { key: "clubs",         label: "Khám Phá CLB",         icon: Star,            path: "/member/clubs" },
