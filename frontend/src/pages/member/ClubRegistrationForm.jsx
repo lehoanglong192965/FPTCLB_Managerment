@@ -572,11 +572,13 @@ export default function ClubRegistrationForm({ mode = "member" }) {
                 for (let i = 0; i < foundingMembers.length; i++) {
                   const m = foundingMembers[i];
                   if (!phoneRegex.test(m.phoneNumber)) {
-                    setError(`Số điện thoại thành viên số ${i + 1} không hợp lệ (phải gồm 10 chữ số).`);
+                    setError(`Số điện thoại thành viên số ${i + 1} không hợp lệ (Số điện thoại phải bắt đầu bằng 03|05|07|08|09).`);
                     return;
                   }
+                  if (m.phoneNumber.length < 10) {
+                    setError(`Số điện thoại thành viên số ${i + 1} không hợp lệ (Số điện thoại phải có ít nhất 10 chữ số).`);
+                  }
                 }
-
                 const hasErrors = Object.values(validationErrors).some((err) => !!err);
                 if (hasErrors) {
                   setError("Có lỗi xác thực MSSV. Vui lòng kiểm tra lại danh sách mã sinh viên.");

@@ -122,12 +122,6 @@ public class GlobalExceptionHandler {
      * Bắt mọi exception không được handle ở trên.
      * Không expose stack trace ra ngoài — chỉ trả về thông điệp chung.
      */
-    @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<ApiErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
-        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
-        String reason = ex.getReason() != null ? ex.getReason() : status.getReasonPhrase();
-        return buildErrorResponse(status, status.name(), reason);
-    }
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
         String msg = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
