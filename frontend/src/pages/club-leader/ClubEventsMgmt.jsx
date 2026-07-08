@@ -736,7 +736,7 @@ export default function ClubEventsMgmt() {
                   </p>
                 )}
 
-                {[
+                 {[
                   "COMPLETED",
                   "REPORTUPLOADED",
                   "REPORTPENDINGAPPROVAL",
