@@ -33,6 +33,15 @@ public class KnowledgeArchive {
     @Column(name = "fileUrl")
     private String fileUrl;
 
+    @Column(name = "visibilityScope", nullable = false, length = 20)
+    private String visibilityScope = "ClubInternal";
+
+    @Column(name = "indexingStatus", nullable = false, length = 20)
+    private String indexingStatus = "Pending";
+
+    @Column(name = "sourceFormat", nullable = false, length = 10)
+    private String sourceFormat = "MD";
+
     @Column(name = "uploadedBy")
     private Integer uploadedBy;
 
@@ -41,5 +50,21 @@ public class KnowledgeArchive {
 
     @Column(name = "isDeleted")
     private Boolean isDeleted;
+
+    @PrePersist
+    void prePersist() {
+        if (visibilityScope == null) {
+            visibilityScope = "ClubInternal";
+        }
+        if (indexingStatus == null) {
+            indexingStatus = "Pending";
+        }
+        if (sourceFormat == null) {
+            sourceFormat = "MD";
+        }
+        if (isDeleted == null) {
+            isDeleted = false;
+        }
+    }
 
 }

@@ -35,7 +35,20 @@ public class AIChatAuditLog {
     @Column(name = "tokensUsed")
     private Integer tokensUsed;
 
+    @Column(name = "status", nullable = false, length = 20)
+    private String status = "Success";
+
+    @Column(name = "citationsJson", columnDefinition = "NVARCHAR(MAX)")
+    private String citationsJson;
+
     @Column(name = "createdAt")
     private LocalDateTime createdAt;
+
+    @PrePersist
+    void prePersist() {
+        if (status == null) {
+            status = "Success";
+        }
+    }
 
 }
