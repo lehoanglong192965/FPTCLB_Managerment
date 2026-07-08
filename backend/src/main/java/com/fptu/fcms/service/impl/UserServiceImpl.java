@@ -12,6 +12,7 @@ import com.fptu.fcms.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.Optional;
 
 @Service
@@ -110,9 +111,19 @@ public class UserServiceImpl implements UserService {
             return new ClubRoleResponse(3, null, "Member");
         }
 
-        // Tìm membership có clubRoleID nhỏ nhất (ưu tiên 1: Leader > 2: ViceLeader > 3: Member)
+        // Prefer management roles. If the user has the same role in multiple clubs,
+        // use the most recent active membership so a newly assigned club is selected.
         ClubMembership highestRoleMembership = memberships.stream()
-                .min(java.util.Comparator.comparingInt(ClubMembership::getClubRoleID))
+                .min(Comparator
+                        .comparingInt((ClubMembership membership) -> clubRolePriority(membership.getClubRoleID()))
+                        .thenComparing(
+                                ClubMembership::getJoinedDate,
+                                Comparator.nullsLast(Comparator.reverseOrder())
+                        )
+                        .thenComparing(
+                                ClubMembership::getMembershipID,
+                                Comparator.nullsLast(Comparator.reverseOrder())
+                        ))
                 .orElse(memberships.get(0));
 
         String roleName = clubRoleRepository.findById(highestRoleMembership.getClubRoleID())
@@ -124,5 +135,18 @@ public class UserServiceImpl implements UserService {
                 highestRoleMembership.getClubID(),
                 roleName
         );
+    }
+
+    private int clubRolePriority(Integer clubRoleID) {
+        if (clubRoleID == null) {
+            return 99;
+        }
+
+        return switch (clubRoleID) {
+            case 1 -> 1;  // Leader
+            case 2 -> 2;  // ViceLeader
+            case 5 -> 3;  // ClubManager
+            default -> 50 + clubRoleID;
+        };
     }
 }

@@ -57,6 +57,8 @@ public class OTPServiceImpl implements OTPService {
         // Gửi email với OTP
         emailService.sendOTPEmail(email, otpCode);
         log.info("OTP generated and sent to: {}", EmailMaskingUtil.maskEmail(email));
+        System.out.println("Your OTP generated: "+otpCode);
+
     }
 
     @Override

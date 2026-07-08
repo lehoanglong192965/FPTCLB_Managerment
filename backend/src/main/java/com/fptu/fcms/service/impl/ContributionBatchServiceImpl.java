@@ -49,6 +49,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -210,15 +211,21 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public ContributionBatchResponse getBatchByEvent(Integer eventId) {
-        return toBatchResponse(findBatchByEvent(eventId));
+        Event event = findEvent(eventId);
+        LocalDateTime now = LocalDateTime.now();
+        ContributionBatch batch = getOrCreateDraftBatch(event, null, now);
+        generateDraftContributions(event, batch, null, now);
+        return toBatchResponse(batch);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ContributionDTO> getContributionScores(Integer eventId) {
-        ContributionBatch batch = findBatchByEvent(eventId);
+        Event event = findEvent(eventId);
+        ContributionBatch batch = getOrCreateDraftBatch(event, null, LocalDateTime.now());
+        generateDraftContributions(event, batch, null, LocalDateTime.now());
         return contributionRepository.findByBatchIDAndIsDeletedFalse(batch.getBatchID())
                 .stream()
                 .map(this::toContributionDto)
@@ -416,20 +423,23 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
             return toBatchResponse(batch);
         }
         assertEventNotClosed(event);
-        if (!isAppealWindowStatus(batch.getStatus())) {
+        boolean draftFinalization = isDraftStatus(batch.getStatus());
+        boolean appealFinalization = isAppealWindowStatus(batch.getStatus());
+        if (!draftFinalization && !appealFinalization) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "CONTRIBUTION_BATCH_NOT_IN_APPEAL");
         }
         LocalDateTime now = LocalDateTime.now();
-        if (batch.getAppealClosesAt() == null || now.isBefore(batch.getAppealClosesAt())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "APPEAL_WINDOW_NOT_CLOSED");
-        }
-        if (appealRepository.existsByBatchIDAndStatusAndIsDeletedFalse(batch.getBatchID(), AppealStatus.PENDING)) {
+        if (appealFinalization && appealRepository.existsByBatchIDAndStatusAndIsDeletedFalse(batch.getBatchID(), AppealStatus.PENDING)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "APPEALS_PENDING");
         }
 
         List<EventContribution> contributions = contributionRepository.findByBatchIDAndIsDeletedFalse(batch.getBatchID());
         if (contributions.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CONTRIBUTION_SCORES_REQUIRED");
+        }
+        if (draftFinalization && actorId != null
+                && contributionRepository.existsByBatchIDAndUserIDAndIsDeletedFalse(batch.getBatchID(), actorId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "SELF_FINALIZATION_NOT_ALLOWED");
         }
         for (EventContribution contribution : contributions) {
             if (contribution.getUserID() == null) {
@@ -589,7 +599,22 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
                 .filter(reg -> reg.getUserID() != null)
                 .filter(this::isConfirmedRegistration)
                 .collect(Collectors.toMap(EventRegistration::getUserID, Function.identity(), (a, b) -> a));
-        if (confirmedRegistrationByUser.isEmpty()) {
+
+        Map<Integer, EventAssignment> assignmentByUser = eventAssignmentRepository.findByEventIDAndIsDeletedFalse(event.getEventID())
+                .stream()
+                .filter(assignment -> assignment.getUserID() != null)
+                .collect(Collectors.toMap(EventAssignment::getUserID, Function.identity(), (a, b) -> a));
+        AttendanceSession session = attendanceSessionRepository.findByEventID(event.getEventID()).orElse(null);
+        Map<Integer, AttendanceRecord> attendanceByUser = session == null ? Map.of() : attendanceRecordRepository.findBySessionID(session.getSessionID())
+                .stream()
+                .filter(record -> record.getUserID() != null)
+                .collect(Collectors.toMap(AttendanceRecord::getUserID, Function.identity(), (a, b) -> a));
+
+        Set<Integer> candidateUserIds = new HashSet<>();
+        candidateUserIds.addAll(confirmedRegistrationByUser.keySet());
+        candidateUserIds.addAll(assignmentByUser.keySet());
+        candidateUserIds.addAll(attendanceByUser.keySet());
+        if (candidateUserIds.isEmpty()) {
             return;
         }
 
@@ -597,7 +622,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
                 .findByClubIDAndSemesterIDAndIsDeletedFalse(event.getClubID(), event.getSemesterID())
                 .stream()
                 .filter(membership -> membership.getUserID() != null)
-                .filter(membership -> confirmedRegistrationByUser.containsKey(membership.getUserID()))
+                .filter(membership -> candidateUserIds.contains(membership.getUserID()))
                 .collect(Collectors.toMap(ClubMembership::getUserID, Function.identity(), (a, b) -> a));
         if (membershipByUser.isEmpty()) {
             return;
@@ -611,15 +636,6 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
                 )
                 .stream()
                 .collect(Collectors.toMap(ClubRole::getClubRoleID, ClubRole::getRoleName, (a, b) -> a));
-        Map<Integer, EventAssignment> assignmentByUser = eventAssignmentRepository.findByEventIDAndIsDeletedFalse(event.getEventID())
-                .stream()
-                .filter(assignment -> assignment.getUserID() != null)
-                .collect(Collectors.toMap(EventAssignment::getUserID, Function.identity(), (a, b) -> a));
-        AttendanceSession session = attendanceSessionRepository.findByEventID(event.getEventID()).orElse(null);
-        Map<Integer, AttendanceRecord> attendanceByUser = session == null ? Map.of() : attendanceRecordRepository.findBySessionID(session.getSessionID())
-                .stream()
-                .filter(record -> record.getUserID() != null)
-                .collect(Collectors.toMap(AttendanceRecord::getUserID, Function.identity(), (a, b) -> a));
 
         for (ClubMembership membership : membershipByUser.values()) {
             Integer userId = membership.getUserID();
@@ -629,7 +645,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
             String contributionType = resolveDefaultContributionType(userId, assignmentByUser.values().stream().toList(), attendanceByUser.values().stream().toList());
             EventContribution contribution = new EventContribution();
             applyScore(event, batch, contribution, userId, contributionType, null, actorId, CONTRIBUTION_STATUS_DRAFT, now);
-            contribution.setRegistrationID(registration.getRegistrationID());
+            contribution.setRegistrationID(registration == null ? null : registration.getRegistrationID());
             contribution.setAttendanceRecordID(attendanceRecord == null ? null : attendanceRecord.getRecordID());
             contribution.setAssignmentID(assignment == null ? null : assignment.getAssignmentID());
             contribution.setMembershipID(membership.getMembershipID());
@@ -642,6 +658,26 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
             contribution.setReleasedToPerformance(false);
             contributionRepository.save(contribution);
         }
+    }
+
+    private ContributionBatch getOrCreateDraftBatch(Event event, Integer actorId, LocalDateTime now) {
+        ContributionBatch batch = contributionBatchRepository.findByEventIDAndIsDeletedFalse(event.getEventID()).orElse(null);
+        if (batch != null) {
+            return batch;
+        }
+
+        batch = new ContributionBatch();
+        batch.setEventID(event.getEventID());
+        batch.setClubID(event.getClubID());
+        batch.setSemesterID(event.getSemesterID());
+        batch.setStatus(ContributionBatchStatus.DRAFT);
+        batch.setReportApprovedBy(actorId);
+        batch.setReportApprovedAt(now);
+        batch.setScoringOpenedAt(now);
+        batch.setCreatedAt(now);
+        batch.setUpdatedAt(now);
+        batch.setIsDeleted(false);
+        return contributionBatchRepository.save(batch);
     }
 
     private ContributionDTO toContributionDto(EventContribution contribution) {

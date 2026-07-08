@@ -50,9 +50,9 @@ public class ClubController {
     }
 
     @PutMapping("/{clubId}")
-    @PreAuthorize("hasRole('Leader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
     @SecurityRequirement(name = "bearerAuth")
-    @Operation(summary = "Cập nhật thông tin câu lạc bộ (chỉ Leader)")
+    @Operation(summary = "Cập nhật thông tin câu lạc bộ (Leader/ViceLeader)")
     public ResponseEntity<ClubResponseDTO> updateClub(
             @PathVariable Integer clubId,
             @Valid @RequestBody UpdateClubRequest request

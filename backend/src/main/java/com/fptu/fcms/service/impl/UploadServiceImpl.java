@@ -1,9 +1,11 @@
 package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.service.UploadService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -18,12 +20,17 @@ import java.util.UUID;
 public class UploadServiceImpl implements UploadService {
 
     private final Path fileStorageLocation;
+    private final Path reportStorageLocation;
 
-    public UploadServiceImpl() {
-        // Store files in an "uploads" folder under the project root
-        this.fileStorageLocation = Paths.get("uploads").toAbsolutePath().normalize();
+    public UploadServiceImpl(
+            @Value("${app.uploads.storage-dir:uploads}") String uploadsStorageDir,
+            @Value("${app.reports.storage-dir:reports}") String reportsStorageDir
+    ) {
+        this.fileStorageLocation = Paths.get(uploadsStorageDir).toAbsolutePath().normalize();
+        this.reportStorageLocation = Paths.get(reportsStorageDir).toAbsolutePath().normalize();
         try {
             Files.createDirectories(this.fileStorageLocation);
+            Files.createDirectories(this.reportStorageLocation);
         } catch (Exception ex) {
             throw new RuntimeException("Could not create the directory where the uploaded files will be stored.", ex);
         }
@@ -66,6 +73,20 @@ public class UploadServiceImpl implements UploadService {
     @Override
     public Resource loadFileAsResource(String filename) {
         try {
+            if (!StringUtils.hasText(filename)) {
+                throw new IllegalArgumentException("Invalid file name.");
+            }
+
+            Resource uploadResource = loadFromLocation(this.fileStorageLocation, filename);
+            if (uploadResource.exists() && uploadResource.isReadable()) {
+                return uploadResource;
+            }
+
+            Resource reportResource = loadFromLocation(this.reportStorageLocation, filename);
+            if (reportResource.exists() && reportResource.isReadable()) {
+                return reportResource;
+            }
+
             Path filePath = this.fileStorageLocation.resolve(filename).normalize();
             
             // Prevent Path Traversal (LFI)
@@ -83,5 +104,16 @@ public class UploadServiceImpl implements UploadService {
         } catch (Exception ex) {
             throw new RuntimeException("Không thể đọc file: " + filename, ex);
         }
+    }
+
+    private Resource loadFromLocation(Path storageLocation, String filename) throws IOException {
+        Path filePath = storageLocation.resolve(filename).normalize();
+
+        // Prevent Path Traversal (LFI)
+        if (!filePath.startsWith(storageLocation)) {
+            throw new SecurityException("Path traversal attempt detected.");
+        }
+
+        return new UrlResource(filePath.toUri());
     }
 }
