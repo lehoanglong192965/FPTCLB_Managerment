@@ -1,22 +1,25 @@
 import { BrowserRouter } from "react-router-dom";
 import MainLayout from "./components/layout/MainLayout";
 import { ApplicationsProvider } from "./contexts/ApplicationsContext";
-import { EventsProvider } from "./contexts/EventsContext";
 import { NotificationsProvider } from "./contexts/NotificationsContext";
 import { ToastProvider } from "./contexts/ToastContext";
+import { ConfirmProvider } from "./contexts/ConfirmContext";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <ToastProvider>
-        <NotificationsProvider>
-          <EventsProvider>
-            <ApplicationsProvider>
-              <MainLayout />
-            </ApplicationsProvider>
-          </EventsProvider>
-        </NotificationsProvider>
-      </ToastProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <ToastProvider>
+          <ConfirmProvider>
+            <NotificationsProvider>
+              <ApplicationsProvider>
+                <MainLayout />
+              </ApplicationsProvider>
+            </NotificationsProvider>
+          </ConfirmProvider>
+        </ToastProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

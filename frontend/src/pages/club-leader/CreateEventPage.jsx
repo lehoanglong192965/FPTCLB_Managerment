@@ -6,8 +6,9 @@ import {
 } from "lucide-react";
 import eventService from "../../services/api/events/eventService";
 import semesterApi from "../../services/api/admin/semesterApi";
-import { TokenService } from "../../services/api/axiosClient";
+import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
 import clubRegistrationApi from "../../services/api/clubs/clubRegistrationApi";
+import { useToast } from "../../contexts/ToastContext";
 
 /* ─── Constants ─────────────────────────────────────────────── */
 
@@ -103,25 +104,25 @@ function StepBar({ current }) {
 const getImageUrl = (url) => {
   if (!url) return "";
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
-  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
-  return apiBase.replace(/\/api\/?$/, "") + url;
+  return getServerOrigin() + url;
 };
 
 function BannerUpload({ value, onChange }) {
+  const toast = useToast();
   const fileRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const handleFile = async (file) => {
     if (!file || !file.type.startsWith("image/")) return;
-    if (file.size > 5 * 1024 * 1024) { alert("Ảnh không được vượt quá 5MB."); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Ảnh không được vượt quá 5MB."); return; }
     setUploading(true);
     try {
       const res = await clubRegistrationApi.uploadCardImage(file);
       onChange(res.url || res);
     } catch (err) {
       console.error("[BannerUpload] Upload thất bại:", err);
-      alert("Tải ảnh lên thất bại. Vui lòng thử lại.");
+      toast.error("Tải ảnh lên thất bại. Vui lòng thử lại.");
     } finally {
       setUploading(false);
     }
@@ -483,21 +484,6 @@ export default function CreateEventPage() {
 
   const goBack = () => { setErrors({}); setStep((s) => s - 1); };
 
-  const saveToLocal = () => {
-    const key = `club_events_${clubId}`;
-    const existing = JSON.parse(localStorage.getItem(key) || "[]");
-    const newEvent = {
-      id: Date.now(),
-      name: form.name,
-      date: form.date.split("-").reverse().join("/"),
-      time: form.startTime,
-      location: form.location,
-      status: "pending",
-      attendees: 0,
-    };
-    localStorage.setItem(key, JSON.stringify([newEvent, ...existing]));
-  };
-
   const handleSubmit = async () => {
     setSubmitting(true);
     setSubmitError("");
@@ -518,7 +504,6 @@ export default function CreateEventPage() {
         bannerUrl:     form.banner || null,
         assignments:   null,
       });
-      saveToLocal();
       setSubmitted(true);
     } catch (err) {
       setSubmitError(err?.response?.data?.message ?? err?.message ?? "Gửi đề xuất thất bại.");

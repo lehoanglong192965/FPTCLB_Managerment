@@ -1,31 +1,5 @@
 import axios from "axios";
 
-export const ROLES = {
-  GUEST: "GUEST",
-  MEMBER: "MEMBER",
-  CORE_TEAM: "CORE_TEAM",
-  VICE_LEADER: "VICE_LEADER",
-  ROLE_Leader: "ROLE_Leader",
-  CLUB_MANAGER: "CLUB_MANAGER",
-  ADMIN: "ADMIN",
-  ALUMNI: "ALUMNI",
-};
-
-const ROLE_LEVEL = {
-  [ROLES.GUEST]: 0,
-  [ROLES.MEMBER]: 1,
-  [ROLES.CORE_TEAM]: 2,
-  [ROLES.VICE_LEADER]: 3,
-  [ROLES.ROLE_Leader]: 4,
-  [ROLES.CLUB_MANAGER]: 5,
-  [ROLES.ADMIN]: 6,
-};
-
-export function hasMinRole(requiredRole) {
-  const current = TokenService.getRole();
-  return (ROLE_LEVEL[current] ?? 0) >= (ROLE_LEVEL[requiredRole] ?? 0);
-}
-
 // Endpoint không cần đính kèm Authorization header
 const PUBLIC_PREFIXES = [
   "/clubs/public",
@@ -52,7 +26,7 @@ const storage = typeof window !== "undefined" ? localStorage : null;
 export const TokenService = {
   getAccess:  () => storage?.getItem("access_token")  ?? null,
   getRefresh: () => storage?.getItem("refresh_token") ?? null,
-  getRole:    () => storage?.getItem("user_role")     ?? ROLES.GUEST,
+  getRole:    () => storage?.getItem("user_role")     ?? "GUEST",
   getClubId: () => {
     const v = storage?.getItem("user_club_id");
     return v ? parseInt(v, 10) : null;
@@ -61,7 +35,7 @@ export const TokenService = {
   save({ access_token, refresh_token, role, clubId }) {
     if (access_token)  storage?.setItem("access_token",  access_token);
     if (refresh_token) storage?.setItem("refresh_token", refresh_token);
-    storage?.setItem("user_role", role ?? ROLES.MEMBER);
+    storage?.setItem("user_role", role ?? "MEMBER");
     if (clubId != null) storage?.setItem("user_club_id", String(clubId));
     else storage?.removeItem("user_club_id");
   },
@@ -93,6 +67,7 @@ function buildPendingKey(config) {
 }
 
 function addPending(config) {
+  if (config.data instanceof FormData) return;
   const key = buildPendingKey(config);
   if (pendingRequests.has(key)) pendingRequests.get(key).abort();
   const controller = new AbortController();
@@ -224,5 +199,8 @@ axiosClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const getServerOrigin = () =>
+  (import.meta.env.VITE_API_URL ?? "http://localhost:8080/api").replace(/\/api\/?$/, "");
 
 export default axiosClient;

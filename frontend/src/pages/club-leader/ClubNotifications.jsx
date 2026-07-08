@@ -1,19 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Bell, Info, CheckCircle2, AlertTriangle, Plus, X, Loader2,
 } from "lucide-react";
 import { useNotifications } from "../../contexts/NotificationsContext";
 import { TokenService } from "../../services/api/axiosClient";
-
-/* ─── Mock data ──────────────────────────────────────────────────── */
-
-const MOCK_NOTIFS = [
-  { id: 1, type: "info",    title: "Nhắc nhở nộp báo cáo",         content: "Hạn nộp báo cáo hoạt động học kỳ: 31/07/2026",        time: "2 giờ trước" },
-  { id: 2, type: "success", title: "Sự kiện được phê duyệt",        content: 'IC-PDP đã phê duyệt "Workshop UI/UX Design"',          time: "Hôm qua" },
-  { id: 3, type: "warning", title: "Đơn tuyển thành viên mới",      content: "Có 3 đơn ứng tuyển đang chờ xem xét",                  time: "2 ngày trước" },
-  { id: 4, type: "success", title: "Thành viên mới được phê duyệt", content: "Nguyễn Văn B đã được thêm vào CLB",                   time: "3 ngày trước" },
-  { id: 5, type: "info",    title: "Thông báo lịch họp",             content: "Họp ban điều hành: 10/07/2026, 15:00 — Phòng lab IT", time: "1 tuần trước" },
-];
+import notificationApi from "../../services/api/club-leader/clubNotificationApi";
+import { relativeTime } from "../../utils/notificationUtils";
+import { useToast } from "../../contexts/ToastContext";
 
 const TYPE_CFG = {
   info:    { icon: Info,          color: "#3b82f6", bg: "#eff6ff" },
@@ -181,21 +174,39 @@ function NotifModal({ onClose, onSubmit, submitting }) {
 /* ─── Main component ─────────────────────────────────────────────── */
 
 export default function ClubNotifications() {
+  const toast = useToast();
   const { addNotification }             = useNotifications();
   const clubId                          = TokenService.getClubId();
-  const [notifs,    setNotifs]    = useState(MOCK_NOTIFS);
+  const [notifs,    setNotifs]    = useState([]);
+  const [loading,   setLoading]   = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [submitting,setSubmitting]= useState(false);
-  const [toast,     setToast]     = useState(null);
 
-  const showToast = (type, msg) => {
-    setToast({ type, msg });
-    setTimeout(() => setToast(null), 3000);
-  };
+  useEffect(() => {
+    if (!clubId) { setLoading(false); return; }
+    notificationApi.getByClub(clubId)
+      .then((data) => {
+        const items = Array.isArray(data) ? data : (data?.data ?? []);
+        setNotifs(items.map((n) => ({
+          id:      n.id ?? n.notificationId,
+          type:    n.type ?? "general",
+          title:   n.title,
+          content: n.content ?? n.message ?? "",
+          time:    relativeTime(n.createdAt ?? n.sentAt ?? n.timestamp),
+        })));
+      })
+      .catch((err) => {
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        console.error("Failed to load club notifications:", err);
+      })
+      .finally(() => setLoading(false));
+  }, [clubId]);
 
-  const handleSubmit = ({ title, content }) => {
+  const handleSubmit = async ({ title, content }) => {
+    if (!clubId) { toast.error("Không xác định được CLB."); return; }
     setSubmitting(true);
-    setTimeout(() => {
+    try {
+      await notificationApi.create(clubId, { title, content });
       const item = addNotification({ title, content, clubId });
       setNotifs((prev) => [{
         id:      item.id,
@@ -205,9 +216,13 @@ export default function ClubNotifications() {
         time:    "Vừa xong",
       }, ...prev]);
       setShowModal(false);
-      showToast("success", "Gửi thông báo thành công!");
+      toast.success("Gửi thông báo thành công!");
+    } catch (err) {
+      const msg = err?.response?.data?.message ?? "Không thể gửi thông báo. Vui lòng thử lại.";
+      toast.error(msg);
+    } finally {
       setSubmitting(false);
-    }, 400);
+    }
   };
 
   return (
@@ -224,6 +239,16 @@ export default function ClubNotifications() {
       </div>
 
       <div className="content-card">
+        {loading ? (
+          <div className="flex justify-center py-8 text-gray-400">
+            <Loader2 size={24} className="animate-spin" />
+          </div>
+        ) : notifs.length === 0 ? (
+          <div className="flex flex-col items-center py-10 text-gray-400">
+            <Bell size={36} strokeWidth={1.5} className="mb-2" />
+            <p className="text-sm m-0">Chưa có thông báo nào.</p>
+          </div>
+        ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           {notifs.map((n) => {
             const cfg  = TYPE_CFG[n.type] ?? TYPE_CFG.general;
@@ -252,6 +277,7 @@ export default function ClubNotifications() {
             );
           })}
         </div>
+        )}
       </div>
 
       {showModal && (
@@ -262,9 +288,6 @@ export default function ClubNotifications() {
         />
       )}
 
-      {toast && (
-        <div className={`co-toast co-toast-${toast.type}`}>{toast.msg}</div>
-      )}
     </div>
   );
 }

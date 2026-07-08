@@ -1,10 +1,10 @@
 import { useNavigate } from "react-router-dom";
+import { getServerOrigin } from "../../services/api/axiosClient";
 // Hàm resolveImg để xử lý URL hình ảnh của câu lạc bộ.
 const resolveImg = (url) => {
   if (!url) return null;
   if (url.startsWith("http") || url.startsWith("data:")) return url;
-  const base = (import.meta.env.VITE_API_URL || "http://localhost:8080/api").replace(/\/api\/?$/, "");
-  return `${base}${url}`;
+  return getServerOrigin() + url;
 };
 // Component ClubCard hiển thị thông tin cơ bản của một câu lạc bộ.
 export default function ClubCard({ club, onSelect }) {

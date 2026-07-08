@@ -73,6 +73,7 @@ function FinalizeModal({ count, onConfirm, onClose }) {
   );
 }
 
+
 function AppealsPanel({ appeals, contributions, onProcess }) {
   const [processing, setProcessing] = useState(null);
   const [form, setForm] = useState({ isAccepted: true, contributionType: 'PARTICIPANT', leaderEvaluation: 'GOOD', reason: '' });
@@ -133,8 +134,8 @@ function AppealsPanel({ appeals, contributions, onProcess }) {
               >
                 Xử lý
               </button>
-            </div>
-          );
+          </div>
+        );
         })}
       </div>
 
@@ -204,7 +205,6 @@ export default function ContributionManagementPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-
   const [contributions, setContributions] = useState([]);
   const [appeals, setAppeals] = useState([]);
   const [batchId, setBatchId] = useState(null);
@@ -239,9 +239,14 @@ export default function ContributionManagementPage() {
       if (contribRes.status === 'fulfilled') {
         const raw = contribRes.value;
         const data = Array.isArray(raw) ? raw : (raw?.data ?? raw?.content ?? []);
-        setContributions(data.map(normalizeContribution));
-      } else if (!isCanceledRequest(contribRes.reason)) {
-        toast.error('Không tải được danh sách đóng góp: ' + (contribRes.reason?.response?.status ?? contribRes.reason?.message ?? 'lỗi không xác định'));
+       setContributions(data.map(normalizeContribution));
+      } else {
+        const reason = contribRes.reason;
+        const isCanceled = reason?.code === 'ERR_CANCELED' || reason?.name === 'CanceledError';
+        const is404 = reason?.response?.status === 404;
+        if (!isCanceled && !is404) {
+          toast.error('Không tải được danh sách đóng góp: ' + (reason?.response?.status ?? reason?.message ?? 'lỗi không xác định'));
+        }
       }
       if (batchRes.status === 'fulfilled') {
         const batch = batchRes.value?.data ?? batchRes.value;
@@ -252,7 +257,7 @@ export default function ContributionManagementPage() {
         }
       }
     } catch (err) {
-      if (!isCanceledRequest(err)) {
+      if (err?.code !== 'ERR_CANCELED' && err?.name !== 'CanceledError') {
         toast.error('Không thể tải dữ liệu đóng góp.');
       }
     } finally {
@@ -266,9 +271,9 @@ export default function ContributionManagementPage() {
     try {
       const res = await contributionService.getAppeals(targetId);
       const list = Array.isArray(res) ? res : (res?.data ?? []);
-      setAppeals(list.filter((appeal) => appeal.status === 'PENDING'));
+       setAppeals(list.filter((appeal) => appeal.status === 'PENDING'));
     } catch (err) {
-      if (!isCanceledRequest(err)) {
+      if (err?.code !== 'ERR_CANCELED' && err?.name !== 'CanceledError') {
         setAppeals([]);
       }
     }
@@ -280,7 +285,7 @@ export default function ContributionManagementPage() {
 
   useEffect(() => {
     if (batchId) fetchAppeals(batchId);
-  }, [batchId, fetchAppeals]);
+  }, [batchId]);
 
   const handleFieldChange = (userId, field, value) => {
     setContributions((prev) => prev.map((item) => item.userId === userId ? { ...item, [field]: value } : item));
@@ -316,7 +321,12 @@ export default function ContributionManagementPage() {
       if (batch?.appealClosesAt) setAppealClosesAt(batch.appealClosesAt);
       toast.success('Đã chốt điểm. Thành viên có 24h để khiếu nại.');
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Khoá thất bại.');
+      const code = err?.response?.data?.code;
+      if (code === 'SELF_FINALIZATION_NOT_ALLOWED') {
+        toast.error('Bạn không thể tự chốt điểm khi là thành viên ban tổ chức. Nhờ người khác (Phó CLB hoặc ICPDP) thực hiện.');
+      } else {
+        toast.error(err?.response?.data?.message || 'Chốt điểm thất bại.');
+      }
     } finally {
       setFinalizing(false);
     }
@@ -379,6 +389,7 @@ export default function ContributionManagementPage() {
         </div>
       ) : null}
 
+      
       {appeals.length > 0 && (
         <AppealsPanel
           appeals={appeals}
@@ -387,6 +398,7 @@ export default function ContributionManagementPage() {
         />
       )}
 
+      
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         {contributions.length === 0 ? (
           <div className="py-16 text-center text-sm text-gray-400">

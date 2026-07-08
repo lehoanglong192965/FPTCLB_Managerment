@@ -3,6 +3,7 @@ import { Calendar, FileText, CheckCircle, XCircle, Clock, Inbox, User, Mail, Ref
 import { useClubData } from "../../contexts/ClubDataContext";
 import { TokenService } from "../../services/api/axiosClient";
 import applicationApi from "../../services/api/member/applicationApi";
+import { useToast } from "../../contexts/ToastContext";
 
 const STATUS_MAP = {
   Submitted:  { label: "Chờ duyệt CV",   cls: "bg-amber-100 text-amber-700" },
@@ -60,6 +61,7 @@ function filterByTab(apps, tab) {
 }
 
 export default function ClubApplicationsMgmt() {
+  const toast = useToast();
   const { fetchMembers } = useClubData();
   const clubId = TokenService.getClubId();
 
@@ -68,7 +70,6 @@ export default function ClubApplicationsMgmt() {
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [selected, setSelected]       = useState(null);
   const [confirmMode, setConfirmMode] = useState(null);
-  const [toast, setToast]             = useState(null);
   const [submitting, setSubmitting]   = useState(false);
 
   // CV Accept fields
@@ -78,11 +79,6 @@ export default function ClubApplicationsMgmt() {
   const [rejectReason, setRejectReason]   = useState("");
   const [rejectError, setRejectError]     = useState("");
 
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  };
-
   const loadApps = useCallback(async () => {
     if (!clubId) return;
     setLoading(true);
@@ -90,8 +86,9 @@ export default function ClubApplicationsMgmt() {
       const data = await applicationApi.getClubApplications(clubId);
       const arr = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
       setApps(arr.map(normalizeApp));
-    } catch {
-      showToast("Không thể tải danh sách đơn ứng tuyển.", "error");
+    } catch (err) {
+      if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+      toast.error("Không thể tải danh sách đơn ứng tuyển.");
     } finally {
       setLoading(false);
     }
@@ -150,13 +147,13 @@ export default function ClubApplicationsMgmt() {
       setApps((prev) => prev.map((a) => a.id === selected.id ? { ...a, status: newStatus } : a));
       setSelected((prev) => ({ ...prev, status: newStatus }));
       setConfirmMode(null);
-      showToast(isAccepted
+      toast.success(isAccepted
         ? "Đã duyệt hồ sơ. Email mời phỏng vấn đã được gửi."
         : "Đã từ chối hồ sơ. Email thông báo đã được gửi."
       );
     } catch (err) {
       const msg = err?.response?.data?.message ?? "Không thể kết nối đến máy chủ.";
-      showToast(msg, "error");
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -175,14 +172,14 @@ export default function ClubApplicationsMgmt() {
       setSelected((prev) => ({ ...prev, status: newStatus }));
       setConfirmMode(null);
       if (isPassed) {
-        showToast("Đậu phỏng vấn! Ứng viên đã được thêm vào CLB.");
+        toast.success("Đậu phỏng vấn! Ứng viên đã được thêm vào CLB.");
         fetchMembers();
       } else {
-        showToast("Đã ghi nhận kết quả: Rớt phỏng vấn.");
+        toast.success("Đã ghi nhận kết quả: Rớt phỏng vấn.");
       }
     } catch (err) {
       const msg = err?.response?.data?.message ?? "Không thể kết nối đến máy chủ.";
-      showToast(msg, "error");
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -194,10 +191,6 @@ export default function ClubApplicationsMgmt() {
         <h1 className="page-title">Đơn Ứng Tuyển</h1>
         <p className="page-subtitle">Xét duyệt các đơn xin tham gia câu lạc bộ từ sinh viên</p>
       </div>
-
-      {toast && (
-        <div className={`co-toast co-toast-${toast.type}`}>{toast.msg}</div>
-      )}
 
       <div className="content-card">
         <div className="flex justify-between items-center mb-4">

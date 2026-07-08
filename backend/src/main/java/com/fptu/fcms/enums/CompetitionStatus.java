@@ -1,13 +1,11 @@
 package com.fptu.fcms.enums;
 
 public enum CompetitionStatus {
-    Draft,
     DRAFT,
+    CALCULATED,
+    APPROVED,
+    PUBLISHED,
+    REJECTED,
     OPEN,
-    CLOSED,
-    Approved,
-    Published,
-    Rejected,
-    Calculated,
-
+    CLOSED
 }

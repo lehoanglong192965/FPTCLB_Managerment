@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import EventCard from "../../components/events/EventCard";
 import eventService from "../../services/api/events/eventService";
 import clubService from "../../services/api/clubs/clubService";
@@ -17,13 +16,12 @@ function getStatusBadge(status) {
 }
 
 export default function EventListPage() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [search, setSearch]               = useState("");
   const [activeFilter, setActiveFilter]   = useState("Tất cả");
   const [rawEvents, setRawEvents]         = useState([]);
   const [clubs, setClubs]                 = useState([]);
-  const [registeredIds, setRegisteredIds] = useState(new Set());
+  const [, setRegisteredIds] = useState(new Set());
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState(null);
 

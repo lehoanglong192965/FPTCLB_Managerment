@@ -35,10 +35,10 @@ const authApi = {
     axiosClient.post("/auth/verify-otp", { email, otpCode }),
 
   resendOTP: (email) =>
-    axiosClient.post(`/auth/resend-otp?email=${email}`),
-    
+    axiosClient.post("/auth/resend-otp", null, { params: { email } }),
+
   resendForgotPasswordOTP: (email) =>
-    axiosClient.post(`/auth/resend-forgot-otp?email=${email}`),
+    axiosClient.post("/auth/resend-forgot-otp", null, { params: { email } }),
 };
 
 export default authApi;

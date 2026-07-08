@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Star, Loader2 } from "lucide-react";
 import ClubCard from "../../components/clubs/ClubCard";
-import ClubSpace from "./ClubSpace";
+import ClubSpace from "../../components/clubs/ClubSpace";
 import authApi from "../../services/api/auth/authApi";
 import clubService from "../../services/api/clubs/clubService";
 import { normalizeClub } from "../../hooks/usePublicClubs";

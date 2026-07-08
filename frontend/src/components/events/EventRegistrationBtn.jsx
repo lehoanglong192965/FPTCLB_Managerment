@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationsContext';
+import { useToast } from '../../contexts/ToastContext';
 import eventService from '../../services/api/events/eventService';
 import AlertModal from '../ui/AlertModal';
 
 const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
     const { user } = useAuth();
     const { addNotification } = useNotifications();
+    const toast = useToast();
     const navigate = useNavigate();
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     const location = useLocation();
@@ -150,10 +152,10 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
         try {
             await eventService.register(eventId);
             setIsRegistered(true);
-            addNotification('Đăng ký tham gia sự kiện thành công!', 'success');
+            addNotification({ title: 'Đăng ký thành công', content: 'Đã đăng ký tham gia sự kiện thành công!' });
             if (onRegisterSuccess) onRegisterSuccess();
         } catch (error) {
-            addNotification(error.response?.data?.message || 'Lỗi khi đăng ký sự kiện.', 'error');
+            toast.error(error.response?.data?.message || 'Lỗi khi đăng ký sự kiện.');
         } finally {
             setIsLoading(false);
         }

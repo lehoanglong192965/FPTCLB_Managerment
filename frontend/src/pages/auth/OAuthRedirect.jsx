@@ -1,25 +1,10 @@
 ﻿import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { TokenService } from "../../services/api/axiosClient";
-import { decodeJwtPayload } from "../../lib/tokenGuard";
+import { decodeJwtPayload } from "../../utils/tokenGuard";
 import { useAuth } from "../../contexts/AuthContext";
 import authApi from "../../services/api/auth/authApi";
-
-const ROLE_MAP = {
-  1: "ADMIN",
-  2: "ICPDP",
-  3: "MEMBER",
-  4: "ALUMNI",
-};
-
-const ROLE_REDIRECT = {
-  ADMIN:       "/admin",
-  ICPDP:       "/icpdp",
-  MEMBER:      "/member",
-  ALUMNI:      "/alumni",
-  CLUB_LEADER: "/club-leader",
-  VICE_LEADER: "/club-leader",
-};
+import { ROLE_MAP, ROLE_REDIRECT } from "../../constants/roles";
 
 export default function OAuthRedirect() {
   const [searchParams] = useSearchParams();
@@ -28,45 +13,63 @@ export default function OAuthRedirect() {
 
   useEffect(() => {
     const token = searchParams.get("token");
-    if (token) {
-      const handleOAuthRedirect = async () => {
-        try {
-          const payload = decodeJwtPayload(token);
-          let role = ROLE_MAP[payload?.roleID] ?? "MEMBER";
-          
-          // Lưu tạm thời token để authApi.getMyClubRole() có thể lấy gửi đi
-          TokenService.save({ access_token: token, refresh_token: null, role });
-          
-          if (role === "MEMBER") {
-            try {
-              const res = await authApi.getMyClubRole();
-              if (res.clubRoleID === 1) {
-                role = "CLUB_LEADER";
-              } else if (res.clubRoleID === 2) {
-                role = "VICE_LEADER";
-              }
-              // Cập nhật lại role trong TokenService
-              TokenService.save({ access_token: token, refresh_token: null, role });
-            } catch (e) {
-              console.error("Lỗi lấy quyền CLB khi OAuth2", e);
-            }
-          }
-          
-          // Lưu vào AuthContext
-          login({ email: payload?.sub, role });
-          
-          // Chuyển hướng
-          navigate(ROLE_REDIRECT[role] ?? "/member", { replace: true });
-        } catch (e) {
-          console.error("Lỗi khi xử lý token Google", e);
-          navigate("/login?error=L%E1%BB%97i%20x%C3%A1c%20th%E1%BB%B1c%20Token", { replace: true });
-        }
-      };
-      
-      handleOAuthRedirect();
-    } else {
-      navigate("/login?error=Kh%C3%B4ng%20nh%E1%BA%ADn%20%C4%91%C6%B0%E1%BB%A3c%20token", { replace: true });
+    const backendError = searchParams.get("error");
+
+    if (!token) {
+      sessionStorage.removeItem("oauth_return_to");
+      const msg = backendError?.toLowerCase().includes("not found") || backendError?.toLowerCase().includes("register")
+        ? "Tài khoản Google chưa được đăng ký. Vui lòng đăng ký trước."
+        : "Đăng nhập Google thất bại. Vui lòng thử lại.";
+      navigate(`/login?ssoError=${encodeURIComponent(msg)}`, { replace: true });
+      return;
     }
+
+    const handleOAuthRedirect = async () => {
+      try {
+        const payload = decodeJwtPayload(token);
+        let role = ROLE_MAP[payload?.roleID] ?? "MEMBER";
+
+        TokenService.save({ access_token: token, refresh_token: null, role });
+
+        if (role === "MEMBER") {
+          try {
+            const res = await authApi.getMyClubRole();
+            let clubId = null;
+            if (res?.clubID) {
+              // clubRoleID: 1=Leader, 2=ViceLeader, 3=Member (thường), 5=ClubManager
+              if (res.clubRoleID === 1) { role = "CLUB_LEADER";  clubId = res.clubID; }
+              else if (res.clubRoleID === 2) { role = "VICE_LEADER"; clubId = res.clubID; }
+              else if (res.clubRoleID === 5) { role = "CLUB_MANAGER"; clubId = res.clubID; }
+              // clubRoleID === 3 hoặc 4 = Member thường → giữ nguyên role "MEMBER"
+            }
+            TokenService.save({ access_token: token, refresh_token: null, role, clubId });
+          } catch (e) {
+            console.error("Lỗi lấy quyền CLB khi OAuth2", e);
+          }
+        }
+
+        login({ email: payload?.sub, role });
+
+        const returnTo = sessionStorage.getItem("oauth_return_to");
+        sessionStorage.removeItem("oauth_return_to");
+
+        let dest;
+        if (role === "MEMBER") {
+          const isReturnPage = returnTo && (returnTo.startsWith("/events/") || returnTo.startsWith("/clubs/"));
+          dest = isReturnPage ? returnTo : "/";
+        } else {
+          dest = ROLE_REDIRECT[role] ?? "/";
+        }
+
+        navigate(dest, { replace: true });
+      } catch (e) {
+        console.error("Lỗi khi xử lý token Google", e);
+        sessionStorage.removeItem("oauth_return_to");
+        navigate(`/login?ssoError=${encodeURIComponent("Xác thực Google thất bại. Vui lòng thử lại.")}`, { replace: true });
+      }
+    };
+
+    handleOAuthRedirect();
   }, [searchParams, navigate, login]);
 
   return (

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, Search, CheckCircle2, XCircle, Trash2, ChevronDown, X } from 'lucide-react';
+import { ArrowLeft, Users, Search, CheckCircle2, XCircle, Trash2, X } from 'lucide-react';
 import eventService from '../../services/api/events/eventService';
 import { useToast } from '../../contexts/ToastContext';
 

@@ -1,13 +1,9 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { useToast } from "./ToastContext";
 import memberApi from "../services/api/clubs/memberApi";
 import clubBoardApi from "../services/api/club-leader/clubBoardApi";
+import blacklistApi from "../services/api/icpdp/blacklistApi";
 import { TokenService } from "../services/api/axiosClient";
-
-// Blacklist vẫn dùng mock vì chưa có API endpoint
-const MOCK_BLACKLIST = [
-  { blacklistID: 1, userID: 109, fullName: "Bùi Văn Khánh",   studentCode: "SE180009", major: "Software Engineering",  clubRoleName: "Member", reason: "Vi phạm quy tắc ứng xử CLB nhiều lần.",                             bannedDate: "10/05/2025" },
-  { blacklistID: 2, userID: 110, fullName: "Đinh Thị Phương", studentCode: "SE180010", major: "Information Technology", clubRoleName: "Member", reason: "Không tham gia hoạt động trong 2 học kỳ liên tiếp và không thông báo.", bannedDate: "01/06/2025" },
-];
 
 function normalizeMember(raw) {
   return {
@@ -27,8 +23,9 @@ function normalizeMember(raw) {
 const ClubDataContext = createContext(null);
 
 export function ClubDataProvider({ children }) {
+  const toast = useToast();
   const [members, setMembers]     = useState([]);
-  const [blacklist, setBlacklist] = useState(MOCK_BLACKLIST);
+  const [blacklist, setBlacklist] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState("");
 
@@ -68,38 +65,82 @@ export function ClubDataProvider({ children }) {
     fetchMembers();
   }, [fetchMembers]);
 
+  useEffect(() => {
+    if (!clubId) return;
+    let cancelled = false;
+    blacklistApi.getAll(clubId)
+      .then((res) => {
+        if (cancelled) return;
+        const list = Array.isArray(res) ? res : (res?.data ?? res?.content ?? []);
+        setBlacklist(list.map((b) => ({
+          blacklistID:  b.blacklistId  ?? b.blacklistID  ?? b.id,
+          userID:       b.userId       ?? b.userID,
+          fullName:     b.fullName     ?? b.studentName  ?? "",
+          studentCode:  b.studentCode  ?? b.studentId    ?? "",
+          major:        b.major        ?? "",
+          clubRoleName: b.clubRoleName ?? b.roleName     ?? "Member",
+          reason:       b.reason       ?? "",
+          bannedDate:   b.bannedDate   ?? b.createdAt    ?? "",
+        })));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        console.warn("[ClubData] blacklist fetch failed:", err?.response?.status);
+      });
+    return () => { cancelled = true; };
+  }, [clubId]);
+
   const expelMember = (member) => {
     memberApi.remove(clubId, member.membershipID)
       .then(() => {
         setMembers((prev) => prev.filter((m) => m.membershipID !== member.membershipID));
       })
-      .catch(() => {
-        // fallback: cập nhật UI trước, lỗi thì reload lại
-        setMembers((prev) => prev.filter((m) => m.membershipID !== member.membershipID));
+      .catch((err) => {
+        toast.error(err?.response?.data?.message || "Không thể xóa thành viên. Vui lòng thử lại.");
       });
   };
 
-  const addToBlacklist = (member, reason) => {
-    // Khai trừ qua API
-    memberApi.remove(clubId, member.membershipID).catch(() => {});
+  const addToBlacklist = async (member, reason) => {
+    // Bước 1: Khai trừ khỏi CLB
+    try {
+      await memberApi.remove(clubId, member.membershipID);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Không thể khai trừ thành viên. Vui lòng thử lại.");
+      return;
+    }
+    // Bước 1 thành công → cập nhật UI ngay để tránh trạng thái không nhất quán
     setMembers((prev) => prev.filter((m) => m.membershipID !== member.membershipID));
-    setBlacklist((prev) => [
-      {
-        blacklistID:  Date.now(),
-        userID:       member.userID,
-        fullName:     member.fullName,
-        studentCode:  member.studentCode,
-        major:        member.major,
-        clubRoleName: member.clubRoleName,
-        reason,
-        bannedDate:   new Date().toLocaleDateString("vi-VN"),
-      },
-      ...prev,
-    ]);
+
+    // Bước 2: Thêm vào danh sách đen
+    try {
+      const entry = await blacklistApi.add(clubId, { userID: member.userID, reason });
+      setBlacklist((prev) => [
+        {
+          blacklistID:  entry?.blacklistId ?? entry?.id ?? entry?.blacklistID ?? Date.now(),
+          userID:       member.userID,
+          fullName:     member.fullName,
+          studentCode:  member.studentCode,
+          major:        member.major,
+          clubRoleName: member.clubRoleName,
+          reason,
+          bannedDate:   new Date().toLocaleDateString("vi-VN"),
+        },
+        ...prev,
+      ]);
+    } catch (err) {
+      // Thành viên đã bị khai trừ khỏi CLB nhưng chưa vào danh sách đen
+      toast.error(err?.response?.data?.message || "Đã khai trừ thành viên nhưng không thể thêm vào danh sách đen. Vui lòng thêm thủ công.");
+    }
   };
 
-  const removeFromBlacklist = (blacklistID) => {
-    setBlacklist((prev) => prev.filter((b) => b.blacklistID !== blacklistID));
+  const removeFromBlacklist = async (blacklistID) => {
+    try {
+      await blacklistApi.remove(clubId, blacklistID);
+      setBlacklist((prev) => prev.filter((b) => b.blacklistID !== blacklistID));
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Không thể gỡ khai trừ. Vui lòng thử lại.");
+    }
   };
 
   return (

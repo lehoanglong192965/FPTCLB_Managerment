@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Ban, Search, ShieldOff, Calendar, Hash, BookOpen, X, Info } from "lucide-react";
 import { Avatar, RoleBadge } from "./ClubMemberMgmt";
 import { useClubData } from "../../contexts/ClubDataContext";
+import { useToast } from "../../contexts/ToastContext";
 
 // ─── Detail Modal ─────────────────────────────────────────────────────────────
 
@@ -111,20 +112,15 @@ function DetailModal({ entry, onClose, onRemove }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ClubBlacklist() {
+  const toast = useToast();
   const { blacklist, removeFromBlacklist } = useClubData();
   const [search, setSearch]   = useState("");
   const [selected, setSelected] = useState(null);
-  const [toast, setToast]     = useState(null);
-
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const handleRemove = (entry) => {
     removeFromBlacklist(entry.blacklistID);
     setSelected(null);
-    showToast(`Đã gỡ cấm cho ${entry.fullName}.`);
+    toast.success(`Đã gỡ cấm cho ${entry.fullName}.`);
   };
 
   const filtered = blacklist.filter((b) => {
@@ -138,8 +134,6 @@ export default function ClubBlacklist() {
         <h1 className="page-title">Danh Sách Đen</h1>
         <p className="page-subtitle">Thành viên bị cấm tham gia câu lạc bộ</p>
       </div>
-
-      {toast && <div className={`co-toast co-toast-${toast.type}`}>{toast.msg}</div>}
 
       {/* Hướng dẫn */}
       <div style={{

@@ -75,11 +75,11 @@ export const AuthProvider = ({ children }) => {
     fetchProfile();
   };
 
-  const logout = () => {
+  const logout = async () => {
     setUser(null);
     setProfile(null);
     removeUserFromStorage();
-    authService.logout(); // gọi backend để hủy refresh token, sau đó redirect /login
+    await authService.logout(); // gọi backend để hủy refresh token, sau đó redirect /login
   };
 
   return (

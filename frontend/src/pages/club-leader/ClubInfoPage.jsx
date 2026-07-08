@@ -3,6 +3,7 @@ import { Camera, Save, X, Loader2, Pencil } from "lucide-react";
 import { TokenService } from "../../services/api/axiosClient";
 import clubService from "../../services/api/clubs/clubService";
 import { normalizeClub } from "../../hooks/usePublicClubs";
+import { useToast } from "../../contexts/ToastContext";
 
 const CATEGORIES = [
   { value: "Công nghệ",  label: "Công nghệ" },
@@ -46,6 +47,7 @@ function ReadonlyValue({ value, link }) {
 }
 
 export default function ClubInfoPage() {
+  const toast = useToast();
   const clubId = TokenService.getClubId();
 
   const [club, setClub]         = useState(null);
@@ -54,7 +56,6 @@ export default function ClubInfoPage() {
   const [editing, setEditing]   = useState(false);
   const [saving, setSaving]     = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [toast, setToast]       = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
 
   const [form, setForm] = useState({
@@ -63,11 +64,6 @@ export default function ClubInfoPage() {
   });
 
   const fileInputRef = useRef(null);
-
-  const showToast = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  };
 
   const applyRaw = (raw) => {
     if (!raw) return false;
@@ -137,12 +133,12 @@ export default function ClubInfoPage() {
         URL.revokeObjectURL(localUrl);
         setPreviewUrl(serverUrl);
         setForm((f) => ({ ...f, clubImage: serverUrl }));
-        showToast("Đã tải ảnh lên thành công.");
+        toast.success("Đã tải ảnh lên thành công.");
       }
     } catch {
       URL.revokeObjectURL(localUrl);
       setPreviewUrl(form.clubImage ?? "");
-      showToast("Tải ảnh lên thất bại. Vui lòng thử lại.", "error");
+      toast.error("Tải ảnh lên thất bại. Vui lòng thử lại.");
     } finally {
       setUploading(false);
     }
@@ -155,9 +151,9 @@ export default function ClubInfoPage() {
       const raw = await clubService.update(clubId, payload);
       applyRaw(raw);
       setEditing(false);
-      showToast("Đã lưu thông tin câu lạc bộ.");
+      toast.success("Đã lưu thông tin câu lạc bộ.");
     } catch {
-      showToast("Lưu thất bại. Vui lòng thử lại.", "error");
+      toast.error("Lưu thất bại. Vui lòng thử lại.");
     } finally {
       setSaving(false);
     }
@@ -203,17 +199,6 @@ export default function ClubInfoPage() {
         onChange={handleFileChange}
       />
 
-      {toast && (
-        <div style={{
-          position: "fixed", top: 20, right: 28, zIndex: 999,
-          padding: "10px 20px", borderRadius: 10, fontSize: 13.5, fontWeight: 500,
-          boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
-          background: toast.type === "error" ? "#fee2e2" : "#d1fae5",
-          color:      toast.type === "error" ? "#991b1b" : "#065f46",
-        }}>
-          {toast.msg}
-        </div>
-      )}
 
       <div className="page-header">
         <h1 className="page-title">Thông Tin Câu Lạc Bộ</h1>

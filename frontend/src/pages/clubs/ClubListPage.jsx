@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { usePublicClubs, CATEGORY_LABEL } from "../../hooks/usePublicClubs";
+import { usePublicClubs } from "../../hooks/usePublicClubs";
 import ClubCard from "../../components/clubs/ClubCard";
 
 // value = giá trị DB dùng để filter, label = nhãn hiển thị tiếng Việt
@@ -17,7 +16,6 @@ const CATEGORIES = [
 ];
 
 export default function ClubListPage() {
-  const navigate = useNavigate();
   const { clubs, loading, error } = usePublicClubs();
   const [search, setSearch]       = useState("");
   const [activeTag, setActiveTag] = useState("Tất cả");
