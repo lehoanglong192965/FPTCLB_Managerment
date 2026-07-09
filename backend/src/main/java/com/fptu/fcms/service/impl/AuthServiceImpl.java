@@ -6,8 +6,11 @@ import com.fptu.fcms.dto.request.LoginRequest;
 import com.fptu.fcms.dto.request.RegisterRequest;
 import com.fptu.fcms.dto.request.VerifyOTPRequest;
 import com.fptu.fcms.dto.response.AuthResponse;
+import com.fptu.fcms.dto.response.ClubRoleResponse;
+import com.fptu.fcms.entity.SystemRole;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.repository.AllowedEmailRepository;
+import com.fptu.fcms.repository.SystemRoleRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.security.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +31,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final OTPService otpService;
     private final EmailService emailService;
+    private final UserService userService;
+    private final SystemRoleRepository systemRoleRepository;
 
     @Override
     public AuthResponse login(LoginRequest request) {
@@ -61,10 +66,27 @@ public class AuthServiceImpl implements AuthService {
 
         Integer roleId = userEntity.getRoleID();
 
+        // [Batch 2] Resolve roleName từ SystemRole
+        String roleName = systemRoleRepository.findById(roleId)
+                .map(SystemRole::getRoleName)
+                .orElse(null);
+
+        // [Batch 2] Resolve clubRole/clubId — tái dùng UserService.getClubRole(), KHÔNG viết lại logic
+        ClubRoleResponse clubRoleResponse = userService.getClubRole(userEntity.getUserID());
+        String clubRoleClaim = null;
+        Integer clubIdClaim = null;
+        if ("Leader".equals(clubRoleResponse.getRoleName()) || "ViceLeader".equals(clubRoleResponse.getRoleName())) {
+            clubRoleClaim = clubRoleResponse.getRoleName();
+            clubIdClaim = clubRoleResponse.getClubID();
+        }
+
         String token = jwtTokenProvider.generateToken(
                 userEntity.getEmail(),
                 userEntity.getUserID(),
-                roleId
+                roleId,
+                roleName,
+                clubRoleClaim,
+                clubIdClaim
         );
         String refreshToken = jwtTokenProvider.generateRefreshToken(userEntity.getEmail());
 
@@ -79,10 +101,28 @@ public class AuthServiceImpl implements AuthService {
             
             if (userOptional.isPresent()) {
                 UserAccount user = userOptional.get();
+
+                // [Batch 2] Resolve roleName từ SystemRole
+                String roleName = systemRoleRepository.findById(user.getRoleID())
+                        .map(SystemRole::getRoleName)
+                        .orElse(null);
+
+                // [Batch 2] Resolve clubRole/clubId — tái dùng UserService.getClubRole()
+                ClubRoleResponse clubRoleResponse = userService.getClubRole(user.getUserID());
+                String clubRoleClaim = null;
+                Integer clubIdClaim = null;
+                if ("Leader".equals(clubRoleResponse.getRoleName()) || "ViceLeader".equals(clubRoleResponse.getRoleName())) {
+                    clubRoleClaim = clubRoleResponse.getRoleName();
+                    clubIdClaim = clubRoleResponse.getClubID();
+                }
+
                 String newToken = jwtTokenProvider.generateToken(
                         user.getEmail(),
                         user.getUserID(),
-                        user.getRoleID()
+                        user.getRoleID(),
+                        roleName,
+                        clubRoleClaim,
+                        clubIdClaim
                 );
                 // Có thể tạo refresh token mới hoặc dùng lại cái cũ
                 return new AuthResponse(newToken, refreshToken);

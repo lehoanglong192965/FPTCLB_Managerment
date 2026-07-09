@@ -1,6 +1,6 @@
 package com.fptu.fcms.security.jwt;
 
-import com.fptu.fcms.security.UserPrincipal; // <-- Import class vừa tạo
+import com.fptu.fcms.security.UserPrincipal;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,10 +16,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import com.fptu.fcms.repository.ClubMembershipRepository;
-import com.fptu.fcms.repository.ClubRoleRepository;
-import com.fptu.fcms.repository.SemesterRepository;
-import com.fptu.fcms.repository.SystemRoleRepository;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
@@ -28,18 +24,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
     private JwtTokenProvider tokenProvider;
-
-    @Autowired
-    private SystemRoleRepository systemRoleRepository;
-
-    @Autowired
-    private SemesterRepository semesterRepository;
-
-    @Autowired
-    private ClubRoleRepository clubRoleRepository;
-
-    @Autowired
-    private ClubMembershipRepository clubMembershipRepository;
 
     @Override
     protected void doFilterInternal(
@@ -55,29 +39,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 2. Nếu có token và token đó hợp lệ
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
 
-                // 3. Lấy thông tin từ chuỗi jwt
+                // 3. Lấy thông tin từ chuỗi jwt — ĐỌC CLAIM TRỰC TIẾP, 0 QUERY DB
                 String email = tokenProvider.getEmailFromJwt(jwt);
-                Integer userId = tokenProvider.getUserIdFromJwt(jwt); // Bổ sung lấy userID
-                Integer roleId = tokenProvider.getRoleIdFromJwt(jwt); // Bổ sung lấy roleID
+                Integer userId = tokenProvider.getUserIdFromJwt(jwt);
+                Integer roleId = tokenProvider.getRoleIdFromJwt(jwt);
+                String roleName = tokenProvider.getRoleNameFromJwt(jwt);
+                String clubRole = tokenProvider.getClubRoleFromJwt(jwt);
+                Integer clubId = tokenProvider.getClubIdFromJwt(jwt);
 
-                // 4. Lấy Role từ DB để cấp quyền
+                // 4. Tạo authorities từ claim — KHÔNG query DB
                 List<GrantedAuthority> authorities = new ArrayList<>();
-                if (roleId != null) {
-                    systemRoleRepository.findById(roleId).ifPresent(role -> {
-                        authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getRoleName()));
-                    });
+                if (roleName != null) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_" + roleName));
                 }
-                addActiveClubLeaderAuthority(userId, authorities);
+                if (clubRole != null) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_" + clubRole));
+                }
 
-                // 5. Đóng gói vào UserPrincipal
+                // 5. Đóng gói vào UserPrincipal (Constructor mới với đầy đủ claim)
                 UserPrincipal userPrincipal = new UserPrincipal(
                         userId,
                         email,
                         roleId,
+                        roleName,
+                        clubRole,
+                        clubId,
                         authorities
                 );
 
-                // 5. Cấp thẻ xác thực với thông tin là đối tượng UserPrincipal
+                // 6. Cấp thẻ xác thực với thông tin là đối tượng UserPrincipal
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         userPrincipal,
                         null,
@@ -86,7 +76,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                // 6. Lưu thông tin vào SecurityContext
+                // 7. Lưu thông tin vào SecurityContext
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception ex) {
@@ -104,40 +94,5 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return bearerToken.substring(7);
         }
         return null;
-    }
-
-    private void addActiveClubLeaderAuthority(
-            Integer userId,
-            List<GrantedAuthority> authorities
-    ) {
-        if (userId == null) {
-            return;
-        }
-
-        semesterRepository.findByIsActiveTrueAndIsDeletedFalse().ifPresent(activeSemester -> {
-            Integer semesterId = activeSemester.getSemesterID();
-
-            // Check for Leader
-            clubRoleRepository.findByRoleNameAndIsDeletedFalse("Leader").ifPresent(leaderRole -> {
-                boolean isLeader = clubMembershipRepository
-                        .existsByUserIDAndSemesterIDAndClubRoleIDAndIsDeletedFalse(
-                                userId, semesterId, leaderRole.getClubRoleID()
-                        );
-                if (isLeader) {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_Leader"));
-                }
-            });
-
-            // Check for ViceLeader
-            clubRoleRepository.findByRoleNameAndIsDeletedFalse("ViceLeader").ifPresent(viceRole -> {
-                boolean isVice = clubMembershipRepository
-                        .existsByUserIDAndSemesterIDAndClubRoleIDAndIsDeletedFalse(
-                                userId, semesterId, viceRole.getClubRoleID()
-                        );
-                if (isVice) {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_ViceLeader"));
-                }
-            });
-        });
     }
 }

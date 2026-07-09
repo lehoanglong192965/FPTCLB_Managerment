@@ -39,6 +39,9 @@ public class KnowledgeChunk {
     @Column(name = "embeddingVector", nullable = false, columnDefinition = "NVARCHAR(MAX)")
     private String embeddingVector;
 
+    @Column(name = "embeddingStoreId", length = 64)
+    private String embeddingStoreId;
+
     @Column(name = "createdAt", nullable = false)
     private LocalDateTime createdAt;
 
