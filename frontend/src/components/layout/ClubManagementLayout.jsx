@@ -1,7 +1,7 @@
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import {
-  Home, Calendar, Users, ClipboardList,
+  Home, Calendar, CalendarPlus, Users, ClipboardList,
   Ban, BarChart2, Settings,
 } from "lucide-react";
 
@@ -18,6 +18,7 @@ export default function ClubManagementLayout() {
   const navItems = [
     { icon: Home,         label: "Trang câu lạc bộ",   path: home },
     { icon: Calendar,     label: "Quản lý sự kiện",    path: `${myClubBase}/events` },
+    { icon: CalendarPlus, label: "Tạo sự kiện",        path: `${base}/event-create` },
     { icon: Users,        label: "Quản lý thành viên", path: `${myClubBase}/members` },
     ...(isClubLeader ? [
       { icon: ClipboardList, label: "Đơn ứng tuyển",   path: `${myClubBase}/applications` },

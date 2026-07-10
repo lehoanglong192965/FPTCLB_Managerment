@@ -221,7 +221,14 @@ export default function AppRoutes() {
             <Route path="club-info" element={<ClubInfoPage />} />
           </Route>
         </Route>
-        <Route path="event-create" element={<CreateEventPage />} />
+        <Route element={<ClubManagementLayout />}>
+          <Route path="event-create" element={<CreateEventPage />} />
+        </Route>
+        <Route path="events" element={<MemberEvents />} />
+        <Route path="clubs" element={<MemberClubs />} />
+        <Route path="tickets" element={<MemberMyTickets />} />
+        <Route path="pending-feedback" element={<MemberPendingFeedback />} />
+        <Route path="contributions" element={<MemberMyContributionsPage />} />
         <Route path="notifications" element={<ClubNotifications />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
@@ -257,7 +264,14 @@ export default function AppRoutes() {
             <Route path="club-info" element={<ClubInfoPage />} />
           </Route>
         </Route>
-        <Route path="event-create" element={<CreateEventPage />} />
+        <Route element={<ClubManagementLayout />}>
+          <Route path="event-create" element={<CreateEventPage />} />
+        </Route>
+        <Route path="events" element={<MemberEvents />} />
+        <Route path="clubs" element={<MemberClubs />} />
+        <Route path="tickets" element={<MemberMyTickets />} />
+        <Route path="pending-feedback" element={<MemberPendingFeedback />} />
+        <Route path="contributions" element={<MemberMyContributionsPage />} />
         <Route path="notifications" element={<ClubNotifications />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
         <Route path="profile" element={<ProfilePage />} />

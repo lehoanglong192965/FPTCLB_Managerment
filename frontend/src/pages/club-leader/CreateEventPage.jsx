@@ -549,7 +549,7 @@ export default function CreateEventPage() {
               Tạo sự kiện khác
             </button>
             <button
-              onClick={() => navigate("../events", { relative: "path" })}
+              onClick={() => navigate("../my-club/events", { relative: "path" })}
               style={{
                 padding: "10px 24px", borderRadius: 10, border: "none",
                 background: "#E6430A", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",

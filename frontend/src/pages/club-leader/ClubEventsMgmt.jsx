@@ -451,7 +451,7 @@ export default function ClubEventsMgmt() {
                   Tạo đề xuất sự kiện để bắt đầu.
                 </p>
                 <button
-                  onClick={() => navigate("../event-create", { relative: "path" })}
+                  onClick={() => navigate("../../event-create", { relative: "path" })}
                   style={{ padding: "9px 22px", borderRadius: 10, border: "none", background: "#E6430A", color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}
                 >
                   + Tạo sự kiện ngay

@@ -72,6 +72,11 @@ export const SIDEBAR_CONFIGS = {
   CLUB_LEADER: [
     { key: "overview",      label: "Tổng Quan",            icon: Home,       path: "/club-leader",             exact: true },
     { key: "my-club",       label: "Câu Lạc Bộ Của Tôi",   icon: Building2,  path: "/club-leader/my-club" },
+    { key: "clubs",         label: "Khám Phá CLB",         icon: Star,       path: "/club-leader/clubs" },
+    { key: "events",        label: "Khám Phá Sự Kiện",     icon: Calendar,   path: "/club-leader/events" },
+    { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/club-leader/tickets" },
+    { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/club-leader/pending-feedback" },
+    { key: "contributions", label: "Đóng Góp Của Tôi",     icon: Award,      path: "/club-leader/contributions" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,       path: "/club-leader/notifications" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle, path: "/club-leader/profile" },
   ],
@@ -79,6 +84,11 @@ export const SIDEBAR_CONFIGS = {
   VICE_LEADER: [
     { key: "overview",      label: "Tổng Quan",            icon: Home,       path: "/vice-leader",             exact: true },
     { key: "my-club",       label: "Câu Lạc Bộ Của Tôi",   icon: Building2,  path: "/vice-leader/my-club" },
+    { key: "clubs",         label: "Khám Phá CLB",         icon: Star,       path: "/vice-leader/clubs" },
+    { key: "events",        label: "Khám Phá Sự Kiện",     icon: Calendar,   path: "/vice-leader/events" },
+    { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/vice-leader/tickets" },
+    { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/vice-leader/pending-feedback" },
+    { key: "contributions", label: "Đóng Góp Của Tôi",     icon: Award,      path: "/vice-leader/contributions" },
     { key: "notifications", label: "Thông Báo",            icon: Bell,       path: "/vice-leader/notifications" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle, path: "/vice-leader/profile" },
   ],
