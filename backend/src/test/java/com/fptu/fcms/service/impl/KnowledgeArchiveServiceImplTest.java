@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockMultipartFile;
@@ -15,7 +16,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -87,6 +91,52 @@ class KnowledgeArchiveServiceImplTest {
                 "application/pdf",
                 content
         );
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "   ", "\t"})
+    @DisplayName("Create rejects null, empty, or whitespace-only title before scanning or persistence")
+    void createRejectsBlankTitleBeforeFileProcessing(String title) {
+        AtomicInteger scanCalls = new AtomicInteger();
+        ClamAvScanService recordingClamAv = new ClamAvScanService() {
+            @Override
+            public void scan(org.springframework.web.multipart.MultipartFile file) {
+                scanCalls.incrementAndGet();
+            }
+        };
+        ReflectionTestUtils.setField(service, "clamAvScanService", recordingClamAv);
+
+        assertThatThrownBy(() -> service.create(
+                title, createMdFile("# Content"), 1, "ClubInternal", 42, "Admin", null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Title");
+
+        assertThat(scanCalls).hasValue(0);
+        verify(repository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("Create trims title before saving")
+    void createTrimsTitleBeforeSaving() throws Exception {
+        when(repository.save(any(KnowledgeArchive.class)))
+                .thenAnswer(invocation -> {
+                    KnowledgeArchive archive = invocation.getArgument(0);
+                    archive.setArchiveID(90);
+                    return archive;
+                });
+
+        KnowledgeArchive result = service.create(
+                "  Trimmed title  ", createMdFile("# Content"),
+                1, "ClubInternal", 42, "Admin", null, null);
+
+        try {
+            assertThat(result.getTitle()).isEqualTo("Trimmed title");
+            verify(repository).save(argThat(archive -> "Trimmed title".equals(archive.getTitle())));
+        } finally {
+            Files.deleteIfExists(Paths.get(result.getFileUrl()));
+        }
     }
 
     @Test
@@ -234,7 +284,7 @@ class KnowledgeArchiveServiceImplTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"Student", "Member"})
-    @DisplayName("Create: Student/Member thường gửi Public + clubID -> 403, không save, không event")
+    @DisplayName("TC2-12: Student/Member create Public + clubID -> 403, no save, no event")
     void createRejectsRegularStudentOrMember(String roleName) {
         MockMultipartFile file = createMdFile("# Regular user doc");
 
@@ -283,7 +333,7 @@ class KnowledgeArchiveServiceImplTest {
     }
 
     @Test
-    @DisplayName("Create: visibilityScope chỉ chấp nhận Public hoặc ClubInternal")
+    @DisplayName("TC2-17: Invalid visibilityScope -> clear IllegalArgumentException")
     void createRejectsInvalidVisibilityScope() {
         MockMultipartFile file = createMdFile("# Invalid scope doc");
 
@@ -373,6 +423,27 @@ class KnowledgeArchiveServiceImplTest {
                 .hasMessageContaining("Failed");
     }
 
+    @Test
+    @DisplayName("Delete archive -> set isDeleted=true, save entity, publish event DELETE")
+    void deleteMarksArchiveDeletedAndPublishesDeleteEvent() {
+        KnowledgeArchive archive = new KnowledgeArchive();
+        archive.setArchiveID(9);
+        archive.setIsDeleted(false);
+
+        when(repository.findByArchiveIDAndIsDeletedFalse(9)).thenReturn(Optional.of(archive));
+
+        service.delete(9);
+
+        assertThat(archive.getIsDeleted()).isTrue();
+        verify(repository).save(archive);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue()).isInstanceOf(KnowledgeArchiveIndexedEvent.class);
+        KnowledgeArchiveIndexedEvent event = (KnowledgeArchiveIndexedEvent) captor.getValue();
+        assertThat(event.archiveID()).isEqualTo(9);
+        assertThat(event.operation()).isEqualTo("DELETE");
+    }
     @Test
     @DisplayName("TC2-10: Upload PDF text layer -> parse Markdown, sourceFormat=PDF, Pending, event CREATE")
     void tc2_10_uploadTextPdfParsesAndPublishesCreateEvent() {

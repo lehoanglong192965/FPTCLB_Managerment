@@ -1,5 +1,6 @@
 package com.fptu.fcms.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.hibernate.annotations.SQLRestriction;
 
 import jakarta.persistence.*;
@@ -30,6 +31,7 @@ public class KnowledgeArchive {
     @Column(name = "content")
     private String content;
 
+    @JsonIgnore
     @Column(name = "fileUrl")
     private String fileUrl;
 

@@ -65,6 +65,11 @@ public class KnowledgeArchiveServiceImpl implements KnowledgeArchiveService {
             throw new IllegalArgumentException("clubID là bắt buộc. Vui lòng chọn câu lạc bộ.");
         }
 
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("Title must not be blank.");
+        }
+        String normalizedTitle = title.trim();
+
         // 1. Validate extension
         String originalFilename = file.getOriginalFilename();
         String extension = getFileExtension(originalFilename);
@@ -112,7 +117,7 @@ public class KnowledgeArchiveServiceImpl implements KnowledgeArchiveService {
         // 7. Lưu KnowledgeArchive
         KnowledgeArchive archive = new KnowledgeArchive();
         archive.setClubID(clubID);
-        archive.setTitle(title);
+        archive.setTitle(normalizedTitle);
         archive.setContent(content);
         archive.setFileUrl(fileUrl);
         archive.setVisibilityScope(visibilityScope != null ? visibilityScope : "ClubInternal");

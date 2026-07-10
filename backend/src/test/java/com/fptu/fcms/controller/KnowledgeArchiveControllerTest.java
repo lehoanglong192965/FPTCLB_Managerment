@@ -4,6 +4,7 @@ import com.fptu.fcms.entity.KnowledgeArchive;
 import com.fptu.fcms.exception.GlobalExceptionHandler;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.KnowledgeArchiveService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,18 +12,27 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class KnowledgeArchiveControllerTest {
@@ -32,6 +42,7 @@ class KnowledgeArchiveControllerTest {
 
     private MockMvc mockMvc;
     private KnowledgeArchiveService knowledgeArchiveService;
+    private final List<Path> testFiles = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
@@ -41,9 +52,15 @@ class KnowledgeArchiveControllerTest {
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
+    @AfterEach
+    void cleanUpFiles() throws IOException {
+        for (Path testFile : testFiles) {
+            Files.deleteIfExists(testFile);
+        }
+    }
 
     @Test
-    @DisplayName("TC2-12: ViceLeader CLB F-Code gọi GET /club/{id JS Club} -> 403")
+    @DisplayName("TC2-13: ViceLeader GET /club/{otherClub} -> 403")
     void tc2_12_viceLeaderCannotListOtherClubArchives() throws Exception {
         mockMvc.perform(get("/api/v1/knowledge-archive/club/{clubID}", JS_CLUB_ID)
                         .principal(viceLeaderOfFCode()))
@@ -53,7 +70,7 @@ class KnowledgeArchiveControllerTest {
     }
 
     @Test
-    @DisplayName("TC2-13: ViceLeader bị chặn tài liệu ClubInternal CLB khác nhưng xem được Public")
+    @DisplayName("TC2-14: ViceLeader GET /{id} other ClubInternal -> 403; Public -> 200")
     void tc2_13_viceLeaderCannotReadOtherClubInternalButCanReadPublic() throws Exception {
         KnowledgeArchive internalArchive = archive(101, JS_CLUB_ID, "ClubInternal", "Completed");
         when(knowledgeArchiveService.getById(101)).thenReturn(internalArchive);
@@ -71,7 +88,20 @@ class KnowledgeArchiveControllerTest {
     }
 
     @Test
-    @DisplayName("TC2-14: ViceLeader không được DELETE tài liệu CLB khác và không gọi service.delete")
+    @DisplayName("GET /{id}: response must not expose internal fileUrl")
+    void getByIdDoesNotExposeInternalFileUrl() throws Exception {
+        KnowledgeArchive publicArchive = archive(501, JS_CLUB_ID, "Public", "Completed");
+        publicArchive.setFileUrl("uploads/knowledge-archive/internal-secret.pdf");
+        when(knowledgeArchiveService.getById(501)).thenReturn(publicArchive);
+
+        mockMvc.perform(get("/api/v1/knowledge-archive/{id}", 501)
+                        .principal(regularUser("Student")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fileUrl").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("TC2-15: ViceLeader DELETE archive from other club -> 403")
     void tc2_14_viceLeaderCannotDeleteOtherClubArchive() throws Exception {
         KnowledgeArchive otherClubArchive = archive(201, JS_CLUB_ID, "ClubInternal", "Completed");
         when(knowledgeArchiveService.getById(201)).thenReturn(otherClubArchive);
@@ -134,7 +164,7 @@ class KnowledgeArchiveControllerTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"Admin", "ICPDP"})
-    @DisplayName("TC2-15: ADMIN/ICPDP gọi cả 4 endpoint với CLB bất kỳ không bị 403")
+    @DisplayName("TC2-16: Admin/ICPDP protected endpoints for any club -> no 403")
     void tc2_15_adminAndIcpdpCanAccessAllProtectedEndpoints(String roleName) throws Exception {
         Authentication principal = adminOrIcpdp(roleName);
         KnowledgeArchive archive = archive(301, JS_CLUB_ID, "ClubInternal", "Failed");
@@ -164,6 +194,113 @@ class KnowledgeArchiveControllerTest {
         verify(knowledgeArchiveService).reindex(301);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"Admin", "ICPDP"})
+    @DisplayName("File download: Admin/ICPDP can download a file from any club -> 200")
+    void adminOrIcpdpCanDownloadAnyArchiveFile(String roleName) throws Exception {
+        KnowledgeArchive archive = archive(401, JS_CLUB_ID, "ClubInternal", "Completed");
+        archive.setSourceFormat("PDF");
+        archive.setFileUrl(createArchiveFile(".pdf"));
+        when(knowledgeArchiveService.getById(401)).thenReturn(archive);
+
+        mockMvc.perform(get("/api/v1/knowledge-archive/{id}/file", 401)
+                        .principal(adminOrIcpdp(roleName)))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string(HttpHeaders.CONTENT_TYPE, "application/pdf"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string(HttpHeaders.CONTENT_DISPOSITION, containsString("inline")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .bytes("Knowledge Archive test file".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Test
+    @DisplayName("Standalone controller: request without UserPrincipal is forbidden")
+    void requestWithoutUserPrincipalIsForbiddenInStandaloneControllerTest() throws Exception {
+        mockMvc.perform(get("/api/v1/knowledge-archive/{id}/file", 407))
+                .andExpect(status().isForbidden());
+
+        verify(knowledgeArchiveService, never()).getById(any());
+    }
+
+    @Test
+    @DisplayName("File download: missing original file returns 404")
+    void missingOriginalFileReturnsNotFound() throws Exception {
+        KnowledgeArchive archive = archive(408, JS_CLUB_ID, "Public", "Completed");
+        Path missingFile = Paths.get("uploads", "knowledge-archive", "missing-original-file.pdf")
+                .toAbsolutePath()
+                .normalize();
+        Files.deleteIfExists(missingFile);
+        archive.setSourceFormat("PDF");
+        archive.setFileUrl(missingFile.toString());
+        when(knowledgeArchiveService.getById(408)).thenReturn(archive);
+
+        mockMvc.perform(get("/api/v1/knowledge-archive/{id}/file", 408)
+                        .principal(regularUser("Student")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("File download: own-club ViceLeader can download ClubInternal file -> 200")
+    void viceLeaderCanDownloadOwnClubFile() throws Exception {
+        KnowledgeArchive archive = archive(402, F_CODE_CLUB_ID, "ClubInternal", "Completed");
+        archive.setFileUrl(createArchiveFile(".md"));
+        when(knowledgeArchiveService.getById(402)).thenReturn(archive);
+
+        mockMvc.perform(get("/api/v1/knowledge-archive/{id}/file", 402)
+                        .principal(viceLeaderOfFCode()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("File download: ViceLeader from another club is forbidden")
+    void viceLeaderCannotDownloadOtherClubFile() throws Exception {
+        KnowledgeArchive archive = archive(403, JS_CLUB_ID, "ClubInternal", "Completed");
+        when(knowledgeArchiveService.getById(403)).thenReturn(archive);
+
+        mockMvc.perform(get("/api/v1/knowledge-archive/{id}/file", 403)
+                        .principal(viceLeaderOfFCode()))
+                .andExpect(status().isForbidden());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Student", "Member"})
+    @DisplayName("File download: Student/Member can download Public file -> 200")
+    void studentOrMemberCanDownloadPublicFile(String roleName) throws Exception {
+        KnowledgeArchive archive = archive(404, JS_CLUB_ID, "Public", "Completed");
+        archive.setFileUrl(createArchiveFile(".txt"));
+        when(knowledgeArchiveService.getById(404)).thenReturn(archive);
+
+        mockMvc.perform(get("/api/v1/knowledge-archive/{id}/file", 404)
+                        .principal(regularUser(roleName)))
+                .andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Student", "Member"})
+    @DisplayName("File download: Student/Member cannot download ClubInternal file -> 403")
+    void studentOrMemberCannotDownloadClubInternalFile(String roleName) throws Exception {
+        KnowledgeArchive archive = archive(405, JS_CLUB_ID, "ClubInternal", "Completed");
+        when(knowledgeArchiveService.getById(405)).thenReturn(archive);
+
+        mockMvc.perform(get("/api/v1/knowledge-archive/{id}/file", 405)
+                        .principal(regularUser(roleName)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("File download: path outside knowledge-archive upload root is rejected")
+    void downloadRejectsPathOutsideKnowledgeArchiveUploadRoot() throws Exception {
+        KnowledgeArchive archive = archive(406, JS_CLUB_ID, "Public", "Completed");
+        archive.setFileUrl(Paths.get("..", "secret.pdf").toString());
+        when(knowledgeArchiveService.getById(406)).thenReturn(archive);
+
+        mockMvc.perform(get("/api/v1/knowledge-archive/{id}/file", 406)
+                        .principal(regularUser("Student")))
+                .andExpect(status().isForbidden())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .doesNotExist(HttpHeaders.CONTENT_DISPOSITION));
+    }
     private Authentication viceLeaderOfFCode() {
         UserPrincipal principal = new UserPrincipal(
                 11,
@@ -216,5 +353,13 @@ class KnowledgeArchiveControllerTest {
         archive.setUploadedBy(1);
         archive.setIsDeleted(false);
         return archive;
+    }
+    private String createArchiveFile(String suffix) throws IOException {
+        Path uploadRoot = Paths.get("uploads", "knowledge-archive").toAbsolutePath().normalize();
+        Files.createDirectories(uploadRoot);
+        Path testFile = Files.createTempFile(uploadRoot, "knowledge-archive-controller-", suffix);
+        Files.writeString(testFile, "Knowledge Archive test file");
+        testFiles.add(testFile);
+        return testFile.toString();
     }
 }

@@ -4,13 +4,25 @@ import com.fptu.fcms.entity.KnowledgeArchive;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.KnowledgeArchiveService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 /**
@@ -81,6 +93,31 @@ public class KnowledgeArchiveController {
     }
 
     /**
+     * Opens the original file through an authenticated endpoint.
+     * fileUrl is an internal storage path, never a public URL.
+     */
+    @GetMapping("/{id}/file")
+    public ResponseEntity<Resource> downloadOriginalFile(
+            @PathVariable("id") Integer archiveID,
+            Authentication authentication) {
+        UserPrincipal me = currentUser(authentication);
+        KnowledgeArchive archive = knowledgeArchiveService.getById(archiveID);
+        assertCanViewArchive(me, archive);
+
+        Path filePath = resolveStoredFilePath(archive);
+        Resource resource = new FileSystemResource(filePath);
+        String contentType = resolveContentType(filePath, archive.getSourceFormat());
+        ContentDisposition contentDisposition = ContentDisposition.inline()
+                .filename(filePath.getFileName().toString(), StandardCharsets.UTF_8)
+                .build();
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+                .body(resource);
+    }
+
+    /**
      * Soft delete tài liệu.
      */
     @DeleteMapping("/{id}")
@@ -136,5 +173,44 @@ public class KnowledgeArchiveController {
     private boolean isOwnClubLeader(UserPrincipal me, Integer targetClubId) {
         return ("Leader".equals(me.getClubRole()) || "ViceLeader".equals(me.getClubRole()))
                 && targetClubId != null && targetClubId.equals(me.getClubId());
+    }
+
+    private Path resolveStoredFilePath(KnowledgeArchive archive) {
+        if (archive.getFileUrl() == null || archive.getFileUrl().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Original document file was not found.");
+        }
+
+        Path uploadRoot = Paths.get("uploads", "knowledge-archive").toAbsolutePath().normalize();
+        Path filePath;
+        try {
+            filePath = Paths.get(archive.getFileUrl()).toAbsolutePath().normalize();
+        } catch (InvalidPathException exception) {
+            throw new AccessDeniedException("Invalid document file path.");
+        }
+
+        if (!filePath.startsWith(uploadRoot)) {
+            throw new AccessDeniedException("Invalid document file path.");
+        }
+        if (!Files.isRegularFile(filePath)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Original document file was not found.");
+        }
+        return filePath;
+    }
+
+    private String resolveContentType(Path filePath, String sourceFormat) {
+        try {
+            String detectedContentType = Files.probeContentType(filePath);
+            if (detectedContentType != null) {
+                return detectedContentType;
+            }
+        } catch (IOException ignored) {
+            // Fall back to sourceFormat when the operating system cannot detect the MIME type.
+        }
+
+        return switch (sourceFormat) {
+            case "PDF" -> MediaType.APPLICATION_PDF_VALUE;
+            case "TXT" -> MediaType.TEXT_PLAIN_VALUE;
+            default -> "text/markdown";
+        };
     }
 }

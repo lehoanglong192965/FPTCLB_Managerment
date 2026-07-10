@@ -79,6 +79,7 @@ import WalkInPage from "../pages/club-leader/WalkInPage";
 import RegistrationMgmtPage from "../pages/club-leader/RegistrationMgmtPage";
 import AttendanceDashboardPage from "../pages/club-leader/AttendanceDashboardPage";
 import AttendanceCorrectionPage from "../pages/club-leader/AttendanceCorrectionPage";
+import KnowledgeArchiveMgmt from "../pages/shared/KnowledgeArchiveMgmt";
 import { ClubDataProvider } from "../contexts/ClubDataContext";
 
 // Member pages
@@ -90,7 +91,6 @@ import MemberNotifications from "../pages/member/MemberNotifications";
 import MemberMyTickets from "../pages/member/MemberMyTickets";
 import MemberApply from "../pages/member/MemberApply";
 import ClubRegistrationForm from "../pages/icpdp/ClubRegistrationForm";
-import MemberRegistrationHistory from "../pages/member/MemberRegistrationHistory";
 import MemberNotificationSettings from "../pages/member/MemberNotificationSettings";
 
 // Shared
@@ -166,6 +166,7 @@ export default function AppRoutes() {
         <Route path="events/:eventId/emergency-override" element={<IcpdpEmergencyOverridePage />} />
         <Route path="events/:eventId/contributions" element={<IcpdpContributionPage />} />
         <Route path="notifications" element={<IcpdpNotifications />} />
+        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -181,6 +182,7 @@ export default function AppRoutes() {
         <Route index element={<SemesterManagement />} />
         <Route path="users" element={<UserManagement />} />
         <Route path="system-config" element={<SystemConfigPage />} />
+        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -215,6 +217,7 @@ export default function AppRoutes() {
         <Route path="blacklist" element={<ClubBlacklist />} />
         <Route path="club-info" element={<ClubInfoPage />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
+        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -244,6 +247,7 @@ export default function AppRoutes() {
         <Route path="notifications" element={<ClubNotifications />} />
         <Route path="club-info" element={<ClubInfoPage />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
+        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
