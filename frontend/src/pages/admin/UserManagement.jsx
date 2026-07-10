@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import SuspendButton from "../../components/admin/SuspendButton";
 import adminApi from "../../services/api/admin/adminApi";
+import { getInitials } from "../../utils/avatar";
 
 const ROLE_LABEL = { 1: "Admin", 2: "ICPDP", 3: "Sinh viên" };
 
@@ -220,7 +221,7 @@ export default function UserManagement() {
                   <td className="px-4 py-3 text-gray-700 align-middle">
                     <div className="flex items-center gap-2.5">
                       <div className="w-[34px] h-[34px] rounded-full bg-gradient-to-br from-[#e6430a] to-[#ff8c5a] flex items-center justify-center text-[13px] font-bold text-white flex-shrink-0">
-                        {u.fullName?.[0]?.toUpperCase() ?? "?"}
+                        {getInitials(u.fullName)}
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900 mb-0 text-[13.5px]">{u.fullName ?? "—"}</p>
@@ -283,7 +284,7 @@ export default function UserManagement() {
             <div className="px-6 py-4 border-b border-gray-100 bg-slate-50 flex-shrink-0">
               <div className="flex items-start gap-3.5">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#e6430a] to-[#ff8c5a] flex items-center justify-center text-[18px] font-extrabold text-white flex-shrink-0 select-none">
-                  {selectedUser.fullName?.[0]?.toUpperCase()}
+                  {getInitials(selectedUser.fullName)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[15px] font-bold text-gray-900 m-0 mb-0.5 leading-tight">{selectedUser.fullName}</p>

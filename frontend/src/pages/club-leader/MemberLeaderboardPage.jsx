@@ -3,8 +3,7 @@ import { Award, Crown, Loader2, Medal, RefreshCw, Search, Trophy } from "lucide-
 import authApi from "../../services/api/auth/authApi";
 import clubService from "../../services/api/clubs/clubService";
 import { TokenService } from "../../services/api/axiosClient";
-
-const AVATAR_COLORS = ["#2563eb", "#e6430a", "#059669", "#7c3aed", "#db2777", "#d97706"];
+import { getInitials, getAvatarColor } from "../../utils/avatar";
 
 const TIER_DETAILS = {
   "S-Tier (Xuất sắc)": {
@@ -63,13 +62,6 @@ function normalizeText(value = "") {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
-}
-
-function getInitials(name = "") {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function resolveMemberTier(totalScore) {
@@ -144,7 +136,7 @@ function normalizeRankingItem(item, index) {
     contributionPoint: Number(item.contributionPoint ?? 0),
     eventParticipationPoint: Number(item.eventParticipationPoint ?? 0),
     performancePoint: Number(item.performancePoint ?? 0),
-    avatarColor: AVATAR_COLORS[index % AVATAR_COLORS.length],
+    avatarColor: getAvatarColor(item.userId ?? item.fullName),
   };
 }
 

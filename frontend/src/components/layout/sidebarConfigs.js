@@ -77,7 +77,6 @@ export const SIDEBAR_CONFIGS = {
     { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/club-leader/tickets" },
     { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/club-leader/pending-feedback" },
     { key: "contributions", label: "Đóng Góp Của Tôi",     icon: Award,      path: "/club-leader/contributions" },
-    { key: "notifications", label: "Thông Báo",            icon: Bell,       path: "/club-leader/notifications" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle, path: "/club-leader/profile" },
   ],
 
@@ -89,7 +88,6 @@ export const SIDEBAR_CONFIGS = {
     { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/vice-leader/tickets" },
     { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/vice-leader/pending-feedback" },
     { key: "contributions", label: "Đóng Góp Của Tôi",     icon: Award,      path: "/vice-leader/contributions" },
-    { key: "notifications", label: "Thông Báo",            icon: Bell,       path: "/vice-leader/notifications" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle, path: "/vice-leader/profile" },
   ],
 
@@ -102,7 +100,6 @@ export const SIDEBAR_CONFIGS = {
     { key: "tickets",        label: "Vé Của Tôi",           icon: ClipboardList,   path: "/member/tickets" },
     { key: "pending-feedback", label: "Feedback Cần Gửi",   icon: MessageSquare,    path: "/member/pending-feedback" },
     { key: "contributions", label: "Đóng Góp Của Tôi",    icon: Award,           path: "/member/contributions" },
-    { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/member/notifications" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/member/profile" },
   ],
 

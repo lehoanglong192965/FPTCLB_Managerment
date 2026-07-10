@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNotifications } from '../../contexts/NotificationsContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import eventService from '../../services/api/events/eventService';
 
 const CloseEventButton = ({ eventId, eventStatus, onCloseSuccess }) => {
     const { addNotification } = useNotifications();
+    const confirm = useConfirm();
     const [isLoading, setIsLoading] = useState(false);
 
     const normalizedStatus = (eventStatus || "").toUpperCase();
@@ -12,7 +14,7 @@ const CloseEventButton = ({ eventId, eventStatus, onCloseSuccess }) => {
     }
 
     const handleClose = async () => {
-        if (!window.confirm('Bạn có chắc chắn muốn Đóng sự kiện này? Hành động này sẽ giải ngân điểm cho tất cả thành viên.')) {
+        if (!(await confirm('Bạn có chắc chắn muốn Đóng sự kiện này? Hành động này sẽ giải ngân điểm cho tất cả thành viên.', { danger: true, confirmLabel: 'Đóng sự kiện' }))) {
             return;
         }
 

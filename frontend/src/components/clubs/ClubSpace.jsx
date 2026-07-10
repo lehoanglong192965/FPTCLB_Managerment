@@ -6,46 +6,18 @@ import {
 } from "lucide-react";
 import clubService from "../../services/api/clubs/clubService";
 import memberApi from "../../services/api/clubs/memberApi";
+import clubPostApi from "../../services/api/clubs/clubPostApi";
 import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext";
 import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
 import { normalizeClub } from "../../hooks/usePublicClubs";
+import { relativeTime } from "../../utils/notificationUtils";
+import { getInitials, getAvatarColor } from "../../utils/avatar";
 
 const SPACE_DATA = {
   1: {
     cover: "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%)",
     stats: { events: 5, posts: 12, founded: "01/2020" },
-    feed: [
-      {
-        id: 1,
-        type: "pinned",
-        author: "Nguyễn Văn An",
-        role: "Trưởng CLB",
-        avatar: "A",
-        time: "2 giờ trước",
-        content:
-          "📌 Họp CLB tháng 7 sẽ diễn ra lúc **19:00 ngày 10/07/2026** tại Phòng Lab 3A. Tất cả thành viên vui lòng tham dự đầy đủ và đúng giờ.",
-      },
-      {
-        id: 2,
-        type: "post",
-        author: "Trần Thị Bình",
-        role: "Phó CLB",
-        avatar: "B",
-        time: "1 ngày trước",
-        content:
-          "🎉 Kết quả Hackathon nội bộ đã có! Chúc mừng team **Infinity** với dự án AI Chatbot xuất sắc. Cảm ơn tất cả thành viên đã tham gia!",
-      },
-      {
-        id: 3,
-        type: "post",
-        author: "Lê Minh Khoa",
-        role: "Thành viên",
-        avatar: "K",
-        time: "3 ngày trước",
-        content:
-          "Chia sẻ tài liệu ôn tập Data Structures cho buổi workshop tuần tới. Mọi người tải về và đọc trước nhé 📚",
-      },
-    ],
     members: [
       { id: 1, name: "Nguyễn Văn An",   studentId: "SE171234", role: "Trưởng CLB", joinDate: "01/2020", avatar: "A", color: "#1d4ed8" },
       { id: 2, name: "Trần Thị Bình",   studentId: "SE181205", role: "Phó CLB",    joinDate: "03/2021", avatar: "B", color: "#7c3aed" },
@@ -86,14 +58,16 @@ function formatJoinMonth(value) {
 function normalizeClubMember(raw, index) {
   const name = raw.fullName ?? raw.name ?? raw.user?.fullName ?? "Thành viên CLB";
   const roleName = raw.clubRoleName ?? raw.roleName ?? raw.role ?? "Member";
+  const userId = raw.userID ?? raw.userId ?? raw.user?.userID ?? raw.user?.userId ?? null;
   return {
-    id: raw.membershipID ?? raw.membershipId ?? raw.userID ?? raw.userId ?? index,
+    id: raw.membershipID ?? raw.membershipId ?? userId ?? index,
+    userId,
     name,
     studentId: raw.studentCode ?? raw.studentId ?? raw.user?.studentCode ?? raw.email ?? raw.user?.email ?? "",
     role: CLUB_ROLE_LABEL[roleName] ?? roleName,
     joinDate: formatJoinMonth(raw.joinedDate ?? raw.joinDate ?? raw.createdAt),
     avatar: getInitials(name),
-    color: AVATAR_COLORS[index % AVATAR_COLORS.length],
+    color: getAvatarColor(userId ?? name),
   };
 }
 
@@ -207,8 +181,6 @@ const LEADERBOARD_META = {
   },
 };
 
-const AVATAR_COLORS = ["#2563eb", "#e6430a", "#059669", "#7c3aed", "#db2777", "#d97706"];
-
 function normalizeText(value = "") {
   return value
     .toString()
@@ -216,13 +188,6 @@ function normalizeText(value = "") {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
-}
-
-function getInitials(name = "") {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 function formatPoints(value) {
@@ -282,7 +247,7 @@ function normalizeRankingItem(item, index, members) {
     contributionPoint: Number(item.contributionPoint ?? 0),
     eventParticipationPoint: Number(item.eventParticipationPoint ?? 0),
     performancePoint: Number(item.performancePoint ?? 0),
-    avatarColor: matchedMember?.color ?? AVATAR_COLORS[index % AVATAR_COLORS.length],
+    avatarColor: getAvatarColor(item.userId ?? item.fullName),
   };
 }
 
@@ -504,18 +469,16 @@ function LeaderboardView({ club, members, rankings, loading, error, search, onSe
   );
 }
 
-function PostComposer({ onPost, user }) {
+function PostComposer({ onPost, user, posting }) {
   const [expanded, setExpanded] = useState(false);
   const [text, setText] = useState("");
 
-  const initials = user?.name
-    ? user.name.trim().split(/\s+/).map((w) => w[0]).slice(-2).join("").toUpperCase()
-    : "?";
+  const initials = getInitials(user?.fullName ?? user?.name);
 
-  const handlePost = () => {
+  const handlePost = async () => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    onPost(trimmed);
+    if (!trimmed || posting) return;
+    await onPost(trimmed);
     setText("");
     setExpanded(false);
   };
@@ -557,15 +520,16 @@ function PostComposer({ onPost, user }) {
           <button
             className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer border-none bg-transparent font-[inherit]"
             onClick={() => { setExpanded(false); setText(""); }}
+            disabled={posting}
           >
             <X size={14} className="inline mr-1" />Hủy
           </button>
           <button
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-semibold bg-[#E6430A] text-white hover:bg-[#c73808] transition-colors cursor-pointer border-none font-[inherit] disabled:opacity-40"
             onClick={handlePost}
-            disabled={!text.trim()}
+            disabled={!text.trim() || posting}
           >
-            <Send size={14} />Đăng
+            <Send size={14} />{posting ? "Đang đăng..." : "Đăng"}
           </button>
         </div>
       </div>
@@ -573,8 +537,22 @@ function PostComposer({ onPost, user }) {
   );
 }
 
+function normalizeClubPost(raw) {
+  const authorName = raw.authorName ?? "Thành viên CLB";
+  return {
+    id: raw.postID ?? raw.id,
+    type: "post",
+    author: authorName,
+    role: CLUB_ROLE_LABEL[raw.authorRoleName] ?? raw.authorRoleName ?? "Thành viên",
+    avatar: getInitials(authorName),
+    time: relativeTime(raw.createdAt),
+    content: raw.content ?? "",
+  };
+}
+
 export default function ClubSpace({ club: clubProp, onBack }) {
   const { user }    = useAuth();
+  const toast       = useToast();
   const isLeader    = user?.role === "CLUB_LEADER" || user?.role === "VICE_LEADER";
   const isClubLeader = user?.role === "CLUB_LEADER";
 
@@ -593,7 +571,10 @@ export default function ClubSpace({ club: clubProp, onBack }) {
   const [rankingsError, setRankingsError] = useState("");
   const [realEvents, setRealEvents]       = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
-  const [feed, setFeed]                   = useState(() => clubProp ? getSpace(clubProp.id).feed : []);
+  const [feed, setFeed]                   = useState([]);
+  const [feedLoading, setFeedLoading]     = useState(true);
+  const [feedError, setFeedError]         = useState("");
+  const [posting, setPosting]             = useState(false);
 
   useEffect(() => {
     if (clubProp) return;
@@ -607,10 +588,25 @@ export default function ClubSpace({ club: clubProp, onBack }) {
 
   const club = clubProp ?? selfClub;
 
-  // Khởi feed mockdata khi club self-fetch xong
+  // Fetch bảng tin (chỉ thành viên CLB mới xem được)
   useEffect(() => {
-    if (!clubProp && club?.id !== undefined) setFeed(getSpace(club.id).feed);
-  }, [club?.id, clubProp]);
+    if (tab !== "feed" || !club?.id) return;
+    let cancelled = false;
+    setFeedLoading(true);
+    setFeedError("");
+    clubPostApi.getByClub(club.id)
+      .then((res) => {
+        if (cancelled) return;
+        const items = Array.isArray(res) ? res : (res?.content ?? res?.data ?? []);
+        setFeed(items.map(normalizeClubPost));
+      })
+      .catch((err) => {
+        if (cancelled || err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        setFeedError("Không thể tải bảng tin.");
+      })
+      .finally(() => { if (!cancelled) setFeedLoading(false); });
+    return () => { cancelled = true; };
+  }, [tab, club?.id]);
 
   // Fetch members
   useEffect(() => {
@@ -665,17 +661,21 @@ export default function ClubSpace({ club: clubProp, onBack }) {
     if (nextTab === tab) return;
     if (nextTab === "events") setEventsLoading(true);
     if (nextTab === "leaderboard") { setRankingsLoading(true); setRankingsError(""); }
+    if (nextTab === "feed") { setFeedLoading(true); setFeedError(""); }
     setTab(nextTab);
   };
 
-  const handleNewPost = (text) => {
-    const name = user?.name ?? user?.email?.split("@")[0] ?? "Leader";
-    setFeed((prev) => [{
-      id: Date.now(), type: "post",
-      author: name, role: isClubLeader ? "Trưởng CLB" : "Phó CLB",
-      avatar: name.trim().split(/\s+/).map((w) => w[0]).slice(-2).join("").toUpperCase(),
-      time: "Vừa xong", content: text,
-    }, ...prev]);
+  const handleNewPost = async (text) => {
+    if (!club?.id || posting) return;
+    setPosting(true);
+    try {
+      const created = await clubPostApi.create(club.id, text);
+      setFeed((prev) => [normalizeClubPost(created), ...prev]);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Không thể đăng bài. Vui lòng thử lại.");
+    } finally {
+      setPosting(false);
+    }
   };
 
   // --- Early returns (sau tất cả hooks) ---
@@ -765,10 +765,21 @@ export default function ClubSpace({ club: clubProp, onBack }) {
       <div>
         {tab === "feed" && (
           <div className="flex flex-col gap-3.5">
-            {isLeader && <PostComposer onPost={handleNewPost} user={user} />}
-            {feed.map((post) => (
-              <FeedPost key={post.id} post={post} />
-            ))}
+            {isLeader && <PostComposer onPost={handleNewPost} user={user} posting={posting} />}
+            {feedLoading ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-400">
+                <Loader2 size={18} className="animate-spin" />
+                Đang tải bảng tin...
+              </div>
+            ) : feedError ? (
+              <p className="text-center py-8 text-sm text-red-400 m-0">{feedError}</p>
+            ) : feed.length === 0 ? (
+              <p className="text-center py-8 text-sm text-gray-400 m-0">Chưa có bài đăng nào trên bảng tin.</p>
+            ) : (
+              feed.map((post) => (
+                <FeedPost key={post.id} post={post} />
+              ))
+            )}
           </div>
         )}
 

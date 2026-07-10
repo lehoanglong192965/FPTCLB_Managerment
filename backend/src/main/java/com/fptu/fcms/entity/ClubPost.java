@@ -2,12 +2,9 @@ package com.fptu.fcms.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -20,32 +17,23 @@ import java.time.LocalDateTime;
 
 @Entity
 @SQLRestriction("isDeleted = false")
-@Table(name = "tblNotifications")
+@Table(name = "ClubPost")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Notification {
+public class ClubPost {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "notificationID")
-    private Integer notificationID;
+    @Column(name = "postID")
+    private Integer postID;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "clubID")
-    private Club club;
+    @Column(name = "clubID", nullable = false)
+    private Integer clubID;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "createdBy", nullable = false)
-    private UserAccount createdBy;
-
-    @Nationalized
-    @Column(name = "title", columnDefinition = "NVARCHAR(255)")
-    private String title;
-
-    @Column(name = "notificationType", length = 50)
-    private String notificationType;
+    @Column(name = "createdBy", nullable = false)
+    private Integer createdBy;
 
     @Nationalized
     @Column(name = "content", nullable = false, columnDefinition = "NVARCHAR(MAX)")
@@ -53,13 +41,6 @@ public class Notification {
 
     @Column(name = "createdAt", columnDefinition = "DATETIME2")
     private LocalDateTime createdAt;
-
-    @Column(name = "actionUrl", length = 500)
-    private String actionUrl;
-
-    @Nationalized
-    @Column(name = "actionLabel", length = 100)
-    private String actionLabel;
 
     @Column(name = "isDeleted")
     private Boolean isDeleted;

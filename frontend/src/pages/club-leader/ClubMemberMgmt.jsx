@@ -3,6 +3,7 @@ import { Users, Mail, Search, X, Phone, BookOpen, Calendar, Hash, ShieldOff, Che
 import { useClubData } from "../../contexts/ClubDataContext";
 import { useToast } from "../../contexts/ToastContext";
 import { CLUB_ROLE_NAMES } from "../../constants/roles";
+import { getInitials } from "../../utils/avatar";
 
 const ROLE_BADGE = {
   Leader:     { label: "Trưởng CLB",    color: "#E6430A", bg: "#FFF3EE" },
@@ -24,7 +25,7 @@ export function RoleBadge({ role }) {
 }
 
 export function Avatar({ name, size = 38 }) {
-  const initial = name?.split(" ").pop()?.[0]?.toUpperCase() ?? "?";
+  const initial = getInitials(name);
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%", flexShrink: 0,
