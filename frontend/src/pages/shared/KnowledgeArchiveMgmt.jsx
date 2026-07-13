@@ -544,7 +544,9 @@ export default function KnowledgeArchiveMgmt() {
       formData.append("visibilityScope", visibilityScope);
 
       setUploading(true);
-      await axiosClient.post("/v1/knowledge-archive", formData);
+      await axiosClient.post("/v1/knowledge-archive", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       toast.success("Tải tài liệu lên thành công. Đang chờ index…");
       setUploadOpen(false);
       uploadForm.resetFields();
