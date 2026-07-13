@@ -1,6 +1,6 @@
 package com.fptu.fcms.entity;
 
-import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.annotations.Nationalized;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -23,13 +23,15 @@ public class AIChatAuditLog {
     @Column(name = "userID")
     private Integer userID;
 
-    @Column(name = "userPrompt")
+    @Nationalized
+    @Column(name = "userPrompt", nullable = false, columnDefinition = "NVARCHAR(MAX)")
     private String userPrompt;
 
-    @Column(name = "aiResponse")
+    @Nationalized
+    @Column(name = "aiResponse", nullable = false, columnDefinition = "NVARCHAR(MAX)")
     private String aiResponse;
 
-    @Column(name = "intentMatched")
+    @Column(name = "intentMatched", length = 50)
     private String intentMatched;
 
     @Column(name = "tokensUsed", nullable = false)

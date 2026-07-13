@@ -43,8 +43,6 @@ import static dev.langchain4j.store.embedding.filter.MetadataFilterBuilder.metad
 @Slf4j
 public class AIChatServiceImpl implements AIChatService {
 
-    private static final int AUDIT_VARCHAR_MAX_LENGTH = 255;
-
     private final KnowledgeArchiveRepository knowledgeArchiveRepository;
     private final AIChatAuditLogRepository aiChatAuditLogRepository;
     private final SystemConfigService systemConfigService;
@@ -219,8 +217,8 @@ public class AIChatServiceImpl implements AIChatService {
         String citationsJson = serializeCitations(citations);
         AIChatAuditLog auditLog = new AIChatAuditLog();
         auditLog.setUserID(userId);
-        auditLog.setUserPrompt(truncateForAudit(userMessage));
-        auditLog.setAiResponse(truncateForAudit(answer));
+        auditLog.setUserPrompt(userMessage);
+        auditLog.setAiResponse(answer);
         auditLog.setTokensUsed(tokensUsed);
         auditLog.setStatus("Success");
         auditLog.setCitationsJson(citationsJson);
@@ -260,8 +258,8 @@ public class AIChatServiceImpl implements AIChatService {
     private AIChatResponse saveAuditLogAndReturnFallback(Integer userId, String userPrompt, String fallbackMessage) {
         AIChatAuditLog auditLog = new AIChatAuditLog();
         auditLog.setUserID(userId);
-        auditLog.setUserPrompt(truncateForAudit(userPrompt));
-        auditLog.setAiResponse(truncateForAudit(fallbackMessage));
+        auditLog.setUserPrompt(userPrompt);
+        auditLog.setAiResponse(fallbackMessage);
         auditLog.setTokensUsed(0);
         auditLog.setStatus("Fallback");
         auditLog.setCitationsJson("[]");
@@ -273,13 +271,6 @@ public class AIChatServiceImpl implements AIChatService {
                 .citations(Collections.emptyList())
                 .status("Fallback")
                 .build();
-    }
-
-    private String truncateForAudit(String value) {
-        if (value == null || value.length() <= AUDIT_VARCHAR_MAX_LENGTH) {
-            return value;
-        }
-        return value.substring(0, AUDIT_VARCHAR_MAX_LENGTH);
     }
 
     private String buildContextText(List<Content> matches) {

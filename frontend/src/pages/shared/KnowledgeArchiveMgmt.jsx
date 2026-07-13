@@ -918,7 +918,7 @@ export default function KnowledgeArchiveMgmt() {
         okText="Tải lên"
         cancelText="Huỷ"
         confirmLoading={uploading}
-        destroyOnClose
+        forceRender
         width={520}
         okButtonProps={{ style: { background: "#F37021", borderColor: "#F37021" } }}
       >
@@ -928,7 +928,7 @@ export default function KnowledgeArchiveMgmt() {
             label="Tiêu đề"
             rules={[{ required: true, whitespace: true, message: "Vui lòng nhập tiêu đề." }]}
           >
-            <Input placeholder="VD: Quy chế hoạt động CLB 2025" maxLength={255} />
+            <Input placeholder="VD: Quy chế hoạt động CLB 2025" maxLength={200} />
           </Form.Item>
 
           <Form.Item label="File tài liệu" required>

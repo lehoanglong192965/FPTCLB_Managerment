@@ -140,6 +140,27 @@ class KnowledgeArchiveServiceImplTest {
     }
 
     @Test
+    @DisplayName("Create rejects titles longer than the baseline database contract before scanning")
+    void createRejectsTitleLongerThanDatabaseContract() {
+        AtomicInteger scanCalls = new AtomicInteger();
+        ClamAvScanService recordingClamAv = new ClamAvScanService() {
+            @Override
+            public void scan(org.springframework.web.multipart.MultipartFile file) {
+                scanCalls.incrementAndGet();
+            }
+        };
+        ReflectionTestUtils.setField(service, "clamAvScanService", recordingClamAv);
+
+        assertThatThrownBy(() -> service.create(
+                "T".repeat(201), createMdFile("# Content"), 1, "ClubInternal", 42, "Admin", null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("200");
+
+        assertThat(scanCalls).hasValue(0);
+        verify(repository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+    @Test
     @DisplayName("TC2-03: Upload file 6MB → IllegalArgumentException")
     void tc2_03_rejectsLargeFile() {
         // Arrange — 6MB file

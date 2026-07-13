@@ -122,8 +122,8 @@ class AIChatServiceImplTest {
 
     // ─────────────────────── TC3-09 History ───────────────────────
     @Test
-    @DisplayName("Fallback keeps the client response while fitting the audit column")
-    void fallbackLongerThanAuditColumnIsPersistedSafely() {
+    @DisplayName("Fallback retains the complete prompt and response in the audit log")
+    void fallbackLongerThanLegacyAuditColumnIsRetained() {
         String longFallback = "F".repeat(300);
         String longPrompt = "P".repeat(300);
         when(systemConfigService.getConfigValue("AI_CONFIDENCE_THRESHOLD")).thenReturn("0.70");
@@ -143,8 +143,8 @@ class AIChatServiceImplTest {
 
         ArgumentCaptor<AIChatAuditLog> logCaptor = ArgumentCaptor.forClass(AIChatAuditLog.class);
         verify(auditLogRepository).save(logCaptor.capture());
-        assertThat(logCaptor.getValue().getAiResponse()).hasSize(255);
-        assertThat(logCaptor.getValue().getUserPrompt()).hasSize(255);
+        assertThat(logCaptor.getValue().getAiResponse()).isEqualTo(longFallback);
+        assertThat(logCaptor.getValue().getUserPrompt()).isEqualTo(longPrompt);
         assertThat(logCaptor.getValue().getTokensUsed()).isZero();
     }
 

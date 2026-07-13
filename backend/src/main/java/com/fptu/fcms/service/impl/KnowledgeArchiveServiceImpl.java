@@ -42,6 +42,7 @@ public class KnowledgeArchiveServiceImpl implements KnowledgeArchiveService {
     private final ApplicationEventPublisher eventPublisher;
 
     private static final long MAX_FILE_SIZE = 5L * 1024 * 1024; // 5MB - enforce ở Service, không đổi property global
+    private static final int MAX_TITLE_LENGTH = 200;
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("md", "txt", "pdf");
     private static final String UPLOAD_DIR = "uploads/knowledge-archive";
 
@@ -69,6 +70,9 @@ public class KnowledgeArchiveServiceImpl implements KnowledgeArchiveService {
             throw new IllegalArgumentException("Title must not be blank.");
         }
         String normalizedTitle = title.trim();
+        if (normalizedTitle.length() > MAX_TITLE_LENGTH) {
+            throw new IllegalArgumentException("Title must not exceed " + MAX_TITLE_LENGTH + " characters.");
+        }
 
         // 1. Validate extension
         String originalFilename = file.getOriginalFilename();
