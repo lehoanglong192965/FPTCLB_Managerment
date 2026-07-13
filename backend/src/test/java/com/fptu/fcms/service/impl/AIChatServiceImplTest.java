@@ -15,6 +15,7 @@ import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.exception.ModelNotFoundException;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
@@ -121,6 +122,33 @@ class AIChatServiceImplTest {
 
     // ─────────────────────── TC3-09 History ───────────────────────
     @Test
+    @DisplayName("Fallback keeps the client response while fitting the audit column")
+    void fallbackLongerThanAuditColumnIsPersistedSafely() {
+        String longFallback = "F".repeat(300);
+        String longPrompt = "P".repeat(300);
+        when(systemConfigService.getConfigValue("AI_CONFIDENCE_THRESHOLD")).thenReturn("0.70");
+        when(systemConfigService.getConfigValue("RAG_FALLBACK_MESSAGE")).thenReturn(longFallback);
+        when(archiveRepository.findByVisibilityScopeAndIsDeletedFalse("Public"))
+                .thenReturn(Collections.emptyList());
+
+        AIChatResponse response = service.chat(AIChatRequest.builder()
+                .message(longPrompt)
+                .history(Collections.emptyList())
+                .build(), studentUser());
+
+        assertThat(response.getStatus()).isEqualTo("Fallback");
+        assertThat(response.getAnswer()).isEqualTo(longFallback);
+        assertThat(response.getCitations()).isEmpty();
+        verify(geminiChatModel, never()).chat(anyList());
+
+        ArgumentCaptor<AIChatAuditLog> logCaptor = ArgumentCaptor.forClass(AIChatAuditLog.class);
+        verify(auditLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getAiResponse()).hasSize(255);
+        assertThat(logCaptor.getValue().getUserPrompt()).hasSize(255);
+        assertThat(logCaptor.getValue().getTokensUsed()).isZero();
+    }
+
+    @Test
     @DisplayName("TC3-09: Conversation history limit - keeps only last 10 messages")
     void tc3_09_conversationHistoryLimit() {
         // Mock configs
@@ -178,6 +206,8 @@ class AIChatServiceImplTest {
         assertThat(response.getAnswer()).isEqualTo("Bạn cần làm 2 bước.");
         assertThat(response.getCitations()).hasSize(1);
         assertThat(response.getCitations().get(0).getArchiveId()).isEqualTo(101);
+        assertThat(response.getCitations().get(0).getTitle()).isEqualTo("Test Public Doc");
+        assertThat(response.getCitations().get(0).getChunkIndex()).isZero();
 
         // Capture ChatMessages sent to Gemini
         ArgumentCaptor<List<ChatMessage>> messagesCaptor = ArgumentCaptor.forClass(List.class);
@@ -200,6 +230,48 @@ class AIChatServiceImplTest {
         verify(auditLogRepository).save(logCaptor.capture());
         assertThat(logCaptor.getValue().getStatus()).isEqualTo("Success");
         assertThat(logCaptor.getValue().getTokensUsed()).isEqualTo(18);
+    }
+
+    @Test
+    @DisplayName("Provider failure after a RAG match returns audited fallback")
+    void providerFailureAfterMatchReturnsFallback() {
+        when(systemConfigService.getConfigValue("AI_CONFIDENCE_THRESHOLD")).thenReturn("0.70");
+        when(systemConfigService.getConfigValue("RAG_FALLBACK_MESSAGE")).thenReturn("Fallback");
+
+        UserPrincipal user = studentUser();
+        KnowledgeArchive publicArchive = new KnowledgeArchive();
+        publicArchive.setArchiveID(101);
+        publicArchive.setTitle("Test Public Doc");
+        publicArchive.setVisibilityScope("Public");
+        publicArchive.setIsDeleted(false);
+        when(archiveRepository.findByVisibilityScopeAndIsDeletedFalse("Public"))
+                .thenReturn(List.of(publicArchive));
+
+        float[] vector = new float[768];
+        vector[0] = 1.0f;
+        Embedding embedding = Embedding.from(vector);
+        embeddingStore.add(embedding, TextSegment.from("RAG context",
+                dev.langchain4j.data.document.Metadata.from(Map.of(
+                        "archiveId", "101", "title", "Test Public Doc", "index", 0))));
+        when(queryEmbeddingModel.embed(anyString())).thenReturn(Response.from(embedding));
+        when(geminiChatModel.chat(anyList()))
+                .thenThrow(new ModelNotFoundException("Gemini model unavailable"));
+
+        AIChatResponse response = service.chat(AIChatRequest.builder()
+                .message("Question with matching context")
+                .history(Collections.emptyList())
+                .build(), user);
+
+        assertThat(response.getStatus()).isEqualTo("Fallback");
+        assertThat(response.getAnswer()).isEqualTo("Fallback");
+        assertThat(response.getCitations()).isEmpty();
+
+        ArgumentCaptor<AIChatAuditLog> logCaptor = ArgumentCaptor.forClass(AIChatAuditLog.class);
+        verify(auditLogRepository).save(logCaptor.capture());
+        AIChatAuditLog savedLog = logCaptor.getValue();
+        assertThat(savedLog.getStatus()).isEqualTo("Fallback");
+        assertThat(savedLog.getTokensUsed()).isZero();
+        assertThat(savedLog.getCitationsJson()).isEqualTo("[]");
     }
 
     private UserPrincipal studentUser() {

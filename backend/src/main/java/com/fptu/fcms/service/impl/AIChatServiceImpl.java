@@ -16,6 +16,7 @@ import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.exception.LangChain4jException;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
@@ -41,6 +42,8 @@ import static dev.langchain4j.store.embedding.filter.MetadataFilterBuilder.metad
 @Service
 @Slf4j
 public class AIChatServiceImpl implements AIChatService {
+
+    private static final int AUDIT_VARCHAR_MAX_LENGTH = 255;
 
     private final KnowledgeArchiveRepository knowledgeArchiveRepository;
     private final AIChatAuditLogRepository aiChatAuditLogRepository;
@@ -157,7 +160,14 @@ public class AIChatServiceImpl implements AIChatService {
         messages.addAll(chatMemory.messages());
 
         // 8. Gọi Gemini Chat Model
-        dev.langchain4j.model.chat.response.ChatResponse modelResponse = geminiChatModel.chat(messages);
+        dev.langchain4j.model.chat.response.ChatResponse modelResponse;
+        try {
+            modelResponse = geminiChatModel.chat(messages);
+        } catch (LangChain4jException exception) {
+            log.warn("Gemini chat provider call failed for user {}: {}", userId,
+                    exception.getClass().getSimpleName());
+            return saveAuditLogAndReturnFallback(userId, userMessage, fallbackMessage);
+        }
         String answer = modelResponse.aiMessage().text();
         TokenUsage tokenUsage = modelResponse.tokenUsage();
         int tokensUsed = tokenUsage != null && tokenUsage.totalTokenCount() != null
@@ -209,8 +219,8 @@ public class AIChatServiceImpl implements AIChatService {
         String citationsJson = serializeCitations(citations);
         AIChatAuditLog auditLog = new AIChatAuditLog();
         auditLog.setUserID(userId);
-        auditLog.setUserPrompt(userMessage);
-        auditLog.setAiResponse(answer);
+        auditLog.setUserPrompt(truncateForAudit(userMessage));
+        auditLog.setAiResponse(truncateForAudit(answer));
         auditLog.setTokensUsed(tokensUsed);
         auditLog.setStatus("Success");
         auditLog.setCitationsJson(citationsJson);
@@ -250,8 +260,8 @@ public class AIChatServiceImpl implements AIChatService {
     private AIChatResponse saveAuditLogAndReturnFallback(Integer userId, String userPrompt, String fallbackMessage) {
         AIChatAuditLog auditLog = new AIChatAuditLog();
         auditLog.setUserID(userId);
-        auditLog.setUserPrompt(userPrompt);
-        auditLog.setAiResponse(fallbackMessage);
+        auditLog.setUserPrompt(truncateForAudit(userPrompt));
+        auditLog.setAiResponse(truncateForAudit(fallbackMessage));
         auditLog.setTokensUsed(0);
         auditLog.setStatus("Fallback");
         auditLog.setCitationsJson("[]");
@@ -263,6 +273,13 @@ public class AIChatServiceImpl implements AIChatService {
                 .citations(Collections.emptyList())
                 .status("Fallback")
                 .build();
+    }
+
+    private String truncateForAudit(String value) {
+        if (value == null || value.length() <= AUDIT_VARCHAR_MAX_LENGTH) {
+            return value;
+        }
+        return value.substring(0, AUDIT_VARCHAR_MAX_LENGTH);
     }
 
     private String buildContextText(List<Content> matches) {
