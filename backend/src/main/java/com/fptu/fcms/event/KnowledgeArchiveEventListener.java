@@ -3,6 +3,7 @@ package com.fptu.fcms.event;
 import com.fptu.fcms.service.KnowledgeIngestionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -18,6 +19,7 @@ public class KnowledgeArchiveEventListener {
 
     private final KnowledgeIngestionService knowledgeIngestionService;
 
+    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onKnowledgeArchiveIndexed(KnowledgeArchiveIndexedEvent event) {
         if (event == null || event.archiveID() == null || event.operation() == null) {

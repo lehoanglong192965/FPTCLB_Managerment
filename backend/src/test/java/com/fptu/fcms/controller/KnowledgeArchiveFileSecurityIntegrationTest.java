@@ -69,21 +69,23 @@ class KnowledgeArchiveFileSecurityIntegrationTest {
         verifyNoInteractions(knowledgeArchiveService);
     }
 
-    @Test
-    void memberCanOpenPublicFile() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"Student", "Member"})
+    void regularUserCanOpenPublicFile(String roleName) throws Exception {
         when(knowledgeArchiveService.getById(502))
                 .thenReturn(archive(502, OTHER_CLUB_ID, "Public", testFile));
 
-        expectPdf(502, principal("Member", null, null));
+        expectPdf(502, principal(roleName, null, null));
     }
 
-    @Test
-    void memberCannotOpenClubInternalFile() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"Student", "Member"})
+    void regularUserCannotOpenClubInternalFile(String roleName) throws Exception {
         when(knowledgeArchiveService.getById(503))
                 .thenReturn(archive(503, OTHER_CLUB_ID, "ClubInternal", testFile));
 
         mockMvc.perform(get("/api/v1/knowledge-archive/{id}/file", 503)
-                        .with(user(principal("Member", null, null))))
+                        .with(user(principal(roleName, null, null))))
                 .andExpect(status().isForbidden());
     }
 
