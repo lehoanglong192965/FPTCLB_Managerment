@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, Check,
   Send, CalendarDays, FileText, CheckCircle2, ImagePlus, UploadCloud, Globe, Lock, X,
 } from "lucide-react";
-import eventService from "../../services/api/events/eventService";
+import eventApi from "../../services/api/events/eventApi";
 import semesterApi from "../../services/api/admin/semesterApi";
 import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
 import clubRegistrationApi from "../../services/api/clubs/clubRegistrationApi";
@@ -488,7 +488,7 @@ export default function CreateEventPage() {
     setSubmitting(true);
     setSubmitError("");
     try {
-      await eventService.propose({
+      await eventApi.propose({
         clubID:        clubId,
         semesterID:    semesterId,
         eventCode:     `EVT-${clubId}-${Date.now()}`,

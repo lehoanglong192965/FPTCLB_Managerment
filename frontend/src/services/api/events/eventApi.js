@@ -1,6 +1,6 @@
 import axiosClient from "../axiosClient";
 
-const eventService = {
+const eventApi = {
   // PUBLIC
   getApprovedEvents: () => axiosClient.get("/v1/events/approved"),
   getEventById: (eventId) => axiosClient.get(`/v1/events/${eventId}`),
@@ -73,4 +73,4 @@ const eventService = {
     axiosClient.post(`/registrations/${registrationId}/cancel`),
 };
 
-export default eventService;
+export default eventApi;

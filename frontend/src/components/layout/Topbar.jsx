@@ -10,7 +10,6 @@ const NOTIF_PATH = {
   MEMBER:       "/member/notifications",
   CLUB_LEADER:  "/club-leader/notifications",
   VICE_LEADER:  "/vice-leader/notifications",
-  CLUB_MANAGER: "/manager/notifications",
   ICPDP:        "/icpdp/notifications",
 };
 

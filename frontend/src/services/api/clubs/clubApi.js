@@ -1,6 +1,6 @@
 import axiosClient from "../axiosClient";
 
-const clubService = {
+const clubApi = {
   // ── PUBLIC ──────────────────────────────────────────────────────
   // Backend: GET /api/clubs (danh sách club đang hoạt động, không cần đăng nhập)
   getAllPublic: (params) => axiosClient.get("/clubs", { params }),
@@ -40,11 +40,11 @@ const clubService = {
   getAllEvents: (clubId, params) =>
     axiosClient.get(`/clubs/${clubId}/events`, { params }),
 
-  // ── CLUB_MANAGER / ADMIN ─────────────────────────────────────────
+  // ── ICPDP / ADMIN ─────────────────────────────────────────────────
   review: (clubId, { status, reason }) =>
     axiosClient.patch(`/clubs/${clubId}/review`, { status, reason }),
   delete: (clubId) => axiosClient.delete(`/clubs/${clubId}`),
   getStats: (clubId) => axiosClient.get(`/clubs/${clubId}/stats`),
 };
 
-export default clubService;
+export default clubApi;

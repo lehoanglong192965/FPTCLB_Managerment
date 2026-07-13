@@ -19,7 +19,7 @@ const normalizeRecord = (r) => {
   };
 };
 
-const attendanceService = {
+const attendanceApi = {
 
   // ── SESSION MANAGEMENT ────────────────────────────────────────────
   // POST /api/v1/events/{eventId}/attendance-sessions
@@ -73,7 +73,7 @@ const attendanceService = {
 
   // ── SESSION SUMMARY (no dedicated BE endpoint — computed from search) ──
   getSessionSummary: async (sessionId) => {
-    const records = await attendanceService.searchParticipants(sessionId, '');
+    const records = await attendanceApi.searchParticipants(sessionId, '');
     return {
       records,
       totalRegistered: records.length,
@@ -110,4 +110,4 @@ const attendanceService = {
     }),
 };
 
-export default attendanceService;
+export default attendanceApi;

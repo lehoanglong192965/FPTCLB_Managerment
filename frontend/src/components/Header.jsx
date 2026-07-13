@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, NavLink } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext";
-import { ROLE_REDIRECT } from "../../constants/roles";
-import { getInitials } from "../../utils/avatar";
+import { useAuth } from "../contexts/AuthContext";
+import { ROLE_REDIRECT } from "../constants/roles";
+import { getInitials } from "../utils/avatar";
 
 export default function Header() {
   const [scrolled, setScrolled]   = useState(false);

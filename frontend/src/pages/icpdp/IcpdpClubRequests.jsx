@@ -187,10 +187,18 @@ export default function IcpdpClubRequests() {
                     <Users size={16} /> Nhân Sự Điều Hành
                   </h3>
 
-                  {selected.foundingMembers?.map((m, idx) => (
+                  {(() => {
+                    let memberCount = 0;
+                    return selected.foundingMembers?.map((m, idx) => {
+                      const label = m.proposedRole === "Leader"
+                        ? "Chủ nhiệm CLB (Leader)"
+                        : m.proposedRole === "ViceLeader"
+                        ? "Phó chủ nhiệm CLB (Vice Leader)"
+                        : `Thành viên sáng lập #${++memberCount}`;
+                      return (
                     <div key={idx} className="bg-slate-50 p-4 rounded-xl mb-4">
                       <h4 className="font-semibold text-slate-900 mb-2 text-sm m-0">
-                        {m.proposedRole === "Leader" ? "Chủ nhiệm CLB (Leader)" : m.proposedRole === "ViceLeader" ? "Phó chủ nhiệm CLB (Vice Leader)" : `Thành viên sáng lập #${idx - 1}`}
+                        {label}
                       </h4>
                       <div className="grid grid-cols-2 gap-3 text-sm mb-3">
                         <span className="font-medium text-slate-500">Họ và tên:</span>
@@ -223,7 +231,9 @@ export default function IcpdpClubRequests() {
                         <p className="text-[12px] text-red-400 italic mt-1">⚠ Chưa có ảnh thẻ sinh viên</p>
                       )}
                     </div>
-                  ))}
+                      );
+                    });
+                  })()}
                 </div>
 
                 <div className="mb-6">
@@ -253,12 +263,22 @@ export default function IcpdpClubRequests() {
                     <ShieldCheck size={18} color="#10b981" /> Kiểm Định Hệ Thống Tự Động
                   </h3>
 
-                  {selected.foundingMembers?.map((m, idx) => (
+                  {(() => {
+                    let memberCount = 0;
+                    return selected.foundingMembers?.map((m, idx) => {
+                      const label = m.proposedRole === "Leader"
+                        ? "Chủ nhiệm"
+                        : m.proposedRole === "ViceLeader"
+                        ? "Phó chủ nhiệm"
+                        : `Thành viên sáng lập #${++memberCount}`;
+                      return (
                     <div key={idx} className="flex items-center gap-3 px-4 py-3 rounded-lg border border-green-200 bg-green-50 text-green-800 text-[13px] mb-2">
                       <CheckCircle size={15} />
-                      <span>{m.proposedRole === "Leader" ? "Chủ nhiệm" : m.proposedRole === "ViceLeader" ? "Phó chủ nhiệm" : `Thành viên sáng lập #${idx - 1}`}: {m.fullName} ({m.studentId}) - Hợp lệ, &lt; 4 CLB</span>
+                      <span>{label}: {m.fullName} ({m.studentId}) - Hợp lệ, &lt; 4 CLB</span>
                     </div>
-                  ))}
+                      );
+                    });
+                  })()}
 
                   <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-green-200 bg-green-50 text-green-800 text-[13px] mt-4">
                     <CheckCircle size={15} />

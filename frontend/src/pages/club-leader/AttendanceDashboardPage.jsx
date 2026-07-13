@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Users, UserCheck, UserX, TrendingUp, CheckCircle2, XCircle, Edit2 } from 'lucide-react';
-import eventService from '../../services/api/events/eventService';
-import attendanceService from '../../services/api/attendance/attendanceService';
+import eventApi from '../../services/api/events/eventApi';
+import attendanceApi from '../../services/api/attendance/attendanceApi';
 
 const SESSION_STATUS_CFG = {
   OPEN:   { label: 'Đang mở', color: '#065F46', bg: '#D1FAE5', dot: '#10B981' },
@@ -28,9 +28,9 @@ export default function AttendanceDashboardPage() {
       setLoading(true);
       try {
         const [evRes, sessRes, sumRes] = await Promise.allSettled([
-          eventService.getEventById(eventId),
-          attendanceService.getSessions(eventId),
-          attendanceService.getEventAttendanceSummary(eventId),
+          eventApi.getEventById(eventId),
+          attendanceApi.getSessions(eventId),
+          attendanceApi.getEventAttendanceSummary(eventId),
         ]);
         if (evRes.status === 'fulfilled') setEvent(evRes.value?.data ?? evRes.value);
         if (sessRes.status === 'fulfilled') {
@@ -51,7 +51,7 @@ export default function AttendanceDashboardPage() {
     setSessionLoading(true);
     setSessionSummary(null);
     try {
-      const res = await attendanceService.getSessionSummary(sid);
+      const res = await attendanceApi.getSessionSummary(sid);
       setSessionSummary(res?.data ?? res);
     } catch {
       setSessionSummary(null);
@@ -269,7 +269,7 @@ export default function AttendanceDashboardPage() {
                         </h3>
                       </div>
                       <button
-                        onClick={() => navigate(`attendance/${selectedSession.sessionId ?? selectedSession.id}/correct`)}
+                        onClick={() => navigate(`${selectedSession.sessionId ?? selectedSession.id}/correct`, { relative: "path" })}
                         className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
                         style={{ color: '#F37021', background: '#FFF7F0' }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = '#FEE9D6'; }}

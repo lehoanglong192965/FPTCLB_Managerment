@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import {
   ArrowLeft, Users, Megaphone,
-  Pin, Search, MapPin, Clock, Trophy, Medal,
+  Pin, Search, Trophy, Medal,
   Crown, Award, Loader2, Send, X,
 } from "lucide-react";
-import clubService from "../../services/api/clubs/clubService";
+import clubApi from "../../services/api/clubs/clubApi";
 import memberApi from "../../services/api/clubs/memberApi";
-import clubPostApi from "../../services/api/clubs/clubPostApi";
+import clubPostApi from "../../services/api/club-leader/clubPostApi";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
@@ -130,26 +130,6 @@ function MemberRow({ member }) {
   );
 }
 
-function EventRow({ event }) {
-  return (
-    <div className="flex items-center gap-4 py-3.5 border-b border-gray-100 last:border-b-0">
-      <div className={`w-2 h-2 rounded-full shrink-0 ${event.status === "upcoming" ? "bg-emerald-500" : "bg-gray-300"}`} />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-900 m-0 mb-1">{event.name}</p>
-        <div className="flex items-center gap-3.5 text-xs text-gray-500">
-          <span className="flex items-center gap-1"><Calendar size={12} /> {event.date}</span>
-          <span className="flex items-center gap-1"><Clock size={12} /> {event.time}</span>
-          <span className="flex items-center gap-1"><MapPin size={12} /> {event.location}</span>
-        </div>
-      </div>
-      <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap shrink-0 ${
-        event.status === "upcoming" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
-      }`}>
-        {event.status === "upcoming" ? "Sắp diễn ra" : "Đã kết thúc"}
-      </span>
-    </div>
-  );
-}
 
 const LEADERBOARD_META = {
   1: {
@@ -322,9 +302,9 @@ function TopMemberCard({ member, place }) {
 }
 
 function LeaderboardView({ club, members, rankings, loading, error, search, onSearch }) {
-  const leaderboardRows = rankings
-    .map((item, index) => normalizeRankingItem(item, index, members))
-    .sort((a, b) => a.rank - b.rank || b.totalScore - a.totalScore || a.fullName.localeCompare(b.fullName));
+  const leaderboardRows = [...rankings]
+    .sort((a, b) => Number(b.totalScore ?? 0) - Number(a.totalScore ?? 0) || (a.fullName ?? "").localeCompare(b.fullName ?? ""))
+    .map((item, index) => normalizeRankingItem(item, index, members));
   const filteredRows = leaderboardRows.filter((row) => {
     const query = normalizeText(search);
     return !query || normalizeText(`${row.fullName} ${row.email} ${row.role}`).includes(query);
@@ -554,7 +534,6 @@ export default function ClubSpace({ club: clubProp, onBack }) {
   const { user }    = useAuth();
   const toast       = useToast();
   const isLeader    = user?.role === "CLUB_LEADER" || user?.role === "VICE_LEADER";
-  const isClubLeader = user?.role === "CLUB_LEADER";
 
   // Self-fetch khi không có club prop (leader my-club page)
   const [selfClub, setSelfClub]       = useState(null);
@@ -569,8 +548,6 @@ export default function ClubSpace({ club: clubProp, onBack }) {
   const [rankings, setRankings]           = useState([]);
   const [rankingsLoading, setRankingsLoading] = useState(false);
   const [rankingsError, setRankingsError] = useState("");
-  const [realEvents, setRealEvents]       = useState([]);
-  const [eventsLoading, setEventsLoading] = useState(true);
   const [feed, setFeed]                   = useState([]);
   const [feedLoading, setFeedLoading]     = useState(true);
   const [feedError, setFeedError]         = useState("");
@@ -580,7 +557,7 @@ export default function ClubSpace({ club: clubProp, onBack }) {
     if (clubProp) return;
     const clubId = TokenService.getClubId();
     if (!clubId) { setSelfLoading(false); return; }
-    clubService.getById(clubId)
+    clubApi.getById(clubId)
       .then((res) => setSelfClub(normalizeClub(res?.data ?? res)))
       .catch(() => {})
       .finally(() => setSelfLoading(false));
@@ -629,22 +606,13 @@ export default function ClubSpace({ club: clubProp, onBack }) {
     return () => { cancelled = true; };
   }, [club?.id]);
 
-  // Fetch events (chỉ cho member view, leader dùng ClubEventsMgmt)
-  useEffect(() => {
-    if (tab !== "events" || isLeader || !club?.id) return;
-    clubService.getAllEvents(club.id)
-      .then((res) => setRealEvents(Array.isArray(res) ? res : (res.data || [])))
-      .catch(() => {})
-      .finally(() => setEventsLoading(false));
-  }, [tab, club?.id, isLeader]);
-
   // Fetch leaderboard
   useEffect(() => {
     if (tab !== "leaderboard" || !club?.id) return;
     let cancelled = false;
     setRankingsLoading(true);
     setRankingsError("");
-    clubService.getMemberRankings(club.id)
+    clubApi.getMemberRankings(club.id)
       .then((data) => {
         if (cancelled) return;
         setRankings(Array.isArray(data) ? data : (data?.data ?? []));
@@ -659,7 +627,6 @@ export default function ClubSpace({ club: clubProp, onBack }) {
 
   const handleTabChange = (nextTab) => {
     if (nextTab === tab) return;
-    if (nextTab === "events") setEventsLoading(true);
     if (nextTab === "leaderboard") { setRankingsLoading(true); setRankingsError(""); }
     if (nextTab === "feed") { setFeedLoading(true); setFeedError(""); }
     setTab(nextTab);

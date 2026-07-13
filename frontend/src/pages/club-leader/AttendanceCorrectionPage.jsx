@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit2, CheckCircle2, XCircle, Search, X } from 'lucide-react';
-import attendanceService from '../../services/api/attendance/attendanceService';
+import attendanceApi from '../../services/api/attendance/attendanceApi';
 import { useToast } from '../../contexts/ToastContext';
 
 const STATUS_OPTIONS = [
@@ -82,7 +82,7 @@ export default function AttendanceCorrectionPage() {
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await attendanceService.getSessionSummary(sessionId);
+      const res = await attendanceApi.getSessionSummary(sessionId);
       const data = res?.data ?? res;
       setRecords(data?.records ?? []);
     } catch {
@@ -99,7 +99,7 @@ export default function AttendanceCorrectionPage() {
     setEditTarget(null);
     setSaving(recordId);
     try {
-      await attendanceService.correctAttendance(recordId, { status: newStatus, reason });
+      await attendanceApi.correctAttendance(recordId, { status: newStatus, reason });
       toast.success('Đã cập nhật điểm danh.');
       fetchRecords();
     } catch (err) {

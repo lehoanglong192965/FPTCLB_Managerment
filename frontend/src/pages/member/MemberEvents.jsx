@@ -1,8 +1,8 @@
 ﻿import { useState, useRef, useEffect } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import EventCard from "../../components/events/EventCard";
-import eventService from "../../services/api/events/eventService";
-import clubService from "../../services/api/clubs/clubService";
+import eventApi from "../../services/api/events/eventApi";
+import clubApi from "../../services/api/clubs/clubApi";
 import { useAuth } from "../../contexts/AuthContext";
 
 const ALL_TAGS = ["Tất cả", "Công nghệ", "Âm nhạc", "Thể thao", "Hội thảo", "Cộng đồng", "Giải trí"];
@@ -24,9 +24,9 @@ export default function MemberEvents() {
     const load = async () => {
       try {
         const [eventRes, clubRes, regRes] = await Promise.all([
-          eventService.getApprovedEvents().catch(() => []),
-          clubService.getAll().catch(() => []),
-          user ? eventService.getMyRegistrations().catch(() => []) : Promise.resolve([]),
+          eventApi.getApprovedEvents().catch(() => []),
+          clubApi.getAll().catch(() => []),
+          user ? eventApi.getMyRegistrations().catch(() => []) : Promise.resolve([]),
         ]);
         if (cancelled) return;
 
@@ -71,7 +71,7 @@ export default function MemberEvents() {
       time: e.startDate ? new Date(e.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
       venue: e.location || "Chưa xếp phòng",
       desc: e.description,
-      badgeType: isRegistered ? "registered" : (e.eventStatus === "Ongoing" ? "upcoming" : "open"),
+      badgeType: isRegistered ? "registered" : ((e.eventStatus || "").toUpperCase() === "ONGOING" ? "ongoing" : "open"),
       bannerUrl: e.bannerUrl ?? null,
       maxParticipants: e.maxParticipants ?? 0,
       currentParticipants: e.currentParticipants ?? 0,

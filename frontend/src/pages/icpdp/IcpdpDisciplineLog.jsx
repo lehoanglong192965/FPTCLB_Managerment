@@ -82,7 +82,7 @@ export default function IcpdpDisciplineLog() {
       toast.success("Đã ghi nhận vi phạm vào nhật ký.");
       loadLogs();
     } catch (err) {
-      toast.error(err?.response?.data?.error ?? "Ghi nhận thất bại.");
+      toast.error(err?.response?.data?.message ?? err?.response?.data?.error ?? "Ghi nhận thất bại.");
     } finally {
       setSubmitting(false);
     }
@@ -100,7 +100,7 @@ export default function IcpdpDisciplineLog() {
       toast.success("Đã đánh dấu vi phạm là Đã giải quyết.");
       loadLogs();
     } catch (err) {
-      toast.error(err?.response?.data?.error ?? "Cập nhật thất bại.");
+      toast.error(err?.response?.data?.message ?? err?.response?.data?.error ?? "Cập nhật thất bại.");
     }
   };
 

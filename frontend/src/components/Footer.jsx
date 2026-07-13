@@ -1,7 +1,7 @@
 import {
   IconFacebook, IconTwitter, IconInstagram, IconLinkedin,
   IconMapPin, IconPhone, IconMail
-} from "../../assets/icons/icons";
+} from "../assets/icons/icons";
 
 const FOOTER_LINKS = {
   "Khám Phá": ["Trang Chủ", "Câu Lạc Bộ", "Sự Kiện", "Về Chúng Tôi"],

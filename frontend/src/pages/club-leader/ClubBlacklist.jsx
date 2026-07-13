@@ -117,10 +117,10 @@ export default function ClubBlacklist() {
   const [search, setSearch]   = useState("");
   const [selected, setSelected] = useState(null);
 
-  const handleRemove = (entry) => {
-    removeFromBlacklist(entry.blacklistID);
+  const handleRemove = async (entry) => {
+    const ok = await removeFromBlacklist(entry.blacklistID);
     setSelected(null);
-    toast.success(`Đã gỡ cấm cho ${entry.fullName}.`);
+    if (ok) toast.success(`Đã gỡ cấm cho ${entry.fullName}.`);
   };
 
   const filtered = blacklist.filter((b) => {

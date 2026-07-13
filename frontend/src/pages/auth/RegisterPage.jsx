@@ -42,9 +42,12 @@ export default function RegisterPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    const nextValue = name === "studentId" ? value.toUpperCase() : value;
+    setForm((prev) => ({ ...prev, [name]: nextValue }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
+
+  const STUDENT_ID_REGEX = /^(SE|IA|AI|BA|EN|JP|KR|GD|MC|HM|HT|AR)\d{6}$/;
 
   const validate = () => {
     const errs = {};
@@ -62,6 +65,12 @@ export default function RegisterPage() {
       errs.email = "Vui lòng nhập email.";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errs.email = "Email không đúng định dạng.";
+    if (!form.studentId.trim())
+      errs.studentId = "Vui lòng nhập mã sinh viên.";
+    else if (!STUDENT_ID_REGEX.test(form.studentId.trim()))
+      errs.studentId = "Mã sinh viên không hợp lệ (vd: SE123456 — 2 chữ cái ngành + 6 chữ số).";
+    if (!form.major)
+      errs.major = "Vui lòng chọn chuyên ngành.";
     return errs;
   };
 
@@ -87,7 +96,7 @@ export default function RegisterPage() {
       if (status === 409) {
         setErrors({ email: "Email này đã được sử dụng." });
       } else {
-        setErrors({ form: err?.response?.data?.error ?? "Đăng ký thất bại. Vui lòng thử lại." });
+        setErrors({ form: err?.response?.data?.message ?? err?.response?.data?.error ?? "Đăng ký thất bại. Vui lòng thử lại." });
       }
     } finally {
       setLoading(null);
@@ -225,7 +234,9 @@ export default function RegisterPage() {
 
             <div className="grid grid-cols-2 gap-x-5 max-[480px]:grid-cols-1">
               <div className="flex flex-col pb-2">
-                <label className="text-[12px] font-semibold text-[#6B6B6B] mb-[2px] tracking-[0.01em]">Mã sinh viên</label>
+                <label className="text-[12px] font-semibold text-[#6B6B6B] mb-[2px] tracking-[0.01em]">
+                  Mã sinh viên <span className="text-[#F37021]">*</span>
+                </label>
                 <input
                   className={inputBase}
                   type="text"
@@ -234,10 +245,18 @@ export default function RegisterPage() {
                   value={form.studentId}
                   onChange={handleChange}
                   disabled={loading}
+                  maxLength={8}
                 />
+                {errors.studentId && (
+                  <p className="text-[12px] text-[#D0453A] mt-[3px] px-[10px] py-[6px] bg-[#FDF2F2] rounded-[5px] border-l-[3px] border-l-[#D0453A]">
+                    {errors.studentId}
+                  </p>
+                )}
               </div>
               <div className="flex flex-col pb-2">
-                <label className="text-[12px] font-semibold text-[#6B6B6B] mb-[2px] tracking-[0.01em]">Chuyên ngành</label>
+                <label className="text-[12px] font-semibold text-[#6B6B6B] mb-[2px] tracking-[0.01em]">
+                  Chuyên ngành <span className="text-[#F37021]">*</span>
+                </label>
                 <select
                   className="w-full py-[9px] pl-3 pr-7 border-0 border-b-[1.5px] border-b-[#E4E4E4] bg-transparent text-[14px] text-[#1A1A1A] outline-none cursor-pointer appearance-none box-border transition-colors duration-150 focus:border-b-[#F37021] disabled:opacity-60 disabled:cursor-not-allowed"
                   style={{
@@ -253,36 +272,32 @@ export default function RegisterPage() {
                   <option value="">-- Chọn chuyên ngành --</option>
                   <optgroup label="Công nghệ thông tin">
                     <option value="SE">Kỹ thuật phần mềm (SE)</option>
+                    <option value="IA">An toàn thông tin (IA)</option>
                     <option value="AI">Trí tuệ nhân tạo (AI)</option>
-                    <option value="IS">An toàn thông tin (IS)</option>
-                    <option value="IoT">Internet of Things (IoT)</option>
-                    <option value="CS">Khoa học máy tính (CS)</option>
                   </optgroup>
-                  <optgroup label="Kinh tế">
+                  <optgroup label="Quản trị kinh doanh">
                     <option value="BA">Quản trị kinh doanh (BA)</option>
-                    <option value="IB">Kinh doanh quốc tế (IB)</option>
-                    <option value="FIN">Tài chính (FIN)</option>
-                    <option value="ACC">Kế toán (ACC)</option>
-                    <option value="MKT">Marketing số (MKT)</option>
-                    <option value="LOG">Logistics & Chuỗi cung ứng (LOG)</option>
-                  </optgroup>
-                  <optgroup label="Thiết kế">
-                    <option value="GD">Thiết kế mỹ thuật số (GD)</option>
-                    <option value="ID">Thiết kế nội thất (ID)</option>
                   </optgroup>
                   <optgroup label="Ngôn ngữ">
                     <option value="EN">Ngôn ngữ Anh (EN)</option>
-                    <option value="JA">Ngôn ngữ Nhật (JA)</option>
-                    <option value="KO">Ngôn ngữ Hàn (KO)</option>
-                    <option value="CN">Ngôn ngữ Trung (CN)</option>
+                    <option value="JP">Ngôn ngữ Nhật (JP)</option>
+                    <option value="KR">Ngôn ngữ Hàn (KR)</option>
                   </optgroup>
-                  <optgroup label="Khác">
-                    <option value="HM">Quản trị khách sạn (HM)</option>
+                  <optgroup label="Thiết kế & Truyền thông">
+                    <option value="GD">Thiết kế Mỹ thuật số (GD)</option>
                     <option value="MC">Truyền thông đa phương tiện (MC)</option>
-                    <option value="LAW">Luật (LAW)</option>
+                  </optgroup>
+                  <optgroup label="Khối ngành khác">
+                    <option value="HM">Quản trị khách sạn (HM)</option>
+                    <option value="HT">Quản trị dịch vụ du lịch & lữ hành (HT)</option>
                     <option value="AR">Kiến trúc (AR)</option>
                   </optgroup>
                 </select>
+                {errors.major && (
+                  <p className="text-[12px] text-[#D0453A] mt-[3px] px-[10px] py-[6px] bg-[#FDF2F2] rounded-[5px] border-l-[3px] border-l-[#D0453A]">
+                    {errors.major}
+                  </p>
+                )}
               </div>
             </div>
 

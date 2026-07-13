@@ -4,7 +4,7 @@ import { Star, Loader2 } from "lucide-react";
 import ClubCard from "../../components/clubs/ClubCard";
 import ClubSpace from "../../components/clubs/ClubSpace";
 import authApi from "../../services/api/auth/authApi";
-import clubService from "../../services/api/clubs/clubService";
+import clubApi from "../../services/api/clubs/clubApi";
 import { normalizeClub } from "../../hooks/usePublicClubs";
 
 const ROLE_LABEL = {
@@ -34,14 +34,14 @@ export default function MemberMyClubs() {
           return;
         }
 
-        const clubsRaw = await clubService.getAllPublic().catch(() => []);
+        const clubsRaw = await clubApi.getAllPublic().catch(() => []);
         const allClubs = Array.isArray(clubsRaw)
           ? clubsRaw
           : (clubsRaw?.content ?? clubsRaw?.data ?? []);
         let matched = allClubs.find((c) => c.clubID === clubID || c.id === clubID);
 
         if (!matched) {
-          matched = await clubService.getById(clubID);
+          matched = await clubApi.getById(clubID);
         }
 
         if (cancelled) return;

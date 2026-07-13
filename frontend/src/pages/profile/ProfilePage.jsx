@@ -71,7 +71,7 @@ function EditModal({ current, onClose, onSaved }) {
       setSuccess(true);
       setTimeout(() => { onSaved(); onClose(); }, 1200);
     } catch (err) {
-      setErrors({ form: err?.response?.data?.error ?? "Cập nhật thất bại, vui lòng thử lại." });
+      setErrors({ form: err?.response?.data?.message ?? err?.response?.data?.error ?? "Cập nhật thất bại, vui lòng thử lại." });
     } finally {
       setLoading(false);
     }

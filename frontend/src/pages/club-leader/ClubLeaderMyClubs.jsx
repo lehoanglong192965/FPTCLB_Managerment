@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Building2, Loader2 } from "lucide-react";
 import ClubCard from "../../components/clubs/ClubCard";
 import authApi from "../../services/api/auth/authApi";
-import clubService from "../../services/api/clubs/clubService";
+import clubApi from "../../services/api/clubs/clubApi";
 import { useAuth } from "../../contexts/AuthContext";
 import { normalizeClub } from "../../hooks/usePublicClubs";
 
@@ -37,7 +37,7 @@ export default function ClubLeaderMyClubs() {
           return;
         }
 
-        const matched = await clubService.getById(clubID);
+        const matched = await clubApi.getById(clubID);
         if (cancelled) return;
 
         const club = normalizeClub(matched?.data ?? matched);

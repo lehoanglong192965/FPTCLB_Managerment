@@ -4,7 +4,6 @@ import {
   Calendar,
   BookOpen,
   Bell,
-  BarChart2,
   Settings,
   Users,
   Home,
@@ -16,7 +15,6 @@ import {
   ShieldAlert,
   Layers,
   UserPlus,
-  Ban,
   Network,
   ClipboardList,
   PlusCircle,
@@ -57,16 +55,6 @@ export const SIDEBAR_CONFIGS = {
     { key: "emergency-override",  label: "Emergency Override",    icon: ShieldAlert,    path: "/icpdp/emergency-override" },
     { key: "notifications",       label: "Thông Báo",             icon: Bell,           path: "/icpdp/notifications" },
     { key: "profile",            label: "Thông Tin Tài Khoản", icon: UserCircle,     path: "/icpdp/profile" },
-  ],
-
-  CLUB_MANAGER: [
-    { key: "overview",      label: "Tổng Quan",            icon: Home,            path: "/manager",             exact: true },
-    { key: "clubs",         label: "Quản Lý CLB",          icon: Building2,       path: "/manager/clubs" },
-    { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/manager/members" },
-    { key: "events",        label: "Sự Kiện",              icon: Calendar,        path: "/manager/events" },
-    { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/manager/notifications" },
-    { key: "reports",       label: "Báo Cáo",              icon: BarChart2,       path: "/manager/reports" },
-    { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/manager/profile" },
   ],
 
   CLUB_LEADER: [
@@ -115,7 +103,6 @@ export const SIDEBAR_CONFIGS = {
 export const ROLE_LABELS = {
   ADMIN:        "Quản Trị Viên",
   ICPDP:        "Quản Lý CLB (ICPDP)",
-  CLUB_MANAGER: "Quản Lý CLB",
   CLUB_LEADER:  "Trưởng CLB",
   VICE_LEADER:  "Phó Trưởng CLB",
   MEMBER:       "Thành Viên",

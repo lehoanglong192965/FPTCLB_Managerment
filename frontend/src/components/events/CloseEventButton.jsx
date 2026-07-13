@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useNotifications } from '../../contexts/NotificationsContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
-import eventService from '../../services/api/events/eventService';
+import eventApi from '../../services/api/events/eventApi';
 
 const CloseEventButton = ({ eventId, eventStatus, onCloseSuccess }) => {
-    const { addNotification } = useNotifications();
+    const toast = useToast();
     const confirm = useConfirm();
     const [isLoading, setIsLoading] = useState(false);
 
@@ -20,11 +20,11 @@ const CloseEventButton = ({ eventId, eventStatus, onCloseSuccess }) => {
 
         setIsLoading(true);
         try {
-            await eventService.close(eventId);
-            addNotification('Đóng sự kiện thành công. Đã giải ngân điểm cho thành viên!', 'success');
+            await eventApi.close(eventId);
+            toast.success('Đóng sự kiện thành công. Đã giải ngân điểm cho thành viên!');
             if (onCloseSuccess) onCloseSuccess();
         } catch (error) {
-            addNotification(error.response?.data?.message || 'Lỗi khi đóng sự kiện.', 'error');
+            toast.error(error.response?.data?.message || 'Lỗi khi đóng sự kiện.');
         } finally {
             setIsLoading(false);
         }

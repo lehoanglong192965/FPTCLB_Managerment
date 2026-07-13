@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Award, Crown, Loader2, Medal, RefreshCw, Search, Trophy } from "lucide-react";
 import authApi from "../../services/api/auth/authApi";
-import clubService from "../../services/api/clubs/clubService";
+import clubApi from "../../services/api/clubs/clubApi";
 import { TokenService } from "../../services/api/axiosClient";
 import { getInitials, getAvatarColor } from "../../utils/avatar";
 
@@ -110,7 +110,7 @@ async function resolveReadableClubId() {
   }
 
   try {
-    const clubs = await clubService.getMyClubs();
+    const clubs = await clubApi.getMyClubs();
     const list = Array.isArray(clubs) ? clubs : (clubs?.data ?? clubs?.clubs ?? clubs?.content ?? []);
     return pickClubId(list[0]);
   } catch (err) {
@@ -227,8 +227,8 @@ export default function MemberLeaderboardPage() {
         return;
       }
       const [clubRes, rankingRes] = await Promise.allSettled([
-        clubService.getById(activeClubId),
-        clubService.getMemberRankings(activeClubId),
+        clubApi.getById(activeClubId),
+        clubApi.getMemberRankings(activeClubId),
       ]);
 
       if (clubRes.status === "fulfilled") {
@@ -258,9 +258,9 @@ export default function MemberLeaderboardPage() {
   }, []);
 
   const rows = useMemo(
-    () => rankings
-      .map(normalizeRankingItem)
-      .sort((a, b) => a.rank - b.rank || b.totalScore - a.totalScore || a.fullName.localeCompare(b.fullName)),
+    () => [...rankings]
+      .sort((a, b) => Number(b.totalScore ?? 0) - Number(a.totalScore ?? 0) || (a.fullName ?? "").localeCompare(b.fullName ?? ""))
+      .map(normalizeRankingItem),
     [rankings]
   );
 

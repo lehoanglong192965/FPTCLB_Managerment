@@ -18,5 +18,4 @@ export const ROLE_REDIRECT = {
   ALUMNI:       "/alumni",
   CLUB_LEADER:  "/club-leader",
   VICE_LEADER:  "/vice-leader",
-  CLUB_MANAGER: "/manager",
 };

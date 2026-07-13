@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { CheckCircle2, Clock, XCircle, Calendar, MapPin, RefreshCw } from 'lucide-react';
-import guestService from '../../services/api/guest/guestService';
+import guestApi from '../../services/api/guest/guestApi';
 
 const STATUS_CONFIG = {
   CONFIRMED: {
@@ -48,7 +48,7 @@ export default function GuestStatusPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await guestService.getStatus(ref);
+      const res = await guestApi.getStatus(ref);
       setData(res?.data ?? res);
     } catch (err) {
       if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;

@@ -91,14 +91,15 @@ export function ClubDataProvider({ children }) {
     return () => { cancelled = true; };
   }, [clubId]);
 
-  const expelMember = (member) => {
-    memberApi.remove(clubId, member.membershipID)
-      .then(() => {
-        setMembers((prev) => prev.filter((m) => m.membershipID !== member.membershipID));
-      })
-      .catch((err) => {
-        toast.error(err?.response?.data?.message || "Không thể xóa thành viên. Vui lòng thử lại.");
-      });
+  const expelMember = async (member) => {
+    try {
+      await memberApi.remove(clubId, member.membershipID);
+      setMembers((prev) => prev.filter((m) => m.membershipID !== member.membershipID));
+      return true;
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Không thể xóa thành viên. Vui lòng thử lại.");
+      return false;
+    }
   };
 
   const addToBlacklist = async (member, reason) => {
@@ -107,7 +108,7 @@ export function ClubDataProvider({ children }) {
       await memberApi.remove(clubId, member.membershipID);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Không thể khai trừ thành viên. Vui lòng thử lại.");
-      return;
+      return false;
     }
     // Bước 1 thành công → cập nhật UI ngay để tránh trạng thái không nhất quán
     setMembers((prev) => prev.filter((m) => m.membershipID !== member.membershipID));
@@ -128,9 +129,11 @@ export function ClubDataProvider({ children }) {
         },
         ...prev,
       ]);
+      return true;
     } catch (err) {
       // Thành viên đã bị khai trừ khỏi CLB nhưng chưa vào danh sách đen
       toast.error(err?.response?.data?.message || "Đã khai trừ thành viên nhưng không thể thêm vào danh sách đen. Vui lòng thêm thủ công.");
+      return false;
     }
   };
 
@@ -138,8 +141,10 @@ export function ClubDataProvider({ children }) {
     try {
       await blacklistApi.remove(clubId, blacklistID);
       setBlacklist((prev) => prev.filter((b) => b.blacklistID !== blacklistID));
+      return true;
     } catch (err) {
       toast.error(err?.response?.data?.message || "Không thể gỡ khai trừ. Vui lòng thử lại.");
+      return false;
     }
   };
 

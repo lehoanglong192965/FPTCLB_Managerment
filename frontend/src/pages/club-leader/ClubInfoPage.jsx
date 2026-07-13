@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Camera, Save, X, Loader2, Pencil } from "lucide-react";
 import { TokenService } from "../../services/api/axiosClient";
-import clubService from "../../services/api/clubs/clubService";
+import clubApi from "../../services/api/clubs/clubApi";
 import { normalizeClub } from "../../hooks/usePublicClubs";
 import { useToast } from "../../contexts/ToastContext";
 
@@ -94,11 +94,11 @@ export default function ClubInfoPage() {
     if (!clubId) { setError("Không tìm thấy ID câu lạc bộ."); setLoading(false); return; }
     let cancelled = false;
 
-    clubService.getById(clubId)
+    clubApi.getById(clubId)
       .then((raw) => { if (!cancelled) applyRaw(raw); })
       .catch(() => {
         if (cancelled) return;
-        clubService.getAllPublic()
+        clubApi.getAllPublic()
           .then((res) => {
             if (cancelled) return;
             const all = Array.isArray(res) ? res : (res?.content ?? res?.data ?? []);
@@ -127,7 +127,7 @@ export default function ClubInfoPage() {
 
     setUploading(true);
     try {
-      const res = await clubService.uploadImage(file);
+      const res = await clubApi.uploadImage(file);
       const serverUrl = res?.url ?? res?.fileUrl ?? res?.path;
       if (serverUrl) {
         URL.revokeObjectURL(localUrl);
@@ -148,7 +148,7 @@ export default function ClubInfoPage() {
     setSaving(true);
     try {
       const payload = { ...form, clubImage: previewUrl };
-      const raw = await clubService.update(clubId, payload);
+      const raw = await clubApi.update(clubId, payload);
       applyRaw(raw);
       setEditing(false);
       toast.success("Đã lưu thông tin câu lạc bộ.");
