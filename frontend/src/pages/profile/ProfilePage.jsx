@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Mail, Phone, Monitor, ChevronRight, Edit3, Users, X } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import authService from "../../services/api/auth/authService";
+import { getInitials } from "../../utils/avatar";
 
 const MOCK_TIMELINE = [
   { id: 1, status: "active", period: "Hôm nay",       event: "Đăng nhập hệ thống",                    sub: "Xem thông tin CLB"   },
@@ -70,7 +71,7 @@ function EditModal({ current, onClose, onSaved }) {
       setSuccess(true);
       setTimeout(() => { onSaved(); onClose(); }, 1200);
     } catch (err) {
-      setErrors({ form: err?.response?.data?.error ?? "Cập nhật thất bại, vui lòng thử lại." });
+      setErrors({ form: err?.response?.data?.message ?? err?.response?.data?.error ?? "Cập nhật thất bại, vui lòng thử lại." });
     } finally {
       setLoading(false);
     }
@@ -184,7 +185,7 @@ export default function ProfilePage() {
   if (profileLoading) return <div className="loading">Đang tải...</div>;
   if (!profile) return <div className="loading">Không thể tải thông tin tài khoản.</div>;
 
-  const initial = profile.name.split(" ").pop()[0].toUpperCase();
+  const initial = getInitials(profile.name);
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Star, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
-import feedbackService from '../../services/api/feedback/feedbackService';
+import feedbackApi from '../../services/api/feedback/feedbackApi';
 
 const QUESTIONS = [
   { id: 'organization', field: 'organizationRating', label: 'Công tác tổ chức sự kiện' },
@@ -47,11 +47,15 @@ export default function GuestFeedbackPage() {
 
   useEffect(() => {
     if (!token) return undefined;
-    feedbackService.validateGuestToken(token)
-      .then((res) => setTokenInfo(res?.data ?? res))
-      .catch((err) => setTokenInfo({ valid: false, reason: err?.response?.data?.message }))
-      .finally(() => setTokenLoading(false));
-    return undefined;
+    let cancelled = false;
+    feedbackApi.validateGuestToken(token)
+      .then((res) => { if (!cancelled) setTokenInfo(res?.data ?? res); })
+      .catch((err) => {
+        if (cancelled || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+        setTokenInfo({ valid: false, reason: err?.response?.data?.message });
+      })
+      .finally(() => { if (!cancelled) setTokenLoading(false); });
+    return () => { cancelled = true; };
   }, [token]);
 
   const setRating = (id, val) => setRatings((prev) => ({ ...prev, [id]: val }));
@@ -64,7 +68,7 @@ export default function GuestFeedbackPage() {
     setSubmitting(true);
     setError(null);
     try {
-      await feedbackService.submitGuest(token, {
+      await feedbackApi.submitGuest(token, {
         registrationId: tokenInfo?.guestRegistrationId ? undefined : tokenInfo?.registrationId,
         guestRegistrationId: tokenInfo?.guestRegistrationId,
         organizationRating: ratings.organization,

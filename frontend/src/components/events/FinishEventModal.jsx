@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNotifications } from '../../contexts/NotificationsContext';
 import { useToast } from '../../contexts/ToastContext';
-import eventService from '../../services/api/events/eventService';
+import eventApi from '../../services/api/events/eventApi';
 
 const FinishEventModal = ({ eventId, isOpen, onClose, onFinishSuccess }) => {
     const { addNotification } = useNotifications();
@@ -13,7 +13,7 @@ const FinishEventModal = ({ eventId, isOpen, onClose, onFinishSuccess }) => {
     const handleFinish = async () => {
         setIsLoading(true);
         try {
-            await eventService.finish(eventId);
+            await eventApi.finish(eventId);
             addNotification({ title: 'Đã khóa sổ sự kiện', content: 'Hệ thống đang tự động đánh vắng mặt những người không tham gia.' });
             if (onFinishSuccess) onFinishSuccess();
             onClose();

@@ -5,13 +5,8 @@ import { useNotifications } from "../../contexts/NotificationsContext";
 import { TYPE_META, relativeTime } from "../../utils/notificationUtils";
 
 const FILTER_TABS = [
-  { key: "all",      label: "Tất cả"    },
-  { key: "unread",   label: "Chưa đọc"  },
-  { key: "deadline", label: "Hạn chót"  },
-  { key: "approval", label: "Kết quả"   },
-  { key: "event",    label: "Sự kiện"   },
-  { key: "recruit",  label: "Tuyển dụng"},
-  { key: "reminder", label: "Nhắc lịch" },
+  { key: "all",    label: "Tất cả"   },
+  { key: "unread", label: "Chưa đọc" },
 ];
 
 
@@ -39,8 +34,7 @@ export default function MemberNotifications() {
   // Áp dụng filter
   const filtered = useMemo(() => {
     if (activeFilter === "unread") return notifications.filter((n) => !isRead(n.id));
-    if (activeFilter === "all")    return notifications;
-    return notifications.filter((n) => n.type === activeFilter);
+    return notifications;
   }, [notifications, activeFilter, isRead]);
 
   // Nhóm theo ngày

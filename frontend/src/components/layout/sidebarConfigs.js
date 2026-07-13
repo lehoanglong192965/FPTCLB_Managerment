@@ -4,7 +4,6 @@ import {
   Calendar,
   BookOpen,
   Bell,
-  BarChart2,
   Settings,
   Users,
   Home,
@@ -16,7 +15,6 @@ import {
   ShieldAlert,
   Layers,
   UserPlus,
-  Ban,
   Network,
   ClipboardList,
   PlusCircle,
@@ -59,27 +57,25 @@ export const SIDEBAR_CONFIGS = {
     { key: "profile",            label: "Thông Tin Tài Khoản", icon: UserCircle,     path: "/icpdp/profile" },
   ],
 
-  CLUB_MANAGER: [
-    { key: "overview",      label: "Tổng Quan",            icon: Home,            path: "/manager",             exact: true },
-    { key: "clubs",         label: "Quản Lý CLB",          icon: Building2,       path: "/manager/clubs" },
-    { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/manager/members" },
-    { key: "events",        label: "Sự Kiện",              icon: Calendar,        path: "/manager/events" },
-    { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/manager/notifications" },
-    { key: "reports",       label: "Báo Cáo",              icon: BarChart2,       path: "/manager/reports" },
-    { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/manager/profile" },
-  ],
-
   CLUB_LEADER: [
     { key: "overview",      label: "Tổng Quan",            icon: Home,       path: "/club-leader",             exact: true },
     { key: "my-club",       label: "Câu Lạc Bộ Của Tôi",   icon: Building2,  path: "/club-leader/my-club" },
-    { key: "notifications", label: "Thông Báo",            icon: Bell,       path: "/club-leader/notifications" },
+    { key: "clubs",         label: "Khám Phá CLB",         icon: Star,       path: "/club-leader/clubs" },
+    { key: "events",        label: "Khám Phá Sự Kiện",     icon: Calendar,   path: "/club-leader/events" },
+    { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/club-leader/tickets" },
+    { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/club-leader/pending-feedback" },
+    { key: "contributions", label: "Đóng Góp Của Tôi",     icon: Award,      path: "/club-leader/contributions" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle, path: "/club-leader/profile" },
   ],
 
   VICE_LEADER: [
     { key: "overview",      label: "Tổng Quan",            icon: Home,       path: "/vice-leader",             exact: true },
     { key: "my-club",       label: "Câu Lạc Bộ Của Tôi",   icon: Building2,  path: "/vice-leader/my-club" },
-    { key: "notifications", label: "Thông Báo",            icon: Bell,       path: "/vice-leader/notifications" },
+    { key: "clubs",         label: "Khám Phá CLB",         icon: Star,       path: "/vice-leader/clubs" },
+    { key: "events",        label: "Khám Phá Sự Kiện",     icon: Calendar,   path: "/vice-leader/events" },
+    { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/vice-leader/tickets" },
+    { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/vice-leader/pending-feedback" },
+    { key: "contributions", label: "Đóng Góp Của Tôi",     icon: Award,      path: "/vice-leader/contributions" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle, path: "/vice-leader/profile" },
   ],
 
@@ -92,7 +88,6 @@ export const SIDEBAR_CONFIGS = {
     { key: "tickets",        label: "Vé Của Tôi",           icon: ClipboardList,   path: "/member/tickets" },
     { key: "pending-feedback", label: "Feedback Cần Gửi",   icon: MessageSquare,    path: "/member/pending-feedback" },
     { key: "contributions", label: "Đóng Góp Của Tôi",    icon: Award,           path: "/member/contributions" },
-    { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/member/notifications" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/member/profile" },
   ],
 
@@ -108,7 +103,6 @@ export const SIDEBAR_CONFIGS = {
 export const ROLE_LABELS = {
   ADMIN:        "Quản Trị Viên",
   ICPDP:        "Quản Lý CLB (ICPDP)",
-  CLUB_MANAGER: "Quản Lý CLB",
   CLUB_LEADER:  "Trưởng CLB",
   VICE_LEADER:  "Phó Trưởng CLB",
   MEMBER:       "Thành Viên",

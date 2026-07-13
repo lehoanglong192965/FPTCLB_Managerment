@@ -2,7 +2,7 @@ import axiosClient from "../axiosClient";
 
 // ReportController: /api/v1/reports
 // ContributionBatchController handles report approve/reject.
-const reportService = {
+const reportApi = {
 
   // ── LEADER ────────────────────────────────────────────────────────
   // GET /api/v1/reports/event/{eventId}
@@ -42,4 +42,4 @@ const reportService = {
     axiosClient.patch(`/v1/events/${eventId}/report/reject`, { reason }),
 };
 
-export default reportService;
+export default reportApi;

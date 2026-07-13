@@ -15,7 +15,7 @@ import axiosClient from "../axiosClient";
  *
  * Tie-break (BE-COMP-09): ActivityScore → FeedbackScore → ParticipationScore
  */
-const competitionService = {
+const competitionApi = {
 
   // ── DANH SÁCH & CHI TIẾT ─────────────────────────────────────────
   // BE-COMP-01: Lấy danh sách cuộc thi (ICPDP)
@@ -50,9 +50,9 @@ const competitionService = {
     axiosClient.post(`/v1/competitions/${competitionId}/calculate`),
 
   // BE-COMP-10: Phê duyệt kết quả (chuyển sang Approved)
-  // PATCH /api/v1/competitions/:competitionId/approve
+  // POST /api/v1/competitions/:competitionId/approve
   approve: (competitionId) =>
-    axiosClient.patch(`/v1/competitions/${competitionId}/approve`),
+    axiosClient.post(`/v1/competitions/${competitionId}/approve`),
 
   // BE-COMP-10: Công bố kết quả (chuyển sang Published, gửi thông báo)
   // POST /api/v1/competitions/:competitionId/publish
@@ -77,4 +77,4 @@ const competitionService = {
     axiosClient.get(`/v1/competitions/${competitionId}/clubs/${clubId}/scores`),
 };
 
-export default competitionService;
+export default competitionApi;

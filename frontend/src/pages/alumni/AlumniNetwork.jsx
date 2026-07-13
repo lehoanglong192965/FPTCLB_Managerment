@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { Users, Briefcase, MapPin, Loader2 } from "lucide-react";
 import axiosClient from "../../services/api/axiosClient";
-
-const COLORS = ["#E6430A", "#7c3aed", "#059669", "#d97706", "#0284c7"];
+import { getInitials, getAvatarColor } from "../../utils/avatar";
 
 const FALLBACK_ALUMNI = [
   { id: 1, name: "Trần Minh Khoa",  major: "SE",  year: 2022, company: "FPT Software",   role: "Software Engineer",  avatar: "K" },
@@ -30,7 +29,8 @@ export default function AlumniNetwork() {
             year:    a.graduationYear ?? a.year ?? "",
             company: a.company   ?? a.workplace ?? "",
             role:    a.jobTitle  ?? a.role  ?? "",
-            avatar:  (a.fullName ?? a.name ?? "?").split(" ").pop()[0]?.toUpperCase() ?? "?",
+            avatar:  getInitials(a.fullName ?? a.name),
+            avatarColor: getAvatarColor(a.id ?? a.fullName ?? a.name),
           })));
         }
       }
@@ -80,11 +80,13 @@ export default function AlumniNetwork() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {members.map((a, i) => (
+            {members.map((a) => {
+              const color = a.avatarColor ?? getAvatarColor(a.id ?? a.name);
+              return (
               <div key={a.id} className="flex items-center gap-4 px-5 py-3.5 rounded-xl border border-[#f0f0f0] bg-white">
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-base shrink-0"
-                  style={{ background: COLORS[i % COLORS.length] + "18", color: COLORS[i % COLORS.length] }}
+                  style={{ background: color + "18", color }}
                 >
                   {a.avatar}
                 </div>
@@ -102,7 +104,8 @@ export default function AlumniNetwork() {
                   </span>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

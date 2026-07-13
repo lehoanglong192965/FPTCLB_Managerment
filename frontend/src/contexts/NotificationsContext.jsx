@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "./AuthContext";
+import { useToast } from "./ToastContext";
 import notificationUserApi from "../services/api/notification/notificationUserApi";
 
 const loadLS = (key, fallback) => {
@@ -26,6 +27,7 @@ const NotificationsContext = createContext(null);
 
 export function NotificationsProvider({ children }) {
   const { user } = useAuth();
+  const toast = useToast();
   const lsKey = user?.email ? `fptclb_notifications_${user.email}` : null;
 
   const [apiNotifications, setApiNotifications] = useState([]);
@@ -70,12 +72,15 @@ export function NotificationsProvider({ children }) {
       if (lsKey) localStorage.setItem(lsKey, JSON.stringify(updated));
       return updated;
     });
-    notificationUserApi.markRead(id).catch(() => {});
-  }, [lsKey]);
+    notificationUserApi.markRead(id).catch((err) => {
+      toast.error(err?.response?.data?.message ?? "Không thể đánh dấu đã đọc. Vui lòng thử lại.");
+    });
+  }, [lsKey, toast]);
 
   const markAllRead = useCallback(() => {
-    apiNotifications.filter((n) => !n.isRead).forEach((n) => {
-      notificationUserApi.markRead(n.id).catch(() => {});
+    const unread = apiNotifications.filter((n) => !n.isRead);
+    Promise.all(unread.map((n) => notificationUserApi.markRead(n.id))).catch((err) => {
+      toast.error(err?.response?.data?.message ?? "Không thể đánh dấu tất cả đã đọc. Vui lòng thử lại.");
     });
     setApiNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     setPushed((prev) => {
@@ -83,7 +88,7 @@ export function NotificationsProvider({ children }) {
       if (lsKey) localStorage.setItem(lsKey, JSON.stringify(updated));
       return updated;
     });
-  }, [apiNotifications, lsKey]);
+  }, [apiNotifications, lsKey, toast]);
 
   const isRead = useCallback((id) => {
     const apiN = apiNotifications.find((n) => n.id === id);

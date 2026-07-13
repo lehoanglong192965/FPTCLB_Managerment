@@ -93,7 +93,6 @@ import MemberNotifications from "../pages/member/MemberNotifications";
 import MemberMyTickets from "../pages/member/MemberMyTickets";
 import MemberApply from "../pages/member/MemberApply";
 import ClubRegistrationForm from "../pages/icpdp/ClubRegistrationForm";
-import MemberRegistrationHistory from "../pages/member/MemberRegistrationHistory";
 import MemberNotificationSettings from "../pages/member/MemberNotificationSettings";
 
 // Shared
@@ -192,7 +191,7 @@ export default function AppRoutes() {
       <Route
         path="/club-leader"
         element={
-          <PrivateRoute allowedRoles={["CLUB_LEADER", "VICE_LEADER"]}>
+          <PrivateRoute allowedRoles={["CLUB_LEADER"]}>
             <ClubDataProvider>
               <DashboardLayout />
             </ClubDataProvider>
@@ -221,7 +220,14 @@ export default function AppRoutes() {
             <Route path="club-info" element={<ClubInfoPage />} />
           </Route>
         </Route>
-        <Route path="event-create" element={<CreateEventPage />} />
+        <Route element={<ClubManagementLayout />}>
+          <Route path="event-create" element={<CreateEventPage />} />
+        </Route>
+        <Route path="events" element={<MemberEvents />} />
+        <Route path="clubs" element={<MemberClubs />} />
+        <Route path="tickets" element={<MemberMyTickets />} />
+        <Route path="pending-feedback" element={<MemberPendingFeedback />} />
+        <Route path="contributions" element={<MemberMyContributionsPage />} />
         <Route path="notifications" element={<ClubNotifications />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
@@ -257,29 +263,16 @@ export default function AppRoutes() {
             <Route path="club-info" element={<ClubInfoPage />} />
           </Route>
         </Route>
-        <Route path="event-create" element={<CreateEventPage />} />
+        <Route element={<ClubManagementLayout />}>
+          <Route path="event-create" element={<CreateEventPage />} />
+        </Route>
+        <Route path="events" element={<MemberEvents />} />
+        <Route path="clubs" element={<MemberClubs />} />
+        <Route path="tickets" element={<MemberMyTickets />} />
+        <Route path="pending-feedback" element={<MemberPendingFeedback />} />
+        <Route path="contributions" element={<MemberMyContributionsPage />} />
         <Route path="notifications" element={<ClubNotifications />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
-        <Route path="profile" element={<ProfilePage />} />
-      </Route>
-
-      {/* ── Club Manager dashboard ──────────────────────────── */}
-      <Route
-        path="/manager"
-        element={
-          <PrivateRoute allowedRoles={["CLUB_MANAGER"]}>
-            <ClubDataProvider>
-              <DashboardLayout />
-            </ClubDataProvider>
-          </PrivateRoute>
-        }
-      >
-        <Route index element={<ClubOverview />} />
-        <Route path="clubs" element={<IcpdpClubOverview />} />
-        <Route path="members" element={<ClubMemberMgmt />} />
-        <Route path="events" element={<ClubEventsMgmt />} />
-        <Route path="notifications" element={<ClubNotifications />} />
-        <Route path="reports" element={<ClubReports />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 

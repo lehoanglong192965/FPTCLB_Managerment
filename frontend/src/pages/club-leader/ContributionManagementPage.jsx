@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Lock, AlertTriangle, X, Users, Clock, CheckCircle2 } from 'lucide-react';
-import contributionService from '../../services/api/contribution/contributionService';
+import contributionApi from '../../services/api/contribution/contributionApi';
 import { useToast } from '../../contexts/ToastContext';
 
 const CONTRIBUTION_TYPES = [
@@ -117,7 +117,7 @@ function AppealsPanel({ appeals, contributions, onProcess }) {
     if (!form.reason.trim() || !activeAppeal) return;
     setProcessing(activeAppeal.appealID);
     try {
-      await contributionService.resolveAppeal(activeAppeal.appealID, {
+      await contributionApi.resolveAppeal(activeAppeal.appealID, {
         status: form.isAccepted ? 'ACCEPTED' : 'REJECTED',
         resolutionNote: form.reason.trim(),
         contributionType: form.isAccepted ? form.contributionType : undefined,
@@ -268,8 +268,8 @@ export default function ContributionManagementPage() {
     setLoading(true);
     try {
       const [contribRes, batchRes] = await Promise.allSettled([
-        contributionService.getDraft(eventId),
-        contributionService.getBatch(eventId),
+        contributionApi.getDraft(eventId),
+        contributionApi.getBatch(eventId),
       ]);
       if (contribRes.status === 'fulfilled') {
         const raw = contribRes.value;
@@ -277,7 +277,7 @@ export default function ContributionManagementPage() {
        setContributions(data.map(normalizeContribution));
       } else {
         const reason = contribRes.reason;
-        const isCanceled = reason?.code === 'ERR_CANCELED' || reason?.name === 'CanceledError';
+        const isCanceled = isCanceledRequest(reason);
         const is404 = reason?.response?.status === 404;
         if (!isCanceled && !is404) {
           toast.error('Không tải được danh sách đóng góp: ' + (reason?.response?.status ?? reason?.message ?? 'lỗi không xác định'));
@@ -292,7 +292,7 @@ export default function ContributionManagementPage() {
         }
       }
     } catch (err) {
-      if (err?.code !== 'ERR_CANCELED' && err?.name !== 'CanceledError') {
+      if (!isCanceledRequest(err)) {
         toast.error('Không thể tải dữ liệu đóng góp.');
       }
     } finally {
@@ -304,11 +304,11 @@ export default function ContributionManagementPage() {
     const targetId = id ?? batchId;
     if (!targetId) return;
     try {
-      const res = await contributionService.getAppeals(targetId);
+      const res = await contributionApi.getAppeals(targetId);
       const list = Array.isArray(res) ? res : (res?.data ?? []);
        setAppeals(list.filter((appeal) => appeal.status === 'PENDING'));
     } catch (err) {
-      if (err?.code !== 'ERR_CANCELED' && err?.name !== 'CanceledError') {
+      if (!isCanceledRequest(err)) {
         setAppeals([]);
       }
     }
@@ -351,7 +351,7 @@ export default function ContributionManagementPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await contributionService.update(eventId, buildContributionPayload());
+      await contributionApi.update(eventId, buildContributionPayload());
       toast.success('Đã lưu đánh giá đóng góp.');
       fetchData();
     } catch (err) {
@@ -366,9 +366,9 @@ export default function ContributionManagementPage() {
     setFinalizing(true);
     try {
       if (!isFinalized) {
-        await contributionService.update(eventId, buildContributionPayload());
+        await contributionApi.update(eventId, buildContributionPayload());
       }
-      const res = await contributionService.finalize(eventId);
+      const res = await contributionApi.finalize(eventId);
       const batch = res?.data ?? res;
       if (batch?.batchID) setBatchId(batch.batchID);
       if (batch?.status) setBatchStatus(batch.status);
@@ -396,7 +396,10 @@ export default function ContributionManagementPage() {
     setShowFinalizeModal(false);
     setFinalizing(true);
     try {
-      const res = await contributionService.openAppealWindow(eventId);
+      if (!isFinalized) {
+        await contributionApi.update(eventId, buildContributionPayload());
+      }
+      const res = await contributionApi.openAppealWindow(eventId);
       const batch = res?.data ?? res;
       if (batch?.batchID) setBatchId(batch.batchID);
       if (batch?.status) setBatchStatus(batch.status);

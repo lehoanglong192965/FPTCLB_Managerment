@@ -54,6 +54,13 @@ public class Notification {
     @Column(name = "createdAt", columnDefinition = "DATETIME2")
     private LocalDateTime createdAt;
 
+    @Column(name = "actionUrl", length = 500)
+    private String actionUrl;
+
+    @Nationalized
+    @Column(name = "actionLabel", length = 100)
+    private String actionLabel;
+
     @Column(name = "isDeleted")
     private Boolean isDeleted;
 }

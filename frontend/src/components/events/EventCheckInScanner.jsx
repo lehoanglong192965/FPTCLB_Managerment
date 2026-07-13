@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { CheckCircle2, XCircle, User, Search, Users } from 'lucide-react';
-import attendanceService from '../../services/api/attendance/attendanceService';
+import attendanceApi from '../../services/api/attendance/attendanceApi';
 
 const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
     const [query, setQuery] = useState('');
@@ -15,7 +15,7 @@ const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
     const fetchSummary = useCallback(async () => {
         if (!sessionId) return;
         try {
-            const res = await attendanceService.getSessionSummary(sessionId);
+            const res = await attendanceApi.getSessionSummary(sessionId);
             setSummary(res?.data ?? res);
         } catch {
             // summary is optional
@@ -34,7 +34,7 @@ const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
         searchTimeout.current = setTimeout(async () => {
             setSearching(true);
             try {
-                const res = await attendanceService.searchParticipants(sessionId, query.trim());
+                const res = await attendanceApi.searchParticipants(sessionId, query.trim());
                 const list = Array.isArray(res) ? res : (res?.data ?? res?.content ?? []);
                 setParticipants(list);
             } catch {
@@ -61,7 +61,7 @@ const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
         setCheckInLoading(participantKey);
         setResult(null);
         try {
-            await attendanceService.checkIn(sessionId, {
+            await attendanceApi.checkIn(sessionId, {
                 registrationId: guestRegId ? undefined : regId,
                 guestRegistrationId: guestRegId,
                 verificationMethod: 'MANUAL',

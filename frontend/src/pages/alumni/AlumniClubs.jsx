@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { Star, Calendar, Loader2 } from "lucide-react";
-import clubService from "../../services/api/clubs/clubService";
+import clubApi from "../../services/api/clubs/clubApi";
 
 const COLORS = ["#1d4ed8", "#059669", "#7c3aed", "#9a3412", "#0284c7"];
 
 export default function AlumniClubs() {
   const [clubs, setClubs]     = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState("");
 
   useEffect(() => {
-    clubService.getMyClubs()
+    clubApi.getMyClubs()
       .then((res) => {
         const list = Array.isArray(res) ? res : (res?.data ?? res?.clubs ?? []);
         setClubs(list.map((c, i) => ({
@@ -23,6 +24,7 @@ export default function AlumniClubs() {
       })
       .catch((err) => {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        setError(err?.response?.data?.message ?? "Không thể tải danh sách CLB. Vui lòng thử lại.");
       })
       .finally(() => setLoading(false));
   }, []);
@@ -38,6 +40,11 @@ export default function AlumniClubs() {
         {loading ? (
           <div className="flex items-center justify-center py-12 text-gray-400">
             <Loader2 size={24} className="animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center py-12 text-red-400 gap-2">
+            <Star size={40} strokeWidth={1.2} />
+            <p className="text-[13px] m-0">{error}</p>
           </div>
         ) : clubs.length === 0 ? (
           <div className="flex flex-col items-center py-12 text-gray-400 gap-2">

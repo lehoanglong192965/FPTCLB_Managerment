@@ -4,6 +4,7 @@ import { useClubData } from "../../contexts/ClubDataContext";
 import { TokenService } from "../../services/api/axiosClient";
 import applicationApi from "../../services/api/member/applicationApi";
 import { useToast } from "../../contexts/ToastContext";
+import { getInitials } from "../../utils/avatar";
 
 const STATUS_MAP = {
   Submitted:  { label: "Chờ duyệt CV",   cls: "bg-amber-100 text-amber-700" },
@@ -34,7 +35,7 @@ function Avatar({ name }) {
       display: "flex", alignItems: "center", justifyContent: "center",
       fontWeight: 700, fontSize: 16, flexShrink: 0,
     }}>
-      {name?.[0]?.toUpperCase() ?? "?"}
+      {getInitials(name)}
     </div>
   );
 }

@@ -65,7 +65,7 @@ export default function IcpdpRecruitment() {
       toast.success("Đã tạo đợt tuyển dụng mới.");
       load();
     } catch (err) {
-      toast.error(err?.response?.data?.error ?? "Tạo thất bại.");
+      toast.error(err?.response?.data?.message ?? err?.response?.data?.error ?? "Tạo thất bại.");
     } finally {
       setSubmitting(false);
     }
@@ -78,7 +78,7 @@ export default function IcpdpRecruitment() {
       toast.success("Đã xóa đợt tuyển dụng.");
       load();
     } catch (err) {
-      toast.error(err?.response?.data?.error ?? "Xóa thất bại.");
+      toast.error(err?.response?.data?.message ?? err?.response?.data?.error ?? "Xóa thất bại.");
     }
   };
 
@@ -88,7 +88,7 @@ export default function IcpdpRecruitment() {
       await recruitmentApi.sendReminder(cycle.cycleID);
       toast.success(`Đã gửi nhắc cho đợt "${cycle.title}".`);
     } catch (err) {
-      toast.error(err?.response?.data?.error ?? "Gửi nhắc thất bại.");
+      toast.error(err?.response?.data?.message ?? err?.response?.data?.error ?? "Gửi nhắc thất bại.");
     } finally {
       setReminding((p) => ({ ...p, [cycle.cycleID]: false }));
     }

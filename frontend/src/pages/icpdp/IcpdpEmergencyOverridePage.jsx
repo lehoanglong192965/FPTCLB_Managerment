@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShieldAlert, AlertCircle, CheckCircle2 } from 'lucide-react';
-import walkInService from '../../services/api/attendance/walkInService';
-import attendanceService from '../../services/api/attendance/attendanceService';
-import eventService from '../../services/api/events/eventService';
+import walkInApi from '../../services/api/attendance/walkInApi';
+import attendanceApi from '../../services/api/attendance/attendanceApi';
+import eventApi from '../../services/api/events/eventApi';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function IcpdpEmergencyOverridePage() {
@@ -33,8 +33,8 @@ export default function IcpdpEmergencyOverridePage() {
       setLoading(true);
       try {
         const [evRes, sessRes] = await Promise.allSettled([
-          eventService.getEventById(eventId),
-          attendanceService.getSessions(eventId),
+          eventApi.getEventById(eventId),
+          attendanceApi.getSessions(eventId),
         ]);
         if (evRes.status === 'fulfilled') setEvent(evRes.value?.data ?? evRes.value);
         if (sessRes.status === 'fulfilled') {
@@ -74,7 +74,7 @@ export default function IcpdpEmergencyOverridePage() {
     if (!sessionId) return;
     setSubmitting(true);
     try {
-      await walkInService.emergencyOverride(sessionId, {
+      await walkInApi.emergencyOverride(sessionId, {
         fullName:        form.fullName.trim(),
         email:           form.email.trim(),
         phone:           form.phone.trim(),

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Play, Square, Users, ScanLine } from 'lucide-react';
-import eventService from '../../services/api/events/eventService';
-import attendanceService from '../../services/api/attendance/attendanceService';
+import eventApi from '../../services/api/events/eventApi';
+import attendanceApi from '../../services/api/attendance/attendanceApi';
 import EventCheckInScanner from '../../components/events/EventCheckInScanner';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -75,14 +75,14 @@ export default function CheckInPage() {
 
   useEffect(() => {
     if (!eventId) return;
-    eventService.getEventById(eventId)
+    eventApi.getEventById(eventId)
       .then((res) => setEvent(res?.data ?? res))
       .catch(() => {});
   }, [eventId]);
 
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await attendanceService.getSessions(eventId);
+      const res = await attendanceApi.getSessions(eventId);
       const list = Array.isArray(res) ? res : (res?.data ?? []);
       setSessions(list);
       const openSessions = list.filter((s) => s.status === 'OPEN');
@@ -99,7 +99,7 @@ export default function CheckInPage() {
   const handleCreateSession = async (sessionName) => {
     setShowCreateModal(false);
     try {
-      const res = await attendanceService.createSession(eventId, { sessionName });
+      const res = await attendanceApi.createSession(eventId, { sessionName });
       const session = res?.data ?? res;
       toast.success(`Đã tạo phiên "${sessionName}"`);
       fetchSessions();
@@ -112,10 +112,10 @@ export default function CheckInPage() {
   const handleOpenSession = async (session) => {
     setActionLoading(session.sessionId ?? session.id);
     try {
-      await attendanceService.openSession(session.sessionId ?? session.id);
+      await attendanceApi.openSession(session.sessionId ?? session.id);
       toast.success(`Đã mở phiên "${session.sessionName}"`);
       await fetchSessions();
-      setActiveSession((prev) => ({ ...prev, status: 'OPEN' }));
+      setActiveSession({ ...session, status: 'OPEN' });
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Mở phiên thất bại.');
     } finally {
@@ -127,9 +127,9 @@ export default function CheckInPage() {
     if (!(await confirm(`Đóng phiên "${session.sessionName}"? Những ai chưa điểm danh sẽ bị đánh ABSENT.`, { danger: true, confirmLabel: "Đóng phiên" }))) return;
     setActionLoading(session.sessionId ?? session.id);
     try {
-      await attendanceService.closeSession(session.sessionId ?? session.id);
+      await attendanceApi.closeSession(session.sessionId ?? session.id);
       toast.success(`Đã đóng phiên "${session.sessionName}"`);
-      if (activeSession?.sessionId === (session.sessionId ?? session.id)) {
+      if ((activeSession?.sessionId ?? activeSession?.id) === (session.sessionId ?? session.id)) {
         setActiveSession(null);
       }
       fetchSessions();

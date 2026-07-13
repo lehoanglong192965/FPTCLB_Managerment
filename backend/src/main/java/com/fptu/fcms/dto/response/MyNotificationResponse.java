@@ -20,4 +20,6 @@ public class MyNotificationResponse {
     private LocalDateTime createdAt;
     private Boolean isRead;
     private LocalDateTime readAt;
+    private String actionUrl;
+    private String actionLabel;
 }

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, ArrowRight, AlertCircle } from 'lucide-react';
-import guestService from '../../services/api/guest/guestService';
-import eventService from '../../services/api/events/eventService';
+import guestApi from '../../services/api/guest/guestApi';
+import eventApi from '../../services/api/events/eventApi';
 
 export default function GuestRegisterPage() {
   const { eventId } = useParams();
@@ -15,10 +15,15 @@ export default function GuestRegisterPage() {
 
   useEffect(() => {
     if (!eventId) return;
-    eventService.getEventById(eventId)
-      .then((res) => setEvent(res?.data ?? res))
-      .catch(() => setEvent(null))
-      .finally(() => setEventLoading(false));
+    let cancelled = false;
+    eventApi.getEventById(eventId)
+      .then((res) => { if (!cancelled) setEvent(res?.data ?? res); })
+      .catch((err) => {
+        if (cancelled || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+        setEvent(null);
+      })
+      .finally(() => { if (!cancelled) setEventLoading(false); });
+    return () => { cancelled = true; };
   }, [eventId]);
 
   const handleChange = (e) => {
@@ -32,7 +37,7 @@ export default function GuestRegisterPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await guestService.register(Number(eventId), {
+      const res = await guestApi.register(Number(eventId), {
         fullName: form.fullName.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
@@ -51,7 +56,7 @@ export default function GuestRegisterPage() {
     }
   };
 
-  const availableSlots = event ? (event.maxParticipants - (event.registeredCount ?? 0)) : null;
+  const availableSlots = event ? (event.maxParticipants - (event.currentParticipants ?? 0)) : null;
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">

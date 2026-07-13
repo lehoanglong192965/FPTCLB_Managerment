@@ -1,20 +1,27 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trophy, Plus, ChevronRight, Calendar, X, AlertCircle } from 'lucide-react';
-import competitionService from '../../services/api/competitions/competitionService';
+import competitionApi from '../../services/api/competitions/competitionApi';
+import { useToast } from '../../contexts/ToastContext';
 
 const STATUS_BADGE = {
-  Draft:     'bg-gray-100 text-gray-600',
-  Approved:  'bg-blue-100 text-blue-700',
-  Published: 'bg-green-100 text-green-700',
-  Closed:    'bg-red-100 text-red-600',
+  DRAFT:      'bg-gray-100 text-gray-600',
+  CALCULATED: 'bg-yellow-100 text-yellow-700',
+  APPROVED:   'bg-blue-100 text-blue-700',
+  PUBLISHED:  'bg-green-100 text-green-700',
+  REJECTED:   'bg-red-100 text-red-600',
+  OPEN:       'bg-cyan-100 text-cyan-700',
+  CLOSED:     'bg-red-100 text-red-600',
 };
 
 const STATUS_LABEL = {
-  Draft:     'Nháp',
-  Approved:  'Đã duyệt',
-  Published: 'Đã công bố',
-  Closed:    'Đã kết thúc',
+  DRAFT:      'Nháp',
+  CALCULATED: 'Đã tính điểm',
+  APPROVED:   'Đã duyệt',
+  PUBLISHED:  'Đã công bố',
+  REJECTED:   'Bị từ chối',
+  OPEN:       'Đang mở',
+  CLOSED:     'Đã kết thúc',
 };
 
 function CreateModal({ onClose, onCreate }) {
@@ -30,7 +37,7 @@ function CreateModal({ onClose, onCreate }) {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await competitionService.create({
+      const res = await competitionApi.create({
         title: title.trim(),
         semesterId: semesterId.trim(),
         description: description.trim(),
@@ -118,18 +125,22 @@ function CreateModal({ onClose, onCreate }) {
 
 export default function IcpdpCompetitionList() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [competitions, setCompetitions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
   const load = () => {
     setLoading(true);
-    competitionService.getAll()
+    competitionApi.getAll()
       .then((res) => {
         const list = Array.isArray(res) ? res : (res?.data ?? res?.content ?? []);
         setCompetitions(list);
       })
-      .catch(console.error)
+      .catch((err) => {
+        if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+        toast.error(err?.response?.data?.message ?? 'Không thể tải danh sách cuộc thi.');
+      })
       .finally(() => setLoading(false));
   };
 

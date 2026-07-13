@@ -8,10 +8,9 @@ const CLUB_ROLE_TO_APP_ROLE = {
   1: "CLUB_LEADER",
   2: "VICE_LEADER",
   3: "MEMBER",
-  5: "CLUB_MANAGER",
 };
 
-const MANAGED_CLUB_ROLES = new Set(["CLUB_LEADER", "VICE_LEADER", "CLUB_MANAGER"]);
+const MANAGED_CLUB_ROLES = new Set(["CLUB_LEADER", "VICE_LEADER"]);
 
 async function refreshManagedClubSession(savedUser) {
   if (!MANAGED_CLUB_ROLES.has(savedUser?.role)) return savedUser;

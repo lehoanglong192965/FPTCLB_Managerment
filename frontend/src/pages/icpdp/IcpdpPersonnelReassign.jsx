@@ -3,7 +3,7 @@ import {
   AlertOctagon, ChevronDown, UserCheck, ArrowRightLeft,
   CheckCircle, Search, Loader2,
 } from "lucide-react";
-import clubService from "../../services/api/clubs/clubService";
+import clubApi from "../../services/api/clubs/clubApi";
 import memberApi from "../../services/api/clubs/memberApi";
 import icpdpStatsApi from "../../services/api/icpdp/statsApi";
 import { useToast } from "../../contexts/ToastContext";
@@ -37,7 +37,7 @@ export default function IcpdpPersonnelReassign() {
   const [search, setSearch]       = useState("");
 
   useEffect(() => {
-    clubService.getAll()
+    clubApi.getAll()
       .then((res) => {
         const list = Array.isArray(res) ? res : (res?.data ?? res?.content ?? []);
         setClubs(list.map((c) => ({
@@ -68,7 +68,7 @@ export default function IcpdpPersonnelReassign() {
       })
       .catch((err) => {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
-        console.warn("[IcpdpPersonnelReassign] history fetch failed");
+        toast.error(err?.response?.data?.message ?? "Không thể tải lịch sử điều động.");
       })
       .finally(() => setLoadingHistory(false));
   }, []);
@@ -86,8 +86,12 @@ export default function IcpdpPersonnelReassign() {
           role:      (m.clubRoleName ?? m.roleName ?? "member").toLowerCase(),
         })));
       })
-      .catch(() => setClubMembers([]));
-  }, [form.clubId]);
+      .catch((err) => {
+        setClubMembers([]);
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        toast.error(err?.response?.data?.message ?? "Không thể tải danh sách thành viên CLB.");
+      });
+  }, [form.clubId, toast]);
 
   const selectedClub = clubs.find((c) => c.id === Number(form.clubId));
 

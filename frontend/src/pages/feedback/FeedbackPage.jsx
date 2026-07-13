@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Star, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
-import feedbackService from '../../services/api/feedback/feedbackService';
+import feedbackApi from '../../services/api/feedback/feedbackApi';
 
 // 4 questions matching FeedbackSubmitRequest fields
 const QUESTIONS = [
@@ -49,14 +49,20 @@ export default function FeedbackPage() {
 
   useEffect(() => {
     if (!eventId) return;
-    feedbackService.checkEligibility(eventId)
+    let cancelled = false;
+    feedbackApi.checkEligibility(eventId)
       .then((res) => {
+        if (cancelled) return;
         const data = res?.data ?? res;
         setEligibility(data);
         if (data?.registrationId) setRegistrationId(data.registrationId);
       })
-      .catch(() => setEligibility({ eligible: false, reason: 'Không thể xác minh tư cách đánh giá.' }))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (cancelled || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+        setEligibility({ eligible: false, reason: 'Không thể xác minh tư cách đánh giá.' });
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [eventId]);
 
   const setRating = (id, val) => setRatings((p) => ({ ...p, [id]: val }));
@@ -68,7 +74,7 @@ export default function FeedbackPage() {
     setSubmitting(true);
     setError(null);
     try {
-      await feedbackService.submit(eventId, {
+      await feedbackApi.submit(eventId, {
         registrationId,
         organizationRating: ratings.organization,
         contentRating:      ratings.content,

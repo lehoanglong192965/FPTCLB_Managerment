@@ -100,7 +100,7 @@ function ToastItem({ toast: t, onDismiss }) {
 
   return (
     <div
-      className={`flex items-start gap-3 w-80 max-w-full p-4 rounded-xl border shadow-lg ${v.bg} ${v.border} transition-all`}
+      className={`pointer-events-auto flex items-start gap-3 w-80 max-w-full p-4 rounded-xl border shadow-xl ${v.bg} ${v.border} transition-all`}
       role="alert"
     >
       <Icon size={20} className={`flex-shrink-0 mt-0.5 ${v.icon_color}`} />
@@ -123,14 +123,14 @@ function ToastItem({ toast: t, onDismiss }) {
   );
 }
 
-/* ── Container (góc dưới phải) ──────────────────────────────── */
+/* ── Container (giữa màn hình) ──────────────────────────────── */
 
 function ToastContainer({ toasts, onDismiss }) {
   if (toasts.length === 0) return null;
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 items-end"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-2 pointer-events-none"
       aria-live="polite"
     >
       {toasts.map((t) => (
