@@ -20,7 +20,7 @@ import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.output.Response;
+import dev.langchain4j.model.output.TokenUsage;
 import dev.langchain4j.rag.content.Content;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
@@ -159,6 +159,10 @@ public class AIChatServiceImpl implements AIChatService {
         // 8. Gọi Gemini Chat Model
         dev.langchain4j.model.chat.response.ChatResponse modelResponse = geminiChatModel.chat(messages);
         String answer = modelResponse.aiMessage().text();
+        TokenUsage tokenUsage = modelResponse.tokenUsage();
+        int tokensUsed = tokenUsage != null && tokenUsage.totalTokenCount() != null
+                ? tokenUsage.totalTokenCount()
+                : 0;
 
         // 9. Map citations từ metadata của TextSegment
         List<CitationDto> citations = new ArrayList<>();
@@ -207,6 +211,7 @@ public class AIChatServiceImpl implements AIChatService {
         auditLog.setUserID(userId);
         auditLog.setUserPrompt(userMessage);
         auditLog.setAiResponse(answer);
+        auditLog.setTokensUsed(tokensUsed);
         auditLog.setStatus("Success");
         auditLog.setCitationsJson(citationsJson);
         auditLog.setCreatedAt(LocalDateTime.now());
@@ -247,6 +252,7 @@ public class AIChatServiceImpl implements AIChatService {
         auditLog.setUserID(userId);
         auditLog.setUserPrompt(userPrompt);
         auditLog.setAiResponse(fallbackMessage);
+        auditLog.setTokensUsed(0);
         auditLog.setStatus("Fallback");
         auditLog.setCitationsJson("[]");
         auditLog.setCreatedAt(LocalDateTime.now());

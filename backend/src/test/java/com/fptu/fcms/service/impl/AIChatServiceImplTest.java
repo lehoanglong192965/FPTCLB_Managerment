@@ -18,6 +18,7 @@ import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
+import dev.langchain4j.model.output.TokenUsage;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
 import org.junit.jupiter.api.BeforeEach;
@@ -115,6 +116,7 @@ class AIChatServiceImplTest {
         assertThat(savedLog.getUserPrompt()).isEqualTo("Làm thế nào để đăng ký CLB?");
         assertThat(savedLog.getAiResponse()).isEqualTo("Xin lỗi, mình chưa tìm thấy thông tin.");
         assertThat(savedLog.getCitationsJson()).isEqualTo("[]");
+        assertThat(savedLog.getTokensUsed()).isZero();
     }
 
     // ─────────────────────── TC3-09 History ───────────────────────
@@ -150,6 +152,7 @@ class AIChatServiceImplTest {
         // Create actual gemini chat response using builder to avoid mocking final class on Java 26
         dev.langchain4j.model.chat.response.ChatResponse mockChatResponse = dev.langchain4j.model.chat.response.ChatResponse.builder()
                 .aiMessage(AiMessage.from("Bạn cần làm 2 bước."))
+                .tokenUsage(new TokenUsage(11, 7))
                 .build();
         when(geminiChatModel.chat(anyList())).thenReturn(mockChatResponse);
 
@@ -192,6 +195,11 @@ class AIChatServiceImplTest {
         // Let's verify that the last memory message is our new user question.
         ChatMessage lastMessage = sentMessages.get(sentMessages.size() - 1);
         assertThat(((UserMessage) lastMessage).singleText()).isEqualTo("Làm thế nào để đăng ký CLB?");
+
+        ArgumentCaptor<AIChatAuditLog> logCaptor = ArgumentCaptor.forClass(AIChatAuditLog.class);
+        verify(auditLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getStatus()).isEqualTo("Success");
+        assertThat(logCaptor.getValue().getTokensUsed()).isEqualTo(18);
     }
 
     private UserPrincipal studentUser() {

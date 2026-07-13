@@ -32,8 +32,8 @@ public class AIChatAuditLog {
     @Column(name = "intentMatched")
     private String intentMatched;
 
-    @Column(name = "tokensUsed")
-    private Integer tokensUsed;
+    @Column(name = "tokensUsed", nullable = false)
+    private int tokensUsed;
 
     @Column(name = "status", nullable = false, length = 20)
     private String status = "Success";
