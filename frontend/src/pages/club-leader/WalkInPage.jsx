@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, UserPlus, AlertCircle } from 'lucide-react';
-import walkInService from '../../services/api/attendance/walkInService';
-import attendanceService from '../../services/api/attendance/attendanceService';
+import walkInApi from '../../services/api/attendance/walkInApi';
+import attendanceApi from '../../services/api/attendance/attendanceApi';
 import { useToast } from '../../contexts/ToastContext';
 
 const TABS = [
@@ -29,7 +29,7 @@ export default function WalkInPage() {
 
   useEffect(() => {
     if (!eventId) return;
-    attendanceService.getSessions(eventId)
+    attendanceApi.getSessions(eventId)
       .then((sessions) => {
         const open = sessions.find((s) => s.status === 'OPEN');
         if (open) {
@@ -46,7 +46,7 @@ export default function WalkInPage() {
     if (!studentIdOrEmail.trim() || fptuLoading || !sessionId) return;
     setFptuLoading(true);
     try {
-      await walkInService.registerFptuWalkIn(sessionId, { studentIdOrEmail: studentIdOrEmail.trim() });
+      await walkInApi.registerFptuWalkIn(sessionId, { studentIdOrEmail: studentIdOrEmail.trim() });
       toast.success('Walk-in thành công!');
       setStudentIdOrEmail('');
     } catch (err) {
@@ -61,7 +61,7 @@ export default function WalkInPage() {
     if (guestLoading || !sessionId) return;
     setGuestLoading(true);
     try {
-      await walkInService.registerGuestWalkIn(sessionId, {
+      await walkInApi.registerGuestWalkIn(sessionId, {
         fullName: guestForm.fullName.trim(),
         email:    guestForm.email.trim(),
         phone:    guestForm.phone.trim(),

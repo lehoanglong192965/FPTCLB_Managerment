@@ -36,11 +36,10 @@ export default function OAuthRedirect() {
             const res = await authApi.getMyClubRole();
             let clubId = null;
             if (res?.clubID) {
-              // clubRoleID: 1=Leader, 2=ViceLeader, 3=Member (thường), 5=ClubManager
+              // clubRoleID: 1=Leader, 2=ViceLeader, 3=Member (thường)
               if (res.clubRoleID === 1) { role = "CLUB_LEADER";  clubId = res.clubID; }
               else if (res.clubRoleID === 2) { role = "VICE_LEADER"; clubId = res.clubID; }
-              else if (res.clubRoleID === 5) { role = "CLUB_MANAGER"; clubId = res.clubID; }
-              // clubRoleID === 3 hoặc 4 = Member thường → giữ nguyên role "MEMBER"
+              // clubRoleID === 3 = Member thường → giữ nguyên role "MEMBER"
             }
             TokenService.save({ access_token: token, refresh_token: null, role, clubId });
           } catch (e) {

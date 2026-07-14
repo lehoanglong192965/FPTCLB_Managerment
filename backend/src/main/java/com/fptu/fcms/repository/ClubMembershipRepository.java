@@ -245,4 +245,18 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
             @Param("clubID") Integer clubID,
             @Param("semesterID") Integer semesterID
     );
+
+    @Query("SELECT DISTINCT m.userID FROM ClubMembership m, UserAccount u " +
+            "WHERE m.userID = u.userID " +
+            "AND m.clubID = :clubID " +
+            "AND m.semesterID = :semesterID " +
+            "AND m.clubRoleID NOT IN :excludedRoleIDs " +
+            "AND m.isDeleted = false " +
+            "AND u.isDeleted = false " +
+            "AND u.accountStatus = 'Active'")
+    List<Integer> findActiveRecipientUserIdsByClubIdExcludingRoles(
+            @Param("clubID") Integer clubID,
+            @Param("semesterID") Integer semesterID,
+            @Param("excludedRoleIDs") java.util.Collection<Integer> excludedRoleIDs
+    );
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, ChevronRight, AlertCircle, CheckCircle, Clock, FileText } from 'lucide-react';
-import contributionService from '../../services/api/contribution/contributionService';
+import contributionApi from '../../services/api/contribution/contributionApi';
 
 const CONTRIBUTION_LABELS = {
   CORE_TEAM: 'Ban tổ chức chính',
@@ -73,18 +73,22 @@ export default function MemberMyContributionsPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let ignore = false;
     (async () => {
       setLoading(true);
+      setError('');
       try {
-        const res = await contributionService.getMine();
+        const res = await contributionApi.getMine();
         const data = Array.isArray(res) ? res : (res?.data ?? []);
         const sorted = [...data].sort((a, b) => new Date(b.eventStartDate || 0) - new Date(a.eventStartDate || 0));
         if (!ignore) setItems(sorted);
-      } catch {
-        if (!ignore) setItems([]);
+      } catch (err) {
+        if (ignore || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+        setItems([]);
+        setError(err?.response?.data?.message ?? 'Không thể tải danh sách đóng góp. Vui lòng thử lại.');
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -109,7 +113,12 @@ export default function MemberMyContributionsPage() {
         </p>
       </div>
 
-      {items.length === 0 ? (
+      {error ? (
+        <div className="bg-white rounded-xl border border-red-100 py-16 text-center">
+          <AlertCircle size={36} className="mx-auto text-red-300 mb-3" />
+          <p className="text-sm text-red-500">{error}</p>
+        </div>
+      ) : items.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 py-16 text-center">
           <FileText size={36} className="mx-auto text-gray-300 mb-3" />
           <p className="text-sm text-gray-500">Bạn chưa có điểm đóng góp sự kiện nào.</p>

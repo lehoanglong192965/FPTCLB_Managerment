@@ -15,7 +15,7 @@ import axiosClient from "../axiosClient";
  *
  * Note: appeals use batchId/appealId, NOT eventId/userId.
  */
-const contributionService = {
+const contributionApi = {
 
   // ── MEMBER — ĐÓNG GÓP CỦA TÔI ─────────────────────────────────
   getMine: () =>
@@ -65,4 +65,4 @@ const contributionService = {
     axiosClient.patch(`/v1/contribution-appeals/${appealId}/resolve`, payload),
 };
 
-export default contributionService;
+export default contributionApi;

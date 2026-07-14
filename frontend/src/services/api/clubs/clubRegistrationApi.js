@@ -7,10 +7,7 @@ const clubRegistrationApi = {
       params: status ? { status } : {},
     }),
   getMyRegistrations: () => axiosClient.get("/clubs/registrations/my"),
-  getPending: () => axiosClient.get("/clubs/registrations/pending"),
   getById: (id) => axiosClient.get(`/clubs/registrations/${id}`),
-  review: (id, status, icpdpComment) =>
-    axiosClient.put(`/clubs/registrations/${id}/review`, { status, icpdpComment }),
   uploadCardImage: (file) => {
     const formData = new FormData();
     formData.append("file", file);

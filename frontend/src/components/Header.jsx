@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, NavLink } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext";
-import { ROLE_REDIRECT } from "../../constants/roles";
+import { useAuth } from "../contexts/AuthContext";
+import { ROLE_REDIRECT } from "../constants/roles";
+import { getInitials } from "../utils/avatar";
 
 export default function Header() {
   const [scrolled, setScrolled]   = useState(false);
@@ -56,7 +57,7 @@ export default function Header() {
 
       {/* Nav links */}
       {!isAuthPage && (
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className="hidden sm:flex items-center gap-1">
           {[
             { to: "/",       label: "Trang chủ" },
             { to: "/clubs",  label: "Câu lạc bộ" },
@@ -94,7 +95,7 @@ export default function Header() {
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[13px] font-bold flex-shrink-0"
                 style={{ background: "linear-gradient(135deg, #F37021, #ff9a44)" }}
               >
-                {(user.fullName || user.email || "U")[0].toUpperCase()}
+                {getInitials(user.fullName || user.email)}
               </div>
               <span className="text-[13.5px] font-semibold text-gray-700 max-w-[120px] truncate hidden sm:block">
                 {user.fullName || user.email}

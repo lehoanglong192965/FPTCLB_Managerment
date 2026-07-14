@@ -2,7 +2,7 @@ import axiosClient from "../axiosClient";
 
 // WalkInController: /api/v1/attendance-sessions/{sessionId}/walk-ins
 // All methods require sessionId (not eventId).
-const walkInService = {
+const walkInApi = {
 
   // POST /api/v1/attendance-sessions/{sessionId}/walk-ins/fptu
   // WalkInFptuRequest: studentIdOrEmail (@NotBlank)
@@ -24,4 +24,4 @@ const walkInService = {
     }),
 };
 
-export default walkInService;
+export default walkInApi;

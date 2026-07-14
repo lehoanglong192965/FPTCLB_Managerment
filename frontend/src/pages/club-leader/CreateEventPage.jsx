@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, Check,
   Send, CalendarDays, FileText, CheckCircle2, ImagePlus, UploadCloud, Globe, Lock, X,
 } from "lucide-react";
-import eventService from "../../services/api/events/eventService";
+import eventApi from "../../services/api/events/eventApi";
 import semesterApi from "../../services/api/admin/semesterApi";
 import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
 import clubRegistrationApi from "../../services/api/clubs/clubRegistrationApi";
@@ -43,8 +43,12 @@ function Label({ children, required }) {
 function FieldError({ msg }) {
   if (!msg) return null;
   return (
-    <p style={{ fontSize: 12, color: "#dc2626", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
-      <span>⚠</span> {msg}
+    <p style={{
+      fontSize: 12, color: "#D0453A", marginTop: 4,
+      padding: "6px 10px", background: "#FDF2F2", borderRadius: 5,
+      borderLeft: "3px solid #D0453A", lineHeight: 1.4,
+    }}>
+      {msg}
     </p>
   );
 }
@@ -107,7 +111,7 @@ const getImageUrl = (url) => {
   return getServerOrigin() + url;
 };
 
-function BannerUpload({ value, onChange }) {
+function BannerUpload({ value, onChange, error }) {
   const toast = useToast();
   const fileRef = useRef(null);
   const [dragging, setDragging] = useState(false);
@@ -130,7 +134,7 @@ function BannerUpload({ value, onChange }) {
 
   return (
     <div>
-      <Label>Banner sự kiện</Label>
+      <Label required>Banner sự kiện</Label>
       {uploading ? (
         <div style={{ borderRadius: 12, border: "1.5px solid #e5e7eb", height: 200, display: "flex", alignItems: "center", justifyContent: "center", background: "#fafafa", flexDirection: "column", gap: 8 }}>
           <UploadCloud size={24} style={{ color: "#E6430A" }} />
@@ -158,9 +162,9 @@ function BannerUpload({ value, onChange }) {
           onDrop={(e) => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]); }}
           onClick={() => fileRef.current?.click()}
           style={{
-            border: `2px dashed ${dragging ? "#E6430A" : "#d1d5db"}`,
+            border: `2px dashed ${dragging ? "#E6430A" : (error ? "#f87171" : "#d1d5db")}`,
             borderRadius: 12, padding: "36px 20px", textAlign: "center",
-            background: dragging ? "#FFF3EE" : "#fafafa", cursor: "pointer", transition: "all .15s",
+            background: dragging ? "#FFF3EE" : (error ? "#fff5f5" : "#fafafa"), cursor: "pointer", transition: "all .15s",
           }}
         >
           <UploadCloud size={30} style={{ color: dragging ? "#E6430A" : "#9ca3af", margin: "0 auto 10px", display: "block" }} />
@@ -172,6 +176,7 @@ function BannerUpload({ value, onChange }) {
       )}
       <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
         onChange={(e) => handleFile(e.target.files[0])} />
+      <FieldError msg={error} />
     </div>
   );
 }
@@ -220,7 +225,7 @@ function InternalToggle({ value, onChange }) {
 function Step1({ form, onChange, errors }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-      <BannerUpload value={form.banner} onChange={(v) => onChange("banner", v)} />
+      <BannerUpload value={form.banner} onChange={(v) => onChange("banner", v)} error={errors.banner} />
 
       <div>
         <Label required>Tên sự kiện</Label>
@@ -417,6 +422,8 @@ function Step3({ form }) {
 function validate(step, form) {
   const e = {};
   if (step === 1) {
+    if (!form.banner)
+      e.banner = "Vui lòng tải lên banner sự kiện.";
     if (!form.name.trim() || form.name.trim().length < 5)
       e.name = "Tên sự kiện phải có ít nhất 5 ký tự.";
     if (!form.desc.trim() || form.desc.trim().length < 30)
@@ -488,7 +495,7 @@ export default function CreateEventPage() {
     setSubmitting(true);
     setSubmitError("");
     try {
-      await eventService.propose({
+      await eventApi.propose({
         clubID:        clubId,
         semesterID:    semesterId,
         eventCode:     `EVT-${clubId}-${Date.now()}`,
@@ -549,7 +556,7 @@ export default function CreateEventPage() {
               Tạo sự kiện khác
             </button>
             <button
-              onClick={() => navigate("../events", { relative: "path" })}
+              onClick={() => navigate("../my-club/events", { relative: "path" })}
               style={{
                 padding: "10px 24px", borderRadius: 10, border: "none",
                 background: "#E6430A", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",

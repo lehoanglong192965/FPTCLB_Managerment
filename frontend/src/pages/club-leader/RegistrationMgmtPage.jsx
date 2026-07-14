@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Users, Search, CheckCircle2, XCircle, Trash2, X } from 'lucide-react';
-import eventService from '../../services/api/events/eventService';
+import eventApi from '../../services/api/events/eventApi';
 import { useToast } from '../../contexts/ToastContext';
 
 const STATUS_CFG = {
@@ -13,6 +13,8 @@ const STATUS_CFG = {
   CANCELLED: { label: 'Đã hủy',     color: 'text-gray-600',   bg: 'bg-gray-100'   },
   WAITLISTED:{ label: 'Danh sách chờ', color: 'text-blue-700', bg: 'bg-blue-100'  },
 };
+
+const isPendingApproval = (status) => status === 'PENDING_APPROVAL' || status === 'PENDING';
 
 const TABS = [
   { id: '',          label: 'Tất cả'    },
@@ -82,7 +84,7 @@ export default function RegistrationMgmtPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await eventService.listRegistrations(eventId, {});
+      const res = await eventApi.listRegistrations(eventId, {});
       const raw = Array.isArray(res) ? res : (res?.content ?? res?.data ?? []);
       const data = raw.map((r) => ({
         ...r,
@@ -109,7 +111,7 @@ export default function RegistrationMgmtPage() {
   const handleApprove = async (reg) => {
     setActionLoading(reg.registrationId ?? reg.id);
     try {
-      await eventService.approveRegistration(eventId, reg.registrationId ?? reg.id);
+      await eventApi.approveRegistration(eventId, reg.registrationId ?? reg.id);
       toast.success(`Đã duyệt đăng ký của ${reg.fullName || reg.name}`);
       fetchRegistrations();
     } catch (err) {
@@ -124,7 +126,7 @@ export default function RegistrationMgmtPage() {
     setRejectTarget(null);
     setActionLoading(id);
     try {
-      await eventService.rejectRegistration(eventId, id, reason);
+      await eventApi.rejectRegistration(eventId, id, reason);
       toast.success(`Đã từ chối đăng ký của ${name}`);
       fetchRegistrations();
     } catch (err) {
@@ -137,7 +139,7 @@ export default function RegistrationMgmtPage() {
   const handleCancel = async (reg) => {
     setActionLoading(reg.registrationId ?? reg.id);
     try {
-      await eventService.cancelRegistration(reg.registrationId ?? reg.id);
+      await eventApi.cancelRegistration(reg.registrationId ?? reg.id);
       toast.success('Đã huỷ đăng ký.');
       fetchRegistrations();
     } catch (err) {
@@ -148,7 +150,10 @@ export default function RegistrationMgmtPage() {
   };
 
   const filtered = registrations.filter((r) => {
-    if (tab && r.status !== tab) return false;
+    if (tab) {
+      const matchTab = tab === 'PENDING_APPROVAL' ? isPendingApproval(r.status) : r.status === tab;
+      if (!matchTab) return false;
+    }
     const q = search.toLowerCase();
     return (
       (r.fullName || r.name || '').toLowerCase().includes(q) ||
@@ -160,7 +165,7 @@ export default function RegistrationMgmtPage() {
 
   const counts = {
     '': registrations.length,
-    PENDING_APPROVAL: registrations.filter((r) => r.status === 'PENDING_APPROVAL').length,
+    PENDING_APPROVAL: registrations.filter((r) => isPendingApproval(r.status)).length,
     CONFIRMED: registrations.filter((r) => r.status === 'CONFIRMED').length,
     REJECTED:  registrations.filter((r) => r.status === 'REJECTED').length,
   };
@@ -268,7 +273,7 @@ export default function RegistrationMgmtPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        {!isGuest && r.status === 'PENDING_APPROVAL' && (
+                        {!isGuest && isPendingApproval(r.status) && (
                           <>
                             <button
                               onClick={() => handleApprove(r)}
@@ -288,7 +293,7 @@ export default function RegistrationMgmtPage() {
                             </button>
                           </>
                         )}
-                        {!isGuest && (r.status === 'CONFIRMED' || r.status === 'PENDING_APPROVAL') && (
+                        {!isGuest && (r.status === 'CONFIRMED' || isPendingApproval(r.status)) && (
                           <button
                             onClick={() => handleCancel(r)}
                             disabled={isLoading}

@@ -37,8 +37,8 @@ public interface EventService {
     void closeEvent(Integer eventId);
     List<ContributionDTO> getEventContributions(Integer eventId);
     void saveEventContributions(Integer eventId, List<ContributionDTO> contributions);
-    void approveEvent(Integer eventId);
-    void rejectEvent(Integer eventId, String reason);
+    void approveEvent(Integer eventId, UserPrincipal currentUser);
+    void rejectEvent(Integer eventId, String reason, UserPrincipal currentUser);
     void openRegistration(Integer eventId, UserPrincipal currentUser);
     void closeRegistration(Integer eventId, UserPrincipal currentUser);
     void updateEvent(Integer eventId, com.fptu.fcms.dto.request.UpdateEventRequest request);

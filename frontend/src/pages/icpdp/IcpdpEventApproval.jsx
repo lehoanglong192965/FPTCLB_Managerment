@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Calendar, MapPin, Clock, ChevronRight, Search } from "lucide-react";
-import eventService from "../../services/api/events/eventService";
+import eventApi from "../../services/api/events/eventApi";
 import { useToast } from "../../contexts/ToastContext";
 import { getServerOrigin } from "../../services/api/axiosClient";
 
@@ -242,8 +242,8 @@ export default function IcpdpEventApproval() {
   const fetchEvents = () => {
     setLoading(true);
     Promise.all([
-      eventService.getPendingForIcpdp().catch(() => []),
-      eventService.getApprovedEvents().catch(() => []),
+      eventApi.getPendingForIcpdp().catch(() => []),
+      eventApi.getApprovedEvents().catch(() => []),
     ])
       .then(([pendingRes, approvedRes]) => {
         const pendingList   = Array.isArray(pendingRes)  ? pendingRes  : (pendingRes?.data  ?? []);
@@ -290,7 +290,7 @@ export default function IcpdpEventApproval() {
 
   const approve = async (id) => {
     try {
-      await eventService.approveForIcpdp(id);
+      await eventApi.approveForIcpdp(id);
       setEvents((prev) =>
         prev.map((e) => e.id === id ? { ...e, status: "approved", statusLabel: "Đã phê duyệt" } : e)
       );
@@ -301,15 +301,15 @@ export default function IcpdpEventApproval() {
 
   const reject = async (id, reason) => {
     try {
-      await eventService.rejectForIcpdp(id, reason);
+      await eventApi.rejectForIcpdp(id, reason);
       setEvents((prev) =>
         prev.map((e) => e.id === id ? { ...e, status: "rejected", statusLabel: "Đã từ chối", rejectionReason: reason } : e)
       );
+      setRejectTarget(null);
+      setSelectedEvent(null);
     } catch (err) {
       toast.error(err?.response?.data?.message ?? "Từ chối thất bại.");
     }
-    setRejectTarget(null);
-    setSelectedEvent(null);
   };
 
   const byTab    = activeTab === "all" ? events : events.filter((e) => e.status === activeTab);

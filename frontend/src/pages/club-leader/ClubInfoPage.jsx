@@ -1,9 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { Camera, Save, X, Loader2, Pencil } from "lucide-react";
-import { TokenService } from "../../services/api/axiosClient";
-import clubService from "../../services/api/clubs/clubService";
+import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
+import clubApi from "../../services/api/clubs/clubApi";
 import { normalizeClub } from "../../hooks/usePublicClubs";
 import { useToast } from "../../contexts/ToastContext";
+
+const getImageUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:") || url.startsWith("blob:")) return url;
+  return getServerOrigin() + url;
+};
 
 const CATEGORIES = [
   { value: "Công nghệ",  label: "Công nghệ" },
@@ -94,11 +100,11 @@ export default function ClubInfoPage() {
     if (!clubId) { setError("Không tìm thấy ID câu lạc bộ."); setLoading(false); return; }
     let cancelled = false;
 
-    clubService.getById(clubId)
+    clubApi.getById(clubId)
       .then((raw) => { if (!cancelled) applyRaw(raw); })
       .catch(() => {
         if (cancelled) return;
-        clubService.getAllPublic()
+        clubApi.getAllPublic()
           .then((res) => {
             if (cancelled) return;
             const all = Array.isArray(res) ? res : (res?.content ?? res?.data ?? []);
@@ -127,7 +133,7 @@ export default function ClubInfoPage() {
 
     setUploading(true);
     try {
-      const res = await clubService.uploadImage(file);
+      const res = await clubApi.uploadImage(file);
       const serverUrl = res?.url ?? res?.fileUrl ?? res?.path;
       if (serverUrl) {
         URL.revokeObjectURL(localUrl);
@@ -148,7 +154,7 @@ export default function ClubInfoPage() {
     setSaving(true);
     try {
       const payload = { ...form, clubImage: previewUrl };
-      const raw = await clubService.update(clubId, payload);
+      const raw = await clubApi.update(clubId, payload);
       applyRaw(raw);
       setEditing(false);
       toast.success("Đã lưu thông tin câu lạc bộ.");
@@ -207,59 +213,51 @@ export default function ClubInfoPage() {
 
       <div className="content-card" style={{ padding: 0, overflow: "hidden" }}>
 
-        {/* Banner */}
-        <div style={{
-          height: 130, background: `linear-gradient(135deg, ${bannerColor}, ${bannerColor}bb)`,
-          position: "relative",
-        }}>
-          <div style={{
-            position: "absolute", inset: 0, opacity: 0.2,
-            backgroundImage: "radial-gradient(rgba(255,255,255,0.7) 1px, transparent 1.5px)",
-            backgroundSize: "16px 16px",
-          }} />
+        {/* Banner = ảnh đại diện CLB */}
+        <div
+          onClick={() => editing && !uploading && fileInputRef.current?.click()}
+          style={{
+            height: 180, position: "relative",
+            cursor: editing ? "pointer" : "default",
+            background: displayImg ? "#f3f4f6" : `linear-gradient(135deg, ${bannerColor}, ${bannerColor}bb)`,
+          }}
+        >
+          {displayImg ? (
+            <img src={getImageUrl(displayImg)} alt="Club" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              onError={(e) => { e.target.style.display = "none"; }} />
+          ) : (
+            <>
+              <div style={{
+                position: "absolute", inset: 0, opacity: 0.2,
+                backgroundImage: "radial-gradient(rgba(255,255,255,0.7) 1px, transparent 1.5px)",
+                backgroundSize: "16px 16px",
+              }} />
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 48 }}>
+                <span style={{ userSelect: "none" }}>{club?.emoji ?? "🏛️"}</span>
+              </div>
+            </>
+          )}
+          {/* Overlay khi hover/edit */}
+          {editing && (
+            <div style={{
+              position: "absolute", inset: 0,
+              background: uploading ? "rgba(0,0,0,0.55)" : "rgba(0,0,0,0.38)",
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center", gap: 4,
+            }}>
+              {uploading
+                ? <Loader2 size={22} color="#fff" className="animate-spin" />
+                : <Camera size={22} color="#fff" />
+              }
+              <span style={{ fontSize: 11, color: "#fff", fontWeight: 600 }}>
+                {uploading ? "Đang tải..." : "Đổi ảnh"}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Avatar */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: -52, position: "relative", zIndex: 1 }}>
-          <div
-            onClick={() => editing && !uploading && fileInputRef.current?.click()}
-            style={{
-              width: 104, height: 104, borderRadius: 20,
-              border: "4px solid #fff",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.13)",
-              overflow: "hidden", flexShrink: 0,
-              cursor: editing ? "pointer" : "default",
-              position: "relative",
-              background: displayImg ? "#f3f4f6" : bannerColor,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 42,
-            }}
-          >
-            {displayImg
-              ? <img src={displayImg} alt="Club" style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  onError={(e) => { e.target.style.display = "none"; }} />
-              : <span style={{ userSelect: "none" }}>{club?.emoji ?? "🏛️"}</span>
-            }
-            {/* Overlay khi hover/edit */}
-            {editing && (
-              <div style={{
-                position: "absolute", inset: 0,
-                background: uploading ? "rgba(0,0,0,0.55)" : "rgba(0,0,0,0.38)",
-                display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center", gap: 4,
-              }}>
-                {uploading
-                  ? <Loader2 size={22} color="#fff" className="animate-spin" />
-                  : <Camera size={22} color="#fff" />
-                }
-                <span style={{ fontSize: 11, color: "#fff", fontWeight: 600 }}>
-                  {uploading ? "Đang tải..." : "Đổi ảnh"}
-                </span>
-              </div>
-            )}
-          </div>
-
-          <p style={{ margin: "10px 0 2px", fontWeight: 700, fontSize: 18, color: "#111827" }}>{club?.name}</p>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "14px 0 0" }}>
+          <p style={{ margin: "0 0 2px", fontWeight: 700, fontSize: 18, color: "#111827" }}>{club?.name}</p>
           <span style={{
             display: "inline-block", padding: "3px 12px", borderRadius: 99,
             background: "#f3f4f6", fontSize: 12, fontWeight: 600, color: "#6b7280",

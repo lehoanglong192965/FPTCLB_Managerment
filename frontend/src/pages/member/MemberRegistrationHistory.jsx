@@ -164,14 +164,22 @@ export default function MemberRegistrationHistory() {
               <div className="mt-6 border-t border-slate-200 pt-5">
                 <h4 className="text-[13px] font-semibold text-slate-500 mb-3">Nhân sự ban sáng lập</h4>
                 <div className="flex flex-col gap-2 text-[13px]">
-                  {selected.foundingMembers?.map((m, idx) => (
-                    <div key={idx} className="flex justify-between">
-                      <span className="text-slate-500">
-                        {m.proposedRole === "Leader" ? "Chủ nhiệm (Leader)" : m.proposedRole === "ViceLeader" ? "Phó chủ nhiệm (Vice Leader)" : `Thành viên #${idx - 1}`}
-                      </span>
-                      <span className="font-semibold text-slate-800">{m.fullName} ({m.studentId})</span>
-                    </div>
-                  ))}
+                  {(() => {
+                    let memberCount = 0;
+                    return selected.foundingMembers?.map((m, idx) => {
+                      const label = m.proposedRole === "Leader"
+                        ? "Chủ nhiệm (Leader)"
+                        : m.proposedRole === "ViceLeader"
+                        ? "Phó chủ nhiệm (Vice Leader)"
+                        : `Thành viên #${++memberCount}`;
+                      return (
+                        <div key={idx} className="flex justify-between">
+                          <span className="text-slate-500">{label}</span>
+                          <span className="font-semibold text-slate-800">{m.fullName} ({m.studentId})</span>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             </div>

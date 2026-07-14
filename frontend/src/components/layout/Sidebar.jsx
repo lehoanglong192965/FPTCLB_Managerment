@@ -4,6 +4,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { TokenService } from "../../services/api/axiosClient";
 import { ROLE_LABELS } from "./sidebarConfigs";
 import { resolveUserInfo } from "../../utils/notificationUtils";
+import { getInitials } from "../../utils/avatar";
 
 export default function Sidebar({ navItems }) {
   const { user, logout, profile } = useAuth();
@@ -12,7 +13,7 @@ export default function Sidebar({ navItems }) {
   const { name, role } = resolveUserInfo(user);
   const displayName = profile?.fullName || name;
   const roleLabel = ROLE_LABELS[role] ?? role;
-  const avatarLetter = (displayName.split(" ").pop()?.[0] ?? "U").toUpperCase();
+  const avatarLetter = getInitials(displayName);
 
   const handleLogout = async () => {
     try {

@@ -14,8 +14,10 @@ const applicationApi = {
     axiosClient.post(`/applications/${applicationId}/withdraw`),
 
   // Member: xem tất cả đơn của mình
+  // skipAuthLogout: request nền, lỗi đã được ApplicationsContext tự bắt cục bộ,
+  // không nên coi 401 ở đây là mất phiên đăng nhập toàn cục
   getMyApplications: () =>
-    axiosClient.get("/applications/my"),
+    axiosClient.get("/applications/my", { skipAuthLogout: true }),
 
   // Leader: lấy danh sách đơn ứng tuyển của CLB
   getClubApplications: (clubId) =>

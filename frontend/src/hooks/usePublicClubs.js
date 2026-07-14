@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import clubService from "../services/api/clubs/clubService";
+import clubApi from "../services/api/clubs/clubApi";
 
 // Map từ giá trị lưu trong DB → nhãn hiển thị tiếng Việt
 export const CATEGORY_LABEL = {
@@ -45,7 +45,7 @@ export function usePublicClubs() {
     let cancelled = false;
     setLoading(true);
     setError("");
-    clubService.getAllPublic()
+    clubApi.getAllPublic()
       .then((res) => {
         if (cancelled) return;
         const raw = Array.isArray(res) ? res : (res?.content ?? res?.data ?? []);
@@ -54,7 +54,7 @@ export function usePublicClubs() {
       .catch((err) => {
         if (cancelled) return;
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
-        setError(err?.message ?? "Không thể tải danh sách câu lạc bộ");
+        setError(err?.response?.data?.message ?? err?.message ?? "Không thể tải danh sách câu lạc bộ");
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

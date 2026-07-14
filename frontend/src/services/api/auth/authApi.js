@@ -28,8 +28,14 @@ const authApi = {
   checkEmailExists: (email) =>
     axiosClient.get("/auth/check-email", { params: { email } }),
 
+  // GET /auth/check-student-id — trả { "Đã tồn tại mssv này": <boolean> }.
+  // LƯU Ý: giá trị boolean thực ra là "còn trống hay không" (isStudentIdAvailable),
+  // TÊN KEY BỊ NGƯỢC so với ý nghĩa thật — true nghĩa là MSSV CÒN TRỐNG, không phải đã tồn tại.
+  checkStudentId: (studentId) =>
+    axiosClient.get("/auth/check-student-id", { params: { studentId } }),
+
   getMyClubRole: () =>
-    axiosClient.get("/user/my-club-role"),
+    axiosClient.get("/user/my-club-role", { skipAuthLogout: true }),
 
   verifyOTP: (email, otpCode) =>
     axiosClient.post("/auth/verify-otp", { email, otpCode }),

@@ -3,7 +3,7 @@ import {
   Building2, AlertTriangle, TrendingUp, TrendingDown,
   Minus, Search, Activity, CheckCircle, Users, Loader2,
 } from "lucide-react";
-import clubService from "../../services/api/clubs/clubService";
+import clubApi from "../../services/api/clubs/clubApi";
 import { useToast } from "../../contexts/ToastContext";
 
 const TABS = [
@@ -35,7 +35,7 @@ export default function IcpdpClubOverview() {
   const [search, setSearch]   = useState("");
 
   useEffect(() => {
-    clubService.getAll()
+    clubApi.getAll()
       .then((res) => {
         const list = Array.isArray(res) ? res : (res?.data ?? res?.content ?? res?.clubs ?? []);
         setClubs(list.map(normalizeClub));
@@ -79,21 +79,34 @@ export default function IcpdpClubOverview() {
     return 0;
   };
 
-  const downgrade = (id) => {
-    setClubs((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: "inactive" } : c))
-    );
-    toast.success("Đã hạ trạng thái CLB xuống Không hoạt động.");
+  const downgrade = async (id) => {
+    try {
+      await clubApi.review(id, { status: "Inactive", reason: "Dưới 5 thành viên (ICPDP hạ trạng thái)" });
+      setClubs((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status: "inactive" } : c))
+      );
+      toast.success("Đã hạ trạng thái CLB xuống Không hoạt động.");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Không thể hạ trạng thái CLB. Vui lòng thử lại.");
+    }
   };
 
-  const downgradeAll = () => {
-    const count = atRisk.length;
-    setClubs((prev) =>
-      prev.map((c) =>
-        c.status === "active" && c.members < 5 ? { ...c, status: "inactive" } : c
-      )
-    );
-    toast.success(`Đã hạ trạng thái ${count} CLB xuống Không hoạt động.`);
+  const downgradeAll = async () => {
+    const targets = atRisk;
+    if (targets.length === 0) return;
+    try {
+      await Promise.all(
+        targets.map((c) => clubApi.review(c.id, { status: "Inactive", reason: "Dưới 5 thành viên (ICPDP hạ trạng thái)" }))
+      );
+      setClubs((prev) =>
+        prev.map((c) =>
+          c.status === "active" && c.members < 5 ? { ...c, status: "inactive" } : c
+        )
+      );
+      toast.success(`Đã hạ trạng thái ${targets.length} CLB xuống Không hoạt động.`);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Một số CLB hạ trạng thái thất bại. Vui lòng thử lại.");
+    }
   };
 
   const podium = [

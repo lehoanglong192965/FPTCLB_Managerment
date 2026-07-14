@@ -7,8 +7,13 @@ export function ConfirmProvider({ children }) {
 
   const confirm = useCallback(
     (message, { title = "Xác nhận", confirmLabel = "Xác nhận", cancelLabel = "Huỷ", danger = false } = {}) =>
-      new Promise((resolve) => {
-        setState({ message, title, confirmLabel, cancelLabel, danger, resolve });
+      new Promise((resolvePromise) => {
+        setState((prev) => {
+          // Nếu đang có dialog khác chờ xử lý, huỷ nó (resolve false) trước khi
+          // thay bằng dialog mới — tránh promise của dialog cũ bị treo vĩnh viễn.
+          if (prev) prev.resolve(false);
+          return { message, title, confirmLabel, cancelLabel, danger, resolve: resolvePromise };
+        });
       }),
     []
   );

@@ -17,8 +17,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -132,6 +134,13 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public boolean isStudentIdAvailable(String studentId) {
+        String normalizedStudentId = normalizeStudentId(studentId);
+        return StringUtils.hasText(normalizedStudentId)
+                && !userRepository.existsByStudentIdIgnoreCaseAndIsDeletedFalse(normalizedStudentId);
+    }
+
+    @Override
     @Transactional
     public void register(RegisterRequest request) {
         String email = request.getEmail();
@@ -147,6 +156,11 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalStateException("Email này đã được đăng ký trong hệ thống!");
         }
 
+        String studentId = normalizeStudentId(request.getStudentId());
+        if (StringUtils.hasText(studentId) && userRepository.existsByStudentIdIgnoreCaseAndIsDeletedFalse(studentId)) {
+            throw new IllegalStateException("MSSV này đã được đăng ký trong hệ thống!");
+        }
+
         UserAccount newUser = new UserAccount();
         newUser.setEmail(email);
 
@@ -158,7 +172,7 @@ public class AuthServiceImpl implements AuthService {
         newUser.setIsDeleted(false);
         newUser.setCreatedAt(LocalDateTime.now());
         newUser.setFullName(request.getFullName() != null ? request.getFullName() : "Chưa cập nhật");
-        newUser.setStudentId(request.getStudentId()); // Lưu mã sinh viên
+        newUser.setStudentId(studentId); // Lưu mã sinh viên
         newUser.setPhoneNumber(request.getPhoneNumber()); // Lưu SĐT
         newUser.setRoleID(3);
         newUser.setMajor(request.getMajor() != null ? request.getMajor() : "Chưa cập nhật");
@@ -167,6 +181,10 @@ public class AuthServiceImpl implements AuthService {
 
         // Tạo mã OTP và gửi qua email
         otpService.generateAndSendOTP(email);
+    }
+
+    private String normalizeStudentId(String studentId) {
+        return StringUtils.hasText(studentId) ? studentId.trim().toUpperCase(Locale.ROOT) : null;
     }
 
     @Override

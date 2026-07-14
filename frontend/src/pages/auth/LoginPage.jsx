@@ -87,7 +87,7 @@ export default function LoginPage() {
       }
       navigate(dest, { replace: true });
     } catch (err) {
-      const msg = err?.response?.data?.error ?? "";
+      const msg = err?.response?.data?.message ?? err?.response?.data?.error ?? "";
       if (msg.includes("chấp nhận email")) {
         setErrors((p) => ({ ...p, email: "Chỉ chấp nhận email nội bộ FPT (@fpt.edu.vn hoặc @fe.edu.vn)." }));
       } else if (msg.includes("tìm thấy tài khoản")) {

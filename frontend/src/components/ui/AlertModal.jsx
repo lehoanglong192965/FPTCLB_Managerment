@@ -38,6 +38,16 @@ function IconInfo() {
   );
 }
 
+function IconWarning() {
+  return (
+    <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+      <circle cx="28" cy="28" r="26" stroke="#D97706" strokeWidth="3" fill="none" />
+      <path d="M28 18 L28 31" stroke="#D97706" strokeWidth="3.5" strokeLinecap="round" />
+      <circle cx="28" cy="38" r="2.2" fill="#D97706" />
+    </svg>
+  );
+}
+
 const TYPE_CFG = {
   success: {
     bg:       '#F0FDF4',
@@ -54,6 +64,14 @@ const TYPE_CFG = {
     btnBg:    '#DC2626',
     btnHover: '#B91C1C',
     IconComp: IconError,
+  },
+  warning: {
+    bg:       '#FFFBEB',
+    border:   '#D97706',
+    color:    '#D97706',
+    btnBg:    '#D97706',
+    btnHover: '#B45309',
+    IconComp: IconWarning,
   },
   info: {
     bg:       '#FFF3EC',

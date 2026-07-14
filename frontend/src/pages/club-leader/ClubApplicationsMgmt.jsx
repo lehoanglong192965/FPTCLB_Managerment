@@ -4,6 +4,7 @@ import { useClubData } from "../../contexts/ClubDataContext";
 import { TokenService } from "../../services/api/axiosClient";
 import applicationApi from "../../services/api/member/applicationApi";
 import { useToast } from "../../contexts/ToastContext";
+import { getInitials } from "../../utils/avatar";
 
 const STATUS_MAP = {
   Submitted:  { label: "Chờ duyệt CV",   cls: "bg-amber-100 text-amber-700" },
@@ -34,7 +35,7 @@ function Avatar({ name }) {
       display: "flex", alignItems: "center", justifyContent: "center",
       fontWeight: 700, fontSize: 16, flexShrink: 0,
     }}>
-      {name?.[0]?.toUpperCase() ?? "?"}
+      {getInitials(name)}
     </div>
   );
 }
@@ -85,7 +86,8 @@ export default function ClubApplicationsMgmt() {
     try {
       const data = await applicationApi.getClubApplications(clubId);
       const arr = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
-      setApps(arr.map(normalizeApp));
+      // Đơn đã bị ứng viên rút thì leader không cần xử lý/xem nữa — ẩn khỏi danh sách.
+      setApps(arr.map(normalizeApp).filter((a) => a.status !== "Withdrawn"));
     } catch (err) {
       if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
       toast.error("Không thể tải danh sách đơn ứng tuyển.");

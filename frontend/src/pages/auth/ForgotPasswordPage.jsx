@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import authService from "../../services/api/auth/authService";
+import AlertModal from "../../components/ui/AlertModal";
 
 function Logo() {
   return (
@@ -20,6 +21,10 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     if (!email.trim()) {
       setError("Vui lòng nhập email.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Email không đúng định dạng.");
       return;
     }
     setLoading(true);
@@ -79,9 +84,6 @@ export default function ForgotPasswordPage() {
               disabled={loading}
               autoComplete="email"
             />
-            {error && (
-              <p className="text-[12px] text-[#D0453A] mt-[5px] pl-[2px] leading-[1.4]">{error}</p>
-            )}
           </div>
 
           <button
@@ -100,6 +102,16 @@ export default function ForgotPasswordPage() {
           </Link>
         </p>
       </div>
+
+      {error && (
+        <AlertModal
+          type="error"
+          title="Không thể gửi mã OTP"
+          message={error}
+          confirmLabel="Đã hiểu"
+          onClose={() => setError("")}
+        />
+      )}
     </div>
   );
 }

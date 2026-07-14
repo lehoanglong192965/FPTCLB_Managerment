@@ -47,7 +47,7 @@ export default function VerifyOTP() {
         }, 2000);
       }
     } catch (err) {
-      const msg = err?.response?.data?.error ?? "Xác thực OTP thất bại. Vui lòng thử lại!";
+      const msg = err?.response?.data?.message ?? err?.response?.data?.error ?? "Xác thực OTP thất bại. Vui lòng thử lại!";
       setError(msg);
     } finally {
       setLoading(false);
@@ -69,7 +69,7 @@ export default function VerifyOTP() {
       setCooldown(RESEND_SECONDS);
       setSuccess("Mã OTP mới đã được gửi vào email của bạn!");
     } catch (err) {
-      const msg = err?.response?.data?.error ?? "Không thể gửi lại OTP. Vui lòng thử lại!";
+      const msg = err?.response?.data?.message ?? err?.response?.data?.error ?? "Không thể gửi lại OTP. Vui lòng thử lại!";
       setError(msg);
     } finally {
       setLoading(false);

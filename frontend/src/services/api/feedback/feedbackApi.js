@@ -1,6 +1,6 @@
 import axiosClient from "../axiosClient";
 
-const feedbackService = {
+const feedbackApi = {
   getPending: () =>
     axiosClient.get(`/events/pending-feedback`),
 
@@ -38,4 +38,4 @@ const feedbackService = {
     axiosClient.get(`/events/${eventId}/feedback-report`),
 };
 
-export default feedbackService;
+export default feedbackApi;

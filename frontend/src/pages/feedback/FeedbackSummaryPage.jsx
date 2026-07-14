@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Star, MessageSquare, BarChart2, AlertCircle } from 'lucide-react';
-import feedbackService from '../../services/api/feedback/feedbackService';
+import feedbackApi from '../../services/api/feedback/feedbackApi';
 
 const SCORE_ROWS = [
   { key: 'avgContentRating', label: 'Content rating average' },
@@ -49,7 +49,7 @@ export default function FeedbackSummaryPage() {
     setLoading(true);
     setError(null);
 
-    feedbackService.getReport(eventId)
+    feedbackApi.getReport(eventId)
       .then((res) => {
         if (!ignore) setReport(res?.data ?? res);
       })

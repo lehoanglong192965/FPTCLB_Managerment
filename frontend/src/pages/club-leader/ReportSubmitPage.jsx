@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FileText, Upload, ArrowLeft, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
-import reportService from '../../services/api/report/reportService';
-import eventService from '../../services/api/events/eventService';
+import reportApi from '../../services/api/report/reportApi';
+import eventApi from '../../services/api/events/eventApi';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function ReportSubmitPage() {
@@ -20,14 +20,20 @@ export default function ReportSubmitPage() {
 
   useEffect(() => {
     if (!eventId) return;
+    let cancelled = false;
     const load = async () => {
       setLoading(true);
       try {
         const [evRes, repRes] = await Promise.allSettled([
-          eventService.getEventById(eventId),
-          reportService.getByEventId(eventId),
+          eventApi.getEventById(eventId),
+          reportApi.getByEventId(eventId),
         ]);
-        if (evRes.status === 'fulfilled') setEvent(evRes.value?.data ?? evRes.value);
+        if (cancelled) return;
+        if (evRes.status === 'fulfilled') {
+          setEvent(evRes.value?.data ?? evRes.value);
+        } else if (evRes.reason?.code !== 'ERR_CANCELED' && evRes.reason?.name !== 'CanceledError') {
+          toast.error('Không thể tải thông tin sự kiện.');
+        }
         if (repRes.status === 'fulfilled') {
           const rep = repRes.value?.data ?? repRes.value;
           if (rep) {
@@ -36,11 +42,12 @@ export default function ReportSubmitPage() {
           }
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
-  }, [eventId]);
+    return () => { cancelled = true; };
+  }, [eventId, toast]);
 
   const handleFileChange = (e) => {
     const f = e.target.files[0];
@@ -54,10 +61,10 @@ export default function ReportSubmitPage() {
     try {
       const isResubmit = existing?.status === 'REJECTED';
       if (isResubmit) {
-        await reportService.resubmit(eventId, { file, summary });
+        await reportApi.resubmit(eventId, { file, summary });
         toast.success('Đã nộp lại báo cáo thành công!');
       } else {
-        await reportService.submit(eventId, { file, summary });
+        await reportApi.submit(eventId, { file, summary });
         toast.success('Đã nộp báo cáo thành công!');
       }
       setSubmitted(true);
@@ -131,7 +138,7 @@ export default function ReportSubmitPage() {
       {existing && existing.status !== 'REJECTED' && (
         <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5 text-sm text-blue-700">
           <RefreshCw size={15} />
-          Báo cáo hiện tại: <strong>{existing.status === 'PENDING_REVIEW' ? 'Đang chờ duyệt' : existing.status}</strong>
+          Báo cáo hiện tại: <strong>{existing.status === 'UPLOADED' ? 'Đang chờ duyệt' : existing.status}</strong>
         </div>
       )}
 

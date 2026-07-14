@@ -67,8 +67,10 @@ public class ICPDPEventController {
             @ApiResponse(responseCode = "403", description = "Khong co quyen", content = @Content),
             @ApiResponse(responseCode = "404", description = "Event khong ton tai", content = @Content)
     })
-    public ResponseEntity<Map<String, String>> approveEvent(@PathVariable Integer eventId) {
-        eventService.approveEvent(eventId);
+    public ResponseEntity<Map<String, String>> approveEvent(
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.approveEvent(eventId, currentUser);
         return ResponseEntity.ok(Map.of("message", "Su kien da duoc phe duyet."));
     }
 
@@ -83,8 +85,9 @@ public class ICPDPEventController {
     })
     public ResponseEntity<Map<String, String>> rejectEvent(
             @PathVariable Integer eventId,
-            @Valid @RequestBody EventRejectRequest request) {
-        eventService.rejectEvent(eventId, request.getReason());
+            @Valid @RequestBody EventRejectRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.rejectEvent(eventId, request.getReason(), currentUser);
         return ResponseEntity.ok(Map.of("message", "Su kien da bi tu choi."));
     }
 }

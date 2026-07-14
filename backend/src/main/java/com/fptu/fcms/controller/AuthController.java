@@ -39,6 +39,11 @@ public class AuthController {
         ));
     }
 
+    @GetMapping("/check-student-id")
+    public ResponseEntity<Map<String, Boolean>> checkStudentId(@RequestParam String studentId) {
+        return ResponseEntity.ok(Map.of("Đã tồn tại mssv này", authService.isStudentIdAvailable(studentId)));
+    }
+
     @PostMapping("/verify-otp")
     public ResponseEntity<Map<String, String>> verifyOTP(@RequestBody VerifyOTPRequest request) {
         authService.verifyOTPAndActivateAccount(request);

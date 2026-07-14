@@ -3,8 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { Bell, Award, Flame, CalendarDays, ChevronRight, Loader2, Building2 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useNotifications } from "../../contexts/NotificationsContext";
-import eventService from "../../services/api/events/eventService";
-import clubService from "../../services/api/clubs/clubService";
+import eventApi from "../../services/api/events/eventApi";
+import clubApi from "../../services/api/clubs/clubApi";
 import { getGreeting } from "../../utils/greeting";
 
 const STAT_DEFS = [
@@ -34,7 +34,7 @@ function ClubAvatar({ name, coverImage }) {
 export default function MemberHome() {
   const navigate              = useNavigate();
   const { profile }           = useAuth();
-  const { notifications }     = useNotifications();
+  const { notifications, unreadCount } = useNotifications();
   const displayName = profile?.fullName?.split(" ").pop() ?? profile?.fullName ?? "bạn";
 
   const [events,  setEvents]  = useState([]);
@@ -44,7 +44,7 @@ export default function MemberHome() {
 
   useEffect(() => {
     let cancelled = false;
-    eventService.getMyRegistrations()
+    eventApi.getMyRegistrations()
       .then((data) => {
         if (cancelled) return;
         const list = Array.isArray(data) ? data : (data?.data ?? []);
@@ -72,7 +72,7 @@ export default function MemberHome() {
   }, []);
 
   useEffect(() => {
-    clubService.getMyClubs()
+    clubApi.getMyClubs()
       .then((res) => {
         const list = Array.isArray(res) ? res : (res?.data ?? res?.clubs ?? []);
         setMyClubs(list.map((c) => ({
@@ -106,7 +106,9 @@ export default function MemberHome() {
           onClick={() => navigate("/member/notifications")}
         >
           <Bell size={20} color="#374151" />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 border-2 border-white" />
+          {unreadCount > 0 && (
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 border-2 border-white" />
+          )}
         </button>
       </div>
 

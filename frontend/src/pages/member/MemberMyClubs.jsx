@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Star, Loader2 } from "lucide-react";
 import ClubCard from "../../components/clubs/ClubCard";
 import ClubSpace from "../../components/clubs/ClubSpace";
 import authApi from "../../services/api/auth/authApi";
-import clubService from "../../services/api/clubs/clubService";
+import clubApi from "../../services/api/clubs/clubApi";
 import { normalizeClub } from "../../hooks/usePublicClubs";
 
 const ROLE_LABEL = {
@@ -14,6 +15,8 @@ const ROLE_LABEL = {
 };
 
 export default function MemberMyClubs() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoOpen = searchParams.get("open") === "1";
   const [selectedClub, setSelectedClub] = useState(null);
   const [joinedClubs, setJoinedClubs]   = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -31,14 +34,14 @@ export default function MemberMyClubs() {
           return;
         }
 
-        const clubsRaw = await clubService.getAllPublic().catch(() => []);
+        const clubsRaw = await clubApi.getAllPublic().catch(() => []);
         const allClubs = Array.isArray(clubsRaw)
           ? clubsRaw
           : (clubsRaw?.content ?? clubsRaw?.data ?? []);
         let matched = allClubs.find((c) => c.clubID === clubID || c.id === clubID);
 
         if (!matched) {
-          matched = await clubService.getById(clubID);
+          matched = await clubApi.getById(clubID);
         }
 
         if (cancelled) return;
@@ -58,6 +61,15 @@ export default function MemberMyClubs() {
 
     return () => { cancelled = true; };
   }, []);
+
+  // Tự động mở CLB khi được điều hướng tới từ thông báo (?open=1) — chỉ mở 1 lần,
+  // xóa param ngay sau đó để nút "Quay lại" hoạt động bình thường.
+  useEffect(() => {
+    if (autoOpen && joinedClubs.length > 0) {
+      setSelectedClub(joinedClubs[0]);
+      setSearchParams({}, { replace: true });
+    }
+  }, [autoOpen, joinedClubs, setSearchParams]);
 
   if (selectedClub) {
     return <ClubSpace club={selectedClub} onBack={() => setSelectedClub(null)} />;

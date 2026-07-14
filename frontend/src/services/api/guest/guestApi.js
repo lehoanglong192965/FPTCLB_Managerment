@@ -2,7 +2,7 @@ import axiosClient from "../axiosClient";
 
 // GuestRegistrationController is at /api (not /api/v1), so paths have no /v1/ prefix.
 // baseURL = http://localhost:8080/api, so /events/... → http://localhost:8080/api/events/...
-const guestService = {
+const guestApi = {
 
   // POST /api/events/{eventId}/guest-registrations
   // GuestRegistrationRequest: fullName, email, phone, schoolOrOrganization, consent (@AssertTrue), discoverySource (@NotBlank)
@@ -29,4 +29,4 @@ const guestService = {
     axiosClient.post(`/guest-registrations/${guestReference}/cancel`),
 };
 
-export default guestService;
+export default guestApi;

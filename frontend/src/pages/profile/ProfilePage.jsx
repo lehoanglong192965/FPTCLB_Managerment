@@ -1,46 +1,23 @@
-import { useState } from "react";
-import { Mail, Phone, Monitor, ChevronRight, Edit3, Users, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Mail, Phone, Monitor, Edit3, X } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import authService from "../../services/api/auth/authService";
+import authApi from "../../services/api/auth/authApi";
+import clubApi from "../../services/api/clubs/clubApi";
+import { normalizeClub } from "../../hooks/usePublicClubs";
+import { getInitials } from "../../utils/avatar";
+
+const ROLE_LABEL = {
+  Leader:     "Trưởng CLB",
+  ViceLeader: "Phó Trưởng",
+  CoreTeam:   "Ban Điều Hành",
+  Member:     "Thành viên",
+};
 
 const MOCK_TIMELINE = [
   { id: 1, status: "active", period: "Hôm nay",       event: "Đăng nhập hệ thống",                    sub: "Xem thông tin CLB"   },
   { id: 2, status: "past",   period: "Tháng 5, 2026", event: 'Tham gia sự kiện "Tech Talk: AI & LLM"', sub: "Đã check-in"         },
   { id: 3, status: "past",   period: "Tháng 9, 2022", event: "Gia nhập IT Club",                       sub: "Vai trò: Thành viên" },
-];
-
-const MAJOR_OPTIONS = [
-  { group: "Công nghệ thông tin", options: [
-    { value: "SE",  label: "Kỹ thuật phần mềm (SE)" },
-    { value: "AI",  label: "Trí tuệ nhân tạo (AI)" },
-    { value: "IS",  label: "An toàn thông tin (IS)" },
-    { value: "IoT", label: "Internet of Things (IoT)" },
-    { value: "CS",  label: "Khoa học máy tính (CS)" },
-  ]},
-  { group: "Kinh tế", options: [
-    { value: "BA",  label: "Quản trị kinh doanh (BA)" },
-    { value: "IB",  label: "Kinh doanh quốc tế (IB)" },
-    { value: "FIN", label: "Tài chính (FIN)" },
-    { value: "ACC", label: "Kế toán (ACC)" },
-    { value: "MKT", label: "Marketing số (MKT)" },
-    { value: "LOG", label: "Logistics & Chuỗi cung ứng (LOG)" },
-  ]},
-  { group: "Thiết kế", options: [
-    { value: "GD", label: "Thiết kế mỹ thuật số (GD)" },
-    { value: "ID", label: "Thiết kế nội thất (ID)" },
-  ]},
-  { group: "Ngôn ngữ", options: [
-    { value: "EN", label: "Ngôn ngữ Anh (EN)" },
-    { value: "JA", label: "Ngôn ngữ Nhật (JA)" },
-    { value: "KO", label: "Ngôn ngữ Hàn (KO)" },
-    { value: "CN", label: "Ngôn ngữ Trung (CN)" },
-  ]},
-  { group: "Khác", options: [
-    { value: "HM",  label: "Quản trị khách sạn (HM)" },
-    { value: "MC",  label: "Truyền thông đa phương tiện (MC)" },
-    { value: "LAW", label: "Luật (LAW)" },
-    { value: "AR",  label: "Kiến trúc (AR)" },
-  ]},
 ];
 
 function EditModal({ current, onClose, onSaved }) {
@@ -70,7 +47,7 @@ function EditModal({ current, onClose, onSaved }) {
       setSuccess(true);
       setTimeout(() => { onSaved(); onClose(); }, 1200);
     } catch (err) {
-      setErrors({ form: err?.response?.data?.error ?? "Cập nhật thất bại, vui lòng thử lại." });
+      setErrors({ form: err?.response?.data?.message ?? err?.response?.data?.error ?? "Cập nhật thất bại, vui lòng thử lại." });
     } finally {
       setLoading(false);
     }
@@ -101,25 +78,6 @@ function EditModal({ current, onClose, onSaved }) {
               disabled={loading}
             />
             {errors.fullName && <span className="text-[0.78rem] text-red-500 mt-0.5">{errors.fullName}</span>}
-          </div>
-
-          <div className="flex flex-col gap-1.5 mb-4">
-            <label className="text-[0.82rem] font-semibold text-slate-500">Chuyên ngành</label>
-            <select
-              className="border border-[#e2e8f0] rounded-lg px-3 py-2 text-[0.95rem] outline-none transition-colors focus:border-[#f04e23] disabled:opacity-60"
-              value={form.major}
-              onChange={(e) => setForm((p) => ({ ...p, major: e.target.value }))}
-              disabled={loading}
-            >
-              <option value="">-- Chọn chuyên ngành --</option>
-              {MAJOR_OPTIONS.map((g) => (
-                <optgroup key={g.group} label={g.group}>
-                  {g.options.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
           </div>
 
           <div className="flex flex-col gap-1.5 mb-4">
@@ -169,6 +127,29 @@ function EditModal({ current, onClose, onSaved }) {
 export default function ProfilePage() {
   const { profile: authProfile, profileLoading, fetchProfile } = useAuth();
   const [showEdit, setShowEdit] = useState(false);
+  const [myClubs, setMyClubs]   = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    authApi.getMyClubRole()
+      .then(async (roleRes) => {
+        if (cancelled) return;
+        const clubID = roleRes?.clubID;
+        if (!clubID) { setMyClubs([]); return; }
+
+        const clubsRaw = await clubApi.getAllPublic().catch(() => []);
+        const allClubs = Array.isArray(clubsRaw) ? clubsRaw : (clubsRaw?.content ?? clubsRaw?.data ?? []);
+        let matched = allClubs.find((c) => c.clubID === clubID || c.id === clubID);
+        if (!matched) matched = await clubApi.getById(clubID);
+
+        if (cancelled) return;
+        const club = normalizeClub(matched);
+        const roleLabel = ROLE_LABEL[roleRes.roleName] ?? roleRes.roleName ?? "Thành viên";
+        setMyClubs([{ ...club, tag: roleLabel }]);
+      })
+      .catch(() => { if (!cancelled) setMyClubs([]); });
+    return () => { cancelled = true; };
+  }, []);
 
   const profile = authProfile ? {
     name:      authProfile.fullName ?? "—",
@@ -177,14 +158,14 @@ export default function ProfilePage() {
     email:     authProfile.email ?? "—",
     phone:     authProfile.phoneNumber ?? "—",
     major:     authProfile.major ?? "—",
-    clubs:     [],
+    clubs:     myClubs,
     timeline:  MOCK_TIMELINE,
   } : null;
 
   if (profileLoading) return <div className="loading">Đang tải...</div>;
   if (!profile) return <div className="loading">Không thể tải thông tin tài khoản.</div>;
 
-  const initial = profile.name.split(" ").pop()[0].toUpperCase();
+  const initial = getInitials(profile.name);
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
@@ -206,13 +187,7 @@ export default function ProfilePage() {
                 {initial}
               </div>
               <div className="text-[1.25rem] font-extrabold text-gray-900">{profile.name}</div>
-              <div className="text-[0.85rem] text-slate-500 my-1 mb-3">{profile.studentId} · {profile.faculty}</div>
-
-              {profile.clubs[0] && (
-                <div className="bg-blue-50 text-blue-600 px-3.5 py-1.5 rounded-full text-[0.8rem] font-semibold flex items-center gap-1.5 mb-6">
-                  <Users size={12} /> {profile.clubs[0].name}
-                </div>
-              )}
+              <div className="text-[0.85rem] text-slate-500 my-1 mb-6">{profile.studentId} · {profile.faculty}</div>
 
               <button
                 className="w-full py-2.5 bg-white border border-[#e2e8f0] rounded-lg font-bold text-gray-900 cursor-pointer"
@@ -224,7 +199,7 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <h3 className="text-[0.9rem] font-bold mb-3 text-gray-900">CLB đang tham gia</h3>
+            <h3 className="text-[0.9rem] font-bold mb-3 text-gray-900">CLB đang tham gia ({profile.clubs.length})</h3>
             <div className="bg-white border border-[#e2e8f0] rounded-xl p-6">
               {profile.clubs.length === 0 ? (
                 <p style={{ padding: "0.75rem 1rem", color: "#9ca3af", fontSize: 14 }}>
@@ -240,7 +215,6 @@ export default function ProfilePage() {
                       <div className="font-bold text-[0.9rem]">{club.name}</div>
                       <div className="text-[0.75rem] text-slate-500">{club.tag}</div>
                     </div>
-                    <ChevronRight size={16} className="text-slate-300" />
                   </div>
                 ))
               )}
