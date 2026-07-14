@@ -62,7 +62,9 @@ export function NotificationsProvider({ children }) {
       actionUrl:   n.actionUrl ?? null,
       actionLabel: n.actionLabel ?? null,
     }));
-    return [...visiblePushed, ...apiNotifications];
+    return [...visiblePushed, ...apiNotifications].sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
   }, [pushed, apiNotifications]);
 
   const markRead = useCallback((id) => {

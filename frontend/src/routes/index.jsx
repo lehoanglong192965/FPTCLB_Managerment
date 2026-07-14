@@ -47,7 +47,6 @@ import IcpdpPersonnelReassign from "../pages/icpdp/IcpdpPersonnelReassign";
 import IcpdpDisciplineLog from "../pages/icpdp/IcpdpDisciplineLog";
 import IcpdpClubManagement from "../pages/icpdp/IcpdpClubManagement";
 import IcpdpRecruitment from "../pages/icpdp/IcpdpRecruitment";
-import IcpdpClubRequests from "../pages/icpdp/IcpdpClubRequests";
 import IcpdpReportReview from "../pages/icpdp/IcpdpReportReview";
 import IcpdpCompetitionList from "../pages/icpdp/IcpdpCompetitionList";
 import IcpdpCompetitionDetail from "../pages/icpdp/IcpdpCompetitionDetail";
@@ -160,7 +159,6 @@ export default function AppRoutes() {
         <Route path="personnel-reassign" element={<IcpdpPersonnelReassign />} />
         <Route path="discipline-log" element={<IcpdpDisciplineLog />} />
         <Route path="recruitment" element={<IcpdpRecruitment />} />
-        <Route path="club-requests" element={<IcpdpClubRequests />} />
         <Route path="competition" element={<IcpdpCompetitionList />} />
         <Route path="competition/:competitionId" element={<IcpdpCompetitionDetail />} />
         <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />

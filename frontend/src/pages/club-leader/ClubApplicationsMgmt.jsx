@@ -86,7 +86,8 @@ export default function ClubApplicationsMgmt() {
     try {
       const data = await applicationApi.getClubApplications(clubId);
       const arr = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
-      setApps(arr.map(normalizeApp));
+      // Đơn đã bị ứng viên rút thì leader không cần xử lý/xem nữa — ẩn khỏi danh sách.
+      setApps(arr.map(normalizeApp).filter((a) => a.status !== "Withdrawn"));
     } catch (err) {
       if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
       toast.error("Không thể tải danh sách đơn ứng tuyển.");

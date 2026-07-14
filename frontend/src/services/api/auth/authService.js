@@ -58,6 +58,7 @@ const authService = {
   resetPassword: (params) => authApi.resetPassword(params),
   updateProfile: (params) => authApi.updateProfile(params),
   checkEmailExists: (email) => authApi.checkEmailExists(email),
+  checkStudentId: (studentId) => authApi.checkStudentId(studentId),
   getMyClubRole: () => authApi.getMyClubRole(),
   verifyOTP: (email, otpCode) => authApi.verifyOTP(email, otpCode),
   resendOTP: (email) => authApi.resendOTP(email),

@@ -15,6 +15,21 @@ function GoogleIcon() {
   );
 }
 
+const MAJOR_LABELS = {
+  SE: "Kỹ thuật phần mềm",
+  IA: "An toàn thông tin",
+  AI: "Trí tuệ nhân tạo",
+  BA: "Quản trị kinh doanh",
+  EN: "Ngôn ngữ Anh",
+  JP: "Ngôn ngữ Nhật",
+  KR: "Ngôn ngữ Hàn",
+  GD: "Thiết kế Mỹ thuật số",
+  MC: "Truyền thông đa phương tiện",
+  HM: "Quản trị khách sạn",
+  HT: "Quản trị dịch vụ du lịch & lữ hành",
+  AR: "Kiến trúc",
+};
+
 export default function RegisterPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -40,10 +55,20 @@ export default function RegisterPage() {
     window.location.href = `${getServerOrigin()}/oauth2/authorization/google`;
   };
 
+  // Mã ngành nằm ngay trong 2 ký tự đầu của MSSV (vd: SE123456 → SE)
+  const detectedMajor = MAJOR_LABELS[form.studentId.slice(0, 2)] ? form.studentId.slice(0, 2) : "";
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     const nextValue = name === "studentId" ? value.toUpperCase() : value;
-    setForm((prev) => ({ ...prev, [name]: nextValue }));
+    setForm((prev) => {
+      const next = { ...prev, [name]: nextValue };
+      if (name === "studentId") {
+        const code = nextValue.slice(0, 2);
+        next.major = MAJOR_LABELS[code] ? code : "";
+      }
+      return next;
+    });
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
@@ -81,12 +106,26 @@ export default function RegisterPage() {
 
     setLoading("form");
     try {
+      const checkRes = await authService.checkStudentId(form.studentId.trim());
+      // Key trả về tên là "Đã tồn tại mssv này" nhưng giá trị thật là "còn trống hay không"
+      // (backend gọi isStudentIdAvailable() rồi bọc vào key đặt tên ngược nghĩa).
+      const isAvailable = checkRes?.["Đã tồn tại mssv này"];
+      if (isAvailable === false) {
+        setErrors({ studentId: "Mã số sinh viên này đã được đăng ký." });
+        setLoading(null);
+        return;
+      }
+    } catch {
+      // Nếu API kiểm tra lỗi (network...), không chặn đăng ký — để backend tự validate khi submit.
+    }
+
+    try {
       await authService.register({
         fullName: form.username,
         email:    form.email,
         password: form.password,
         studentId: form.studentId,
-        major:    form.major,
+        major:    MAJOR_LABELS[form.major] ?? form.major,
       });
       setSuccess(true);
       localStorage.setItem("pending_verify_email", form.email);
@@ -267,31 +306,13 @@ export default function RegisterPage() {
                   name="major"
                   value={form.major}
                   onChange={handleChange}
-                  disabled={loading}
+                  disabled={loading || !detectedMajor}
                 >
-                  <option value="">-- Chọn chuyên ngành --</option>
-                  <optgroup label="Công nghệ thông tin">
-                    <option value="SE">Kỹ thuật phần mềm (SE)</option>
-                    <option value="IA">An toàn thông tin (IA)</option>
-                    <option value="AI">Trí tuệ nhân tạo (AI)</option>
-                  </optgroup>
-                  <optgroup label="Quản trị kinh doanh">
-                    <option value="BA">Quản trị kinh doanh (BA)</option>
-                  </optgroup>
-                  <optgroup label="Ngôn ngữ">
-                    <option value="EN">Ngôn ngữ Anh (EN)</option>
-                    <option value="JP">Ngôn ngữ Nhật (JP)</option>
-                    <option value="KR">Ngôn ngữ Hàn (KR)</option>
-                  </optgroup>
-                  <optgroup label="Thiết kế & Truyền thông">
-                    <option value="GD">Thiết kế Mỹ thuật số (GD)</option>
-                    <option value="MC">Truyền thông đa phương tiện (MC)</option>
-                  </optgroup>
-                  <optgroup label="Khối ngành khác">
-                    <option value="HM">Quản trị khách sạn (HM)</option>
-                    <option value="HT">Quản trị dịch vụ du lịch & lữ hành (HT)</option>
-                    <option value="AR">Kiến trúc (AR)</option>
-                  </optgroup>
+                  {detectedMajor ? (
+                    <option value={detectedMajor}>{MAJOR_LABELS[detectedMajor]}</option>
+                  ) : (
+                    <option value="">-- Nhập mã sinh viên trước --</option>
+                  )}
                 </select>
                 {errors.major && (
                   <p className="text-[12px] text-[#D0453A] mt-[3px] px-[10px] py-[6px] bg-[#FDF2F2] rounded-[5px] border-l-[3px] border-l-[#D0453A]">
