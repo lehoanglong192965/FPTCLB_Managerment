@@ -83,8 +83,9 @@ public class ICPDPEventController {
     })
     public ResponseEntity<Map<String, String>> rejectEvent(
             @PathVariable Integer eventId,
-            @Valid @RequestBody EventRejectRequest request) {
-        eventService.rejectEvent(eventId, request.getReason());
+            @Valid @RequestBody EventRejectRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.rejectEvent(eventId, request.getReason(), currentUser);
         return ResponseEntity.ok(Map.of("message", "Su kien da bi tu choi."));
     }
 }

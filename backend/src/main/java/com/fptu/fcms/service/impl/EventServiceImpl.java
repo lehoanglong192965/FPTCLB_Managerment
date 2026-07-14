@@ -694,6 +694,7 @@ public class EventServiceImpl implements EventService {
     public void approveEvent(Integer eventId) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Event not found."));
+        EventStatus oldStatus = event.getEventStatus();
 
         stateMachineService.ensureCanApprove(event);
 
@@ -702,12 +703,13 @@ public class EventServiceImpl implements EventService {
         event.setEventStatus(STATUS_APPROVED);
         event.setApprovedAt(LocalDateTime.now());
         event.setRejectionReason(null);
-        eventRepository.save(event);
+        Event savedEvent = eventRepository.save(event);
+        auditLogService.record(null, "Event", savedEvent.getEventID(), "EVENT_APPROVED", oldStatus.name(), STATUS_APPROVED.name(), null);
     }
 
     @Override
     @Transactional
-    public void rejectEvent(Integer eventId, String reason) {
+    public void rejectEvent(Integer eventId, String reason, UserPrincipal currentUser) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Event not found."));
         EventStatus oldStatus = event.getEventStatus();
@@ -718,7 +720,7 @@ public class EventServiceImpl implements EventService {
         event.setPdpFeedback(reason);
         event.setRejectionReason(reason);
         Event savedEvent = eventRepository.save(event);
-        auditLogService.record(null, "Event", savedEvent.getEventID(), "EVENT_REJECTED", oldStatus.name(), STATUS_REJECTED.name(), reason);
+        auditLogService.record(currentUser.getUserId(), "Event", savedEvent.getEventID(), "EVENT_REJECTED", oldStatus.name(), STATUS_REJECTED.name(), reason);
         publishLifecycleEvent(savedEvent, oldStatus, STATUS_REJECTED, null, reason);
     }
 
