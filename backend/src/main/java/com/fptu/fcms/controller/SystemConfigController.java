@@ -4,11 +4,13 @@ import com.fptu.fcms.dto.request.SystemConfigRequest;
 import com.fptu.fcms.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin/system-configs")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('Admin')")
 public class SystemConfigController {
 
     private final SystemConfigService

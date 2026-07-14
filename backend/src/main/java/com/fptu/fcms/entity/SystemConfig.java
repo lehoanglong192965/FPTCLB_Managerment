@@ -1,6 +1,7 @@
 package com.fptu.fcms.entity;
 
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.annotations.Nationalized;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -23,7 +24,8 @@ public class SystemConfig {
     @Column(name = "configKey")
     private String configKey;
 
-    @Column(name = "configValue")
+    @Nationalized
+    @Column(name = "configValue", nullable = false, length = 500)
     private String configValue;
 
     @Column(name = "updatedAt")

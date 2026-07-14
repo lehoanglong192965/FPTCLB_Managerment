@@ -274,6 +274,147 @@ class AIChatServiceImplTest {
         assertThat(savedLog.getCitationsJson()).isEqualTo("[]");
     }
 
+    @Test
+    @DisplayName("A semantic false positive returns the configured audited fallback")
+    void semanticFalsePositiveReturnsConfiguredFallback() {
+        when(systemConfigService.getConfigValue("AI_CONFIDENCE_THRESHOLD")).thenReturn("0.70");
+        when(systemConfigService.getConfigValue("RAG_FALLBACK_MESSAGE")).thenReturn("Configured fallback");
+
+        KnowledgeArchive publicArchive = archive(101, "Public archive", "Public");
+        when(archiveRepository.findByVisibilityScopeAndIsDeletedFalse("Public"))
+                .thenReturn(List.of(publicArchive));
+
+        Embedding embedding = embedding();
+        embeddingStore.add(embedding, TextSegment.from("Unrelated retrieved excerpt",
+                dev.langchain4j.data.document.Metadata.from(Map.of(
+                        "archiveId", "101", "title", "Public archive", "index", 0))));
+        when(queryEmbeddingModel.embed(anyString())).thenReturn(Response.from(embedding));
+        when(geminiChatModel.chat(anyList())).thenReturn(chatResponse("NO_RELEVANT_CONTEXT", 12));
+
+        AIChatResponse response = service.chat(AIChatRequest.builder()
+                .message("Question not answered by the excerpt")
+                .history(List.of(new AIChatRequest.ChatMessageDto("assistant", "CLUB2_PRIVATE_UAT_2026")))
+                .build(), studentUser());
+
+        assertThat(response.getStatus()).isEqualTo("Fallback");
+        assertThat(response.getAnswer()).isEqualTo("Configured fallback");
+        assertThat(response.getCitations()).isEmpty();
+
+        ArgumentCaptor<List<ChatMessage>> messagesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(geminiChatModel).chat(messagesCaptor.capture());
+        String systemPrompt = ((SystemMessage) messagesCaptor.getValue().get(0)).text();
+        assertThat(systemPrompt)
+                .contains("CURRENT user question")
+                .contains("never a factual source")
+                .contains("untrusted reference data")
+                .contains("[Retrieved excerpt 1]")
+                .contains("NO_RELEVANT_CONTEXT");
+
+        ArgumentCaptor<AIChatAuditLog> logCaptor = ArgumentCaptor.forClass(AIChatAuditLog.class);
+        verify(auditLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getStatus()).isEqualTo("Fallback");
+        assertThat(logCaptor.getValue().getTokensUsed()).isZero();
+        assertThat(logCaptor.getValue().getCitationsJson()).isEqualTo("[]");
+    }
+
+    @Test
+    @DisplayName("An answer containing the sentinel as normal text remains a success")
+    void sentinelMentionInsideNormalAnswerRemainsSuccess() {
+        when(systemConfigService.getConfigValue("AI_CONFIDENCE_THRESHOLD")).thenReturn("0.70");
+        when(systemConfigService.getConfigValue("RAG_FALLBACK_MESSAGE")).thenReturn("Fallback");
+
+        KnowledgeArchive publicArchive = archive(101, "Public archive", "Public");
+        when(archiveRepository.findByVisibilityScopeAndIsDeletedFalse("Public"))
+                .thenReturn(List.of(publicArchive));
+
+        Embedding embedding = embedding();
+        embeddingStore.add(embedding, TextSegment.from("Direct answer context",
+                dev.langchain4j.data.document.Metadata.from(Map.of(
+                        "archiveId", "101", "title", "Public archive", "index", 0))));
+        when(queryEmbeddingModel.embed(anyString())).thenReturn(Response.from(embedding));
+        String normalAnswer = "The sentinel NO_RELEVANT_CONTEXT is only a protocol value.";
+        when(geminiChatModel.chat(anyList())).thenReturn(chatResponse(normalAnswer, 9));
+
+        AIChatResponse response = service.chat(AIChatRequest.builder()
+                .message("Question with a direct answer")
+                .history(Collections.emptyList())
+                .build(), studentUser());
+
+        assertThat(response.getStatus()).isEqualTo("Success");
+        assertThat(response.getAnswer()).isEqualTo(normalAnswer);
+        assertThat(response.getCitations()).hasSize(1);
+
+        ArgumentCaptor<AIChatAuditLog> logCaptor = ArgumentCaptor.forClass(AIChatAuditLog.class);
+        verify(auditLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getStatus()).isEqualTo("Success");
+        assertThat(logCaptor.getValue().getTokensUsed()).isEqualTo(9);
+    }
+
+    @Test
+    @DisplayName("Embedding provider failure returns an audited fallback without calling chat")
+    void embeddingProviderFailureReturnsAuditedFallback() {
+        when(systemConfigService.getConfigValue("AI_CONFIDENCE_THRESHOLD")).thenReturn("0.70");
+        when(systemConfigService.getConfigValue("RAG_FALLBACK_MESSAGE")).thenReturn("Fallback");
+        when(archiveRepository.findByVisibilityScopeAndIsDeletedFalse("Public"))
+                .thenReturn(List.of(archive(101, "Public archive", "Public")));
+        when(queryEmbeddingModel.embed(anyString()))
+                .thenThrow(new ModelNotFoundException("Embedding model unavailable"));
+
+        AIChatResponse response = service.chat(AIChatRequest.builder()
+                .message("Question with a visible archive")
+                .history(Collections.emptyList())
+                .build(), studentUser());
+
+        assertThat(response.getStatus()).isEqualTo("Fallback");
+        assertThat(response.getAnswer()).isEqualTo("Fallback");
+        assertThat(response.getCitations()).isEmpty();
+        verify(geminiChatModel, never()).chat(anyList());
+
+        ArgumentCaptor<AIChatAuditLog> logCaptor = ArgumentCaptor.forClass(AIChatAuditLog.class);
+        verify(auditLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getStatus()).isEqualTo("Fallback");
+        assertThat(logCaptor.getValue().getTokensUsed()).isZero();
+    }
+
+    @Test
+    @DisplayName("A Club 2 leader never receives Club 3 context or citations")
+    void leaderRetrievalFiltersOtherClubArchives() {
+        when(systemConfigService.getConfigValue("AI_CONFIDENCE_THRESHOLD")).thenReturn("0.70");
+        when(systemConfigService.getConfigValue("RAG_FALLBACK_MESSAGE")).thenReturn("Fallback");
+
+        KnowledgeArchive publicArchive = archive(101, "Public archive", "Public");
+        KnowledgeArchive club2Archive = archive(202, "Club 2 internal", "ClubInternal");
+        when(archiveRepository.findByVisibilityScopeAndIsDeletedFalse("Public"))
+                .thenReturn(List.of(publicArchive));
+        when(archiveRepository.findByClubIDAndIsDeletedFalse(2))
+                .thenReturn(List.of(club2Archive));
+
+        Embedding embedding = embedding();
+        embeddingStore.add(embedding, TextSegment.from("CLUB2_PRIVATE_UAT_2026 allowed context",
+                dev.langchain4j.data.document.Metadata.from(Map.of(
+                        "archiveId", "202", "title", "Club 2 internal", "index", 0))));
+        embeddingStore.add(embedding, TextSegment.from("CLUB3_PRIVATE_UAT_2026 must be filtered",
+                dev.langchain4j.data.document.Metadata.from(Map.of(
+                        "archiveId", "303", "title", "Club 3 internal", "index", 0))));
+        when(queryEmbeddingModel.embed(anyString())).thenReturn(Response.from(embedding));
+        when(geminiChatModel.chat(anyList())).thenReturn(chatResponse("Club 2 answer", 8));
+
+        AIChatResponse response = service.chat(AIChatRequest.builder()
+                .message("Club 2 question")
+                .history(Collections.emptyList())
+                .build(), leaderOfClub2());
+
+        assertThat(response.getStatus()).isEqualTo("Success");
+        assertThat(response.getCitations())
+                .extracting(AIChatResponse.CitationDto::getArchiveId)
+                .containsExactly(202);
+
+        ArgumentCaptor<List<ChatMessage>> messagesCaptor = ArgumentCaptor.forClass(List.class);
+        verify(geminiChatModel).chat(messagesCaptor.capture());
+        assertThat(((SystemMessage) messagesCaptor.getValue().get(0)).text())
+                .doesNotContain("CLUB3_PRIVATE_UAT_2026");
+    }
+
     private UserPrincipal studentUser() {
         return new UserPrincipal(
                 12,
@@ -284,5 +425,39 @@ class AIChatServiceImplTest {
                 null,
                 List.of(new SimpleGrantedAuthority("ROLE_Student"))
         );
+    }
+
+    private UserPrincipal leaderOfClub2() {
+        return new UserPrincipal(
+                22,
+                "leader2@fpt.edu.vn",
+                3,
+                "Student",
+                "Leader",
+                2,
+                List.of(new SimpleGrantedAuthority("ROLE_Student"))
+        );
+    }
+
+    private KnowledgeArchive archive(int archiveId, String title, String visibilityScope) {
+        KnowledgeArchive archive = new KnowledgeArchive();
+        archive.setArchiveID(archiveId);
+        archive.setTitle(title);
+        archive.setVisibilityScope(visibilityScope);
+        archive.setIsDeleted(false);
+        return archive;
+    }
+
+    private Embedding embedding() {
+        float[] vector = new float[768];
+        vector[0] = 1.0f;
+        return Embedding.from(vector);
+    }
+
+    private dev.langchain4j.model.chat.response.ChatResponse chatResponse(String answer, int tokens) {
+        return dev.langchain4j.model.chat.response.ChatResponse.builder()
+                .aiMessage(AiMessage.from(answer))
+                .tokenUsage(new TokenUsage(tokens, 0))
+                .build();
     }
 }
