@@ -270,6 +270,7 @@ public class AIChatServiceImpl implements AIChatService {
         }
 
         return archives.stream()
+                .filter(archive -> "Success".equals(archive.getIndexingStatus()))
                 .map(a -> String.valueOf(a.getArchiveID()))
                 .collect(Collectors.toList());
     }

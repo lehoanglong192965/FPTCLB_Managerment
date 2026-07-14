@@ -81,6 +81,7 @@ class AIChatServiceImplTest {
         publicArchive.setTitle("Test Public Doc");
         publicArchive.setVisibilityScope("Public");
         publicArchive.setIsDeleted(false);
+        publicArchive.setIndexingStatus("Success");
         when(archiveRepository.findByVisibilityScopeAndIsDeletedFalse("Public"))
                 .thenReturn(List.of(publicArchive));
 
@@ -118,6 +119,37 @@ class AIChatServiceImplTest {
         assertThat(savedLog.getAiResponse()).isEqualTo("Xin lỗi, mình chưa tìm thấy thông tin.");
         assertThat(savedLog.getCitationsJson()).isEqualTo("[]");
         assertThat(savedLog.getTokensUsed()).isZero();
+    }
+
+    @Test
+    @DisplayName("Pending, Processing, and Failed archives are excluded before RAG retrieval")
+    void nonSuccessfulArchivesAreExcludedFromRetrieval() {
+        when(systemConfigService.getConfigValue("AI_CONFIDENCE_THRESHOLD")).thenReturn("0.70");
+        when(systemConfigService.getConfigValue("RAG_FALLBACK_MESSAGE")).thenReturn("Fallback");
+
+        KnowledgeArchive pending = archive(101, "Pending archive", "Public");
+        pending.setIndexingStatus("Pending");
+        KnowledgeArchive processing = archive(102, "Processing archive", "Public");
+        processing.setIndexingStatus("Processing");
+        KnowledgeArchive failed = archive(103, "Failed archive", "Public");
+        failed.setIndexingStatus("Failed");
+        when(archiveRepository.findByVisibilityScopeAndIsDeletedFalse("Public"))
+                .thenReturn(List.of(pending, processing, failed));
+
+        AIChatResponse response = service.chat(AIChatRequest.builder()
+                .message("Question that must not retrieve incomplete archives")
+                .history(Collections.emptyList())
+                .build(), studentUser());
+
+        assertThat(response.getStatus()).isEqualTo("Fallback");
+        assertThat(response.getCitations()).isEmpty();
+        verify(queryEmbeddingModel, never()).embed(anyString());
+        verify(geminiChatModel, never()).chat(anyList());
+
+        ArgumentCaptor<AIChatAuditLog> logCaptor = ArgumentCaptor.forClass(AIChatAuditLog.class);
+        verify(auditLogRepository).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getStatus()).isEqualTo("Fallback");
+        assertThat(logCaptor.getValue().getTokensUsed()).isZero();
     }
 
     // ─────────────────────── TC3-09 History ───────────────────────
@@ -162,6 +194,7 @@ class AIChatServiceImplTest {
         publicArchive.setTitle("Test Public Doc");
         publicArchive.setVisibilityScope("Public");
         publicArchive.setIsDeleted(false);
+        publicArchive.setIndexingStatus("Success");
         when(archiveRepository.findByVisibilityScopeAndIsDeletedFalse("Public"))
                 .thenReturn(List.of(publicArchive));
 
@@ -244,6 +277,7 @@ class AIChatServiceImplTest {
         publicArchive.setTitle("Test Public Doc");
         publicArchive.setVisibilityScope("Public");
         publicArchive.setIsDeleted(false);
+        publicArchive.setIndexingStatus("Success");
         when(archiveRepository.findByVisibilityScopeAndIsDeletedFalse("Public"))
                 .thenReturn(List.of(publicArchive));
 
@@ -445,6 +479,7 @@ class AIChatServiceImplTest {
         archive.setTitle(title);
         archive.setVisibilityScope(visibilityScope);
         archive.setIsDeleted(false);
+        archive.setIndexingStatus("Success");
         return archive;
     }
 
