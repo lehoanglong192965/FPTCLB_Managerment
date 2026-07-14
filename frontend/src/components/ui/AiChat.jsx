@@ -567,7 +567,7 @@ export default function AiChat() {
                                 : "rounded-[4px_14px_14px_14px] border border-gray-200 bg-white shadow-sm"
                         }`}
                       >
-                        {isFallback ? (
+                        {isFallback && message.citations?.length > 0 ? (
                           <div className="mb-1.5 flex items-center gap-1 text-[11px] font-semibold text-amber-700">
                             <Info size={13} />
                             Thông tin tham khảo

@@ -678,7 +678,7 @@ export default function KnowledgeArchiveMgmt() {
       render: (v) => <VisibilityTag scope={v} />,
     },
     {
-      title: "CLB",
+      title: "CLB sở hữu",
       dataIndex: "clubID",
       key: "club",
       width: 140,
@@ -973,8 +973,9 @@ export default function KnowledgeArchiveMgmt() {
               </Form.Item>
               <Form.Item
                 name="clubID"
-                label="Chọn CLB"
-                rules={[{ required: true, message: "Vui lòng chọn câu lạc bộ (bắt buộc kể cả Public)." }]}
+                label="Chọn CLB sở hữu"
+                extra="Tài liệu Public vẫn phải gắn với CLB sở hữu; điều này không giới hạn người đã đăng nhập xem tài liệu."
+                rules={[{ required: true, message: "Vui lòng chọn CLB sở hữu (bắt buộc kể cả Public)." }]}
               >
                 <Select
                   showSearch
@@ -989,7 +990,7 @@ export default function KnowledgeArchiveMgmt() {
             </>
           ) : (
             <>
-              <Form.Item label="Câu lạc bộ">
+              <Form.Item label="CLB sở hữu">
                 <Input readOnly value={getClubLabel(userClubId)} />
               </Form.Item>
               <Form.Item label="Phạm vi hiển thị">
@@ -1020,7 +1021,7 @@ export default function KnowledgeArchiveMgmt() {
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <span className="text-slate-400">CLB</span>
+                <span className="text-slate-400">CLB sở hữu</span>
                 <p className="font-medium text-slate-700">{getClubLabel(detail.clubID)}</p>
               </div>
               <div>
