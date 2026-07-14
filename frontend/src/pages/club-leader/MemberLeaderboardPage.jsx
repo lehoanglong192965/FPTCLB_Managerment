@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Award, Crown, Loader2, Medal, RefreshCw, Search, Trophy } from "lucide-react";
 import authApi from "../../services/api/auth/authApi";
-import clubService from "../../services/api/clubs/clubService";
+import clubApi from "../../services/api/clubs/clubApi";
 import { TokenService } from "../../services/api/axiosClient";
-
-const AVATAR_COLORS = ["#2563eb", "#e6430a", "#059669", "#7c3aed", "#db2777", "#d97706"];
+import { getInitials, getAvatarColor } from "../../utils/avatar";
 
 const TIER_DETAILS = {
   "S-Tier (Xuất sắc)": {
@@ -65,13 +64,6 @@ function normalizeText(value = "") {
     .trim();
 }
 
-function getInitials(name = "") {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
 function resolveMemberTier(totalScore) {
   const score = Number(totalScore ?? 0);
   if (score >= 150) return "S-Tier (Xuất sắc)";
@@ -118,7 +110,7 @@ async function resolveReadableClubId() {
   }
 
   try {
-    const clubs = await clubService.getMyClubs();
+    const clubs = await clubApi.getMyClubs();
     const list = Array.isArray(clubs) ? clubs : (clubs?.data ?? clubs?.clubs ?? clubs?.content ?? []);
     return pickClubId(list[0]);
   } catch (err) {
@@ -144,7 +136,7 @@ function normalizeRankingItem(item, index) {
     contributionPoint: Number(item.contributionPoint ?? 0),
     eventParticipationPoint: Number(item.eventParticipationPoint ?? 0),
     performancePoint: Number(item.performancePoint ?? 0),
-    avatarColor: AVATAR_COLORS[index % AVATAR_COLORS.length],
+    avatarColor: getAvatarColor(item.userId ?? item.fullName),
   };
 }
 
@@ -235,8 +227,8 @@ export default function MemberLeaderboardPage() {
         return;
       }
       const [clubRes, rankingRes] = await Promise.allSettled([
-        clubService.getById(activeClubId),
-        clubService.getMemberRankings(activeClubId),
+        clubApi.getById(activeClubId),
+        clubApi.getMemberRankings(activeClubId),
       ]);
 
       if (clubRes.status === "fulfilled") {
@@ -266,9 +258,9 @@ export default function MemberLeaderboardPage() {
   }, []);
 
   const rows = useMemo(
-    () => rankings
-      .map(normalizeRankingItem)
-      .sort((a, b) => a.rank - b.rank || b.totalScore - a.totalScore || a.fullName.localeCompare(b.fullName)),
+    () => [...rankings]
+      .sort((a, b) => Number(b.totalScore ?? 0) - Number(a.totalScore ?? 0) || (a.fullName ?? "").localeCompare(b.fullName ?? ""))
+      .map(normalizeRankingItem),
     [rankings]
   );
 

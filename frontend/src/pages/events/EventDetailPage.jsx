@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Calendar, MapPin, Clock, ArrowLeft } from "lucide-react";
-import eventService from "../../services/api/events/eventService";
-import clubService from "../../services/api/clubs/clubService";
+import eventApi from "../../services/api/events/eventApi";
+import clubApi from "../../services/api/clubs/clubApi";
 import EventRegistrationBtn from "../../components/events/EventRegistrationBtn";
 import { useAuth } from "../../contexts/AuthContext";
 import { getServerOrigin } from "../../services/api/axiosClient";
@@ -39,8 +39,8 @@ export default function EventDetailPage() {
     const fetchData = async () => {
       try {
         const [eventRes, clubRes] = await Promise.all([
-          eventService.getEventById(eventId),
-          clubService.getAll(),
+          eventApi.getEventById(eventId),
+          clubApi.getAll(),
         ]);
         setEvent(eventRes.data || eventRes);
         setClubs(Array.isArray(clubRes) ? clubRes : (clubRes.data || []));

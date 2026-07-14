@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
-import eventService from "../../services/api/events/eventService";
+import eventApi from "../../services/api/events/eventApi";
 import { useClubData } from "../../contexts/ClubDataContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -29,12 +29,13 @@ export default function PersonnelAssignmentPage() {
 
   const fetchAssignments = async () => {
     try {
-      const response = await eventService.getAssignments(eventId);
+      const response = await eventApi.getAssignments(eventId);
       const data = Array.isArray(response) ? response : (response.data || []);
       // Lọc các phân công chưa bị xóa mềm (isDeleted === false)
       setAssignments(data.filter(a => !a.isDeleted));
     } catch (error) {
-      console.error("Lỗi khi tải phân công:", error);
+      if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError") return;
+      toast.error(error?.response?.data?.message ?? "Không thể tải danh sách phân công.");
     } finally {
       setLoading(false);
     }
@@ -56,7 +57,7 @@ export default function PersonnelAssignmentPage() {
 
     setAdding(true);
     try {
-      await eventService.addAssignment(eventId, { userID: parseInt(newUserId), eventRoleID: parseInt(newRoleId) });
+      await eventApi.addAssignment(eventId, { userID: parseInt(newUserId), eventRoleID: parseInt(newRoleId) });
       toast.success("Đã phân công thành viên thành công.");
       setNewUserId("");
       setNewRoleId("");
@@ -71,7 +72,7 @@ export default function PersonnelAssignmentPage() {
   const handleRemoveAssignment = async (userId) => {
     if (!(await confirm("Bạn có chắc chắn muốn xóa phân công này?", { danger: true, confirmLabel: "Xóa" }))) return;
     try {
-      await eventService.removeAssignment(eventId, userId);
+      await eventApi.removeAssignment(eventId, userId);
       toast.success("Đã xóa phân công.");
       await fetchAssignments(); // Refresh assignments list
     } catch (error) {

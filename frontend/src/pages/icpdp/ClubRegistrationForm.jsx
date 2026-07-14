@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useToast } from "../../contexts/ToastContext";
 import { useNavigate } from "react-router-dom";
 import {
   FileText,
@@ -11,11 +10,11 @@ import {
   Plus,
   Trash2,
   CheckCircle,
-  AlertCircle,
   ShieldCheck,
 } from "lucide-react";
 import clubRegistrationApi from "../../services/api/clubs/clubRegistrationApi";
 import axiosClient, { getServerOrigin } from "../../services/api/axiosClient";
+import AlertModal from "../../components/ui/AlertModal";
 
 const CATEGORIES = ["IT", "Music", "Sports", "Art", "Culture", "Kỹ thuật", "Ngôn ngữ", "Học thuật", "Cộng đồng", "Khác"];
 
@@ -27,12 +26,13 @@ const getImageUrl = (url) => {
 
 export default function ClubRegistrationForm({ mode = "member" }) {
   const navigate = useNavigate();
-  const toast = useToast();
   const isStaffMode = mode === "icpdp";
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  const fail = (msg) => { setError(msg); };
 
   const [formData, setFormData] = useState({
     clubCode: "",
@@ -118,7 +118,7 @@ export default function ClubRegistrationForm({ mode = "member" }) {
       const res = await clubRegistrationApi.uploadCardImage(file);
       setFormData((prev) => ({ ...prev, clubImage: res.url }));
     } catch {
-      setError("Không thể tải lên ảnh đại diện CLB. Vui lòng thử lại.");
+      fail("Không thể tải lên ảnh đại diện CLB. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -141,7 +141,7 @@ export default function ClubRegistrationForm({ mode = "member" }) {
         return next;
       });
     } catch {
-      setError("Không thể tải lên ảnh thẻ sinh viên. Vui lòng thử lại.");
+      fail("Không thể tải lên ảnh thẻ sinh viên. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -156,7 +156,7 @@ export default function ClubRegistrationForm({ mode = "member" }) {
 
   const removeMember = (index) => {
     if (foundingMembers.length <= 5) {
-      toast.error("Đơn đăng ký yêu cầu tối thiểu 5 nhân sự (1 Chủ nhiệm, 1 Phó chủ nhiệm, 3 Thành viên sáng lập).");
+      fail("Đơn đăng ký yêu cầu tối thiểu 5 nhân sự (1 Chủ nhiệm, 1 Phó chủ nhiệm, 3 Thành viên sáng lập).");
       return;
     }
     setFoundingMembers((prev) => prev.filter((_, i) => i !== index));
@@ -182,6 +182,11 @@ export default function ClubRegistrationForm({ mode = "member" }) {
   };
 
   const handleSubmit = async () => {
+    if (!formData.orgStructure.trim()) {
+      fail("Vui lòng điền Sơ đồ tổ chức & Dự kiến nhân sự.");
+      return;
+    }
+
     setError("");
     setLoading(true);
 
@@ -214,8 +219,8 @@ export default function ClubRegistrationForm({ mode = "member" }) {
       } else if (errMsg.includes("Proposed Vice Leader has active discipline log")) {
         errMsg = "Sinh viên được chọn làm Phó chủ nhiệm đang có biên bản kỷ luật hoạt động.";
       }
-      
-      setError(errMsg);
+
+      fail(errMsg);
     } finally {
       setLoading(false);
     }
@@ -310,10 +315,13 @@ export default function ClubRegistrationForm({ mode = "member" }) {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-red-300 bg-red-50 text-red-700 text-[13px] mb-5">
-          <AlertCircle size={18} />
-          <span>{error}</span>
-        </div>
+        <AlertModal
+          type="error"
+          title="Không thể tiếp tục"
+          message={error}
+          confirmLabel="Đã hiểu"
+          onClose={() => setError("")}
+        />
       )}
 
       {/* BƯỚC 1 */}
@@ -420,11 +428,11 @@ export default function ClubRegistrationForm({ mode = "member" }) {
               className="inline-flex items-center gap-1.5 bg-blue-600 text-white border-none px-6 py-2.5 rounded-lg font-medium cursor-pointer transition-colors hover:bg-blue-700"
               onClick={() => {
                 if (!formData.clubName || !formData.clubCode || !formData.mission || !formData.uniqueness) {
-                  setError("Vui lòng điền đầy đủ các mục thông tin bắt buộc (*).");
+                  fail("Vui lòng điền đầy đủ các mục thông tin bắt buộc (*).");
                   return;
                 }
                 if (!formData.clubImage) {
-                  setError("Vui lòng tải lên ảnh đại diện (logo) cho CLB.");
+                  fail("Vui lòng tải lên ảnh đại diện (logo) cho CLB.");
                   return;
                 }
                 setError("");
@@ -588,31 +596,49 @@ export default function ClubRegistrationForm({ mode = "member" }) {
                 for (let i = 0; i < foundingMembers.length; i++) {
                   const m = foundingMembers[i];
                   if (!m.studentId || !m.fullName || !m.phoneNumber || !m.email) {
-                    setError(`Thành viên số ${i + 1} chưa điền đầy đủ thông tin bắt buộc.`);
+                    fail(`Thành viên số ${i + 1} chưa điền đầy đủ thông tin bắt buộc.`);
                     return;
                   }
                   if (!isStaffMode && m.proposedRole !== "Member" && !m.cardImage) {
-                    setError(`Chủ nhiệm/Phó chủ nhiệm (Thành viên ${i + 1}) phải có ảnh minh chứng thẻ sinh viên.`);
+                    fail(`Chủ nhiệm/Phó chủ nhiệm (Thành viên ${i + 1}) phải có ảnh minh chứng thẻ sinh viên.`);
                     return;
                   }
                 }
 
-                const phoneRegex = /^(0[3|5|7|8|9])[0-9]{8}$/;
+                const seenStudentIds = new Map();
                 for (let i = 0; i < foundingMembers.length; i++) {
-                  const m = foundingMembers[i];
-                  if (!phoneRegex.test(m.phoneNumber)) {
-                    setError(`Số điện thoại thành viên số ${i + 1} không hợp lệ (Số điện thoại phải bắt đầu bằng 03|05|07|08|09).`);
+                  const id = foundingMembers[i].studentId.trim().toUpperCase();
+                  if (seenStudentIds.has(id)) {
+                    fail(`Mã số sinh viên "${foundingMembers[i].studentId}" bị trùng giữa thành viên số ${seenStudentIds.get(id) + 1} và số ${i + 1}. Mỗi thành viên sáng lập phải là một sinh viên khác nhau.`);
                     return;
                   }
-                  if (m.phoneNumber.length < 10) {
-                    setError(`Số điện thoại thành viên số ${i + 1} không hợp lệ (Số điện thoại phải có ít nhất 10 chữ số).`);
+                  seenStudentIds.set(id, i);
+                }
+
+                const phoneRegex = /^(0[35789])[0-9]{8}$/;
+                const cleanedPhones = [];
+                for (let i = 0; i < foundingMembers.length; i++) {
+                  const m = foundingMembers[i];
+                  const phoneDigits = m.phoneNumber.replace(/\s+/g, "");
+                  if (phoneDigits.length < 10) {
+                    fail(`Số điện thoại thành viên số ${i + 1} không hợp lệ (Số điện thoại phải có ít nhất 10 chữ số).`);
+                    return;
                   }
+                  if (!phoneRegex.test(phoneDigits)) {
+                    fail(`Số điện thoại thành viên số ${i + 1} không hợp lệ (Số điện thoại phải bắt đầu bằng 03|05|07|08|09).`);
+                    return;
+                  }
+                  cleanedPhones.push(phoneDigits);
                 }
                 const hasErrors = Object.values(validationErrors).some((err) => !!err);
                 if (hasErrors) {
-                  setError("Có lỗi xác thực MSSV. Vui lòng kiểm tra lại danh sách mã sinh viên.");
+                  fail("Có lỗi xác thực MSSV. Vui lòng kiểm tra lại danh sách mã sinh viên.");
                   return;
                 }
+
+                // Lưu lại số điện thoại đã loại bỏ khoảng trắng — tránh gửi lên backend
+                // giá trị chứa khoảng trắng khiến regex phía server luôn từ chối.
+                setFoundingMembers((prev) => prev.map((m, i) => ({ ...m, phoneNumber: cleanedPhones[i] })));
 
                 setError("");
                 setStep(3);

@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationsContext';
 import { useToast } from '../../contexts/ToastContext';
-import eventService from '../../services/api/events/eventService';
+import eventApi from '../../services/api/events/eventApi';
 import AlertModal from '../ui/AlertModal';
 
 const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
@@ -25,7 +25,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
             setStatusLoading(false);
             return;
         }
-        eventService.getMyEventStatus(eventId)
+        eventApi.getMyEventStatus(eventId)
             .then(res => {
                 const data = res.data || res;
                 setIsRegistered(!!data.registered);
@@ -150,7 +150,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
     const handleRegister = async () => {
         setIsLoading(true);
         try {
-            await eventService.register(eventId);
+            await eventApi.register(eventId);
             setIsRegistered(true);
             addNotification({ title: 'Đăng ký thành công', content: 'Đã đăng ký tham gia sự kiện thành công!' });
             if (onRegisterSuccess) onRegisterSuccess();

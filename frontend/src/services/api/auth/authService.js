@@ -18,18 +18,15 @@ const authService = {
         const res = await authApi.getMyClubRole();
         // Chỉ nâng quyền khi user thực sự thuộc một CLB (clubID hợp lệ)
         if (res?.clubID) {
-          // clubRoleID: 1=Leader, 2=ViceLeader, 3=Member (thường), 5=ClubManager
+          // clubRoleID: 1=Leader, 2=ViceLeader, 3=Member (thường)
           if (res.clubRoleID === 1) {
             role = "CLUB_LEADER";
             clubId = res.clubID;
           } else if (res.clubRoleID === 2) {
             role = "VICE_LEADER";
             clubId = res.clubID;
-          } else if (res.clubRoleID === 5) {
-            role = "CLUB_MANAGER";
-            clubId = res.clubID;
           }
-          // clubRoleID === 3 hoặc 4 = Member thường → giữ nguyên role "MEMBER"
+          // clubRoleID === 3 = Member thường → giữ nguyên role "MEMBER"
         }
         TokenService.save({ access_token: data.token, refresh_token: data.refreshToken, role, clubId });
       } catch (e) {
@@ -61,6 +58,7 @@ const authService = {
   resetPassword: (params) => authApi.resetPassword(params),
   updateProfile: (params) => authApi.updateProfile(params),
   checkEmailExists: (email) => authApi.checkEmailExists(email),
+  checkStudentId: (studentId) => authApi.checkStudentId(studentId),
   getMyClubRole: () => authApi.getMyClubRole(),
   verifyOTP: (email, otpCode) => authApi.verifyOTP(email, otpCode),
   resendOTP: (email) => authApi.resendOTP(email),

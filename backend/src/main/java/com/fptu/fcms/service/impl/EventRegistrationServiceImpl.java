@@ -10,6 +10,8 @@ import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventAssignment;
 import com.fptu.fcms.entity.EventRegistration;
 import com.fptu.fcms.entity.GuestEventRegistration;
+import com.fptu.fcms.entity.Notification;
+import com.fptu.fcms.entity.NotificationRecipient;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.enums.ParticipantType;
 import com.fptu.fcms.enums.RegistrationChannel;
@@ -25,6 +27,8 @@ import com.fptu.fcms.repository.EventRegistrationPolicyRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
+import com.fptu.fcms.repository.NotificationRecipientRepository;
+import com.fptu.fcms.repository.NotificationRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.AuditLogService;
@@ -78,6 +82,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     private final EventAssignmentAccessService eventAssignmentAccessService;
     private final EventStateMachineService stateMachineService;
     private final AuditLogService auditLogService;
+    private final NotificationRepository notificationRepository;
+    private final NotificationRecipientRepository notificationRecipientRepository;
 
     @Override
     @Transactional
@@ -242,6 +248,13 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setIsDeleted(false);
         registrationRepo.save(registration);
         saveAudit(currentUser.getUserId(), registration, "REGISTRATION_APPROVED", oldStatus == null ? null : oldStatus.name(), allocation.status().name(), "Approved by leader");
+        notifyRegistrant(
+                registration,
+                currentUser.getUserId(),
+                "REGISTRATION_APPROVED",
+                "Đăng ký sự kiện được duyệt",
+                "Đăng ký tham gia sự kiện \"" + event.getEventName() + "\" của bạn đã được duyệt."
+        );
     }
 
     @Override
@@ -268,6 +281,15 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setIsDeleted(false);
         registrationRepo.save(registration);
         saveAudit(currentUser.getUserId(), registration, "REGISTRATION_REJECTED", oldStatus == null ? null : oldStatus.name(), RegistrationLifecycle.STATUS_REJECTED.name(), request.getReason());
+
+        Event event = eventRepository.findById(eventId).orElse(null);
+        notifyRegistrant(
+                registration,
+                currentUser.getUserId(),
+                "REGISTRATION_REJECTED",
+                "Đăng ký sự kiện bị từ chối",
+                "Đăng ký tham gia sự kiện \"" + (event != null ? event.getEventName() : "sự kiện") + "\" của bạn đã bị từ chối. Lý do: " + request.getReason()
+        );
     }
 
     @Override
@@ -425,6 +447,40 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
     private void saveAudit(Integer actorId, EventRegistration registration, String actionType, String oldValue, String newValue, String reason) {
         auditLogService.record(actorId, AUDIT_TABLE, registration.getRegistrationID(), actionType, oldValue, newValue, reason);
+    }
+
+    private void notifyRegistrant(
+            EventRegistration registration,
+            Integer actorId,
+            String notificationType,
+            String title,
+            String content
+    ) {
+        if (registration.getUserID() == null) {
+            return;
+        }
+        UserAccount registrant = userRepository.findByUserIDAndIsDeletedFalse(registration.getUserID()).orElse(null);
+        if (registrant == null) {
+            return;
+        }
+        UserAccount actor = userRepository.findByUserIDAndIsDeletedFalse(actorId).orElse(registrant);
+
+        Notification notification = new Notification();
+        notification.setClub(null);
+        notification.setCreatedBy(actor);
+        notification.setTitle(title);
+        notification.setNotificationType(notificationType);
+        notification.setContent(content);
+        notification.setCreatedAt(LocalDateTime.now());
+        notification.setIsDeleted(false);
+        Notification savedNotification = notificationRepository.save(notification);
+
+        NotificationRecipient recipient = new NotificationRecipient();
+        recipient.setNotification(savedNotification);
+        recipient.setUser(registrant);
+        recipient.setIsRead(false);
+        recipient.setCreatedAt(LocalDateTime.now());
+        notificationRecipientRepository.save(recipient);
     }
 
     private RegistrationListItemResponse toView(EventRegistration registration, UserPrincipal currentUser) {

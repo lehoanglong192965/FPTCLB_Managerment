@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import EventCard from "./EventCard";
-import eventService from "../../services/api/events/eventService";
-import clubService from "../../services/api/clubs/clubService";
+import eventApi from "../../services/api/events/eventApi";
+import clubApi from "../../services/api/clubs/clubApi";
 
 export default function EventsSection() {
   const navigate = useNavigate();
@@ -27,10 +27,10 @@ export default function EventsSection() {
 
     const fetchEvents = async () => {
       try {
-        const evRes = await safeGet(() => eventService.getApprovedEvents());
+        const evRes = await safeGet(() => eventApi.getApprovedEvents());
         if (cancelled || !evRes) return;
 
-        const clubRes = await safeGet(() => clubService.getAll(), 100);
+        const clubRes = await safeGet(() => clubApi.getAll(), 100);
         if (cancelled) return;
 
         const evList   = Array.isArray(evRes) ? evRes : (evRes?.content ?? evRes?.data ?? []);
@@ -48,7 +48,7 @@ export default function EventsSection() {
           const badgeType = isFull                       ? "full"
             : s === "REGISTRATIONCLOSED"                 ? "closed"
             : s === "APPROVED" || s === "UPCOMING"       ? "upcoming"
-            : s === "ONGOING"                            ? "upcoming"
+            : s === "ONGOING"                            ? "ongoing"
             : "open";
           return {
             id:                  e.eventID,

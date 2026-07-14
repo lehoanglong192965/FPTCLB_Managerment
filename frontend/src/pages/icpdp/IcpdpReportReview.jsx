@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, FileText, ExternalLink, CheckCircle2, AlertCircle, Clock, Search, XCircle, ChevronRight, BarChart2 } from "lucide-react";
-import reportService from "../../services/api/report/reportService";
-import eventService from "../../services/api/events/eventService";
+import reportApi from "../../services/api/report/reportApi";
+import eventApi from "../../services/api/events/eventApi";
 import { useConfirm } from "../../contexts/ConfirmContext";
 import { useToast } from "../../contexts/ToastContext";
 import { getServerOrigin } from "../../services/api/axiosClient";
@@ -199,14 +199,18 @@ export default function IcpdpReportReview() {
 
   const fetchReportFor = async (eventId) => {
     try {
-      const res = await reportService.getByEventId(eventId);
+      const res = await reportApi.getByEventId(eventId);
       setReports((prev) => ({ ...prev, [eventId]: res?.data ?? res }));
-    } catch { /* ignore */ }
+    } catch (err) {
+      if (err?.response?.status !== 404 && err?.code !== "ERR_CANCELED" && err?.name !== "CanceledError") {
+        toast.error(err?.response?.data?.message ?? "Không thể tải thông tin báo cáo.");
+      }
+    }
   };
 
   useEffect(() => {
     setLoading(true);
-    eventService.getReportUploadedEvents()
+    eventApi.getReportUploadedEvents()
       .then((res) => {
         const pending = (Array.isArray(res) ? res : (res?.data ?? res?.content ?? []))
           .map((e) => ({ ...e, _reviewStatus: "pending" }));
@@ -215,6 +219,7 @@ export default function IcpdpReportReview() {
       })
       .catch((err) => {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        toast.error(err?.response?.data?.message ?? "Không thể tải danh sách sự kiện chờ duyệt báo cáo.");
       })
       .finally(() => setLoading(false));
   }, []);
@@ -223,7 +228,7 @@ export default function IcpdpReportReview() {
     if (!(await confirm("Xác nhận phê duyệt báo cáo? Hành động không thể hoàn tác.", { confirmLabel: "Phê duyệt" }))) return;
     setApprovingId(eventId);
     try {
-      await reportService.approve(eventId);
+      await reportApi.approve(eventId);
       setEvents((prev) => prev.map((e) => e.eventID === eventId ? { ...e, _reviewStatus: "approved" } : e));
       setSelected((prev) => prev?.eventID === eventId ? { ...prev, _reviewStatus: "approved" } : prev);
     } catch (e) {
@@ -235,7 +240,7 @@ export default function IcpdpReportReview() {
 
   const handleReject = async (eventId, reason) => {
     try {
-      await reportService.reject(eventId, { reason });
+      await reportApi.reject(eventId, { reason });
       setEvents((prev) => prev.map((e) => e.eventID === eventId ? { ...e, _reviewStatus: "rejected" } : e));
       setSelected((prev) => prev?.eventID === eventId ? { ...prev, _reviewStatus: "rejected" } : prev);
     } catch (e) {
@@ -266,7 +271,7 @@ export default function IcpdpReportReview() {
       </div>
 
       {/* Search bar */}
-      {!loading && events.length > 0 && (
+      {!loading && (
         <div className="max-w-3xl mb-3">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#94A3B8" }} />

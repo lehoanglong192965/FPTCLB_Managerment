@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import clubService from "../../services/api/clubs/clubService";
+import clubApi from "../../services/api/clubs/clubApi";
 import applicationApi from "../../services/api/member/applicationApi";
 import { normalizeClub } from "../../hooks/usePublicClubs";
 import ClubDetailCard from "../../components/clubs/ClubDetailCard";
@@ -31,13 +31,13 @@ export default function ClubDetailPage() {
     setError("");
     setAlreadyApplied(false);
     setClubEvents([]);
-    clubService.getByIdPublic(decodeURIComponent(abbr))
+    clubApi.getByIdPublic(decodeURIComponent(abbr))
       .then((res) => {
         const normalized = normalizeClub(res);
         setClub(normalized);
         // Fetch events sau khi có clubId
         if (normalized?.id) {
-          clubService.getAllEvents(normalized.id)
+          clubApi.getAllEvents(normalized.id)
             .then((evRes) => {
               const raw = Array.isArray(evRes) ? evRes
                 : (evRes?.content ?? evRes?.data ?? []);
@@ -74,15 +74,21 @@ export default function ClubDetailPage() {
   // normalizeClub map raw.clubID → club.id (không phải club.clubID)
   useEffect(() => {
     if (!user || !club?.id) return;
+    let cancelled = false;
     applicationApi.getMyApplications()
       .then((data) => {
+        if (cancelled) return;
         const arr = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
         const hasActive = arr.some(
           (a) => a.clubID === club.id && ACTIVE_STATUSES.has(a.status)
         );
         setAlreadyApplied(hasActive);
       })
-      .catch(() => setAlreadyApplied(false));
+      .catch((err) => {
+        if (cancelled || err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        setAlreadyApplied(false);
+      });
+    return () => { cancelled = true; };
   }, [user, club?.id]);
 
   const handleApplySubmitted = async (payload) => {
@@ -102,10 +108,10 @@ export default function ClubDetailPage() {
   };
 
   const getPrimaryAction = () => {
+    if (!club?.recruiting) return null;
     if (!user) {
       return { label: "Nộp đơn ứng tuyển", onClick: () => setShowLoginPrompt(true) };
     }
-    if (!club?.recruiting) return null;
     if (alreadyApplied) {
       return { label: "Đã nộp đơn — đang chờ duyệt", onClick: () => navigate("/member/apply"), disabled: false };
     }

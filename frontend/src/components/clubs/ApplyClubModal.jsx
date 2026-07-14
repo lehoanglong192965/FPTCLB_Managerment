@@ -9,7 +9,7 @@ const inputStyle = {
 
 /**
  * Popup form đăng ký ứng tuyển vào một CLB cụ thể.
- * Không gọi API thật — tạo đơn qua ApplicationsContext (mock).
+ * Gọi API thật qua callback onSubmitted do trang cha (vd: ClubDetailPage) cung cấp.
  */
 export default function ApplyClubModal({ club, clubId, onClose, onSubmitted }) {
   const [introduction, setIntroduction] = useState("");

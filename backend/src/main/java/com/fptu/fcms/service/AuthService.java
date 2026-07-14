@@ -8,6 +8,7 @@ public interface AuthService {
     AuthResponse login(LoginRequest request);
     AuthResponse refreshToken(String refreshToken);
     void register(RegisterRequest request);
+    boolean isStudentIdAvailable(String studentId);
     void verifyOTPAndActivateAccount(com.fptu.fcms.dto.request.VerifyOTPRequest request);
     void resendOTP(String email);
     void forgotPassword(String email);

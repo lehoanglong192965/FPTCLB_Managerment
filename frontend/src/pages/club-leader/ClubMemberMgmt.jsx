@@ -3,6 +3,7 @@ import { Users, Mail, Search, X, Phone, BookOpen, Calendar, Hash, ShieldOff, Che
 import { useClubData } from "../../contexts/ClubDataContext";
 import { useToast } from "../../contexts/ToastContext";
 import { CLUB_ROLE_NAMES } from "../../constants/roles";
+import { getInitials } from "../../utils/avatar";
 
 const ROLE_BADGE = {
   Leader:     { label: "Trưởng CLB",    color: "#E6430A", bg: "#FFF3EE" },
@@ -24,7 +25,7 @@ export function RoleBadge({ role }) {
 }
 
 export function Avatar({ name, size = 38 }) {
-  const initial = name?.split(" ").pop()?.[0]?.toUpperCase() ?? "?";
+  const initial = getInitials(name);
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%", flexShrink: 0,
@@ -224,16 +225,16 @@ export default function ClubMemberMgmt() {
   const [search, setSearch]     = useState("");
   const [selected, setSelected] = useState(null);
 
-  const handleExpel = (member) => {
-    expelMember(member);
+  const handleExpel = async (member) => {
+    const ok = await expelMember(member);
     setSelected(null);
-    toast.success(`Đã khai trừ ${member.fullName}.`);
+    if (ok) toast.success(`Đã khai trừ ${member.fullName}.`);
   };
 
-  const handleBlacklist = (member, reason) => {
-    addToBlacklist(member, reason);
+  const handleBlacklist = async (member, reason) => {
+    const ok = await addToBlacklist(member, reason);
     setSelected(null);
-    toast.success(`Đã thêm ${member.fullName} vào danh sách đen.`);
+    if (ok) toast.success(`Đã thêm ${member.fullName} vào danh sách đen.`);
   };
 
   const filtered = members.filter((m) => {

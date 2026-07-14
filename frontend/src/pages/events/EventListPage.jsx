@@ -1,17 +1,19 @@
 import { useState, useEffect } from "react";
 import EventCard from "../../components/events/EventCard";
-import eventService from "../../services/api/events/eventService";
-import clubService from "../../services/api/clubs/clubService";
+import eventApi from "../../services/api/events/eventApi";
+import clubApi from "../../services/api/clubs/clubApi";
 import { useAuth } from "../../contexts/AuthContext";
 
 const BADGE_FILTERS = ["Tất cả", "Đăng ký mở", "Sắp diễn ra", "Hết chỗ"];
 
-function getStatusBadge(status) {
-  const s = (status || "").toUpperCase();
+function getStatusBadge(event) {
+  const s = (event.eventStatus || "").toUpperCase();
   if (s === "APPROVED")             return { badge: "Sắp mở đăng ký",  badgeType: "upcoming" };
   if (s === "REGISTRATIONCLOSED")   return { badge: "Đóng đăng ký",    badgeType: "closed" };
   if (s === "UPCOMING")             return { badge: "Sắp diễn ra",     badgeType: "upcoming" };
   if (s === "ONGOING")              return { badge: "Đang diễn ra",    badgeType: "ongoing" };
+  const isFull = Number(event.maxParticipants) > 0 && Number(event.currentParticipants) >= Number(event.maxParticipants);
+  if (isFull) return { badge: "Hết chỗ", badgeType: "full" };
   return { badge: "Đăng ký mở", badgeType: "open" };
 }
 
@@ -21,7 +23,7 @@ export default function EventListPage() {
   const [activeFilter, setActiveFilter]   = useState("Tất cả");
   const [rawEvents, setRawEvents]         = useState([]);
   const [clubs, setClubs]                 = useState([]);
-  const [, setRegisteredIds] = useState(new Set());
+  const [registeredIds, setRegisteredIds] = useState(new Set());
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState(null);
 
@@ -46,9 +48,9 @@ export default function EventListPage() {
       setError(null);
       try {
         const requests = [
-          safeGet(() => eventService.getApprovedEvents()),
-          safeGet(() => clubService.getAll()),
-          user ? eventService.getMyRegistrations().catch(() => []) : Promise.resolve([]),
+          safeGet(() => eventApi.getApprovedEvents()),
+          safeGet(() => clubApi.getAll()),
+          user ? eventApi.getMyRegistrations().catch(() => []) : Promise.resolve([]),
         ];
         const [evRes, clubRes, regRes] = await Promise.all(requests);
         if (cancelled) return;
@@ -76,7 +78,8 @@ export default function EventListPage() {
   const allEvents = rawEvents.map((e) => {
     const clubObj = clubs.find((c) => c.clubID === e.clubID);
     const startDt = e.startDate ? new Date(e.startDate) : null;
-    const { badge, badgeType } = getStatusBadge(e.eventStatus);
+    const { badge, badgeType } = getStatusBadge(e);
+    const isRegistered = registeredIds.has(Number(e.eventID));
     return {
       id:                  e.eventID,
       title:               e.eventName ?? "",
@@ -89,6 +92,7 @@ export default function EventListPage() {
       desc:                e.description ?? "",
       badge,
       badgeType,
+      ticketStatus:        isRegistered ? "registered" : undefined,
       maxParticipants:     e.maxParticipants     ?? 0,
       currentParticipants: e.currentParticipants ?? 0,
       bannerUrl:           e.bannerUrl ?? null,

@@ -188,7 +188,7 @@ export default function ClubNotifications() {
       .then((data) => {
         const items = Array.isArray(data) ? data : (data?.data ?? []);
         setNotifs(items.map((n) => ({
-          id:      n.id ?? n.notificationId,
+          id:      n.notificationID ?? n.notificationId ?? n.id,
           type:    n.type ?? "general",
           title:   n.title,
           content: n.content ?? n.message ?? "",

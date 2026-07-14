@@ -1,24 +1,28 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Trophy, ArrowLeft, Calculator, CheckCircle2, Send, Lock, Eye, RefreshCw } from 'lucide-react';
-import competitionService from '../../services/api/competitions/competitionService';
+import competitionApi from '../../services/api/competitions/competitionApi';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { useToast } from '../../contexts/ToastContext';
 
 const STATUS_BADGE = {
-  Draft:     'bg-gray-100 text-gray-600',
-  Calculated:'bg-yellow-100 text-yellow-700',
-  Approved:  'bg-blue-100 text-blue-700',
-  Published: 'bg-green-100 text-green-700',
-  Closed:    'bg-red-100 text-red-600',
+  DRAFT:      'bg-gray-100 text-gray-600',
+  CALCULATED: 'bg-yellow-100 text-yellow-700',
+  APPROVED:   'bg-blue-100 text-blue-700',
+  PUBLISHED:  'bg-green-100 text-green-700',
+  REJECTED:   'bg-red-100 text-red-600',
+  OPEN:       'bg-cyan-100 text-cyan-700',
+  CLOSED:     'bg-red-100 text-red-600',
 };
 
 const STATUS_LABEL = {
-  Draft:      'Nháp',
-  Calculated: 'Đã tính điểm',
-  Approved:   'Đã duyệt',
-  Published:  'Đã công bố',
-  Closed:     'Đã kết thúc',
+  DRAFT:      'Nháp',
+  CALCULATED: 'Đã tính điểm',
+  APPROVED:   'Đã duyệt',
+  PUBLISHED:  'Đã công bố',
+  REJECTED:   'Bị từ chối',
+  OPEN:       'Đang mở',
+  CLOSED:     'Đã kết thúc',
 };
 
 const SCORE_COLS = [
@@ -41,9 +45,12 @@ export default function IcpdpCompetitionDetail() {
 
   const load = () => {
     setLoading(true);
-    competitionService.getById(competitionId)
+    competitionApi.getById(competitionId)
       .then((res) => setData(res?.data ?? res))
-      .catch(console.error)
+      .catch((err) => {
+        if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+        toast.error(err?.response?.data?.message ?? 'Không thể tải thông tin cuộc thi.');
+      })
       .finally(() => setLoading(false));
   };
 
@@ -93,10 +100,10 @@ export default function IcpdpCompetitionDetail() {
 
       {/* Action buttons — conditioned on status */}
       <div className="flex flex-wrap gap-3 mb-6">
-        {(status === 'Draft' || status === 'Calculated') && (
+        {(status === 'DRAFT' || status === 'CALCULATED') && (
           <button
             disabled={acting === 'calculate'}
-            onClick={() => doAction('calculate', 'Tính điểm cho tất cả CLB? Hành động này sẽ ghi đè kết quả cũ.', () => competitionService.calculate(competitionId))}
+            onClick={() => doAction('calculate', 'Tính điểm cho tất cả CLB? Hành động này sẽ ghi đè kết quả cũ.', () => competitionApi.calculate(competitionId))}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
           >
             {acting === 'calculate' ? <RefreshCw size={15} className="animate-spin" /> : <Calculator size={15} />}
@@ -104,10 +111,10 @@ export default function IcpdpCompetitionDetail() {
           </button>
         )}
 
-        {status === 'Calculated' && (
+        {status === 'CALCULATED' && (
           <button
             disabled={acting === 'approve'}
-            onClick={() => doAction('approve', 'Phê duyệt kết quả tính điểm?', () => competitionService.approve(competitionId))}
+            onClick={() => doAction('approve', 'Phê duyệt kết quả tính điểm?', () => competitionApi.approve(competitionId))}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
           >
             <CheckCircle2 size={15} />
@@ -115,10 +122,10 @@ export default function IcpdpCompetitionDetail() {
           </button>
         )}
 
-        {status === 'Approved' && (
+        {status === 'APPROVED' && (
           <button
             disabled={acting === 'publish'}
-            onClick={() => doAction('publish', 'Công bố kết quả? Thành viên sẽ nhận được thông báo.', () => competitionService.publish(competitionId))}
+            onClick={() => doAction('publish', 'Công bố kết quả? Thành viên sẽ nhận được thông báo.', () => competitionApi.publish(competitionId))}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
           >
             <Send size={15} />
@@ -126,7 +133,7 @@ export default function IcpdpCompetitionDetail() {
           </button>
         )}
 
-        {(status === 'Published') && (
+        {(status === 'PUBLISHED') && (
           <>
             <button
               onClick={() => navigate(`/competitions/${competitionId}/ranking`)}
@@ -136,7 +143,7 @@ export default function IcpdpCompetitionDetail() {
             </button>
             <button
               disabled={acting === 'close'}
-              onClick={() => doAction('close', 'Khoá cuộc thi? Hành động không thể hoàn tác.', () => competitionService.close(competitionId))}
+              onClick={() => doAction('close', 'Khoá cuộc thi? Hành động không thể hoàn tác.', () => competitionApi.close(competitionId))}
               className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 disabled:opacity-50 text-gray-700 text-sm font-medium rounded-lg transition-colors"
             >
               <Lock size={15} />

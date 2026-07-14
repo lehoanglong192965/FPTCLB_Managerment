@@ -62,8 +62,8 @@ export default function ResetPasswordPage() {
       setError("Mật khẩu xác nhận không khớp.");
       return;
     }
-    if (newPassword.length < 6) {
-      setError("Mật khẩu phải có ít nhất 6 ký tự.");
+    if (newPassword.length < 8) {
+      setError("Mật khẩu phải có ít nhất 8 ký tự.");
       return;
     }
     setLoading(true);

@@ -17,10 +17,12 @@ const FILTER_TABS = [
   { key: "ALL",       label: "Tất cả" },
   { key: "PENDING",   label: "Đang xử lý" },
   { key: "DONE",      label: "Đã xử lý" },
+  { key: "WITHDRAWN", label: "Đã rút đơn" },
 ];
 
-const isPending = (s) => s === "Submitted" || s === "Reviewing" || s === "ACCEPTED";
-const isDone    = (s) => s === "PASSED" || s === "REJECTED" || s === "FAILED" || s === "Withdrawn";
+const isPending    = (s) => s === "Submitted" || s === "Reviewing" || s === "ACCEPTED";
+const isDone       = (s) => s === "PASSED" || s === "REJECTED" || s === "FAILED";
+const isWithdrawn  = (s) => s === "Withdrawn";
 
 export default function MemberApply() {
   const toast = useToast();
@@ -64,11 +66,20 @@ export default function MemberApply() {
   };
 
   const filtered = applications.filter((app) => {
-    if (activeFilter === "ALL")     return true;
-    if (activeFilter === "PENDING") return isPending(app.status);
-    if (activeFilter === "DONE")    return isDone(app.status);
+    if (activeFilter === "ALL")       return true;
+    if (activeFilter === "PENDING")   return isPending(app.status);
+    if (activeFilter === "DONE")      return isDone(app.status);
+    if (activeFilter === "WITHDRAWN") return isWithdrawn(app.status);
     return true;
   });
+
+  const countOf = (key) => {
+    if (key === "ALL")       return applications.length;
+    if (key === "PENDING")   return applications.filter((a) => isPending(a.status)).length;
+    if (key === "DONE")      return applications.filter((a) => isDone(a.status)).length;
+    if (key === "WITHDRAWN") return applications.filter((a) => isWithdrawn(a.status)).length;
+    return 0;
+  };
 
   return (
     <div>
@@ -93,20 +104,27 @@ export default function MemberApply() {
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-2 flex-wrap mb-5">
-          {FILTER_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => { setActiveFilter(tab.key); setSelectedApp(null); }}
-              className={`px-3.5 py-1.5 rounded-full border text-[12.5px] font-semibold cursor-pointer transition-all font-[inherit] ${
-                activeFilter === tab.key
-                  ? "bg-[#E6430A] border-[#E6430A] text-white"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-[#E6430A] hover:text-[#E6430A]"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex gap-0 border-b-2 border-gray-200 mb-5">
+          {FILTER_TABS.map((tab) => {
+            const isActive = activeFilter === tab.key;
+            const count = countOf(tab.key);
+            return (
+              <button
+                key={tab.key}
+                onClick={() => { setActiveFilter(tab.key); setSelectedApp(null); }}
+                className={`flex items-center gap-1.5 px-[18px] py-2.5 text-sm font-medium border-b-2 -mb-0.5 cursor-pointer transition-colors duration-150 font-[inherit] bg-transparent ${
+                  isActive ? "text-[#e6430a] border-[#e6430a] font-semibold" : "text-gray-500 border-transparent hover:text-[#e6430a]"
+                }`}
+              >
+                {tab.label}
+                {count > 0 && (
+                  <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold text-white ${isActive ? "bg-[#e6430a]" : "bg-gray-500"}`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {loading ? (

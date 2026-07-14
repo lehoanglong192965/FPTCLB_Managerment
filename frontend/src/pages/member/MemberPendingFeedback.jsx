@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, CheckCircle2, MessageSquare, Send, Star } from "lucide-react";
-import feedbackService from "../../services/api/feedback/feedbackService";
+import feedbackApi from "../../services/api/feedback/feedbackApi";
 
 const QUESTIONS = [
   { key: "contentRating", label: "Nội dung event" },
@@ -62,7 +62,7 @@ function FeedbackForm({ event, onSubmitted }) {
     setSubmitting(true);
     setError(null);
     try {
-      await feedbackService.submit(event.eventId, {
+      await feedbackApi.submit(event.eventId, {
         contentRating: ratings.contentRating,
         organizationRating: ratings.organizationRating,
         logisticsRating: ratings.logisticsRating,
@@ -129,7 +129,7 @@ export default function MemberPendingFeedback() {
 
   useEffect(() => {
     let cancelled = false;
-    feedbackService.getPending()
+    feedbackApi.getPending()
       .then((res) => {
         if (!cancelled) setItems(Array.isArray(res) ? res : (res?.data ?? []));
       })
