@@ -784,9 +784,6 @@ export default function ClubEventsMgmt() {
 
                 {/* Approved */}
                 {(status === "APPROVED" || status === "UPCOMING") && (<>
-                  <button onClick={() => navigate(`${selectedEv.eventID}/assignments`, { relative: "path" })} style={btnStyle("#2563eb")}>
-                    <Users size={14} /> Phân công
-                  </button>
                   <button
                     disabled={openingRegId === selectedEv.eventID}
                     onClick={async () => {
@@ -810,9 +807,6 @@ export default function ClubEventsMgmt() {
 
                 {/* RegistrationOpen */}
                 {status === "REGISTRATIONOPEN" && (<>
-                  <button onClick={() => navigate(`${selectedEv.eventID}/assignments`, { relative: "path" })} style={btnStyle("#2563eb")}>
-                    <Users size={14} /> Phân công
-                  </button>
                   <button onClick={() => navigate(`${selectedEv.eventID}/registrations`, { relative: "path" })} style={btnStyle("#0891b2")}>
                     Quản lý đăng ký
                   </button>
@@ -832,16 +826,10 @@ export default function ClubEventsMgmt() {
                   >
                     {closingRegId === selectedEv.eventID ? "Đang xử lý..." : "Đóng đăng ký"}
                   </button>
-                  <button onClick={() => setCancelTarget(selectedEv)} style={btnStyle("#dc2626")}>
-                    Hủy sự kiện
-                  </button>
                 </>)}
 
                 {/* RegistrationClosed */}
                 {status === "REGISTRATIONCLOSED" && (<>
-                  <button onClick={() => navigate(`${selectedEv.eventID}/assignments`, { relative: "path" })} style={btnStyle("#2563eb")}>
-                    <Users size={14} /> Phân công
-                  </button>
                   <button onClick={() => navigate(`${selectedEv.eventID}/registrations`, { relative: "path" })} style={btnStyle("#0891b2")}>
                     Quản lý đăng ký
                   </button>
@@ -872,6 +860,9 @@ export default function ClubEventsMgmt() {
                   </button>
                   <button onClick={() => setFinishTarget(selectedEv.eventID)} style={btnStyle("#7c3aed")}>
                     Kết thúc sự kiện
+                  </button>
+                  <button onClick={() => setCancelTarget(selectedEv)} style={btnStyle("#dc2626")}>
+                    Hủy sự kiện
                   </button>
                 </>)}
 

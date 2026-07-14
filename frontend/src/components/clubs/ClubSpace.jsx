@@ -133,8 +133,8 @@ function MemberRow({ member }) {
 
 const LEADERBOARD_META = {
   1: {
-    title: "1ST PLACE - GOLD",
-    label: "Top Contributor",
+    title: "HẠNG 1 - VÀNG",
+    label: "Đóng góp xuất sắc",
     icon: Crown,
     shell: "border-amber-300 bg-gradient-to-b from-amber-100 via-yellow-50 to-amber-200 shadow-[0_16px_34px_rgba(217,119,6,0.24)] md:min-h-[286px] md:-mt-5",
     header: "bg-gradient-to-r from-amber-300 to-yellow-200 text-amber-950",
@@ -142,8 +142,8 @@ const LEADERBOARD_META = {
     ring: "ring-4 ring-amber-300/70 bg-amber-100 text-amber-800",
   },
   2: {
-    title: "2ND PLACE - SILVER",
-    label: "Active Participant",
+    title: "HẠNG 2 - BẠC",
+    label: "Tích cực tham gia",
     icon: Medal,
     shell: "border-slate-300 bg-gradient-to-b from-slate-50 via-white to-slate-200 shadow-[0_12px_26px_rgba(71,85,105,0.18)] md:min-h-[252px]",
     header: "bg-gradient-to-r from-slate-200 to-white text-slate-800",
@@ -151,8 +151,8 @@ const LEADERBOARD_META = {
     ring: "ring-4 ring-slate-300/80 bg-slate-100 text-slate-700",
   },
   3: {
-    title: "3RD PLACE - BRONZE",
-    label: "Innovation Lead",
+    title: "HẠNG 3 - ĐỒNG",
+    label: "Tiên phong đổi mới",
     icon: Award,
     shell: "border-orange-300 bg-gradient-to-b from-orange-100 via-white to-orange-200 shadow-[0_12px_26px_rgba(194,65,12,0.18)] md:min-h-[252px]",
     header: "bg-gradient-to-r from-orange-300 to-orange-100 text-orange-950",
@@ -171,28 +171,28 @@ function normalizeText(value = "") {
 }
 
 function formatPoints(value) {
-  return `${Number(value ?? 0).toLocaleString("vi-VN")} pts`;
+  return `${Number(value ?? 0).toLocaleString("vi-VN")} điểm`;
 }
 
 const MEMBER_TIER_DETAILS = {
   "S-Tier (Xuất sắc)": {
-    shortLabel: "S-Tier",
-    description: "Nhóm nòng cốt, gánh vác vị trí quan trọng hoặc đi hầu hết các event lớn.",
+    shortLabel: "Bậc S",
+    description: "Nhóm nòng cốt, gánh vác vị trí quan trọng hoặc tham gia hầu hết các sự kiện lớn.",
     chip: "border-amber-200 bg-amber-50 text-amber-800",
   },
   "A-Tier (Tích cực)": {
-    shortLabel: "A-Tier",
+    shortLabel: "Bậc A",
     description: "Thành viên đại trà nhưng tích cực, làm tốt các công việc được giao ở mức tròn vai.",
     chip: "border-slate-200 bg-slate-50 text-slate-700",
   },
   "B-Tier (Hoạt động tốt)": {
-    shortLabel: "B-Tier",
+    shortLabel: "Bậc B",
     description: "Thành viên có tham gia nhưng ngắt quãng, đóng góp ở mức tối thiểu để duy trì sự hiện diện.",
     chip: "border-orange-200 bg-orange-50 text-orange-800",
   },
   "C-Tier (Cảnh cáo)": {
-    shortLabel: "C-Tier",
-    description: "Thành viên gần như biến mất, không check-in event, không nhận role hoặc bị trừ nhiều điểm.",
+    shortLabel: "Bậc C",
+    description: "Thành viên gần như biến mất, không điểm danh sự kiện, không nhận vai trò hoặc bị trừ nhiều điểm.",
     chip: "border-red-200 bg-red-50 text-red-700",
   },
 };
@@ -219,7 +219,7 @@ function normalizeRankingItem(item, index, members) {
     userId: item.userId,
     fullName: item.fullName ?? "Thành viên CLB",
     email: item.studentId ?? item.email ?? matchedMember?.studentId ?? "",
-    role: item.clubRoleName ?? matchedMember?.role ?? (item.rank === 1 ? "Top Contributor" : "Thành viên"),
+    role: CLUB_ROLE_LABEL[item.clubRoleName] ?? item.clubRoleName ?? matchedMember?.role ?? "Thành viên",
     memberTier: item.memberTier ?? resolveMemberTier(item.totalScore),
     memberTierDescription: item.memberTierDescription ?? getMemberTierDetail(item.memberTier ?? resolveMemberTier(item.totalScore)).description,
     clubName: item.clubName,
@@ -348,7 +348,7 @@ function LeaderboardView({ club, members, rankings, loading, error, search, onSe
       <div className="px-5 py-4 border-b border-gray-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-wide text-[#E6430A] mb-1.5">
-            <Trophy size={15} /> Member Leaderboard
+            <Trophy size={15} /> Bảng Xếp Hạng Thành Viên
           </div>
           <h2 className="text-xl font-extrabold text-gray-950 m-0">BXH thành viên - {club.name}</h2>
         </div>
@@ -362,13 +362,13 @@ function LeaderboardView({ club, members, rankings, loading, error, search, onSe
       <div className="p-5 bg-gradient-to-b from-sky-50 to-white">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
           <div>
-            <p className="text-[12px] font-extrabold text-gray-900 uppercase tracking-wide m-0">Top 3 Member Ranking</p>
+            <p className="text-[12px] font-extrabold text-gray-900 uppercase tracking-wide m-0">Top 3 Thành Viên Dẫn Đầu</p>
             <p className="text-xs text-gray-500 m-0 mt-1">Xếp theo điểm đóng góp, tham gia thực tế và điểm phạt.</p>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center text-[11px] text-gray-500">
-            <div><strong className="block text-gray-900">base</strong>Đóng góp</div>
-            <div><strong className="block text-gray-900">bonus</strong>Sự kiện</div>
-            <div><strong className="block text-gray-900">penalty</strong>Phạt</div>
+            <div><strong className="block text-gray-900">Gốc</strong>Đóng góp</div>
+            <div><strong className="block text-gray-900">Thưởng</strong>Sự kiện</div>
+            <div><strong className="block text-gray-900">Trừ</strong>Phạt</div>
           </div>
         </div>
 
@@ -381,7 +381,7 @@ function LeaderboardView({ club, members, rankings, loading, error, search, onSe
 
       <div className="px-5 pb-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 my-4">
-          <h3 className="text-sm font-extrabold text-gray-900 uppercase tracking-wide m-0">Full Leaderboard</h3>
+          <h3 className="text-sm font-extrabold text-gray-900 uppercase tracking-wide m-0">Bảng Xếp Hạng Đầy Đủ</h3>
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white min-w-[240px]">
             <Search size={14} className="text-gray-400 shrink-0" />
             <input
@@ -397,15 +397,15 @@ function LeaderboardView({ club, members, rankings, loading, error, search, onSe
           <table className="w-full min-w-[920px] border-collapse text-sm">
             <thead className="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500">
               <tr>
-                <th className="text-left px-4 py-3 font-bold">Rank</th>
-                <th className="text-left px-4 py-3 font-bold">Name</th>
-                <th className="text-left px-4 py-3 font-bold">Role</th>
-                <th className="text-left px-4 py-3 font-bold">Tier</th>
+                <th className="text-left px-4 py-3 font-bold">Hạng</th>
+                <th className="text-left px-4 py-3 font-bold">Tên</th>
+                <th className="text-left px-4 py-3 font-bold">Vai trò</th>
+                <th className="text-left px-4 py-3 font-bold">Bậc</th>
                 <th className="text-left px-4 py-3 font-bold">Ý nghĩa</th>
                 <th className="text-right px-4 py-3 font-bold">Đóng góp</th>
                 <th className="text-right px-4 py-3 font-bold">Sự kiện</th>
                 <th className="text-right px-4 py-3 font-bold">Phạt</th>
-                <th className="text-right px-4 py-3 font-bold">Final Points</th>
+                <th className="text-right px-4 py-3 font-bold">Tổng Điểm</th>
               </tr>
             </thead>
             <tbody>
@@ -619,7 +619,7 @@ export default function ClubSpace({ club: clubProp, onBack }) {
       })
       .catch((err) => {
         if (cancelled || err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
-        setRankingsError("Không thể tải BXH thành viên.");
+        setRankingsError(err?.response?.data?.message ?? "Không thể tải BXH thành viên.");
       })
       .finally(() => { if (!cancelled) setRankingsLoading(false); });
     return () => { cancelled = true; };

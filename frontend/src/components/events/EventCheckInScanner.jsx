@@ -85,6 +85,7 @@ const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
     const checkedInList = (summary?.records ?? []).filter(
       (r) => (r.status ?? r.attendanceStatus) === 'PRESENT'
     );
+    const checkedInKeys = new Set(checkedInList.map((r) => r.participantKey).filter(Boolean));
     const filtered = checkedInList.filter((a) => {
         const q = listSearch.toLowerCase();
         return (
@@ -152,6 +153,7 @@ const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
                             const regId = guestRegId ?? p.registrationId ?? p.id;
                             const participantKey = p.participantKey ?? (guestRegId ? 'guest-' + guestRegId : 'fptu-' + regId);
                             const isChecking = checkInLoading === participantKey;
+                            const alreadyCheckedIn = checkedInKeys.has(participantKey);
                             return (
                                 <div key={participantKey} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
                                     <div className="flex items-center gap-3">
@@ -163,13 +165,19 @@ const EventCheckInScanner = ({ eventId, sessionId, sessionStatus }) => {
                                             <p className="text-xs text-gray-500">{p.studentId || p.phone || '—'}</p>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => handleCheckIn(p)}
-                                        disabled={isChecking}
-                                        className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-colors"
-                                    >
-                                        {isChecking ? '...' : 'Check-in'}
-                                    </button>
+                                    {alreadyCheckedIn ? (
+                                        <span className="px-4 py-1.5 bg-emerald-50 text-emerald-600 text-xs font-semibold rounded-lg border border-emerald-200">
+                                            Đã điểm danh
+                                        </span>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleCheckIn(p)}
+                                            disabled={isChecking}
+                                            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-colors"
+                                        >
+                                            {isChecking ? '...' : 'Check-in'}
+                                        </button>
+                                    )}
                                 </div>
                             );
                         })}

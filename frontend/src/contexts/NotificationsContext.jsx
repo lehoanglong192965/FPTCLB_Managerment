@@ -11,7 +11,7 @@ const loadLS = (key, fallback) => {
 
 function mapNotification(n) {
   return {
-    id:          n.notificationId ?? n.id,
+    id:          n.notificationID ?? n.notificationId ?? n.id,
     type:        (n.type ?? n.notificationType ?? "general").toLowerCase(),
     title:       n.title ?? "",
     content:     n.content ?? n.message ?? n.body ?? "",

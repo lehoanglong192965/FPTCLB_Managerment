@@ -138,10 +138,12 @@ axiosClient.interceptors.request.use(
     addPending(config);
     logReq(config);
 
-    if (!isPublicEndpoint(config.url, config.method)) {
-      const token = TokenService.getAccess();
-      if (token) config.headers.Authorization = `Bearer ${token}`;
-    }
+    // Luôn đính kèm token nếu có — kể cả với các route được đánh dấu "public"
+    // (vd: GET /clubs) vì nhiều route con dùng chung prefix đó lại cần currentUser
+    // (bảng tin, BXH thành viên...). Gửi token lên route thực sự public không gây hại,
+    // JwtAuthenticationFilter phía backend tự bỏ qua nếu không hợp lệ.
+    const token = TokenService.getAccess();
+    if (token) config.headers.Authorization = `Bearer ${token}`;
 
     return config;
   },

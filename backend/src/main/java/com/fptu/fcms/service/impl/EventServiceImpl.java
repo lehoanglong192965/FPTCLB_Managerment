@@ -691,7 +691,7 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void approveEvent(Integer eventId) {
+    public void approveEvent(Integer eventId, UserPrincipal currentUser) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Event not found."));
         EventStatus oldStatus = event.getEventStatus();
@@ -704,7 +704,7 @@ public class EventServiceImpl implements EventService {
         event.setApprovedAt(LocalDateTime.now());
         event.setRejectionReason(null);
         Event savedEvent = eventRepository.save(event);
-        auditLogService.record(null, "Event", savedEvent.getEventID(), "EVENT_APPROVED", oldStatus.name(), STATUS_APPROVED.name(), null);
+        auditLogService.record(currentUser.getUserId(), "Event", savedEvent.getEventID(), "EVENT_APPROVED", oldStatus.name(), STATUS_APPROVED.name(), null);
     }
 
     @Override

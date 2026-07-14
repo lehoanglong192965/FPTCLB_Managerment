@@ -271,7 +271,7 @@ export default function IcpdpReportReview() {
       </div>
 
       {/* Search bar */}
-      {!loading && events.length > 0 && (
+      {!loading && (
         <div className="max-w-3xl mb-3">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#94A3B8" }} />
