@@ -38,6 +38,7 @@ export const SIDEBAR_CONFIGS = {
     { key: "semesters",     label: "Quản Lý Học Kỳ",        icon: BookOpen,    path: "/admin",               exact: true },
     { key: "users",         label: "Quản Lý Người Dùng",     icon: Users,       path: "/admin/users" },
     { key: "system-config", label: "Cấu Hình Hệ Thống",     icon: Settings,    path: "/admin/system-config" },
+    { key: "knowledge-archive", label: "Kho Tri Thức",       icon: Library,     path: "/admin/knowledge-archive" },
     { key: "profile",       label: "Thông Tin Tài Khoản",    icon: UserCircle,  path: "/admin/profile" },
   ],
 
@@ -53,6 +54,7 @@ export const SIDEBAR_CONFIGS = {
     { key: "competition",          label: "Cuộc Thi CLB",          icon: Trophy,         path: "/icpdp/competition" },
     { key: "emergency-override",  label: "Emergency Override",    icon: ShieldAlert,    path: "/icpdp/emergency-override" },
     { key: "notifications",       label: "Thông Báo",             icon: Bell,           path: "/icpdp/notifications" },
+    { key: "knowledge-archive", label: "Kho Tri Thức",          icon: Library,        path: "/icpdp/knowledge-archive" },
     { key: "profile",            label: "Thông Tin Tài Khoản", icon: UserCircle,     path: "/icpdp/profile" },
   ],
 
