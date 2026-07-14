@@ -73,6 +73,11 @@ jwt:
   secret: day-la-mot-chuoi-bi-mat-rat-dai-de-ky-jwt-token-fptu-2026
   expiration: 86400000
 
+gemini:
+  api-key: ${GEMINI_API_KEY}
+  chat-model: gemini-3.1-flash-lite
+  embedding-model: gemini-embedding-001
+
 server:
   port: 8080
   tomcat:

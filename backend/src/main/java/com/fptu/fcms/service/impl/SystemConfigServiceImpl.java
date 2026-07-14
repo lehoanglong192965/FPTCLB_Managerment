@@ -6,6 +6,8 @@ import com.fptu.fcms.repository.SystemConfigRepository;
 import com.fptu.fcms.service.SystemConfigService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -25,6 +27,7 @@ public class SystemConfigServiceImpl
 
     // Cập nhật giá trị cấu hình theo configKey
     @Override
+    @CacheEvict(value = "systemConfig", key = "#configKey")
     public Object updateConfig(
             String configKey,
             SystemConfigRequest request
@@ -46,5 +49,17 @@ public class SystemConfigServiceImpl
 
         // Lưu cấu hình sau khi cập nhật
         return systemConfigRepository.save(config);
+    }
+
+    @Override
+    @Cacheable(value = "systemConfig", key = "#key")
+    public String getConfigValue(String key) {
+        return systemConfigRepository
+                .findByConfigKey(key)
+                .map(SystemConfig::getConfigValue)
+                .orElseThrow(() ->
+                        new EntityNotFoundException(
+                                "Config not found: " + key
+                        ));
     }
 }

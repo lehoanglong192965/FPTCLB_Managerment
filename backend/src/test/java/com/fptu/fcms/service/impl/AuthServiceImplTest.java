@@ -3,9 +3,11 @@ package com.fptu.fcms.service.impl;
 import com.fptu.fcms.dto.request.RegisterRequest;
 import com.fptu.fcms.repository.AllowedEmailRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.repository.SystemRoleRepository;
 import com.fptu.fcms.security.jwt.JwtTokenProvider;
 import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.OTPService;
+import com.fptu.fcms.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +44,12 @@ class AuthServiceImplTest {
     @Mock
     private EmailService emailService;
 
+    @Mock
+    private UserService userService;
+
+    @Mock
+    private SystemRoleRepository systemRoleRepository;
+
     private AuthServiceImpl service;
 
     @BeforeEach
@@ -52,7 +60,9 @@ class AuthServiceImplTest {
                 allowedEmailRepository,
                 passwordEncoder,
                 otpService,
-                emailService
+                emailService,
+                userService,
+                systemRoleRepository
         );
     }
 

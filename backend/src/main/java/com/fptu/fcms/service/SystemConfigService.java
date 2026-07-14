@@ -12,4 +12,10 @@ public interface SystemConfigService {
             String configKey,
             SystemConfigRequest request
     );
+
+    /**
+     * Đọc giá trị config theo key (cacheable).
+     * Dùng cho AI_CONFIDENCE_THRESHOLD, RAG_FALLBACK_MESSAGE (Batch 5).
+     */
+    String getConfigValue(String key);
 }

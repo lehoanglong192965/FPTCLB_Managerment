@@ -32,7 +32,7 @@ export default function DashboardLayout() {
           <Outlet />
         </div>
       </main>
-      {role !== "ADMIN" && <AiChat />}
+      <AiChat />
     </div>
   );
 }

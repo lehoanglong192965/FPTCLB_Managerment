@@ -20,6 +20,7 @@ import {
   Trophy,
   Award,
   MessageSquare,
+  Library,
 } from "lucide-react";
 
 /*
@@ -37,6 +38,7 @@ export const SIDEBAR_CONFIGS = {
     { key: "semesters",     label: "Quản Lý Học Kỳ",        icon: BookOpen,    path: "/admin",               exact: true },
     { key: "users",         label: "Quản Lý Người Dùng",     icon: Users,       path: "/admin/users" },
     { key: "system-config", label: "Cấu Hình Hệ Thống",     icon: Settings,    path: "/admin/system-config" },
+    { key: "knowledge-archive", label: "Kho Tri Thức",       icon: Library,     path: "/admin/knowledge-archive" },
     { key: "profile",       label: "Thông Tin Tài Khoản",    icon: UserCircle,  path: "/admin/profile" },
   ],
 
@@ -52,6 +54,7 @@ export const SIDEBAR_CONFIGS = {
     { key: "competition",          label: "Cuộc Thi CLB",          icon: Trophy,         path: "/icpdp/competition" },
     { key: "emergency-override",  label: "Emergency Override",    icon: ShieldAlert,    path: "/icpdp/emergency-override" },
     { key: "notifications",       label: "Thông Báo",             icon: Bell,           path: "/icpdp/notifications" },
+    { key: "knowledge-archive", label: "Kho Tri Thức",          icon: Library,        path: "/icpdp/knowledge-archive" },
     { key: "profile",            label: "Thông Tin Tài Khoản", icon: UserCircle,     path: "/icpdp/profile" },
   ],
 
@@ -63,6 +66,7 @@ export const SIDEBAR_CONFIGS = {
     { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/club-leader/tickets" },
     { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/club-leader/pending-feedback" },
     { key: "contributions", label: "Đóng Góp Của Tôi",     icon: Award,      path: "/club-leader/contributions" },
+    { key: "knowledge-archive", label: "Kho Tri Thức CLB", icon: Library, path: "/club-leader/knowledge-archive" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle, path: "/club-leader/profile" },
   ],
 
@@ -74,6 +78,7 @@ export const SIDEBAR_CONFIGS = {
     { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/vice-leader/tickets" },
     { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/vice-leader/pending-feedback" },
     { key: "contributions", label: "Đóng Góp Của Tôi",     icon: Award,      path: "/vice-leader/contributions" },
+    { key: "knowledge-archive", label: "Kho Tri Thức CLB", icon: Library, path: "/vice-leader/knowledge-archive" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle, path: "/vice-leader/profile" },
   ],
 

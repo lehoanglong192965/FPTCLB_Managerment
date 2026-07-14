@@ -19,10 +19,15 @@ public class UserPrincipal implements OAuth2User, UserDetails {
     private Integer roleId;
     private Collection<? extends GrantedAuthority> authorities;
 
+    // [MỚI - Batch 2] Các field claim mới từ JWT
+    private String roleName;
+    private String clubRole;
+    private Integer clubId;
+
     // BỔ SUNG: Biến này dùng để chứa toàn bộ dữ liệu Google trả về
     private Map<String, Object> attributes;
 
-    // Constructor 1: Dùng cho đăng nhập JWT thông thường (giữ nguyên của bạn)
+    // Constructor 1: Dùng cho đăng nhập JWT thông thường (giữ nguyên backward-compatible)
     public UserPrincipal(Integer userId, String email, Integer roleId, Collection<? extends GrantedAuthority> authorities) {
         this.userId = userId;
         this.email = email;
@@ -39,12 +44,30 @@ public class UserPrincipal implements OAuth2User, UserDetails {
         this.attributes = attributes;
     }
 
+    // Constructor 3: [MỚI - Batch 2] Dùng cho JwtAuthenticationFilter — tạo principal từ JWT claims, không query DB
+    public UserPrincipal(Integer userId, String email, Integer roleId,
+                         String roleName, String clubRole, Integer clubId,
+                         Collection<? extends GrantedAuthority> authorities) {
+        this.userId = userId;
+        this.email = email;
+        this.roleId = roleId;
+        this.roleName = roleName;
+        this.clubRole = clubRole;
+        this.clubId = clubId;
+        this.authorities = authorities;
+    }
+
     // --- Các hàm Getter tùy chỉnh ---
     // (Vì bạn đã dùng @Getter của Lombok nên thực ra không cần viết lại mấy hàm này,
     // nhưng mình cứ giữ nguyên theo ý bạn cho chắc ăn)
     public Integer getUserId() { return userId; }
     public Integer getRoleId() { return roleId; }
     public String getEmail() { return email; }
+
+    // [MỚI - Batch 2] Getter cho 3 claim mới
+    public String getRoleName() { return roleName; }
+    public String getClubRole() { return clubRole; }
+    public Integer getClubId() { return clubId; }
 
     /* ==============================================================
        CÁC HÀM BẮT BUỘC PHẢI CÓ KHI IMPLEMENTS OAuth2User

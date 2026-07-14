@@ -1,6 +1,7 @@
 package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.dto.request.UpdateClubRequest;
+import com.fptu.fcms.dto.response.ClubManagementSummaryDTO;
 import com.fptu.fcms.dto.response.ClubResponseDTO;
 import com.fptu.fcms.entity.Club;
 import com.fptu.fcms.exception.BusinessRuleException;
@@ -26,6 +27,17 @@ public class ClubServiceImpl implements ClubService {
         return clubRepository.findByClubStatusAndIsDeletedFalse("Active").stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ClubManagementSummaryDTO> getAllClubsForManagement() {
+        return clubRepository.findByIsDeletedFalseOrderByClubNameAsc().stream()
+                .map(club -> new ClubManagementSummaryDTO(
+                        club.getClubID(),
+                        club.getClubName(),
+                        club.getClubStatus()
+                ))
+                .toList();
     }
 
     @Override

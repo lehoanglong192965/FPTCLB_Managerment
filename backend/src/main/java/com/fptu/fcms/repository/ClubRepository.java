@@ -30,4 +30,5 @@ public interface ClubRepository extends JpaRepository<Club, Integer> {
     Optional<Club> findByClubCodeAndIsDeletedFalse(String clubCode);
     Optional<Club> findByClubIDAndIsDeletedFalse(Integer clubID);
     List<Club> findByClubStatusAndIsDeletedFalse(String clubStatus);
+    List<Club> findByIsDeletedFalseOrderByClubNameAsc();
 }

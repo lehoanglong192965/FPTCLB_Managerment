@@ -78,6 +78,7 @@ import WalkInPage from "../pages/club-leader/WalkInPage";
 import RegistrationMgmtPage from "../pages/club-leader/RegistrationMgmtPage";
 import AttendanceDashboardPage from "../pages/club-leader/AttendanceDashboardPage";
 import AttendanceCorrectionPage from "../pages/club-leader/AttendanceCorrectionPage";
+import KnowledgeArchiveMgmt from "../pages/shared/KnowledgeArchiveMgmt";
 import { ClubDataProvider } from "../contexts/ClubDataContext";
 import ClubManagementLayout from "../components/layout/ClubManagementLayout";
 import ClubSpace from "../components/clubs/ClubSpace";
@@ -166,6 +167,7 @@ export default function AppRoutes() {
         <Route path="events/:eventId/emergency-override" element={<IcpdpEmergencyOverridePage />} />
         <Route path="events/:eventId/contributions" element={<IcpdpContributionPage />} />
         <Route path="notifications" element={<IcpdpNotifications />} />
+        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -181,6 +183,7 @@ export default function AppRoutes() {
         <Route index element={<SemesterManagement />} />
         <Route path="users" element={<UserManagement />} />
         <Route path="system-config" element={<SystemConfigPage />} />
+        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -228,6 +231,7 @@ export default function AppRoutes() {
         <Route path="contributions" element={<MemberMyContributionsPage />} />
         <Route path="notifications" element={<ClubNotifications />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
+        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -271,6 +275,7 @@ export default function AppRoutes() {
         <Route path="contributions" element={<MemberMyContributionsPage />} />
         <Route path="notifications" element={<ClubNotifications />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
+        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 

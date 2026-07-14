@@ -41,6 +41,7 @@ const clubApi = {
     axiosClient.get(`/clubs/${clubId}/events`, { params }),
 
   // ── ICPDP / ADMIN ─────────────────────────────────────────────────
+  getAllForManagement: () => axiosClient.get("/v1/clubs/management"),
   review: (clubId, { status, reason }) =>
     axiosClient.patch(`/clubs/${clubId}/review`, { status, reason }),
   delete: (clubId) => axiosClient.delete(`/clubs/${clubId}`),
