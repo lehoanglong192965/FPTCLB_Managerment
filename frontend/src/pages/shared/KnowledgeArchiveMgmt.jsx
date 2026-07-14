@@ -33,7 +33,7 @@ import {
   Inbox,
 } from "lucide-react";
 import axiosClient, { TokenService } from "../../services/api/axiosClient";
-import clubService from "../../services/api/clubs/clubService";
+import clubApi from "../../services/api/clubs/clubApi";
 import { decodeJwtPayload } from "../../utils/tokenGuard";
 import { useToast } from "../../contexts/ToastContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
@@ -297,7 +297,7 @@ export default function KnowledgeArchiveMgmt() {
   const loadClubList = useCallback(async () => {
     try {
       if (isAdminOrIcpdp) {
-        const response = await clubService.getAllForManagement();
+        const response = await clubApi.getAllForManagement();
         const clubList = normalizeList(response);
         storeClubs(clubList);
         return { ok: true, clubList };
@@ -308,7 +308,7 @@ export default function KnowledgeArchiveMgmt() {
         return { ok: false, clubList: clubsRef.current };
       }
 
-      const response = await clubService.getById(userClubId);
+      const response = await clubApi.getById(userClubId);
       const club = response?.data ?? response;
       const clubList = club ? [club] : [];
       storeClubs(clubList);

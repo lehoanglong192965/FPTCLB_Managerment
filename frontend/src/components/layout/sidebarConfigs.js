@@ -20,6 +20,7 @@ import {
   Trophy,
   Award,
   MessageSquare,
+  Library,
 } from "lucide-react";
 
 /*
