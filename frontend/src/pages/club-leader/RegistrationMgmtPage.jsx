@@ -137,9 +137,17 @@ export default function RegistrationMgmtPage() {
   };
 
   const handleCancel = async (reg) => {
-    setActionLoading(reg.registrationId ?? reg.id);
+    const isGuest = reg.type === 'GUEST';
+    const loadingKey = isGuest
+      ? 'guest-' + (reg.guestRegistrationId ?? reg.registrationId)
+      : 'fptu-' + (reg.registrationId ?? reg.id);
+    setActionLoading(loadingKey);
     try {
-      await eventApi.cancelRegistration(reg.registrationId ?? reg.id);
+      if (isGuest) {
+        await eventApi.cancelGuestRegistration(eventId, reg.guestRegistrationId ?? reg.registrationId);
+      } else {
+        await eventApi.cancelRegistration(reg.registrationId ?? reg.id);
+      }
       toast.success('Đã huỷ đăng ký.');
       fetchRegistrations();
     } catch (err) {
@@ -293,7 +301,9 @@ export default function RegistrationMgmtPage() {
                             </button>
                           </>
                         )}
-                        {!isGuest && (r.status === 'CONFIRMED' || isPendingApproval(r.status)) && (
+                        {(isGuest
+                          ? r.status !== 'CANCELLED' && r.status !== 'REJECTED'
+                          : (r.status === 'CONFIRMED' || isPendingApproval(r.status))) && (
                           <button
                             onClick={() => handleCancel(r)}
                             disabled={isLoading}

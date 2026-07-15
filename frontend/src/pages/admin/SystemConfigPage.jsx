@@ -190,17 +190,17 @@ export default function SystemConfigPage() {
 
     if (!thresholdValue || !Number.isFinite(confidenceThreshold)
       || confidenceThreshold < 0 || confidenceThreshold > 1) {
-      toast.error("AI Confidence Threshold phải nằm trong khoảng 0 đến 1.");
+      toast.error("Ngưỡng độ tin cậy AI phải nằm trong khoảng 0 đến 1.");
       return;
     }
 
     if (!fallbackMessage) {
-      toast.error("Vui lòng nhập thông điệp Fallback.");
+      toast.error("Vui lòng nhập thông điệp dự phòng.");
       return;
     }
 
     if (fallbackMessage.length > 500) {
-      toast.error("Thông điệp Fallback không được vượt quá 500 ký tự.");
+      toast.error("Thông điệp dự phòng không được vượt quá 500 ký tự.");
       return;
     }
 
@@ -408,7 +408,7 @@ export default function SystemConfigPage() {
               <div className="flex flex-col gap-4">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="ai-confidence-threshold">
-                    AI Confidence Threshold (0 – 1)
+                    Ngưỡng độ tin cậy AI (0 – 1)
                   </label>
                   <InputNumber
                     id="ai-confidence-threshold"
@@ -427,7 +427,7 @@ export default function SystemConfigPage() {
 
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="rag-fallback-message">
-                    Thông điệp Fallback
+                    Thông điệp dự phòng
                   </label>
                   <Input.TextArea
                     id="rag-fallback-message"

@@ -10,6 +10,8 @@ const eventApi = {
   // CLUB_LEADER / VICE_LEADER
   propose: (payload) => axiosClient.post("/v1/events", payload),
   update: (eventId, payload) => axiosClient.put(`/v1/events/${eventId}`, payload),
+  // Xóa mềm sự kiện ở trạng thái Draft/Rejected (chỉ người tạo)
+  deleteDraft: (eventId) => axiosClient.delete(`/v1/events/${eventId}`),
   submit: (eventId) => axiosClient.patch(`/v1/events/${eventId}/submit`),
   start: (eventId) => axiosClient.patch(`/v1/events/${eventId}/start`),
   finish: (eventId) => axiosClient.patch(`/v1/events/${eventId}/finish`),
@@ -27,6 +29,8 @@ const eventApi = {
   getAssignments: (eventId) => axiosClient.get(`/v1/events/${eventId}/assignments`),
   removeAssignment: (eventId, userId) => axiosClient.delete(`/v1/events/${eventId}/assignments/${userId}`),
   getReportUploadedEvents: () => axiosClient.get("/v1/events/report-uploaded"),
+  // Lịch sử báo cáo đã duyệt/từ chối (REPORT_APPROVED, REPORT_REJECTED + các trạng thái sau duyệt)
+  getReportReviewedEvents: () => axiosClient.get("/v1/events/report-reviewed"),
   getReportByEventId: (eventId) => axiosClient.get(`/v1/reports/event/${eventId}`),
   rejectReport: (eventId, reason) => axiosClient.patch(`/v1/events/${eventId}/reject-report`, { reason }),
   uploadBanner: (eventId, file) => {
@@ -49,6 +53,9 @@ const eventApi = {
 
   // ICPDP
   getPendingForIcpdp: () => axiosClient.get("/icpdp/events/pending"),
+  // Lịch sử đã duyệt cho ICPDP — bao gồm cả sự kiện đã kết thúc (khác /v1/events/approved của trang chủ)
+  getApprovedForIcpdp: () => axiosClient.get("/icpdp/events/approved"),
+  getRejectedForIcpdp: () => axiosClient.get("/icpdp/events/rejected"),
   getEventByIdForIcpdp: (eventId) => axiosClient.get(`/icpdp/events/${eventId}`),
   approveForIcpdp: (eventId) => axiosClient.patch(`/icpdp/events/${eventId}/approve`),
   rejectForIcpdp: (eventId, reason) =>
@@ -71,6 +78,8 @@ const eventApi = {
     axiosClient.post(`/events/${eventId}/registrations/${registrationId}/reject`, { reason }),
   cancelRegistration: (registrationId) =>
     axiosClient.post(`/registrations/${registrationId}/cancel`),
+  cancelGuestRegistration: (eventId, guestRegistrationId) =>
+    axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/cancel`),
 };
 
 export default eventApi;

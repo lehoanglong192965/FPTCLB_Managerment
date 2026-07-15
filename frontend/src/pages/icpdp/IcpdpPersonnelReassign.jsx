@@ -41,7 +41,7 @@ export default function IcpdpPersonnelReassign() {
       .then((res) => {
         const list = Array.isArray(res) ? res : (res?.data ?? res?.content ?? []);
         setClubs(list.map((c) => ({
-          id:   c.clubId   ?? c.id,
+          id:   c.clubID   ?? c.clubId ?? c.id,
           name: c.clubName ?? c.name ?? "—",
         })));
       })
@@ -79,8 +79,8 @@ export default function IcpdpPersonnelReassign() {
       .then((res) => {
         const list = Array.isArray(res) ? res : (res?.content ?? res?.data ?? []);
         setClubMembers(list.map((m) => ({
-          id:        m.membershipId ?? m.id,
-          userId:    m.userId       ?? m.userID,
+          id:        m.membershipID ?? m.membershipId ?? m.id,
+          userId:    m.userID       ?? m.userId,
           name:      m.fullName     ?? m.name   ?? "—",
           studentId: m.studentCode  ?? m.studentId ?? "",
           role:      (m.clubRoleName ?? m.roleName ?? "member").toLowerCase(),
@@ -96,7 +96,7 @@ export default function IcpdpPersonnelReassign() {
   const selectedClub = clubs.find((c) => c.id === Number(form.clubId));
 
   const leaderMember  = clubMembers.find((m) => m.role === "leader" || m.role === "trưởng clb");
-  const viceMember    = clubMembers.find((m) => m.role === "vice_leader" || m.role === "vice" || m.role === "phó trưởng clb");
+  const viceMember    = clubMembers.find((m) => m.role === "viceleader" || m.role === "vice_leader" || m.role === "vice" || m.role === "phó trưởng clb");
   const currentHolder = form.position === "leader" ? leaderMember : viceMember;
   const candidates    = clubMembers.filter((m) => m.id !== currentHolder?.id);
 
@@ -106,16 +106,21 @@ export default function IcpdpPersonnelReassign() {
   const canProceed = form.clubId && form.newPersonId && form.reason.trim().length >= 10;
 
   const handleConfirm = async () => {
+    const newPerson = candidates.find((c) => c.id === Number(form.newPersonId));
+    if (!newPerson?.userId) {
+      toast.error("Không xác định được người được điều động. Vui lòng chọn lại.");
+      return;
+    }
     setSubmitting(true);
     try {
+      // Backend: POST /api/icpdp/personnel-reassign (PersonnelReassignRequest)
       await icpdpStatsApi.reassign({
-        clubId:      Number(form.clubId),
-        position:    form.position,
-        newPersonId: Number(form.newPersonId),
-        level:       form.level,
-        reason:      form.reason,
+        clubID:    Number(form.clubId),
+        position:  form.position,
+        newUserID: newPerson.userId,
+        level:     form.level,
+        reason:    form.reason,
       });
-      const newPerson = candidates.find((c) => c.id === Number(form.newPersonId));
       setHistory((prev) => [
         {
           id:     Date.now(),

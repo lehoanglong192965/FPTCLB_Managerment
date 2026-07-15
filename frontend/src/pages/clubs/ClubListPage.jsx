@@ -1,19 +1,10 @@
 import { useState } from "react";
 import { usePublicClubs } from "../../hooks/usePublicClubs";
 import ClubCard from "../../components/clubs/ClubCard";
+import { CLUB_CATEGORIES } from "../../constants/clubCategories";
 
 // value = giá trị DB dùng để filter, label = nhãn hiển thị tiếng Việt
-const CATEGORIES = [
-  { value: "Tất cả",    label: "Tất cả" },
-  { value: "Công nghệ", label: "Công nghệ" },
-  { value: "Thiết kế",  label: "Thiết kế" },
-  { value: "Kỹ năng",   label: "Kỹ năng" },
-  { value: "AI & Data", label: "AI & Dữ liệu" },
-  { value: "Business",  label: "Kinh doanh" },
-  { value: "Ngôn ngữ",  label: "Ngôn ngữ" },
-  { value: "Nghệ thuật",label: "Nghệ thuật" },
-  { value: "Thể thao",  label: "Thể thao" },
-];
+const CATEGORIES = [{ value: "Tất cả", label: "Tất cả" }, ...CLUB_CATEGORIES];
 
 export default function ClubListPage() {
   const { clubs, loading, error } = usePublicClubs();

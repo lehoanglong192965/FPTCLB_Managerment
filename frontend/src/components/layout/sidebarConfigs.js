@@ -1,5 +1,4 @@
 import {
-  LayoutDashboard,
   Building2,
   Calendar,
   BookOpen,
@@ -43,7 +42,6 @@ export const SIDEBAR_CONFIGS = {
   ],
 
   ICPDP: [
-    { key: "club-overview",      label: "Tổng Quan CLB",       icon: Building2,      path: "/icpdp/club-overview" },
     { key: "club-management",    label: "Quản Lý CLB",         icon: Layers,         path: "/icpdp/club-management" },
     { key: "club-create",        label: "Tạo CLB",             icon: PlusCircle,     path: "/icpdp/clubs/create" },
     { key: "event-approval",     label: "Phê Duyệt Sự Kiện",   icon: Calendar,       path: "/icpdp/event-approval" },
@@ -52,14 +50,13 @@ export const SIDEBAR_CONFIGS = {
     { key: "discipline-log",     label: "Nhật Ký Kỷ Luật",     icon: ShieldAlert,    path: "/icpdp/discipline-log" },
     { key: "recruitment",        label: "Tuyển Dụng",          icon: UserPlus,       path: "/icpdp/recruitment" },
     { key: "competition",          label: "Cuộc Thi CLB",          icon: Trophy,         path: "/icpdp/competition" },
-    { key: "emergency-override",  label: "Emergency Override",    icon: ShieldAlert,    path: "/icpdp/emergency-override" },
+    { key: "emergency-override",  label: "Ghi Đè Khẩn Cấp",       icon: ShieldAlert,    path: "/icpdp/emergency-override" },
     { key: "notifications",       label: "Thông Báo",             icon: Bell,           path: "/icpdp/notifications" },
     { key: "knowledge-archive", label: "Kho Tri Thức",          icon: Library,        path: "/icpdp/knowledge-archive" },
     { key: "profile",            label: "Thông Tin Tài Khoản", icon: UserCircle,     path: "/icpdp/profile" },
   ],
 
   CLUB_LEADER: [
-    { key: "overview",      label: "Tổng Quan",            icon: Home,       path: "/club-leader",             exact: true },
     { key: "my-club",       label: "Câu Lạc Bộ Của Tôi",   icon: Building2,  path: "/club-leader/my-club" },
     { key: "clubs",         label: "Khám Phá CLB",         icon: Star,       path: "/club-leader/clubs" },
     { key: "events",        label: "Khám Phá Sự Kiện",     icon: Calendar,   path: "/club-leader/events" },
@@ -71,7 +68,6 @@ export const SIDEBAR_CONFIGS = {
   ],
 
   VICE_LEADER: [
-    { key: "overview",      label: "Tổng Quan",            icon: Home,       path: "/vice-leader",             exact: true },
     { key: "my-club",       label: "Câu Lạc Bộ Của Tôi",   icon: Building2,  path: "/vice-leader/my-club" },
     { key: "clubs",         label: "Khám Phá CLB",         icon: Star,       path: "/vice-leader/clubs" },
     { key: "events",        label: "Khám Phá Sự Kiện",     icon: Calendar,   path: "/vice-leader/events" },
@@ -83,7 +79,6 @@ export const SIDEBAR_CONFIGS = {
   ],
 
   MEMBER: [
-    { key: "home",          label: "Bảng Điều Khiển",      icon: LayoutDashboard, path: "/member",              exact: true },
     { key: "my-clubs",      label: "Câu Lạc Bộ Của Tôi",   icon: Building2,       path: "/member/my-clubs" },
     { key: "clubs",         label: "Khám Phá CLB",         icon: Star,            path: "/member/clubs" },
     { key: "apply",         label: "Đơn Ứng Tuyển",       icon: Send,            path: "/member/apply" },

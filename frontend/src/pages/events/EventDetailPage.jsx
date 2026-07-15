@@ -14,16 +14,15 @@ const getImageUrl = (url) => {
 };
 
 const STATUS_BADGE = {
-  Approved:           { label: "Chưa mở đăng ký",   bg: "#6B7280" },
-  RegistrationClosed: { label: "Đóng đăng ký",      bg: "#6B7280" },
-  RegistrationOpen: { label: "Đăng ký mở",       bg: "#F37021" },
-  Upcoming:         { label: "Sắp diễn ra",       bg: "#F37021" },
-  Ongoing:          { label: "Đang diễn ra",      bg: "#16A34A" },
-  Completed:        { label: "Đã kết thúc",       bg: "#6B7280" },
-  ReportUploaded:   { label: "Đã nộp báo cáo",   bg: "#6B7280" },
-  Closed:           { label: "Đã đóng",           bg: "#374151" },
-  Cancelled:        { label: "Đã hủy",            bg: "#DC2626" },
-  Rejected:         { label: "Bị từ chối",        bg: "#DC2626" },
+  APPROVED:            { label: "Chưa mở đăng ký",   bg: "#6B7280" },
+  REGISTRATION_CLOSED: { label: "Đóng đăng ký",      bg: "#6B7280" },
+  REGISTRATION_OPEN:   { label: "Đăng ký mở",        bg: "#F37021" },
+  ONGOING:             { label: "Đang diễn ra",      bg: "#16A34A" },
+  COMPLETED:           { label: "Đã kết thúc",       bg: "#6B7280" },
+  REPORT_UPLOADED:     { label: "Đã nộp báo cáo",    bg: "#6B7280" },
+  CLOSED:              { label: "Đã đóng",           bg: "#374151" },
+  CANCELLED:           { label: "Đã hủy",            bg: "#DC2626" },
+  REJECTED:            { label: "Bị từ chối",        bg: "#DC2626" },
 };
 
 export default function EventDetailPage() {

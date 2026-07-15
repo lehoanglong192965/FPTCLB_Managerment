@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { FileText, CheckCircle, Clock, Calendar, XCircle, Inbox, RotateCcw, RefreshCw } from "lucide-react";
 import applicationApi from "../../services/api/member/applicationApi";
+import { getServerOrigin } from "../../services/api/axiosClient";
 import { useToast } from "../../contexts/ToastContext";
 
 const APP_STATUS_MAP = {
@@ -274,7 +275,7 @@ export default function MemberApply() {
 
                 {selectedApp.cvUrl && (
                   <a
-                    href={selectedApp.cvUrl}
+                    href={selectedApp.cvUrl.startsWith("http") ? selectedApp.cvUrl : getServerOrigin() + selectedApp.cvUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#E6430A] no-underline hover:underline"

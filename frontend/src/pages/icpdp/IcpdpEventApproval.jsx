@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Calendar, MapPin, Clock, ChevronRight, Search } from "lucide-react";
 import eventApi from "../../services/api/events/eventApi";
+import clubApi from "../../services/api/clubs/clubApi";
 import { useToast } from "../../contexts/ToastContext";
 import { getServerOrigin } from "../../services/api/axiosClient";
 
@@ -17,6 +18,36 @@ const STATUS_BADGE = {
   approved: { cls: "bg-green-100 text-green-700",   label: "Đã phê duyệt"     },
   rejected: { cls: "bg-red-100 text-red-700",       label: "Đã từ chối"       },
 };
+
+// Nhãn giai đoạn của sự kiện đã duyệt (dựa trên eventStatus thô từ backend),
+// giúp ICPDP phân biệt sự kiện đang mở với sự kiện đã kết thúc trong tab "Đã duyệt".
+const PHASE_LABEL = {
+  APPROVED:                      "Đã duyệt, chưa mở đăng ký",
+  REGISTRATION_OPEN:             "Đang mở đăng ký",
+  REGISTRATION_CLOSED:           "Đã đóng đăng ký",
+  CHECKIN_OPEN:                  "Đang điểm danh",
+  ONGOING:                       "Đang diễn ra",
+  COMPLETED:                     "Đã kết thúc",
+  CLOSED:                        "Đã đóng",
+  REPORT_UPLOADED:               "Đã nộp báo cáo",
+  REPORT_PENDING_APPROVAL:       "Chờ duyệt báo cáo",
+  REPORT_APPROVED:               "Đã duyệt báo cáo",
+  REPORT_REJECTED:               "Báo cáo bị từ chối",
+  CONTRIBUTION_CALCULATED:       "Đã tính đóng góp",
+  CONTRIBUTION_DRAFT:            "Nháp đóng góp",
+  CONTRIBUTION_PENDING_APPROVAL: "Chờ duyệt đóng góp",
+  CONTRIBUTION_APPROVED:         "Đã duyệt đóng góp",
+  CONTRIBUTION_SCORING:          "Đang chấm đóng góp",
+  CONTRIBUTION_FINALIZED:        "Đã chốt đóng góp",
+};
+
+// Các trạng thái coi là sự kiện đã kết thúc (tô nhãn xám thay vì xanh nhạt).
+const FINISHED_STATUSES = new Set([
+  "COMPLETED", "CLOSED", "REPORT_UPLOADED", "REPORT_PENDING_APPROVAL",
+  "REPORT_APPROVED", "REPORT_REJECTED", "CONTRIBUTION_CALCULATED",
+  "CONTRIBUTION_DRAFT", "CONTRIBUTION_PENDING_APPROVAL", "CONTRIBUTION_APPROVED",
+  "CONTRIBUTION_SCORING", "CONTRIBUTION_FINALIZED",
+]);
 
 const TABS = [
   { key: "all",      label: "Tất cả"     },
@@ -40,6 +71,16 @@ function formatDate(isoStr) {
 function formatBudget(val) {
   if (!val) return "0";
   return Number(val).toLocaleString("vi-VN");
+}
+
+// Mới nhất lên đầu: sort giảm dần theo thời điểm nộp (createdAt), hoà thì id lớn hơn (mới hơn) lên trước.
+function sortByNewest(list) {
+  return [...list].sort((a, b) => {
+    const ta = a.createdAtRaw ? new Date(a.createdAtRaw).getTime() : 0;
+    const tb = b.createdAtRaw ? new Date(b.createdAtRaw).getTime() : 0;
+    if (tb !== ta) return tb - ta;
+    return (b.id ?? 0) - (a.id ?? 0);
+  });
 }
 
 /* ── Reject reason modal ───────────────────────────────── */
@@ -243,44 +284,80 @@ export default function IcpdpEventApproval() {
     setLoading(true);
     Promise.all([
       eventApi.getPendingForIcpdp().catch(() => []),
-      eventApi.getApprovedEvents().catch(() => []),
+      eventApi.getApprovedForIcpdp().catch(() => []),
+      eventApi.getRejectedForIcpdp().catch(() => []),
+      clubApi.getAllPublic().catch(() => []),
     ])
-      .then(([pendingRes, approvedRes]) => {
+      .then(([pendingRes, approvedRes, rejectedRes, clubsRes]) => {
         const pendingList   = Array.isArray(pendingRes)  ? pendingRes  : (pendingRes?.data  ?? []);
         const approvedList  = Array.isArray(approvedRes) ? approvedRes : (approvedRes?.content ?? approvedRes?.data ?? []);
+        const rejectedList  = Array.isArray(rejectedRes) ? rejectedRes : (rejectedRes?.content ?? rejectedRes?.data ?? []);
+        const clubList      = Array.isArray(clubsRes)    ? clubsRes    : (clubsRes?.content ?? clubsRes?.data ?? []);
+
+        // Backend chỉ trả clubID trong Event — map sang tên CLB từ danh sách CLB công khai
+        const clubNameById = {};
+        clubList.forEach((c) => {
+          const id = c.clubID ?? c.id;
+          if (id != null) clubNameById[id] = c.clubName ?? c.name ?? "";
+        });
+        const resolveClubName = (e) =>
+          e.clubName ?? clubNameById[e.clubID] ?? `CLB #${e.clubID}`;
 
         const fromPending = pendingList.map((e) => ({
           id:               e.eventID,
           status:           "pending",
           statusLabel:      "Chờ IC-PDP duyệt",
           name:             e.eventName,
-          club:             e.clubName ?? `CLB #${e.clubID}`,
+          club:             resolveClubName(e),
           description:      e.description,
           eventDate:        formatDate(e.startDate),
           budget:           formatBudget(e.budget),
           location:         e.location,
           submittedAt:      formatDate(e.createdAt),
+          createdAtRaw:     e.createdAt,
           bannerUrl:        e.bannerUrl ?? null,
           scheduleConflict: false,
         }));
 
-        // Sự kiện đã duyệt lấy từ API thật (APPROVED / REGISTRATION_OPEN / v.v.)
+        // Sự kiện đã duyệt lấy từ API ICPDP (gồm cả đã kết thúc: COMPLETED/CLOSED/báo cáo...)
         const fromApproved = approvedList.map((e) => ({
           id:               e.eventID,
           status:           "approved",
           statusLabel:      "Đã phê duyệt",
+          eventStatus:      e.eventStatus,
+          phaseLabel:       PHASE_LABEL[e.eventStatus] ?? null,
+          isFinished:       FINISHED_STATUSES.has(e.eventStatus),
           name:             e.eventName,
-          club:             e.clubName ?? `CLB #${e.clubID}`,
+          club:             resolveClubName(e),
           description:      e.description,
           eventDate:        formatDate(e.startDate),
           budget:           formatBudget(e.budget),
           location:         e.location,
           submittedAt:      formatDate(e.createdAt),
+          createdAtRaw:     e.createdAt,
           bannerUrl:        e.bannerUrl ?? null,
           scheduleConflict: false,
         }));
 
-        setEvents([...fromPending, ...fromApproved]);
+        // Lịch sử từ chối lấy từ API thật (backend trả kèm rejectionReason)
+        const fromRejected = rejectedList.map((e) => ({
+          id:               e.eventID,
+          status:           "rejected",
+          statusLabel:      "Đã từ chối",
+          name:             e.eventName,
+          club:             resolveClubName(e),
+          description:      e.description,
+          eventDate:        formatDate(e.startDate),
+          budget:           formatBudget(e.budget),
+          location:         e.location,
+          submittedAt:      formatDate(e.createdAt),
+          createdAtRaw:     e.createdAt,
+          bannerUrl:        e.bannerUrl ?? null,
+          rejectionReason:  e.rejectionReason ?? "",
+          scheduleConflict: false,
+        }));
+
+        setEvents(sortByNewest([...fromPending, ...fromApproved, ...fromRejected]));
       })
       .catch(() => setEvents([]))
       .finally(() => setLoading(false));
@@ -398,6 +475,13 @@ export default function IcpdpEventApproval() {
                   <span className={`inline-block px-3 py-0.5 rounded-full text-xs font-semibold ${badge.cls}`}>
                     {badge.label}
                   </span>
+                  {event.status === "approved" && event.phaseLabel && (
+                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      event.isFinished ? "bg-gray-200 text-gray-600" : "bg-blue-100 text-blue-700"
+                    }`}>
+                      {event.phaseLabel}
+                    </span>
+                  )}
                   {hasBudgetWarning && event.status === "pending" && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">
                       ⚠ Ngân sách vượt 5 triệu
