@@ -1,7 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, Loader2, CheckCircle, Ban, RefreshCw } from "lucide-react";
+import { Search, Loader2, CheckCircle, Ban, RefreshCw, Layers, Gauge } from "lucide-react";
 import clubApi from "../../services/api/clubs/clubApi";
 import { useToast } from "../../contexts/ToastContext";
+import IcpdpClubQuality from "./IcpdpClubQuality";
+
+const PAGE_TABS = [
+  { key: "list",    label: "Danh sách CLB",  Icon: Layers },
+  { key: "quality", label: "Tổng quan CLB", Icon: Gauge },
+];
 
 const STATUS_MAP = {
   Active:    { label: "Hoạt động",   cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -18,6 +24,7 @@ const FILTER_OPTIONS = [
 
 export default function IcpdpClubManagement() {
   const toast = useToast();
+  const [tab, setTab] = useState("list");
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -65,13 +72,38 @@ export default function IcpdpClubManagement() {
 
   return (
     <div className="p-8 bg-slate-50 min-h-screen">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-5">
         <h1 className="text-3xl font-bold text-slate-800">Quản Lý Câu Lạc Bộ</h1>
-        <button onClick={fetchClubs} className="flex items-center gap-2 text-slate-500 hover:text-slate-800">
-            <RefreshCw size={18} /> Làm mới
-        </button>
+        {tab === "list" && (
+          <button onClick={fetchClubs} className="flex items-center gap-2 text-slate-500 hover:text-slate-800">
+              <RefreshCw size={18} /> Làm mới
+          </button>
+        )}
       </div>
-      
+
+      {/* Tab: Danh sách CLB / Chất lượng CLB */}
+      <div className="flex items-center gap-1.5 mb-6 border-b border-slate-200">
+        {PAGE_TABS.map(({ key, label, Icon }) => {
+          const active = tab === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-[13.5px] font-semibold border-0 border-b-2 bg-transparent cursor-pointer font-[inherit] transition-colors -mb-px ${
+                active
+                  ? "text-[#E6430A] border-[#E6430A]"
+                  : "text-slate-500 border-transparent hover:text-slate-700"
+              }`}
+            >
+              <Icon size={15} /> {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "quality" && <IcpdpClubQuality embedded />}
+
+      {tab === "list" && (<>
       <div className="flex gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
         <div className="relative flex-grow max-w-md">
             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
@@ -122,6 +154,7 @@ export default function IcpdpClubManagement() {
           )}
         </div>
       )}
+      </>)}
     </div>
   );
 }

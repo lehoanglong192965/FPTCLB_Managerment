@@ -210,12 +210,23 @@ export default function IcpdpReportReview() {
 
   useEffect(() => {
     setLoading(true);
-    eventApi.getReportUploadedEvents()
-      .then((res) => {
-        const pending = (Array.isArray(res) ? res : (res?.data ?? res?.content ?? []))
+    Promise.all([
+      eventApi.getReportUploadedEvents(),
+      // Lịch sử đã duyệt/từ chối từ API thật — REPORT_REJECTED là từ chối,
+      // còn lại (REPORT_APPROVED + các trạng thái contribution về sau) là đã duyệt
+      eventApi.getReportReviewedEvents().catch(() => []),
+    ])
+      .then(([pendingRes, reviewedRes]) => {
+        const pending = (Array.isArray(pendingRes) ? pendingRes : (pendingRes?.data ?? pendingRes?.content ?? []))
           .map((e) => ({ ...e, _reviewStatus: "pending" }));
-        setEvents(pending);
-        pending.forEach((e) => fetchReportFor(e.eventID));
+        const reviewed = (Array.isArray(reviewedRes) ? reviewedRes : (reviewedRes?.data ?? reviewedRes?.content ?? []))
+          .map((e) => ({
+            ...e,
+            _reviewStatus: String(e.eventStatus).toUpperCase().replace(/_/g, "") === "REPORTREJECTED" ? "rejected" : "approved",
+          }));
+        const all = [...pending, ...reviewed];
+        setEvents(all);
+        all.forEach((e) => fetchReportFor(e.eventID));
       })
       .catch((err) => {
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;

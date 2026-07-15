@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { Calendar, FileText, CheckCircle, XCircle, Clock, Inbox, User, Mail, RefreshCw, MessageSquare } from "lucide-react";
+import { Calendar, FileText, CheckCircle, XCircle, Clock, Inbox, User, Mail, RefreshCw, MessageSquare, AlertTriangle } from "lucide-react";
 import { useClubData } from "../../contexts/ClubDataContext";
-import { TokenService } from "../../services/api/axiosClient";
+import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
 import applicationApi from "../../services/api/member/applicationApi";
 import { useToast } from "../../contexts/ToastContext";
 import { getInitials } from "../../utils/avatar";
@@ -50,6 +50,8 @@ function normalizeApp(app) {
     cvUrl:        app.cvUrl ?? "",
     status:       app.status,
     createdAt:    app.createdAt ?? new Date().toISOString(),
+    blacklisted:      app.blacklisted ?? false,
+    blacklistWarning: app.blacklistWarning ?? "",
   };
 }
 
@@ -278,6 +280,11 @@ export default function ClubApplicationsMgmt() {
                           </span>
                         </div>
                         <p className="text-[12px] text-slate-400 m-0 mt-0.5">{app.studentId}</p>
+                        {app.blacklisted && (
+                          <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-600">
+                            <AlertTriangle size={11} /> Có trong danh sách đen CLB khác
+                          </span>
+                        )}
                         <p className="text-[12.5px] text-slate-500 m-0 mt-1.5 line-clamp-2">{app.introduction}</p>
                         <span className="flex items-center gap-1 text-[11.5px] text-slate-400 mt-2">
                           <Calendar size={12} /> Nộp ngày {date}
@@ -301,6 +308,21 @@ export default function ClubApplicationsMgmt() {
                     Đóng
                   </button>
                 </div>
+
+                {selected.blacklisted && (
+                  <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+                    <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-bold text-red-600 m-0">Ứng viên nằm trong danh sách đen của CLB khác</p>
+                      <p className="text-[12.5px] text-red-500 m-0 mt-0.5 leading-relaxed">
+                        {selected.blacklistWarning || "Không có thông tin chi tiết."}
+                      </p>
+                      <p className="text-[11.5px] text-slate-500 m-0 mt-1">
+                        Đây chỉ là cảnh báo tham khảo — quyết định duyệt vẫn thuộc về bạn.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-3 mb-4">
                   <Avatar name={selected.memberName} />
@@ -334,7 +356,7 @@ export default function ClubApplicationsMgmt() {
 
                 {selected.cvUrl && (
                   <a
-                    href={selected.cvUrl}
+                    href={selected.cvUrl.startsWith("http") ? selected.cvUrl : getServerOrigin() + selected.cvUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#E6430A] no-underline hover:underline mb-4 block"

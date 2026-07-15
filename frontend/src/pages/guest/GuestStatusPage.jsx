@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { CheckCircle2, Clock, XCircle, Calendar, MapPin, RefreshCw } from 'lucide-react';
 import guestApi from '../../services/api/guest/guestApi';
+import { guestErrorMessage } from '../../utils/guestErrorMessages';
 
 const STATUS_CONFIG = {
   CONFIRMED: {
@@ -52,7 +53,7 @@ export default function GuestStatusPage() {
       setData(res?.data ?? res);
     } catch (err) {
       if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
-      setError(err?.response?.data?.message || 'Không tìm thấy thông tin đăng ký.');
+      setError(guestErrorMessage(err, 'Không tìm thấy thông tin đăng ký.'));
     } finally {
       setLoading(false);
     }

@@ -4,6 +4,7 @@ import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
 import clubApi from "../../services/api/clubs/clubApi";
 import { normalizeClub } from "../../hooks/usePublicClubs";
 import { useToast } from "../../contexts/ToastContext";
+import { CLUB_CATEGORIES } from "../../constants/clubCategories";
 
 const getImageUrl = (url) => {
   if (!url) return "";
@@ -11,16 +12,7 @@ const getImageUrl = (url) => {
   return getServerOrigin() + url;
 };
 
-const CATEGORIES = [
-  { value: "Công nghệ",  label: "Công nghệ" },
-  { value: "Thiết kế",   label: "Thiết kế" },
-  { value: "Kỹ năng",    label: "Kỹ năng" },
-  { value: "AI & Data",  label: "AI & Dữ liệu" },
-  { value: "Business",   label: "Kinh doanh" },
-  { value: "Ngôn ngữ",   label: "Ngôn ngữ" },
-  { value: "Nghệ thuật", label: "Nghệ thuật" },
-  { value: "Thể thao",   label: "Thể thao" },
-];
+const CATEGORIES = CLUB_CATEGORIES;
 
 const inputCls = {
   width: "100%", boxSizing: "border-box",

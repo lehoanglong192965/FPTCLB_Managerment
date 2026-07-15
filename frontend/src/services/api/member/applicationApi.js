@@ -1,6 +1,15 @@
 import axiosClient from "../axiosClient";
 
 const applicationApi = {
+  // Member: upload file CV (PDF, tối đa 10MB) trước khi nộp đơn — trả về { url }
+  uploadCv: (file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return axiosClient.post("/applications/cv", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
   // Member: nộp đơn
   apply: ({ clubID, cvUrl, introduction, answersJson }, semesterID = 1) =>
     axiosClient.post(

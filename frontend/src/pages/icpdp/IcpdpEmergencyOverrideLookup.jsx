@@ -15,9 +15,9 @@ export default function IcpdpEmergencyOverrideLookup() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Emergency Override Check-in</h1>
+        <h1 className="page-title">Điểm Danh Ghi Đè Khẩn Cấp</h1>
         <p className="page-subtitle">
-          Bypass giới hạn capacity — chỉ dùng khi được ủy quyền
+          Bỏ qua giới hạn sức chứa — chỉ dùng khi được ủy quyền
         </p>
       </div>
 
@@ -30,7 +30,7 @@ export default function IcpdpEmergencyOverrideLookup() {
         <form onSubmit={handleGo} className="bg-white rounded-xl border border-gray-100 p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              ID sự kiện cần override *
+              ID sự kiện cần ghi đè *
             </label>
             <input
               type="number"
@@ -43,7 +43,7 @@ export default function IcpdpEmergencyOverrideLookup() {
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Event ID có thể lấy từ URL hoặc từ trang quản lý sự kiện.
+              ID sự kiện có thể lấy từ URL hoặc từ trang quản lý sự kiện.
             </p>
           </div>
 

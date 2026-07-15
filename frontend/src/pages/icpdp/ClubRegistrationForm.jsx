@@ -15,8 +15,7 @@ import {
 import clubRegistrationApi from "../../services/api/clubs/clubRegistrationApi";
 import axiosClient, { getServerOrigin } from "../../services/api/axiosClient";
 import AlertModal from "../../components/ui/AlertModal";
-
-const CATEGORIES = ["IT", "Music", "Sports", "Art", "Culture", "Kỹ thuật", "Ngôn ngữ", "Học thuật", "Cộng đồng", "Khác"];
+import { CLUB_CATEGORIES } from "../../constants/clubCategories";
 
 const getImageUrl = (url) => {
   if (!url) return "";
@@ -38,7 +37,7 @@ export default function ClubRegistrationForm({ mode = "member" }) {
     clubCode: "",
     clubName: "",
     clubNameEn: "",
-    category: "Academic",
+    category: CLUB_CATEGORIES[0].value,
     description: "",
     mission: "",
     uniqueness: "",
@@ -356,8 +355,8 @@ export default function ClubRegistrationForm({ mode = "member" }) {
                 value={formData.category}
                 onChange={handleChange("category")}
               >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
+                {CLUB_CATEGORIES.map((cat) => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
                 ))}
               </select>
             </div>

@@ -273,6 +273,18 @@ export default function ClubEventsMgmt() {
     setSelectedEv((prev) => prev?.eventID === eventID ? { ...prev, ...patch } : prev);
   };
 
+  const handleDeleteDraft = async (ev) => {
+    if (!(await confirm(`Xóa bản nháp "${ev.eventName}"? Hành động này không thể hoàn tác.`, { danger: true, confirmLabel: "Xóa bản nháp" }))) return;
+    try {
+      await eventApi.deleteDraft(ev.eventID);
+      setEvents((prev) => prev.filter((e) => e.eventID !== ev.eventID));
+      closeDetail();
+      toast.success("Đã xóa bản nháp.");
+    } catch (e) {
+      toast.error("Lỗi xóa bản nháp: " + (e.response?.data?.message || e.message));
+    }
+  };
+
   const openDetail = (ev) => {
     setSelectedEv(ev);
     setIsEditing(false);
@@ -767,6 +779,9 @@ export default function ClubEventsMgmt() {
                     }
                   }} style={btnStyle("#059669")}>
                     Gửi đề xuất
+                  </button>
+                  <button onClick={() => handleDeleteDraft(selectedEv)} style={btnStyle("#dc2626")}>
+                    Xóa bản nháp
                   </button>
                 </>)}
                 {status === "DRAFT" && isEditing && (<>

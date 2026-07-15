@@ -1,19 +1,8 @@
 import { useState, useEffect } from "react";
 import clubApi from "../services/api/clubs/clubApi";
 
-// Map từ giá trị lưu trong DB → nhãn hiển thị tiếng Việt
-export const CATEGORY_LABEL = {
-  "Công nghệ":  "Công nghệ",
-  "Thiết kế":   "Thiết kế",
-  "Kỹ năng":    "Kỹ năng",
-  "AI & Data":  "AI & Dữ liệu",
-  "Business":   "Kinh doanh",
-  "Ngôn ngữ":   "Ngôn ngữ",
-  "Nghệ thuật": "Nghệ thuật",
-  "Thể thao":   "Thể thao",
-};
-
-export const displayCategory = (tag) => CATEGORY_LABEL[tag] ?? tag;
+// Danh mục CLB dùng chung — xem constants/clubCategories.js
+export { CATEGORY_LABEL, displayCategory } from "../constants/clubCategories";
 
 //Hàm chuyển đổi dữ liệu từ backend sang format frontend dùng được.
 export function normalizeClub(raw) {
