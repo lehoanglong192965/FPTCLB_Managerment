@@ -38,12 +38,14 @@ import {
 export const SIDEBAR_CONFIGS = {
   ADMIN: [
     { key: "semesters",     label: "Quản Lý Học Kỳ",        icon: BookOpen,    path: "/admin",               exact: true },
+    { key: "club-dashboard", label: "Dashboard CLB",         icon: LayoutDashboard, path: "/admin/club-dashboard" },
     { key: "users",         label: "Quản Lý Người Dùng",     icon: Users,       path: "/admin/users" },
     { key: "system-config", label: "Cấu Hình Hệ Thống",     icon: Settings,    path: "/admin/system-config" },
     { key: "profile",       label: "Thông Tin Tài Khoản",    icon: UserCircle,  path: "/admin/profile" },
   ],
 
   ICPDP: [
+    { key: "club-dashboard",    label: "Dashboard CLB",       icon: LayoutDashboard, path: "/icpdp/club-dashboard" },
     { key: "club-overview",      label: "Tổng Quan CLB",       icon: Building2,      path: "/icpdp/club-overview" },
     { key: "club-management",    label: "Quản Lý CLB",         icon: Layers,         path: "/icpdp/club-management" },
     { key: "club-create",        label: "Tạo CLB",             icon: PlusCircle,     path: "/icpdp/clubs/create" },
@@ -71,6 +73,7 @@ export const SIDEBAR_CONFIGS = {
 
   CLUB_LEADER: [
     { key: "overview",      label: "Tổng Quan CLB",        icon: Home,            path: "/club-leader",              exact: true },
+    { key: "dashboard",     label: "Dashboard CLB",         icon: LayoutDashboard, path: "/club-leader/dashboard" },
     { key: "club-info",     label: "Thông Tin CLB",        icon: Building2,       path: "/club-leader/club-info" },
     { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/club-leader/members" },
     { key: "applications",  label: "Đơn Ứng Tuyển",        icon: ClipboardList,   path: "/club-leader/applications" },
@@ -85,6 +88,7 @@ export const SIDEBAR_CONFIGS = {
 
   VICE_LEADER: [
     { key: "overview",      label: "Tổng Quan CLB",        icon: Home,            path: "/vice-leader",              exact: true },
+    { key: "dashboard",     label: "Dashboard CLB",         icon: LayoutDashboard, path: "/vice-leader/dashboard" },
     { key: "club-info",     label: "Thông Tin CLB",        icon: Building2,       path: "/vice-leader/club-info" },
     { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/vice-leader/members" },
     { key: "event-create",  label: "Tạo Sự Kiện",          icon: PlusCircle,      path: "/vice-leader/event-create" },

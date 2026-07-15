@@ -37,6 +37,7 @@ import MemberMyContributionsPage from "../pages/member/MemberMyContributionsPage
 
 // Dashboard layout (shared sidebar + outlet)
 import DashboardLayout from "../components/layout/DashboardLayout";
+import ClubDashboardPage from "../pages/dashboard/ClubDashboardPage";
 
 // ICPDP pages
 import IcpdpOverview from "../pages/icpdp/IcpdpOverview";
@@ -150,6 +151,7 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<IcpdpOverview />} />
+        <Route path="club-dashboard" element={<ClubDashboardPage />} />
         <Route path="club-overview" element={<IcpdpClubOverview />} />
         <Route path="club-management" element={<IcpdpClubManagement />} />
         <Route path="clubs/create" element={<ClubRegistrationForm mode="icpdp" />} />
@@ -179,6 +181,7 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<SemesterManagement />} />
+        <Route path="club-dashboard" element={<ClubDashboardPage />} />
         <Route path="users" element={<UserManagement />} />
         <Route path="system-config" element={<SystemConfigPage />} />
         <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
@@ -197,6 +200,7 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<ClubOverview />} />
+        <Route path="dashboard" element={<ClubDashboardPage />} />
         <Route path="members" element={<ClubMemberMgmt />} />
         <Route path="applications" element={<ClubApplicationsMgmt />} />
         <Route path="event-create" element={<CreateEventPage />} />
@@ -230,6 +234,7 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<ClubOverview />} />
+        <Route path="dashboard" element={<ClubDashboardPage />} />
         <Route path="members" element={<ClubMemberMgmt />} />
         <Route path="event-create" element={<CreateEventPage />} />
         <Route path="events" element={<ClubEventsMgmt />} />
