@@ -53,6 +53,9 @@ public class Event {
     @Column(name = "totalCapacity")
     private Integer totalCapacity;
 
+    @Transient
+    private Long currentParticipants;
+
     @Column(name = "allowWalkIn")
     private Boolean allowWalkIn = false;
 
@@ -91,7 +94,7 @@ public class Event {
     public boolean isEditable() {
         return EventStatus.DRAFT.equals(this.eventStatus) || EventStatus.PENDING.equals(this.eventStatus);
     }
-    
+
     public boolean isReportable() {
         return EventStatus.COMPLETED.equals(this.eventStatus);
     }
@@ -127,6 +130,9 @@ public class Event {
 
     @Column(name = "bannerUrl", columnDefinition = "NVARCHAR(MAX)")
     private String bannerUrl;
+
+    @Column(name = "bannerPublicId")
+    private String bannerPublicId;
 
     @Column(name = "isDeleted")
     private Boolean isDeleted;

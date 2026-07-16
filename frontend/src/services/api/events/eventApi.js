@@ -36,9 +36,8 @@ const eventApi = {
   uploadBanner: (eventId, file) => {
     const form = new FormData();
     form.append("file", file);
-    return axiosClient.post(`/v1/events/${eventId}/banner`, form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    form.append("purpose", "event-banner");
+    return axiosClient.post("/uploads/card-image", form);
   },
 
   uploadReport: (eventId, summary, file) => {
@@ -46,9 +45,7 @@ const eventApi = {
     form.append("eventID", eventId);
     form.append("summary", summary);
     form.append("file", file);
-    return axiosClient.post("/v1/reports", form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    return axiosClient.post("/v1/reports", form);
   },
 
   // ICPDP

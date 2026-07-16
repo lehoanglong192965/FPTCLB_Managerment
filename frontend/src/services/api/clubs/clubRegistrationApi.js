@@ -8,12 +8,11 @@ const clubRegistrationApi = {
     }),
   getMyRegistrations: () => axiosClient.get("/clubs/registrations/my"),
   getById: (id) => axiosClient.get(`/clubs/registrations/${id}`),
-  uploadCardImage: (file) => {
+  uploadCardImage: (file, purpose = "club-registration") => {
     const formData = new FormData();
     formData.append("file", file);
-    return axiosClient.post("/uploads/card-image", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    formData.append("purpose", purpose);
+    return axiosClient.post("/uploads/card-image", formData);
   },
 };
 

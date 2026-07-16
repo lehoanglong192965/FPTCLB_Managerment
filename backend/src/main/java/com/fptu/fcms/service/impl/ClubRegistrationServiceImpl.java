@@ -285,6 +285,7 @@ public class ClubRegistrationServiceImpl implements ClubRegistrationService {
                 .clubNameEn(request.getClubNameEn())
                 .category(request.getCategory())
                 .clubImage(request.getClubImage())
+                .clubImagePublicId(request.getClubImagePublicId())
                 .description(request.getDescription())
                 .mission(request.getMission())
                 .uniqueness(request.getUniqueness())
@@ -316,6 +317,7 @@ public class ClubRegistrationServiceImpl implements ClubRegistrationService {
                         .clazz(member.getClazz())
                         .facebookLink(member.getFacebookLink())
                         .cardImage(member.getCardImage())
+                        .cardImagePublicId(member.getCardImagePublicId())
                         .isDeleted(false)
                         .build()
                 )
@@ -329,6 +331,7 @@ public class ClubRegistrationServiceImpl implements ClubRegistrationService {
         club.setDescription(registration.getDescription());
         club.setCategory(registration.getCategory());
         club.setClubImage(registration.getClubImage());
+        club.setClubImagePublicId(registration.getClubImagePublicId());
         club.setClubStatus("Active");
         club.setCreatedAt(LocalDateTime.now());
         club.setIsDeleted(false);
@@ -403,6 +406,7 @@ public class ClubRegistrationServiceImpl implements ClubRegistrationService {
         dto.setClubNameEn(registration.getClubNameEn());
         dto.setCategory(registration.getCategory());
         dto.setClubImage(registration.getClubImage());
+        dto.setClubImagePublicId(registration.getClubImagePublicId());
         dto.setDescription(registration.getDescription());
         dto.setMission(registration.getMission());
         dto.setUniqueness(registration.getUniqueness());
@@ -434,6 +438,7 @@ public class ClubRegistrationServiceImpl implements ClubRegistrationService {
                         fmDto.setClazz(fm.getClazz());
                         fmDto.setFacebookLink(fm.getFacebookLink());
                         fmDto.setCardImage(fm.getCardImage());
+                        fmDto.setCardImagePublicId(fm.getCardImagePublicId());
                         return fmDto;
                     })
                     .collect(Collectors.toList());

@@ -18,6 +18,18 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     boolean existsByEventIDAndGuestEmailAndIsDeletedFalse(Integer eventID, String guestEmail);
     long countByEventIDAndIsDeletedFalse(Integer eventID);
     long countByEventIDAndRegistrationStatusInAndIsDeletedFalse(Integer eventID, Collection<RegistrationStatus> statuses);
+    @Query("""
+    SELECT er.eventID, COUNT(er)
+    FROM EventRegistration er
+    WHERE er.eventID IN :eventIDs
+      AND er.registrationStatus IN :statuses
+      AND er.isDeleted = false
+    GROUP BY er.eventID
+""")
+    List<Object[]> countGroupedByEventIDs(
+            @Param("eventIDs") Collection<Integer> eventIDs,
+            @Param("statuses") Collection<RegistrationStatus> statuses
+    );
     List<EventRegistration> findByEventIDAndIsDeletedFalse(Integer eventID);
     List<EventRegistration> findByEventIDAndRegistrationStatusAndIsDeletedFalseOrderByRegisteredAtAsc(Integer eventID, RegistrationStatus status);
     List<EventRegistration> findByUserIDAndIsDeletedFalse(Integer userID);
@@ -92,4 +104,6 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
             @Param("status") RegistrationStatus status,
             @Param("threshold") java.time.LocalDateTime threshold
     );
+
+    Iterable<? extends Object[]> countGroupedByEventIDs(List<Integer> attr0, List<RegistrationStatus> attr1);
 }

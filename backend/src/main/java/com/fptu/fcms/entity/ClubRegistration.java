@@ -38,6 +38,9 @@ public class ClubRegistration {
     @Column(name = "clubImage")
     private String clubImage;
 
+    @Column(name = "clubImagePublicId")
+    private String clubImagePublicId;
+
     @org.hibernate.annotations.Nationalized
     @Column(name = "description")
     private String description;

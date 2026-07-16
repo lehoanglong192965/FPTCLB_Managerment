@@ -42,4 +42,5 @@ public class CreateEventProposalRequest {
     @Valid
     private List<EventRegistrationPolicyRequest> registrationPolicies;
     private String bannerUrl;
+    private String bannerPublicId;
 }

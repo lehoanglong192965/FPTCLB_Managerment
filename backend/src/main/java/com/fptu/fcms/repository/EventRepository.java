@@ -86,4 +86,6 @@ public interface EventRepository extends JpaRepository<Event, Integer> {
               AND (e.feedbackClosesAt IS NULL OR e.feedbackClosesAt > :now)
             """)
     List<Event> findFeedbackOpenEvents(@Param("now") LocalDateTime now);
+
+    Optional<Object> findFirstByLocationAndEventIDNotAndEventStatusAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(String location, Integer eventID, EventStatus statusApproved, LocalDateTime endDate, LocalDateTime startDate);
 }

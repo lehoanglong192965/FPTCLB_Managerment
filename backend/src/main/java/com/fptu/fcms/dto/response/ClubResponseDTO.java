@@ -18,6 +18,7 @@ public class ClubResponseDTO {
     private Integer members;   // Số lượng thành viên thực trong DB
     private Boolean recruiting;// Mặc định true
     private String clubImage;
+    private String clubImagePublicId;
     private String clubStatus;
     private String contactEmail;
     private String contactPhone;

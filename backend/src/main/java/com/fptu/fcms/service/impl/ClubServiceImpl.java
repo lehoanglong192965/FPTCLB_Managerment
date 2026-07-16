@@ -8,11 +8,14 @@ import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.ClubRepository;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.service.ClubService;
+import com.fptu.fcms.service.ImageCleanupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -21,6 +24,7 @@ public class ClubServiceImpl implements ClubService {
 
     private final ClubRepository clubRepository;
     private final ClubMembershipRepository clubMembershipRepository;
+    private final ImageCleanupService imageCleanupService;
 
     @Override
     public List<ClubResponseDTO> getAllActiveClubs() {
@@ -59,6 +63,8 @@ public class ClubServiceImpl implements ClubService {
     public ClubResponseDTO updateClub(Integer clubId, UpdateClubRequest request) {
         Club club = clubRepository.findByClubIDAndIsDeletedFalse(clubId)
                 .orElseThrow(() -> new BusinessRuleException("Không tìm thấy câu lạc bộ."));
+        String oldImagePublicId = club.getClubImagePublicId();
+        boolean imageFieldTouched = request.getClubImage() != null;
         if (request.getClubName() != null && !request.getClubName().isBlank()) {
             club.setClubName(request.getClubName());
         }
@@ -70,6 +76,7 @@ public class ClubServiceImpl implements ClubService {
         }
         if (request.getClubImage() != null) {
             club.setClubImage(request.getClubImage().isBlank() ? null : request.getClubImage());
+            club.setClubImagePublicId(normalizePublicId(request.getClubImagePublicId()));
         }
         if (request.getContactEmail() != null) {
             club.setContactEmail(request.getContactEmail().isBlank() ? null : request.getContactEmail());
@@ -80,7 +87,10 @@ public class ClubServiceImpl implements ClubService {
         if (request.getFacebookUrl() != null) {
             club.setFacebookUrl(request.getFacebookUrl().isBlank() ? null : request.getFacebookUrl());
         }
-        clubRepository.save(club);
+        Club saved = clubRepository.saveAndFlush(club);
+        if (imageFieldTouched && !Objects.equals(oldImagePublicId, saved.getClubImagePublicId())) {
+            imageCleanupService.deleteAfterCommit(oldImagePublicId);
+        }
         return convertToDTO(club);
     } // <-- Đã thêm dấu đóng ngoặc bị thiếu ở đây
 
@@ -123,11 +133,16 @@ public class ClubServiceImpl implements ClubService {
         // Default recruiting = true for active clubs
         dto.setRecruiting(true);
         dto.setClubImage(club.getClubImage());
+        dto.setClubImagePublicId(club.getClubImagePublicId());
         dto.setContactEmail(club.getContactEmail());
         dto.setContactPhone(club.getContactPhone());
         dto.setFacebookUrl(club.getFacebookUrl());
 
         return dto;
+    }
+
+    private String normalizePublicId(String publicId) {
+        return StringUtils.hasText(publicId) ? publicId.trim() : null;
     }
 
     private String getEmojiForCategory(String category) {

@@ -22,9 +22,8 @@ const clubApi = {
   uploadImage: (file) => {
     const fd = new FormData();
     fd.append("file", file);
-    return axiosClient.post("/uploads/card-image", fd, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    fd.append("purpose", "club-logo");
+    return axiosClient.post("/uploads/card-image", fd);
   },
 
   // ── CLUB_LEADER / VICE_LEADER / CORE_TEAM ───────────────────────
@@ -33,9 +32,7 @@ const clubApi = {
   uploadCover: (clubId, file) => {
     const form = new FormData();
     form.append("cover", file);
-    return axiosClient.post(`/clubs/${clubId}/cover`, form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    return axiosClient.post(`/clubs/${clubId}/cover`, form);
   },
   getAllEvents: (clubId, params) =>
     axiosClient.get(`/clubs/${clubId}/events`, { params }),

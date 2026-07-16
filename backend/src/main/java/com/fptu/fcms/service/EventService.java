@@ -27,6 +27,8 @@ public interface EventService {
     EventApprovalResponse approveEvent(Integer eventId, EventApprovalRequest request, UserPrincipal currentUser);
     List<Event> getPendingEvents();
     List<Event> getApprovedEvents();
+    List<Event> getIcpdpApprovedEvents();
+    List<Event> getRejectedEvents();
     Event getEventById(Integer eventId);
     EventDetailResponse getPublicEventDetail(Integer eventId);
     EventDetailResponse getManagedEventDetail(Integer eventId, UserPrincipal currentUser);
@@ -42,9 +44,11 @@ public interface EventService {
     void openRegistration(Integer eventId, UserPrincipal currentUser);
     void closeRegistration(Integer eventId, UserPrincipal currentUser);
     void updateEvent(Integer eventId, com.fptu.fcms.dto.request.UpdateEventRequest request);
+    void deleteDraftEvent(Integer eventId, UserPrincipal currentUser);
     boolean isUserAssigned(Integer eventId, Integer userId);
     List<Event> getEventsByUserAssigned(Integer userId);
     List<Event> getReportUploadedEvents();
+    List<Event> getReportReviewedEvents();
     List<Map<String, Object>> getCheckedInAttendees(Integer eventId);
     List<EventRegistrationPolicyResponse> getRegistrationPolicies(Integer eventId, UserPrincipal currentUser);
 }

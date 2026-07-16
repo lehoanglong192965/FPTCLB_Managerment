@@ -1,10 +1,12 @@
 package com.fptu.fcms.service;
 
+import com.fptu.fcms.dto.response.ImageUploadResponse;
+import com.fptu.fcms.enums.ImageUploadPurpose;
 import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
-import java.util.Map;
 
 public interface UploadService {
-    Map<String, String> storeFile(MultipartFile file);
-    Resource loadFileAsResource(String filename);
+    ImageUploadResponse uploadImage(MultipartFile file, ImageUploadPurpose purpose);
+
+    Resource loadReportAsResource(String filename);
 }

@@ -26,6 +26,7 @@ public class EventDetailResponse {
     private final LocalDateTime endDate;
     private final EventStatus eventStatus;
     private final String bannerUrl;
+    private final String bannerPublicId;
     private final Boolean allowWalkIn;
     private final LocalDateTime registrationOpenAt;
     private final LocalDateTime registrationCloseAt;

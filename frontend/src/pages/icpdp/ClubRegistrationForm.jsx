@@ -42,6 +42,7 @@ export default function ClubRegistrationForm({ mode = "member" }) {
     mission: "",
     uniqueness: "",
     clubImage: "",
+    clubImagePublicId: "",
     orgStructure: "",
     meetingFrequency: "1 lần / tuần",
     meetingLocation: "Phòng học trống của trường",
@@ -49,11 +50,11 @@ export default function ClubRegistrationForm({ mode = "member" }) {
   });
 
   const [foundingMembers, setFoundingMembers] = useState([
-    { proposedRole: "Leader",     studentId: "", fullName: "", email: "", phoneNumber: "", cohort: "", clazz: "", facebookLink: "", cardImage: "" },
-    { proposedRole: "ViceLeader", studentId: "", fullName: "", email: "", phoneNumber: "", cohort: "", clazz: "", facebookLink: "", cardImage: "" },
-    { proposedRole: "Member",     studentId: "", fullName: "", email: "", phoneNumber: "", cohort: "", clazz: "", facebookLink: "", cardImage: "" },
-    { proposedRole: "Member",     studentId: "", fullName: "", email: "", phoneNumber: "", cohort: "", clazz: "", facebookLink: "", cardImage: "" },
-    { proposedRole: "Member",     studentId: "", fullName: "", email: "", phoneNumber: "", cohort: "", clazz: "", facebookLink: "", cardImage: "" },
+    { proposedRole: "Leader",     studentId: "", fullName: "", email: "", phoneNumber: "", cohort: "", clazz: "", facebookLink: "", cardImage: "", cardImagePublicId: "" },
+    { proposedRole: "ViceLeader", studentId: "", fullName: "", email: "", phoneNumber: "", cohort: "", clazz: "", facebookLink: "", cardImage: "", cardImagePublicId: "" },
+    { proposedRole: "Member",     studentId: "", fullName: "", email: "", phoneNumber: "", cohort: "", clazz: "", facebookLink: "", cardImage: "", cardImagePublicId: "" },
+    { proposedRole: "Member",     studentId: "", fullName: "", email: "", phoneNumber: "", cohort: "", clazz: "", facebookLink: "", cardImage: "", cardImagePublicId: "" },
+    { proposedRole: "Member",     studentId: "", fullName: "", email: "", phoneNumber: "", cohort: "", clazz: "", facebookLink: "", cardImage: "", cardImagePublicId: "" },
   ]);
 
   const [validationErrors, setValidationErrors] = useState({});
@@ -114,8 +115,12 @@ export default function ClubRegistrationForm({ mode = "member" }) {
     setLoading(true);
     setError("");
     try {
-      const res = await clubRegistrationApi.uploadCardImage(file);
-      setFormData((prev) => ({ ...prev, clubImage: res.url }));
+      const res = await clubRegistrationApi.uploadCardImage(file, "club-logo");
+      setFormData((prev) => ({
+        ...prev,
+        clubImage: res.url,
+        clubImagePublicId: res.publicId ?? res.data?.publicId ?? "",
+      }));
     } catch {
       fail("Không thể tải lên ảnh đại diện CLB. Vui lòng thử lại.");
     } finally {
@@ -131,12 +136,13 @@ export default function ClubRegistrationForm({ mode = "member" }) {
     setError("");
 
     try {
-      const res = await clubRegistrationApi.uploadCardImage(file);
+      const res = await clubRegistrationApi.uploadCardImage(file, "member-card");
       const url = res.url;
 
       setFoundingMembers((prev) => {
         const next = [...prev];
         next[memberIndex].cardImage = url;
+        next[memberIndex].cardImagePublicId = res.publicId ?? res.data?.publicId ?? "";
         return next;
       });
     } catch {
@@ -149,7 +155,7 @@ export default function ClubRegistrationForm({ mode = "member" }) {
   const addMember = () => {
     setFoundingMembers((prev) => [
       ...prev,
-      { proposedRole: "Member", studentId: "", fullName: "", email: "", phoneNumber: "", cohort: "", clazz: "", facebookLink: "", cardImage: "" },
+      { proposedRole: "Member", studentId: "", fullName: "", email: "", phoneNumber: "", cohort: "", clazz: "", facebookLink: "", cardImage: "", cardImagePublicId: "" },
     ]);
   };
 
@@ -406,7 +412,7 @@ export default function ClubRegistrationForm({ mode = "member" }) {
                   <button
                     type="button"
                     className="absolute top-2 right-2 bg-red-500 text-white border-none rounded-full w-6 h-6 flex items-center justify-center cursor-pointer shadow-sm hover:bg-red-600"
-                    onClick={() => setFormData((prev) => ({ ...prev, clubImage: "" }))}
+                    onClick={() => setFormData((prev) => ({ ...prev, clubImage: "", clubImagePublicId: "" }))}
                   >
                     <Trash2 size={13} />
                   </button>
@@ -560,7 +566,14 @@ export default function ClubRegistrationForm({ mode = "member" }) {
                       <button
                         type="button"
                         className="absolute top-2 right-2 bg-red-500 text-white border-none rounded-full w-6 h-6 flex items-center justify-center cursor-pointer shadow-sm transition-transform hover:scale-110 hover:bg-red-600"
-                        onClick={() => handleMemberChange(idx, "cardImage")({ target: { value: "" }})}
+                        onClick={() => {
+                          setFoundingMembers((prev) => {
+                            const next = [...prev];
+                            next[idx].cardImage = "";
+                            next[idx].cardImagePublicId = "";
+                            return next;
+                          });
+                        }}
                       >
                         <Trash2 size={14} />
                       </button>

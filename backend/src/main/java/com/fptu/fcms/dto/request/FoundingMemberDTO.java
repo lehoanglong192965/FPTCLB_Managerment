@@ -27,4 +27,5 @@ public class FoundingMemberDTO {
     private String clazz;
     private String facebookLink;
     private String cardImage;
+    private String cardImagePublicId;
 }

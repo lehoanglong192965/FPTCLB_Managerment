@@ -18,6 +18,9 @@ public class UpdateClubRequest {
     @Size(max = 500, message = "URL ảnh không được vượt quá 500 ký tự")
     private String clubImage;
 
+    @Size(max = 500, message = "Cloudinary publicId khong duoc vuot qua 500 ky tu")
+    private String clubImagePublicId;
+
     @Size(max = 100, message = "Email liên hệ không được vượt quá 100 ký tự")
     private String contactEmail;
 

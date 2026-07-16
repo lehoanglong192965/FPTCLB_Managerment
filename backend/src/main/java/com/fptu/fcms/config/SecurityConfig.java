@@ -58,11 +58,11 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/oauth2/**",
                                 "/login/**",
-                                "/api/uploads/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/uploads/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/clubs", "/api/clubs/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/reports").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/events/*/guest-registrations").permitAll()

@@ -78,6 +78,12 @@ gemini:
   chat-model: gemini-3.1-flash-lite
   embedding-model: gemini-embedding-001
 
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+  max-image-size-bytes: ${CLOUDINARY_MAX_IMAGE_SIZE_BYTES:5242880}
+
 server:
   port: 8080
   tomcat:

@@ -15,5 +15,8 @@ public enum ApiErrorCode {
     FORBIDDEN,
     NOT_FOUND,
     CONFLICT,
+    INVALID_IMAGE,
+    IMAGE_UPLOAD_FAILED,
+    IMAGE_DELETE_FAILED,
     INTERNAL_ERROR
 }

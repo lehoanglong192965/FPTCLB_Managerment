@@ -174,6 +174,7 @@ function normalizeEvent(ev) {
     maxParticipants: ev.maxParticipants ?? null,
     budget:          ev.budget          ?? null,
     bannerUrl:        ev.bannerUrl        ?? null,
+    bannerPublicId:   ev.bannerPublicId   ?? null,
     rejectionReason:  ev.rejectionReason  ?? null,
     createdAt:        ev.createdAt        ?? ev.createdDate ?? null,
   };
@@ -324,6 +325,7 @@ export default function ClubEventsMgmt() {
       maxParticipants: full.maxParticipants ?? "",
       budget:          full.budget ?? "",
       bannerFile:      null,
+      bannerPublicId:  full.bannerPublicId ?? "",
     });
     // Cập nhật selectedEv với data đầy đủ hơn
     setSelectedEv((prev) => prev?.eventID === full.eventID ? { ...prev, ...full } : prev);
@@ -354,13 +356,22 @@ export default function ClubEventsMgmt() {
       });
 
       let newBannerUrl = selectedEv.bannerUrl;
+      let newBannerPublicId = selectedEv.bannerPublicId;
       if (editForm.bannerFile) {
         try {
           const res = await eventApi.uploadBanner(selectedEv.eventID, editForm.bannerFile);
           newBannerUrl = res?.bannerUrl ?? res?.url ?? newBannerUrl;
+          newBannerPublicId = res?.publicId ?? res?.data?.publicId ?? newBannerPublicId;
         } catch {
           // Banner upload thất bại không chặn lưu thông tin khác
         }
+      }
+
+      if (editForm.bannerFile && newBannerUrl) {
+        await eventApi.update(selectedEv.eventID, {
+          bannerUrl: newBannerUrl,
+          bannerPublicId: newBannerPublicId,
+        });
       }
 
       updateEvent(selectedEv.eventID, {
@@ -372,6 +383,7 @@ export default function ClubEventsMgmt() {
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : selectedEv.maxParticipants,
         budget:          editForm.budget ? Number(editForm.budget) : selectedEv.budget,
         bannerUrl:       newBannerUrl,
+        bannerPublicId:  newBannerPublicId,
       });
       setIsEditing(false);
     } catch (e) {

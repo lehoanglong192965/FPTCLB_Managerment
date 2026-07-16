@@ -57,7 +57,7 @@ export default function ClubInfoPage() {
   const [previewUrl, setPreviewUrl] = useState("");
 
   const [form, setForm] = useState({
-    clubName: "", description: "", category: "", clubImage: "",
+    clubName: "", description: "", category: "", clubImage: "", clubImagePublicId: "",
     contactEmail: "", contactPhone: "", facebookUrl: "",
   });
 
@@ -67,6 +67,7 @@ export default function ClubInfoPage() {
     if (!raw) return false;
     const normalized = normalizeClub(raw);
     const img = raw.clubImage ?? "";
+    const imagePublicId = raw.clubImagePublicId ?? "";
     setClub({
       ...normalized,
       rawCategory:  raw.tag          ?? raw.category    ?? "",
@@ -74,12 +75,14 @@ export default function ClubInfoPage() {
       contactEmail: raw.contactEmail ?? null,
       contactPhone: raw.contactPhone ?? null,
       facebookUrl:  raw.facebookUrl  ?? null,
+      clubImagePublicId: imagePublicId,
     });
     setForm({
       clubName:     raw.name         ?? raw.clubName    ?? "",
       description:  raw.desc         ?? raw.description ?? "",
       category:     raw.tag          ?? raw.category    ?? "",
       clubImage:    img,
+      clubImagePublicId: imagePublicId,
       contactEmail: raw.contactEmail ?? "",
       contactPhone: raw.contactPhone ?? "",
       facebookUrl:  raw.facebookUrl  ?? "",
@@ -127,10 +130,11 @@ export default function ClubInfoPage() {
     try {
       const res = await clubApi.uploadImage(file);
       const serverUrl = res?.url ?? res?.fileUrl ?? res?.path;
+      const publicId = res?.publicId ?? res?.data?.publicId ?? "";
       if (serverUrl) {
         URL.revokeObjectURL(localUrl);
         setPreviewUrl(serverUrl);
-        setForm((f) => ({ ...f, clubImage: serverUrl }));
+        setForm((f) => ({ ...f, clubImage: serverUrl, clubImagePublicId: publicId }));
         toast.success("Đã tải ảnh lên thành công.");
       }
     } catch {
@@ -164,6 +168,7 @@ export default function ClubInfoPage() {
       description:  club.desc         ?? "",
       category:     club.rawCategory  ?? "",
       clubImage:    club.clubImage    ?? "",
+      clubImagePublicId: club.clubImagePublicId ?? "",
       contactEmail: club.contactEmail ?? "",
       contactPhone: club.contactPhone ?? "",
       facebookUrl:  club.facebookUrl  ?? "",

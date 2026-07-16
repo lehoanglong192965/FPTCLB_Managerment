@@ -7,7 +7,7 @@ import axios from "axios";
 // các endpoint yêu cầu xác thực là public.
 const PUBLIC_ROUTES = [
   { prefix: "/auth" },
-  { prefix: "/uploads" },
+  { prefix: "/uploads", method: "get" },
   { prefix: "/clubs", method: "get" },
   { prefix: "/v1/events/approved", method: "get" },
   { pattern: /^\/v1\/events\/\d+$/, method: "get" },
@@ -63,7 +63,6 @@ export const TokenService = {
 // ─────────────────────────────────────────────────────────────────
 const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:8080/api",
-  headers: { "Content-Type": "application/json" },
   timeout: 30000,
 });
 
@@ -137,6 +136,21 @@ axiosClient.interceptors.request.use(
 
     addPending(config);
     logReq(config);
+
+    if (config.data instanceof FormData) {
+      if (typeof config.headers?.delete === "function") {
+        config.headers.delete("Content-Type");
+      } else if (config.headers) {
+        delete config.headers["Content-Type"];
+        delete config.headers["content-type"];
+      }
+    } else if (config.data && !(config.data instanceof URLSearchParams)) {
+      if (typeof config.headers?.set === "function") {
+        config.headers.set("Content-Type", "application/json");
+      } else {
+        config.headers = { ...(config.headers || {}), "Content-Type": "application/json" };
+      }
+    }
 
     // Luôn đính kèm token nếu có — kể cả với các route được đánh dấu "public"
     // (vd: GET /clubs) vì nhiều route con dùng chung prefix đó lại cần currentUser

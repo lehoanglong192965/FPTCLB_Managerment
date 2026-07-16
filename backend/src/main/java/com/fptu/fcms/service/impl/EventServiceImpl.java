@@ -23,22 +23,7 @@ import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.enums.EventReportStatus;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.exception.BusinessRuleException;
-import com.fptu.fcms.repository.AttendanceRecordRepository;
-import com.fptu.fcms.repository.AttendanceSessionRepository;
-import com.fptu.fcms.repository.AuditLogRepository;
-import com.fptu.fcms.repository.EventAssignmentRepository;
-import com.fptu.fcms.repository.EventRepository;
-import com.fptu.fcms.repository.EventRegistrationRepository;
-import com.fptu.fcms.repository.EventRegistrationPolicyRepository;
-import com.fptu.fcms.repository.EventRoleRepository;
-import com.fptu.fcms.repository.MemberPerformanceRepository;
-import com.fptu.fcms.repository.SemesterRepository;
-import com.fptu.fcms.repository.SystemRoleRepository;
-import com.fptu.fcms.repository.UserRepository;
-import com.fptu.fcms.repository.ClubMembershipRepository;
-import com.fptu.fcms.repository.ClubRoleRepository;
-import com.fptu.fcms.repository.ContributionBatchRepository;
-import com.fptu.fcms.repository.EventReportRepository;
+import com.fptu.fcms.repository.*;
 import com.fptu.fcms.entity.ClubRole;
 import com.fptu.fcms.event.EventLifecycleChangedEvent;
 import com.fptu.fcms.security.UserPrincipal;
@@ -47,8 +32,10 @@ import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.EventRegistrationPolicyService;
 import com.fptu.fcms.service.EventService;
+import com.fptu.fcms.service.ImageCleanupService;
 import com.fptu.fcms.service.event.EventPermissionService;
 import com.fptu.fcms.service.event.EventStateMachineService;
+import com.fptu.fcms.service.event.RegistrationLifecycle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.context.ApplicationEventPublisher;
@@ -81,6 +68,24 @@ public class EventServiceImpl implements EventService {
     private static final EventStatus STATUS_ONGOING = EventStatus.ONGOING;
     private static final EventStatus STATUS_COMPLETED = EventStatus.COMPLETED;
     private static final EventStatus STATUS_CLOSED = EventStatus.CLOSED;
+    private static final EventStatus STATUS_REPORT_UPLOADED = EventStatus.REPORT_UPLOADED;
+    private static final EventStatus STATUS_REPORT_PENDING_APPROVAL = EventStatus.REPORT_PENDING_APPROVAL;
+    private static final EventStatus STATUS_REPORT_APPROVED = EventStatus.REPORT_APPROVED;
+    private static final EventStatus STATUS_REPORT_REJECTED = EventStatus.REPORT_REJECTED;
+    private static final EventStatus STATUS_CONTRIBUTION_DRAFT = EventStatus.CONTRIBUTION_DRAFT;
+    private static final EventStatus STATUS_CONTRIBUTION_PENDING_APPROVAL = EventStatus.CONTRIBUTION_PENDING_APPROVAL;
+    private static final EventStatus STATUS_CONTRIBUTION_APPROVED = EventStatus.CONTRIBUTION_APPROVED;
+    private static final EventStatus STATUS_CONTRIBUTION_SCORING = EventStatus.CONTRIBUTION_SCORING;
+    private static final EventStatus STATUS_CONTRIBUTION_FINALIZED = EventStatus.CONTRIBUTION_FINALIZED;
+    private static final List<EventStatus> ICPDP_APPROVED_LIFECYCLE_STATUSES = List.copyOf(
+            java.util.EnumSet.complementOf(java.util.EnumSet.of(
+                    EventStatus.DRAFT,
+                    EventStatus.PENDING,
+                    EventStatus.PENDING_APPROVAL,
+                    EventStatus.REJECTED,
+                    EventStatus.CANCELLED
+            ))
+    );
     private static final List<String> DEFAULT_PARTICIPANT_TYPES = List.of(
             "CORE_TEAM",
             "SUPPORT_ORGANIZER",
@@ -97,6 +102,7 @@ public class EventServiceImpl implements EventService {
     private final EventAssignmentRepository eventAssignmentRepository;
     private final EventRoleRepository eventRoleRepository;
     private final EventRegistrationRepository registrationRepository;
+    private final GuestEventRegistrationRepository guestRegistrationRepository;
     private final EventRegistrationPolicyRepository registrationPolicyRepository;
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
@@ -114,6 +120,7 @@ public class EventServiceImpl implements EventService {
     private final ClubRoleRepository clubRoleRepository;
     private final EventReportRepository eventReportRepository;
     private final ContributionBatchRepository contributionBatchRepository;
+    private final ImageCleanupService imageCleanupService;
 
     @Override
     public boolean isUserAssigned(Integer eventId, Integer userId) {
@@ -131,7 +138,6 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void createEventProposal(CreateEventProposalRequest request, UserPrincipal currentUser) {
-        System.out.println("[DEBUG] bannerUrl received: " + (request.getBannerUrl() != null ? "length=" + request.getBannerUrl().length() : "NULL"));
         validateCreateRequest(request);
         validateUserIsClubLeader(request.getClubID(), currentUser);
 
@@ -167,6 +173,7 @@ public class EventServiceImpl implements EventService {
         event.setIsInternal(Boolean.TRUE.equals(request.getIsInternal()));
         event.setIsScoreLocked(false);
         event.setBannerUrl(request.getBannerUrl());
+        event.setBannerPublicId(normalizePublicId(request.getBannerPublicId()));
         event.setCreatedAt(now);
         event.setCreatedBy(currentUser.getUserId());
         event.setIsDeleted(false);
@@ -344,14 +351,60 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public List<Event> getApprovedEvents() {
-        return eventRepository.findByEventStatusInAndIsDeletedFalse(
+        List<Event> events = eventRepository.findByEventStatusInAndIsDeletedFalse(
                 List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_REGISTRATION_CLOSED, STATUS_ONGOING));
+        attachCurrentParticipants(events);
+        return events;
+    }
+
+    /**
+     * Gắn currentParticipants (member + guest theo CONFIRMED_STATUSES — cùng định nghĩa
+     * với kiểm tra sức chứa lúc đăng ký) để FE hiển thị "x/y đã đăng ký".
+     */
+    private void attachCurrentParticipants(List<Event> events) {
+        if (events == null || events.isEmpty()) {
+            return;
+        }
+        List<Integer> eventIds = events.stream().map(Event::getEventID).toList();
+        Map<Integer, Long> counts = new HashMap<>();
+        for (Object[] row : registrationRepository.countGroupedByEventIDs((eventIds), RegistrationLifecycle.CONFIRMED_STATUSES)) {
+            counts.merge((Integer) row[0], (Long) row[1], Long::sum);
+        }
+        for (Object[] row : guestRegistrationRepository.countGroupedByEventIDs((eventIds), RegistrationLifecycle.CONFIRMED_STATUSES)) {
+            counts.merge((Integer) row[0], (Long) row[1], Long::sum);
+        }
+        events.forEach(e -> e.setCurrentParticipants(counts.getOrDefault(e.getEventID(), 0L)));
+    }
+
+    /**
+     * Dành riêng cho trang ICPDP: mọi sự kiện đã qua phê duyệt, KỂ CẢ đã kết thúc
+     * (COMPLETED/CLOSED, các trạng thái báo cáo...). Khác với getApprovedEvents() vốn
+     * chỉ trả sự kiện đang sắp/đang diễn ra cho trang chủ public.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getIcpdpApprovedEvents() {
+        List<Event> events = eventRepository.findByEventStatusInAndIsDeletedFalse(ICPDP_APPROVED_LIFECYCLE_STATUSES);
+        attachCurrentParticipants(events);
+        return events;
+    }
+
+
+
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getRejectedEvents() {
+        return eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_REJECTED);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Event getEventById(Integer eventId) {
-        return getActiveEventOrThrow(eventId);
+        Event event = getActiveEventOrThrow(eventId);
+        attachCurrentParticipants(List.of(event));
+        return event;
     }
 
     @Override
@@ -418,8 +471,6 @@ public class EventServiceImpl implements EventService {
         attendanceRecordRepository.save(record);
         return user.getFullName() != null ? user.getFullName() : studentId;
     }
-
-    private static final EventStatus STATUS_REPORT_UPLOADED = EventStatus.REPORT_UPLOADED;
 
     @Override
     @Transactional
@@ -489,6 +540,22 @@ public class EventServiceImpl implements EventService {
     public List<Event> getReportUploadedEvents() {
         return eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_REPORT_UPLOADED);
     }
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getReportReviewedEvents() {
+        return eventRepository.findByEventStatusInAndIsDeletedFalse(List.of(
+                EventStatus.REPORT_APPROVED,
+                EventStatus.REPORT_REJECTED,
+                EventStatus.CONTRIBUTION_DRAFT,
+                EventStatus.CONTRIBUTION_PENDING_APPROVAL,
+                EventStatus.CONTRIBUTION_APPROVED,
+                EventStatus.CONTRIBUTION_SCORING,
+                EventStatus.CONTRIBUTION_FINALIZED,
+                STATUS_CLOSED
+        ));
+    }
+
+
 
     @Override
     @Transactional(readOnly = true)
@@ -640,6 +707,8 @@ public class EventServiceImpl implements EventService {
         if (!STATUS_DRAFT.equals(event.getEventStatus())) {
             throw new IllegalArgumentException("Chỉ có thể chỉnh sửa sự kiện ở trạng thái Nháp.");
         }
+        String oldBannerPublicId = event.getBannerPublicId();
+        boolean bannerTouched = request.getBannerUrl() != null;
         if (request.getEventName() != null)     event.setEventName(request.getEventName());
         if (request.getDescription() != null)   event.setDescription(request.getDescription());
         if (request.getLocation() != null)      event.setLocation(request.getLocation());
@@ -659,11 +728,32 @@ public class EventServiceImpl implements EventService {
         if (request.getCheckInOpenAt() != null) event.setCheckInOpenAt(request.getCheckInOpenAt());
         if (request.getCheckInCloseAt() != null) event.setCheckInCloseAt(request.getCheckInCloseAt());
         if (request.getBudget() != null)        event.setBudget(request.getBudget());
-        if (request.getBannerUrl() != null)     event.setBannerUrl(request.getBannerUrl());
-        eventRepository.save(event);
+        if (request.getBannerUrl() != null) {
+            event.setBannerUrl(request.getBannerUrl().isBlank() ? null : request.getBannerUrl());
+            event.setBannerPublicId(normalizePublicId(request.getBannerPublicId()));
+        }
+        Event saved = eventRepository.saveAndFlush(event);
+        if (bannerTouched && !Objects.equals(oldBannerPublicId, saved.getBannerPublicId())) {
+            imageCleanupService.deleteAfterCommit(oldBannerPublicId);
+        }
         if (request.getRegistrationPolicies() != null && !request.getRegistrationPolicies().isEmpty()) {
             eventRegistrationPolicyService.syncPolicies(eventId, request.getRegistrationPolicies(), LocalDateTime.now());
         }
+    }
+
+    @Override
+    @Transactional
+    public void deleteDraftEvent(Integer eventId, UserPrincipal currentUser) {
+        Event event = getActiveEventOrThrow(eventId);
+        assertCanModifyDraft(event, currentUser);
+        if (!STATUS_DRAFT.equals(event.getEventStatus()) && !STATUS_REJECTED.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Only Draft or Rejected events can be deleted.");
+        }
+
+        String oldBannerPublicId = event.getBannerPublicId();
+        event.setIsDeleted(true);
+        eventRepository.saveAndFlush(event);
+        imageCleanupService.deleteAfterCommit(oldBannerPublicId);
     }
 
     @Override
@@ -693,7 +783,7 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public void approveEvent(Integer eventId, UserPrincipal currentUser) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Event not found."));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sự kiện."));
         EventStatus oldStatus = event.getEventStatus();
 
         stateMachineService.ensureCanApprove(event);
@@ -900,6 +990,7 @@ public class EventServiceImpl implements EventService {
                 event.getEndDate(),
                 event.getStartDate()
         );
+        
         if (hasConflict) {
             throw new BusinessRuleException("Event conflicts with another approved event.", HttpStatus.CONFLICT);
         }
@@ -922,7 +1013,12 @@ public class EventServiceImpl implements EventService {
         LocalDate settlementDate = semester.getEndDate().minusDays(1);
         LocalDate eventEndDate = event.getEndDate().toLocalDate();
         if (eventEndDate.isAfter(settlementDate)) {
-            throw new BusinessRuleException("Event must end before semester settlement date " + settlementDate + ".", HttpStatus.CONFLICT);
+            java.time.format.DateTimeFormatter dateFmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            throw new BusinessRuleException(
+                    "Sự kiện phải kết thúc trước ngày chốt sổ học kỳ (" + settlementDate.format(dateFmt)
+                            + "). Sự kiện này kết thúc ngày " + eventEndDate.format(dateFmt)
+                            + " nên chưa thể duyệt. Vui lòng yêu cầu CLB dời sang trước ngày chốt sổ, hoặc gán sự kiện vào học kỳ phù hợp.",
+                    HttpStatus.CONFLICT);
         }
     }
 
@@ -977,6 +1073,7 @@ public class EventServiceImpl implements EventService {
                 event.getEndDate(),
                 event.getEventStatus(),
                 event.getBannerUrl(),
+                event.getBannerPublicId(),
                 event.getAllowWalkIn(),
                 isManager ? event.getRegistrationOpenAt() : null,
                 isManager ? event.getRegistrationCloseAt() : null,
@@ -995,6 +1092,10 @@ public class EventServiceImpl implements EventService {
                 isManager ? event.getCreatedBy() : null,
                 policies
         );
+    }
+
+    private String normalizePublicId(String publicId) {
+        return StringUtils.hasText(publicId) ? publicId.trim() : null;
     }
 
     private int calculateScore(String type) {

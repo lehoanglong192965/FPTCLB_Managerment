@@ -19,7 +19,7 @@ const STEPS = [
 ];
 
 const EMPTY_FORM = {
-  name: "", desc: "", budget: "", banner: null,
+  name: "", desc: "", budget: "", banner: null, bannerPublicId: "",
   isInternal: false, maxParticipants: "",
   date: "", startTime: "", endTime: "", location: "",
 };
@@ -122,8 +122,11 @@ function BannerUpload({ value, onChange, error }) {
     if (file.size > 5 * 1024 * 1024) { toast.error("Ảnh không được vượt quá 5MB."); return; }
     setUploading(true);
     try {
-      const res = await clubRegistrationApi.uploadCardImage(file);
-      onChange(res.url || res);
+      const res = await clubRegistrationApi.uploadCardImage(file, "event-banner");
+      onChange({
+        url: res.url || res,
+        publicId: res.publicId ?? res.data?.publicId ?? "",
+      });
     } catch (err) {
       console.error("[BannerUpload] Upload thất bại:", err);
       toast.error("Tải ảnh lên thất bại. Vui lòng thử lại.");
@@ -225,7 +228,19 @@ function InternalToggle({ value, onChange }) {
 function Step1({ form, onChange, errors }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-      <BannerUpload value={form.banner} onChange={(v) => onChange("banner", v)} error={errors.banner} />
+      <BannerUpload
+        value={form.banner}
+        onChange={(v) => {
+          if (v && typeof v === "object") {
+            onChange("banner", v.url);
+            onChange("bannerPublicId", v.publicId || "");
+          } else {
+            onChange("banner", v);
+            onChange("bannerPublicId", "");
+          }
+        }}
+        error={errors.banner}
+      />
 
       <div>
         <Label required>Tên sự kiện</Label>
@@ -509,6 +524,7 @@ export default function CreateEventPage() {
         isResubmitted: false,
         isInternal:    form.isInternal,
         bannerUrl:     form.banner || null,
+        bannerPublicId: form.bannerPublicId || null,
         assignments:   null,
       });
       setSubmitted(true);

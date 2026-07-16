@@ -12,6 +12,7 @@ public class ClubRegistrationResponseDTO {
     private String clubNameEn;
     private String category;
     private String clubImage;
+    private String clubImagePublicId;
     private String description;
     private String mission;
     private String uniqueness;
@@ -46,5 +47,6 @@ public class ClubRegistrationResponseDTO {
         private String clazz;
         private String facebookLink;
         private String cardImage;
+        private String cardImagePublicId;
     }
 }

@@ -22,6 +22,7 @@ public class UpdateEventRequest {
     private LocalDateTime checkInCloseAt;
     private BigDecimal budget;
     private String bannerUrl;
+    private String bannerPublicId;
     @Valid
     private List<EventRegistrationPolicyRequest> registrationPolicies;
 }

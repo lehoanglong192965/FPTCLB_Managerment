@@ -45,6 +45,9 @@ public class Club {
     @Column(name = "clubImage")
     private String clubImage;
 
+    @Column(name = "clubImagePublicId")
+    private String clubImagePublicId;
+
     @Column(name = "createdAt")
     private LocalDateTime createdAt;
 

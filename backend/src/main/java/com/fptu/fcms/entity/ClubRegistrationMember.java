@@ -50,6 +50,9 @@ public class ClubRegistrationMember {
     @Column(name = "cardImage")
     private String cardImage;
 
+    @Column(name = "cardImagePublicId")
+    private String cardImagePublicId;
+
     @Column(name = "isDeleted", nullable = false)
     private Boolean isDeleted;
 }

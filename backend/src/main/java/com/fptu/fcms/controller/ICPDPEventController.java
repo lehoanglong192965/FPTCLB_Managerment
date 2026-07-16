@@ -45,6 +45,28 @@ public class ICPDPEventController {
         return ResponseEntity.ok(eventService.getPendingEvents());
     }
 
+    @GetMapping("/approved")
+    @PreAuthorize("hasRole('ICPDP')")
+    @Operation(summary = "Lay lich su event da phe duyet (bao gom ca da ket thuc)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Danh sach event da phe duyet", content = @Content(schema = @Schema(implementation = Event.class))),
+            @ApiResponse(responseCode = "403", description = "Khong co quyen truy cap", content = @Content)
+    })
+    public ResponseEntity<List<Event>> getApprovedEvents() {
+        return ResponseEntity.ok(eventService.getIcpdpApprovedEvents());
+    }
+
+    @GetMapping("/rejected")
+    @PreAuthorize("hasRole('ICPDP')")
+    @Operation(summary = "Lay lich su event da bi tu choi")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Danh sach event da bi tu choi", content = @Content(schema = @Schema(implementation = Event.class))),
+            @ApiResponse(responseCode = "403", description = "Khong co quyen truy cap", content = @Content)
+    })
+    public ResponseEntity<List<Event>> getRejectedEvents() {
+        return ResponseEntity.ok(eventService.getRejectedEvents());
+    }
+
     @GetMapping("/{eventId}")
     @PreAuthorize("hasRole('ICPDP')")
     @Operation(summary = "Lay chi tiet event theo ID")
