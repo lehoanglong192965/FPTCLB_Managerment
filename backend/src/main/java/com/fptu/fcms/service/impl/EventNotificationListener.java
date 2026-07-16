@@ -86,22 +86,22 @@ public class EventNotificationListener {
     }
 
     private String buildTitle(EventStatus status, Club club) {
-        String clubName = club == null ? "Event" : club.getClubName();
+        String clubName = club == null ? "Sự kiện" : club.getClubName();
         return switch (status) {
-            case APPROVED -> "Event approved: " + clubName;
-            case REJECTED -> "Event rejected: " + clubName;
-            case CANCELLED -> "Event cancelled: " + clubName;
-            default -> "Event update: " + clubName;
+            case APPROVED -> "Sự kiện được duyệt: " + clubName;
+            case REJECTED -> "Sự kiện bị từ chối: " + clubName;
+            case CANCELLED -> "Sự kiện đã hủy: " + clubName;
+            default -> "Cập nhật sự kiện: " + clubName;
         };
     }
 
     private String buildContent(EventStatus status, String reason) {
-        String suffix = (reason == null || reason.isBlank()) ? "" : "\nReason: " + reason;
+        String suffix = (reason == null || reason.isBlank()) ? "" : "\nLý do: " + reason;
         return switch (status) {
-            case APPROVED -> "An event has been approved." + suffix;
-            case REJECTED -> "An event has been rejected." + suffix;
-            case CANCELLED -> "An event has been cancelled." + suffix;
-            default -> "An event status changed." + suffix;
+            case APPROVED -> "Sự kiện đã được phê duyệt." + suffix;
+            case REJECTED -> "Sự kiện đã bị từ chối." + suffix;
+            case CANCELLED -> "Sự kiện đã bị hủy." + suffix;
+            default -> "Trạng thái sự kiện đã thay đổi." + suffix;
         };
     }
 }

@@ -801,7 +801,7 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public void rejectEvent(Integer eventId, String reason, UserPrincipal currentUser) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Event not found."));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sự kiện."));
         EventStatus oldStatus = event.getEventStatus();
 
         stateMachineService.ensureCanReject(event);
@@ -983,17 +983,23 @@ public class EventServiceImpl implements EventService {
     }
 
     private void validateScheduleConflict(Event event) {
-        boolean hasConflict = eventRepository.existsByLocationAndEventIDNotAndEventStatusAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
+        eventRepository.findFirstByLocationAndEventIDNotAndEventStatusAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
                 event.getLocation(),
                 event.getEventID(),
                 STATUS_APPROVED,
                 event.getEndDate(),
                 event.getStartDate()
-        );
-        
-        if (hasConflict) {
-            throw new BusinessRuleException("Event conflicts with another approved event.", HttpStatus.CONFLICT);
-        }
+        ).ifPresent(conflict -> {
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+            throw new BusinessRuleException(
+                    "Trùng lịch với sự kiện đã duyệt \"" + conflict.getEventName() + "\" tại cùng địa điểm ["
+                            + event.getLocation() + "] ("
+                            + (conflict.getStartDate() != null ? conflict.getStartDate().format(fmt) : "?")
+                            + " → "
+                            + (conflict.getEndDate() != null ? conflict.getEndDate().format(fmt) : "?")
+                            + "). Vui lòng yêu cầu CLB đổi thời gian hoặc địa điểm trước khi duyệt.",
+                    HttpStatus.CONFLICT);
+        });
     }
 
     private void validateRegistrationOpenWindow(Event event) {
@@ -1008,7 +1014,7 @@ public class EventServiceImpl implements EventService {
 
     private void validateEventBeforeSemesterSettlement(Event event) {
         Semester semester = semesterRepository.findById(event.getSemesterID())
-                .orElseThrow(() -> new BusinessRuleException("Semester not found.", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new BusinessRuleException("Không tìm thấy học kỳ của sự kiện.", HttpStatus.NOT_FOUND));
 
         LocalDate settlementDate = semester.getEndDate().minusDays(1);
         LocalDate eventEndDate = event.getEndDate().toLocalDate();

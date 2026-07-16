@@ -66,6 +66,4 @@ public interface GuestEventRegistrationRepository extends JpaRepository<GuestEve
             @Param("guestPhone") String guestPhone,
             @Param("inactiveStatuses") Set<RegistrationStatus> inactiveStatuses
     );
-
-    Iterable<? extends Object[]> countGroupedByEventIDs(List<Integer> attr0, List<RegistrationStatus> attr1);
 }

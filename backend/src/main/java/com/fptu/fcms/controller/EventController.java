@@ -55,6 +55,10 @@ public class EventController {
         return ResponseEntity.ok(eventService.getReportUploadedEvents());
     }
 
+    /**
+     * Lịch sử báo cáo đã duyệt/từ chối (REPORT_APPROVED, REPORT_REJECTED
+     * và các trạng thái sau khi duyệt báo cáo).
+     */
     @GetMapping("/report-reviewed")
     @PreAuthorize("hasRole('ICPDP')")
     @Operation(summary = "Lay lich su bao cao da duyet/tu choi")
@@ -129,6 +133,10 @@ public class EventController {
         return ResponseEntity.ok(Map.of("message", "Event updated successfully."));
     }
 
+    /**
+     * Xóa mềm một sự kiện đang ở trạng thái Draft hoặc Rejected.
+     * Chỉ người tạo bản nháp mới được xóa (kiểm tra trong service).
+     */
     @DeleteMapping("/{eventId}")
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
     @Operation(summary = "Xoa ban nhap event (Draft/Rejected)")

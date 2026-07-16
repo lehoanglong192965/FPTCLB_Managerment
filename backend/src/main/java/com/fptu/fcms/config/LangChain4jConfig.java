@@ -7,6 +7,7 @@ import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,9 +17,10 @@ import org.springframework.context.annotation.Configuration;
  * Không dùng langchain4j spring-boot-starter — khai báo thủ công từ gemini.*.
  */
 @Configuration
+@Slf4j
 public class LangChain4jConfig {
 
-    @Value("${gemini.api-key}")
+    @Value("${gemini.api-key:}")
     private String apiKey;
 
     @Value("${gemini.chat-model}")
@@ -27,10 +29,23 @@ public class LangChain4jConfig {
     @Value("${gemini.embedding-model}")
     private String embeddingModelName;
 
+    /**
+     * Cho phép boot khi chưa cấu hình GEMINI_API_KEY (dev local không cần chatbot).
+     * Builder của LangChain4j yêu cầu apiKey không rỗng nên thay bằng placeholder;
+     * các API call tới Gemini sẽ lỗi 4xx khi thực sự dùng chatbot.
+     */
+    private String resolveApiKey() {
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("GEMINI_API_KEY chưa được cấu hình — AI chatbot sẽ không hoạt động cho tới khi set biến môi trường này.");
+            return "MISSING_GEMINI_API_KEY";
+        }
+        return apiKey;
+    }
+
     @Bean
     public ChatModel geminiChatModel() {
         return GoogleAiGeminiChatModel.builder()
-                .apiKey(apiKey)
+                .apiKey(resolveApiKey())
                 .modelName(chatModelName)
                 .temperature(0.2)
                 .maxRetries(3)
@@ -43,7 +58,7 @@ public class LangChain4jConfig {
     @Bean(name = "documentEmbeddingModel")
     public EmbeddingModel documentEmbeddingModel() {
         return GoogleAiEmbeddingModel.builder()
-                .apiKey(apiKey)
+                .apiKey(resolveApiKey())
                 .modelName(embeddingModelName)
                 .taskType(GoogleAiEmbeddingModel.TaskType.RETRIEVAL_DOCUMENT)
                 .maxRetries(3)
@@ -56,7 +71,7 @@ public class LangChain4jConfig {
     @Bean(name = "queryEmbeddingModel")
     public EmbeddingModel queryEmbeddingModel() {
         return GoogleAiEmbeddingModel.builder()
-                .apiKey(apiKey)
+                .apiKey(resolveApiKey())
                 .modelName(embeddingModelName)
                 .taskType(GoogleAiEmbeddingModel.TaskType.RETRIEVAL_QUERY)
                 .maxRetries(3)

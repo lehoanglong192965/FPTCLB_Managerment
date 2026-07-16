@@ -16,14 +16,25 @@ import com.fptu.fcms.repository.RecruitmentApplicationRepository;
 import com.fptu.fcms.repository.SemesterRepository;
 import com.fptu.fcms.repository.WithdrawLogRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,12 +51,70 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
 
     private static final int MAX_ACTIVE_CLUBS_OR_APPLICATIONS = 3;
 
+    // Giới hạn + magic bytes cho file CV PDF — cùng chuẩn với upload báo cáo sự kiện.
+    private static final long MAX_CV_SIZE_BYTES = 10L * 1024 * 1024;
+    private static final byte[] PDF_MAGIC = new byte[] {'%', 'P', 'D', 'F', '-'};
+
     private final RecruitmentApplicationRepository recruitmentRepository;
     private final ClubMembershipRepository membershipRepository;
     private final ClubBlacklistRepository blacklistRepository;
     private final SemesterRepository semesterRepository;
     private final WithdrawLogRepository withdrawLogRepository;
     private final ClubRepository clubRepository;
+    private final ClamAvScanService clamAvScanService;
+
+    @Value("${app.reports.storage-dir:reports}")
+    private String cvStorageDir;
+
+    /**
+     * Upload CV dạng PDF, mirror theo ReportUploadServiceImpl (validate size/đuôi/magic
+     * bytes + quét ClamAV, lưu tên UUID). File được serve qua GET /api/uploads/{filename}.
+     */
+    @Override
+    public Map<String, String> uploadCv(MultipartFile file) {
+        validateCvPdf(file);
+        clamAvScanService.scan(file);
+
+        String fileName = UUID.randomUUID() + ".pdf";
+        Path baseDir = Paths.get(cvStorageDir).toAbsolutePath().normalize();
+        try {
+            Files.createDirectories(baseDir);
+            Path target = baseDir.resolve(fileName);
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+            return Map.of(
+                    "filename", fileName,
+                    "url", "/api/uploads/" + fileName
+            );
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to store CV file.", ex);
+        }
+    }
+
+    private void validateCvPdf(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessRuleException("Vui lòng chọn file CV dạng PDF.");
+        }
+        if (file.getSize() > MAX_CV_SIZE_BYTES) {
+            throw new BusinessRuleException("File CV không được vượt quá 10MB.");
+        }
+        String originalName = file.getOriginalFilename();
+        if (!StringUtils.hasText(originalName) || !originalName.toLowerCase().endsWith(".pdf")) {
+            throw new BusinessRuleException("Chỉ chấp nhận file PDF.");
+        }
+        try (InputStream inputStream = file.getInputStream()) {
+            byte[] header = inputStream.readNBytes(PDF_MAGIC.length);
+            if (header.length < PDF_MAGIC.length) {
+                throw new BusinessRuleException("File không phải PDF hợp lệ.");
+            }
+            for (int i = 0; i < PDF_MAGIC.length; i++) {
+                if (header[i] != PDF_MAGIC[i]) {
+                    throw new BusinessRuleException("File không phải PDF hợp lệ.");
+                }
+            }
+        } catch (IOException ex) {
+            throw new IllegalStateException("Không đọc được file tải lên.", ex);
+        }
+    }
 
     @Override
     @Transactional(isolation = Isolation.SERIALIZABLE)
