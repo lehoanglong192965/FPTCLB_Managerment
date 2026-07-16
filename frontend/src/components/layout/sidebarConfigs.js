@@ -1,8 +1,11 @@
 import {
   Building2,
   Calendar,
+  LayoutDashboard,
+  BarChart2,
   BookOpen,
   Bell,
+  Ban,
   Settings,
   Users,
   Home,

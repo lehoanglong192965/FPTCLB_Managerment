@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronLeft, ChevronRight, Check,
   Send, CalendarDays, FileText, CheckCircle2, ImagePlus, UploadCloud, Globe, Lock, X,
@@ -472,7 +472,10 @@ function validate(step, form) {
 
 export default function CreateEventPage() {
   const navigate   = useNavigate();
+  const location   = useLocation();
   const clubId     = TokenService.getClubId();
+  const roleBase   = location.pathname.startsWith("/vice-leader") ? "/vice-leader" : "/club-leader";
+  const eventsPath = `${roleBase}/events`;
 
   const [step, setStep]             = useState(1);
   const [form, setForm]             = useState(EMPTY_FORM);
@@ -572,7 +575,7 @@ export default function CreateEventPage() {
               Tạo sự kiện khác
             </button>
             <button
-              onClick={() => navigate("../my-club/events", { relative: "path" })}
+              onClick={() => navigate(eventsPath)}
               style={{
                 padding: "10px 24px", borderRadius: 10, border: "none",
                 background: "#E6430A", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",

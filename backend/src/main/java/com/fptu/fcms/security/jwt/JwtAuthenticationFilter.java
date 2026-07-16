@@ -14,8 +14,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Locale;
+import java.util.Set;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
@@ -48,13 +49,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Integer clubId = tokenProvider.getClubIdFromJwt(jwt);
 
                 // 4. Tạo authorities từ claim — KHÔNG query DB
-                List<GrantedAuthority> authorities = new ArrayList<>();
-                if (roleName != null) {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_" + roleName));
-                }
-                if (clubRole != null) {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_" + clubRole));
-                }
+                Set<GrantedAuthority> authorities = new LinkedHashSet<>();
+                addRoleAuthorities(authorities, roleName);
+                addRoleAuthorities(authorities, clubRole);
+                addSystemRoleIdAuthorities(authorities, roleId);
 
                 // 5. Đóng gói vào UserPrincipal (Constructor mới với đầy đủ claim)
                 UserPrincipal userPrincipal = new UserPrincipal(
@@ -94,5 +92,46 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return bearerToken.substring(7);
         }
         return null;
+    }
+
+    private void addRoleAuthorities(Set<GrantedAuthority> authorities, String roleName) {
+        if (!StringUtils.hasText(roleName)) {
+            return;
+        }
+
+        String trimmedRoleName = roleName.trim();
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + trimmedRoleName));
+
+        String normalizedRoleName = trimmedRoleName
+                .replaceAll("[^A-Za-z0-9]", "")
+                .toUpperCase(Locale.ROOT);
+
+        if (normalizedRoleName.contains("ICPDP")) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_ICPDP"));
+            return;
+        }
+
+        switch (normalizedRoleName) {
+            case "ADMIN", "ADMINISTRATOR" -> authorities.add(new SimpleGrantedAuthority("ROLE_Admin"));
+            case "STUDENT" -> authorities.add(new SimpleGrantedAuthority("ROLE_Student"));
+            case "MEMBER" -> authorities.add(new SimpleGrantedAuthority("ROLE_Member"));
+            case "ALUMNI" -> authorities.add(new SimpleGrantedAuthority("ROLE_Alumni"));
+            case "LEADER" -> authorities.add(new SimpleGrantedAuthority("ROLE_Leader"));
+            case "VICELEADER" -> authorities.add(new SimpleGrantedAuthority("ROLE_ViceLeader"));
+            default -> {
+                // Keep the original authority above for custom roles.
+            }
+        }
+    }
+
+    private void addSystemRoleIdAuthorities(Set<GrantedAuthority> authorities, Integer roleId) {
+        if (roleId == null) {
+            return;
+        }
+        if (roleId == 1) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_Admin"));
+        } else if (roleId == 2) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_ICPDP"));
+        }
     }
 }

@@ -139,4 +139,42 @@ class JwtAuthenticationFilterTest {
         assertThat(authorityNames).containsExactly("ROLE_Student");
         assertThat(authorityNames).doesNotContain("ROLE_Member", "ROLE_null");
     }
+
+    @Test
+    @DisplayName("JWT filter maps IC-PDP display role names to ROLE_ICPDP")
+    void filterMapsIcpdpDisplayRoleNamesToIcpdpAuthority() throws Exception {
+        String token = tokenProvider.generateToken(
+                "icpdp@fpt.edu.vn", 11, 99, "IC-PDP Manager", null, null);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain filterChain = mock(FilterChain.class);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        var authorityNames = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .map(a -> a.getAuthority())
+                .toList();
+        assertThat(authorityNames).contains("ROLE_IC-PDP Manager", "ROLE_ICPDP");
+    }
+
+    @Test
+    @DisplayName("JWT filter maps roleID 2 to ROLE_ICPDP when roleName is non-standard")
+    void filterMapsIcpdpRoleIdToIcpdpAuthority() throws Exception {
+        String token = tokenProvider.generateToken(
+                "icpdp@fpt.edu.vn", 12, 2, "Club Manager", null, null);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain filterChain = mock(FilterChain.class);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        var authorityNames = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .map(a -> a.getAuthority())
+                .toList();
+        assertThat(authorityNames).contains("ROLE_Club Manager", "ROLE_ICPDP");
+    }
 }

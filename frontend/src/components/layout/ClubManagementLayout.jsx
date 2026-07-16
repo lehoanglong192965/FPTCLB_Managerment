@@ -28,6 +28,16 @@ export default function ClubManagementLayout() {
     { icon: Settings,     label: "Thông tin CLB",      path: `${myClubBase}/club-info` },
   ];
 
+  const toExistingRoute = (path) => {
+    if (path === `${myClubBase}/events`) return `${base}/events`;
+    if (path === `${myClubBase}/members`) return `${base}/members`;
+    if (path === `${myClubBase}/applications`) return `${base}/applications`;
+    if (path === `${myClubBase}/blacklist`) return `${base}/blacklist`;
+    if (path === `${myClubBase}/reports`) return `${base}/reports`;
+    if (path === `${myClubBase}/club-info`) return `${base}/club-info`;
+    return path;
+  };
+
   return (
     <div className="flex gap-5 items-start">
       {/* Main content */}
@@ -45,14 +55,15 @@ export default function ClubManagementLayout() {
           </div>
           <div className="flex flex-col py-1">
             {navItems.map(({ icon: Icon, label, path }) => {
+              const targetPath = toExistingRoute(path);
               const isHome   = path === home;
               const isActive = isHome
                 ? pathname === home
-                : pathname === path || pathname.startsWith(path + "/");
+                : pathname === targetPath || pathname.startsWith(targetPath + "/");
               return (
                 <button
-                  key={path}
-                  onClick={() => navigate(path)}
+                  key={targetPath}
+                  onClick={() => navigate(targetPath)}
                   className={`flex items-center gap-3 px-4 py-2.5 text-[13.5px] transition-colors cursor-pointer border-none font-[inherit] text-left w-full rounded-none ${
                     isActive
                       ? "bg-orange-50 text-[#E6430A] font-semibold"

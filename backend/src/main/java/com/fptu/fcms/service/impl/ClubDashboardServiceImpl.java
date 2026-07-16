@@ -72,6 +72,8 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class ClubDashboardServiceImpl implements ClubDashboardService {
 
+    private static final Set<String> SYSTEM_EVALUATOR_AUTHORITIES = Set.of("ROLE_Admin", "ROLE_ICPDP");
+
     private static final List<RegistrationStatus> VALID_REGISTRATION_STATUSES = List.of(
             RegistrationStatus.CONFIRMED,
             RegistrationStatus.REGISTERED,
@@ -699,12 +701,32 @@ public class ClubDashboardServiceImpl implements ClubDashboardService {
     }
 
     private boolean isSystemEvaluator(UserPrincipal currentUser) {
-        if (currentUser == null || currentUser.getRoleId() == null) {
+        if (currentUser == null) {
+            return false;
+        }
+        if (hasAnyAuthority(currentUser, SYSTEM_EVALUATOR_AUTHORITIES)
+                || isSystemEvaluatorRole(currentUser.getRoleName())) {
+            return true;
+        }
+        if (currentUser.getRoleId() == null) {
             return false;
         }
         String role = systemRoleRepository.findById(currentUser.getRoleId())
                 .map(SystemRole::getRoleName)
                 .orElse("");
+        return isSystemEvaluatorRole(role);
+    }
+
+    private boolean hasAnyAuthority(UserPrincipal currentUser, Set<String> authorities) {
+        if (currentUser.getAuthorities() == null) {
+            return false;
+        }
+        return currentUser.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .anyMatch(authorities::contains);
+    }
+
+    private boolean isSystemEvaluatorRole(String role) {
         return "Admin".equalsIgnoreCase(role) || "ICPDP".equalsIgnoreCase(role);
     }
 

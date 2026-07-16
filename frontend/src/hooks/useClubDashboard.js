@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import dashboardApi from "../services/api/clubs/dashboardApi";
-import clubService from "../services/api/clubs/clubService";
+import clubApi from "../services/api/clubs/clubApi";
 import semesterApi from "../services/api/admin/semesterApi";
 import { TokenService } from "../services/api/axiosClient";
 import { translateApiMessage } from "../utils/dashboardTranslations";
@@ -40,7 +40,7 @@ export function useClubDashboard(userRole) {
   useEffect(() => {
     let cancelled = false;
 
-    Promise.allSettled([clubService.getAll(), semesterApi.getAll()])
+    Promise.allSettled([clubApi.getAll(), semesterApi.getAll()])
       .then(([clubResult, semesterResult]) => {
         if (cancelled) return;
         const rawClubs = clubResult.status === "fulfilled"

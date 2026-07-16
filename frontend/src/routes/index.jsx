@@ -46,6 +46,7 @@ import IcpdpEventApproval from "../pages/icpdp/IcpdpEventApproval";
 import IcpdpPersonnelReassign from "../pages/icpdp/IcpdpPersonnelReassign";
 import IcpdpDisciplineLog from "../pages/icpdp/IcpdpDisciplineLog";
 import IcpdpClubManagement from "../pages/icpdp/IcpdpClubManagement";
+import IcpdpClubQuality from "../pages/icpdp/IcpdpClubQuality";
 import IcpdpRecruitment from "../pages/icpdp/IcpdpRecruitment";
 import IcpdpReportReview from "../pages/icpdp/IcpdpReportReview";
 import IcpdpCompetitionList from "../pages/icpdp/IcpdpCompetitionList";
@@ -150,7 +151,7 @@ export default function AppRoutes() {
       >
         <Route index element={<IcpdpOverview />} />
         <Route path="club-dashboard" element={<ClubDashboardPage />} />
-        <Route path="club-overview" element={<IcpdpClubOverview />} />
+        <Route path="club-overview" element={<IcpdpClubQuality />} />
         <Route path="club-management" element={<IcpdpClubManagement />} />
         <Route path="clubs/create" element={<ClubRegistrationForm mode="icpdp" />} />
         <Route path="event-approval" element={<IcpdpEventApproval />} />
@@ -198,7 +199,10 @@ export default function AppRoutes() {
           </PrivateRoute>
         }
       >
-        <Route index element={<ClubOverview />} />
+        <Route index element={<ClubLeaderMyClubs />} />
+        <Route path="my-club" element={<ClubManagementLayout />}>
+          <Route path="space" element={<ClubSpace />} />
+        </Route>
         <Route path="dashboard" element={<ClubDashboardPage />} />
         <Route path="members" element={<ClubMemberMgmt />} />
         <Route path="applications" element={<ClubApplicationsMgmt />} />
@@ -213,7 +217,7 @@ export default function AppRoutes() {
         <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
         <Route path="reports/:eventId/submit" element={<ReportSubmitPage />} />
         <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
-        <Route path="notifications" element={<ClubNotifications />} />
+        <Route path="notifications" element={<MemberNotifications />} />
         <Route path="reports" element={<ClubReports />} />
         <Route path="blacklist" element={<ClubBlacklist />} />
         <Route path="club-info" element={<ClubInfoPage />} />
@@ -233,7 +237,10 @@ export default function AppRoutes() {
           </PrivateRoute>
         }
       >
-        <Route index element={<ClubOverview />} />
+        <Route index element={<ClubLeaderMyClubs />} />
+        <Route path="my-club" element={<ClubManagementLayout />}>
+          <Route path="space" element={<ClubSpace />} />
+        </Route>
         <Route path="dashboard" element={<ClubDashboardPage />} />
         <Route path="members" element={<ClubMemberMgmt />} />
         <Route path="event-create" element={<CreateEventPage />} />
@@ -246,7 +253,7 @@ export default function AppRoutes() {
         <Route path="events/:eventId/attendance/:sessionId/correct" element={<AttendanceCorrectionPage />} />
         <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
         <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
-        <Route path="notifications" element={<ClubNotifications />} />
+        <Route path="notifications" element={<MemberNotifications />} />
         <Route path="club-info" element={<ClubInfoPage />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
         <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
