@@ -28,6 +28,7 @@ import com.fptu.fcms.repository.RecruitmentApplicationRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.repository.ClubRepository;
 import com.fptu.fcms.entity.Club;
+import com.fptu.fcms.entity.ClubBlacklist;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -82,6 +83,7 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
 
         return apps.stream().map(app -> {
             UserAccount user = userRepository.findByUserIDAndIsDeletedFalse(app.getUserID()).orElse(null);
+            String blacklistWarning = buildBlacklistWarning(app.getUserID(), clubId);
             return ClubApplicationSummaryResponse.builder()
                     .applicationId(app.getApplicationID())
                     .userID(app.getUserID())
@@ -92,8 +94,32 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
                     .cvUrl(app.getCvUrl())
                     .status(app.getStatus())
                     .createdAt(app.getCreatedAt())
+                    .blacklisted(blacklistWarning != null)
+                    .blacklistWarning(blacklistWarning)
                     .build();
         }).collect(Collectors.toList());
+    }
+
+    /**
+     * Nếu ứng viên đang bị blacklist ở CLB KHÁC (không phải CLB đang xét), trả về
+     * chuỗi cảnh báo liệt kê CLB + lý do để hiển thị cho người duyệt. Trả null nếu sạch.
+     * Chỉ cảnh báo, KHÔNG chặn — quyết định vẫn thuộc người duyệt.
+     */
+    private String buildBlacklistWarning(Integer userId, Integer currentClubId) {
+        List<ClubBlacklist> entries = blacklistRepository.findByUserIDAndIsDeletedFalse(userId).stream()
+                .filter(b -> !b.getClubID().equals(currentClubId))
+                .toList();
+        if (entries.isEmpty()) {
+            return null;
+        }
+        return entries.stream()
+                .map(b -> {
+                    String clubName = getClubName(b.getClubID());
+                    return StringUtils.hasText(b.getReason())
+                            ? clubName + " (lý do: " + b.getReason() + ")"
+                            : clubName;
+                })
+                .collect(Collectors.joining("; "));
     }
 
     @Override

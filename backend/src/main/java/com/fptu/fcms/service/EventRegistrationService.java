@@ -33,4 +33,6 @@ public interface EventRegistrationService {
     void rejectRegistration(Integer eventId, Integer registrationId, RegistrationRejectRequest request, UserPrincipal currentUser);
 
     void cancelRegistration(Integer registrationId, UserPrincipal currentUser);
+
+    void cancelGuestRegistration(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser);
 }

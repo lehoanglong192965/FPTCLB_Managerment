@@ -55,6 +55,17 @@ public class EventController {
         return ResponseEntity.ok(eventService.getReportUploadedEvents());
     }
 
+    /**
+     * Lịch sử báo cáo đã duyệt/từ chối (REPORT_APPROVED, REPORT_REJECTED
+     * và các trạng thái sau khi duyệt báo cáo).
+     */
+    @GetMapping("/report-reviewed")
+    @PreAuthorize("hasRole('ICPDP')")
+    @Operation(summary = "Lay lich su bao cao da duyet/tu choi")
+    public ResponseEntity<List<Event>> getReportReviewedEvents() {
+        return ResponseEntity.ok(eventService.getReportReviewedEvents());
+    }
+
     @PatchMapping("/{eventId}/reject-report")
     @PreAuthorize("hasRole('ICPDP')")
     public ResponseEntity<Map<String, String>> rejectReport(
@@ -120,6 +131,20 @@ public class EventController {
             @RequestBody @Valid com.fptu.fcms.dto.request.UpdateEventRequest request) {
         eventService.updateEvent(eventId, request);
         return ResponseEntity.ok(Map.of("message", "Event updated successfully."));
+    }
+
+    /**
+     * Xóa mềm một sự kiện đang ở trạng thái Draft hoặc Rejected.
+     * Chỉ người tạo bản nháp mới được xóa (kiểm tra trong service).
+     */
+    @DeleteMapping("/{eventId}")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @Operation(summary = "Xoa ban nhap event (Draft/Rejected)")
+    public ResponseEntity<Map<String, String>> deleteDraftEvent(
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.deleteDraftEvent(eventId, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Event deleted successfully."));
     }
 
     @PatchMapping("/{eventId}/submit")

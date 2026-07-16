@@ -43,6 +43,16 @@ public interface EventRepository extends JpaRepository<Event, Integer> {
             LocalDateTime startDate
     );
 
+    // Lấy chi tiết sự kiện xung đột lịch (cùng địa điểm, chồng lấn thời gian)
+    // để đưa tên sự kiện vào thông báo lỗi cho ICPDP
+    Optional<Event> findFirstByLocationAndEventIDNotAndEventStatusAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
+            String location,
+            Integer eventID,
+            EventStatus eventStatus,
+            LocalDateTime endDate,
+            LocalDateTime startDate
+    );
+
     List<Event> findByEndDateBeforeAndEventStatusInAndIsDeletedFalse(
             LocalDateTime endDate,
             Collection<EventStatus> eventStatuses

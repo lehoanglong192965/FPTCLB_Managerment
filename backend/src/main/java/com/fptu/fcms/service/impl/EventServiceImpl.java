@@ -30,6 +30,7 @@ import com.fptu.fcms.repository.EventAssignmentRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRegistrationPolicyRepository;
+import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.EventRoleRepository;
 import com.fptu.fcms.repository.MemberPerformanceRepository;
 import com.fptu.fcms.repository.SemesterRepository;
@@ -49,6 +50,7 @@ import com.fptu.fcms.service.EventRegistrationPolicyService;
 import com.fptu.fcms.service.EventService;
 import com.fptu.fcms.service.event.EventPermissionService;
 import com.fptu.fcms.service.event.EventStateMachineService;
+import com.fptu.fcms.service.event.RegistrationLifecycle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.context.ApplicationEventPublisher;
@@ -81,6 +83,23 @@ public class EventServiceImpl implements EventService {
     private static final EventStatus STATUS_ONGOING = EventStatus.ONGOING;
     private static final EventStatus STATUS_COMPLETED = EventStatus.COMPLETED;
     private static final EventStatus STATUS_CLOSED = EventStatus.CLOSED;
+
+    /**
+     * Mọi trạng thái nghĩa là sự kiện ĐÃ QUA phê duyệt của ICPDP — dùng cho tab "Đã duyệt"
+     * của trang ICPDP để giữ lại cả sự kiện đã kết thúc (COMPLETED/CLOSED, các trạng thái
+     * báo cáo/đóng góp...). Định nghĩa bằng phần bù: mọi trạng thái TRỪ các trạng thái
+     * trước-duyệt và bị từ chối/huỷ, nên trạng thái mới thêm sau này tự động được bao gồm.
+     */
+    private static final List<EventStatus> ICPDP_APPROVED_LIFECYCLE_STATUSES = List.copyOf(
+            java.util.EnumSet.complementOf(java.util.EnumSet.of(
+                    EventStatus.DRAFT,
+                    EventStatus.PENDING,
+                    EventStatus.PENDING_APPROVAL,
+                    EventStatus.REJECTED,
+                    EventStatus.CANCELLED
+            ))
+    );
+
     private static final List<String> DEFAULT_PARTICIPANT_TYPES = List.of(
             "CORE_TEAM",
             "SUPPORT_ORGANIZER",
@@ -97,6 +116,7 @@ public class EventServiceImpl implements EventService {
     private final EventAssignmentRepository eventAssignmentRepository;
     private final EventRoleRepository eventRoleRepository;
     private final EventRegistrationRepository registrationRepository;
+    private final GuestEventRegistrationRepository guestRegistrationRepository;
     private final EventRegistrationPolicyRepository registrationPolicyRepository;
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
@@ -344,14 +364,70 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public List<Event> getApprovedEvents() {
-        return eventRepository.findByEventStatusInAndIsDeletedFalse(
-                List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_REGISTRATION_CLOSED, STATUS_ONGOING));
+                List<Event> events = eventRepository.findByEventStatusInAndIsDeletedFalse(
+                        List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_REGISTRATION_CLOSED, STATUS_ONGOING));
+        attachCurrentParticipants(events);
+        return events;
+    }
+
+    /**
+     * Gắn currentParticipants (member + guest theo CONFIRMED_STATUSES — cùng định nghĩa
+     * với kiểm tra sức chứa lúc đăng ký) để FE hiển thị "x/y đã đăng ký".
+     */
+    private void attachCurrentParticipants(List<Event> events) {
+        if (events == null || events.isEmpty()) {
+            return;
+        }
+        List<Integer> eventIds = events.stream().map(Event::getEventID).toList();
+        Map<Integer, Long> counts = new HashMap<>();
+        for (Object[] row : registrationRepository.countGroupedByEventIDs(eventIds, RegistrationLifecycle.CONFIRMED_STATUSES)) {
+            counts.merge((Integer) row[0], (Long) row[1], Long::sum);
+        }
+        for (Object[] row : guestRegistrationRepository.countGroupedByEventIDs(eventIds, RegistrationLifecycle.CONFIRMED_STATUSES)) {
+            counts.merge((Integer) row[0], (Long) row[1], Long::sum);
+        }
+        events.forEach(e -> e.setCurrentParticipants(counts.getOrDefault(e.getEventID(), 0L)));
+    }
+
+    /**
+     * Dành riêng cho trang ICPDP: mọi sự kiện đã qua phê duyệt, KỂ CẢ đã kết thúc
+     * (COMPLETED/CLOSED, các trạng thái báo cáo...). Khác với getApprovedEvents() vốn
+     * chỉ trả sự kiện đang sắp/đang diễn ra cho trang chủ public.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getIcpdpApprovedEvents() {
+        List<Event> events = eventRepository.findByEventStatusInAndIsDeletedFalse(ICPDP_APPROVED_LIFECYCLE_STATUSES);
+        attachCurrentParticipants(events);
+        return events;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getRejectedEvents() {
+        return eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_REJECTED);
+    }
+
+    @Override
+    @Transactional
+    public void deleteDraftEvent(Integer eventId, UserPrincipal currentUser) {
+        Event event = getActiveEventOrThrow(eventId);
+        assertCanModifyDraft(event, currentUser);
+
+        if (!STATUS_DRAFT.equals(event.getEventStatus()) && !STATUS_REJECTED.equals(event.getEventStatus())) {
+            throw new IllegalArgumentException("Only Draft or Rejected events can be deleted.");
+        }
+
+        event.setIsDeleted(true);
+        eventRepository.save(event);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Event getEventById(Integer eventId) {
-        return getActiveEventOrThrow(eventId);
+        Event event = getActiveEventOrThrow(eventId);
+        attachCurrentParticipants(List.of(event));
+        return event;
     }
 
     @Override
@@ -488,6 +564,27 @@ public class EventServiceImpl implements EventService {
     @Transactional(readOnly = true)
     public List<Event> getReportUploadedEvents() {
         return eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_REPORT_UPLOADED);
+    }
+
+    /**
+     * Lịch sử báo cáo đã được ICPDP xử lý.
+     * REPORT_REJECTED  → báo cáo bị từ chối.
+     * REPORT_APPROVED và các trạng thái sau đó (CONTRIBUTION_*, CLOSED)
+     * → báo cáo đã được duyệt (event tiếp tục lifecycle sau khi duyệt báo cáo).
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getReportReviewedEvents() {
+        return eventRepository.findByEventStatusInAndIsDeletedFalse(List.of(
+                EventStatus.REPORT_APPROVED,
+                EventStatus.REPORT_REJECTED,
+                EventStatus.CONTRIBUTION_DRAFT,
+                EventStatus.CONTRIBUTION_PENDING_APPROVAL,
+                EventStatus.CONTRIBUTION_APPROVED,
+                EventStatus.CONTRIBUTION_SCORING,
+                EventStatus.CONTRIBUTION_FINALIZED,
+                STATUS_CLOSED
+        ));
     }
 
     @Override
@@ -693,7 +790,7 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public void approveEvent(Integer eventId, UserPrincipal currentUser) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Event not found."));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sự kiện."));
         EventStatus oldStatus = event.getEventStatus();
 
         stateMachineService.ensureCanApprove(event);
@@ -711,7 +808,7 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public void rejectEvent(Integer eventId, String reason, UserPrincipal currentUser) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Event not found."));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sự kiện."));
         EventStatus oldStatus = event.getEventStatus();
 
         stateMachineService.ensureCanReject(event);
@@ -740,7 +837,7 @@ public class EventServiceImpl implements EventService {
             attendanceRecordRepository
                     .findBySessionIDAndUserID(session.getSessionID(), userId)
                     .orElseGet(() -> {
-            AttendanceRecord absenceRecord = new AttendanceRecord();
+                        AttendanceRecord absenceRecord = new AttendanceRecord();
                         absenceRecord.setSessionID(session.getSessionID());
                         absenceRecord.setUserID(userId);
                         absenceRecord.setRegistrationID(registration.getRegistrationID());
@@ -802,20 +899,20 @@ public class EventServiceImpl implements EventService {
         if (currentUser == null) {
             throw new BusinessRuleException("User must be authenticated.", HttpStatus.UNAUTHORIZED);
         }
-        
+
         Integer userId = currentUser.getUserId();
-        
+
         Semester activeSemester = semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
                 .orElseThrow(() -> new BusinessRuleException("No active semester found.", HttpStatus.BAD_REQUEST));
-                
+
         boolean isAuthorized = false;
-        
+
         java.util.Optional<ClubRole> leaderRole = clubRoleRepository.findByRoleNameAndIsDeletedFalse("Leader");
         if (leaderRole.isPresent()) {
             isAuthorized = clubMembershipRepository.existsActiveLeaderInClub(
                     clubId, userId, activeSemester.getSemesterID(), leaderRole.get().getClubRoleID());
         }
-        
+
         if (!isAuthorized) {
             java.util.Optional<ClubRole> viceRole = clubRoleRepository.findByRoleNameAndIsDeletedFalse("ViceLeader");
             if (viceRole.isPresent()) {
@@ -823,7 +920,7 @@ public class EventServiceImpl implements EventService {
                         clubId, userId, activeSemester.getSemesterID(), viceRole.get().getClubRoleID());
             }
         }
-        
+
         if (!isAuthorized) {
             throw new BusinessRuleException("You do not have permission to create an event for this club.", HttpStatus.FORBIDDEN);
         }
@@ -893,16 +990,24 @@ public class EventServiceImpl implements EventService {
     }
 
     private void validateScheduleConflict(Event event) {
-        boolean hasConflict = eventRepository.existsByLocationAndEventIDNotAndEventStatusAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
-                event.getLocation(),
-                event.getEventID(),
-                STATUS_APPROVED,
-                event.getEndDate(),
-                event.getStartDate()
-        );
-        if (hasConflict) {
-            throw new BusinessRuleException("Event conflicts with another approved event.", HttpStatus.CONFLICT);
-        }
+                eventRepository.findFirstByLocationAndEventIDNotAndEventStatusAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
+                        event.getLocation(),
+                        event.getEventID(),
+                        STATUS_APPROVED,
+                        event.getEndDate(),
+                        event.getStartDate()
+
+        ).ifPresent(conflict -> {
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+            throw new BusinessRuleException(
+                    "Trùng lịch với sự kiện đã duyệt \"" + conflict.getEventName() + "\" tại cùng địa điểm ["
+                            + event.getLocation() + "] ("
+                            + (conflict.getStartDate() != null ? conflict.getStartDate().format(fmt) : "?")
+                            + " → "
+                            + (conflict.getEndDate() != null ? conflict.getEndDate().format(fmt) : "?")
+                            + "). Vui lòng yêu cầu CLB đổi thời gian hoặc địa điểm trước khi duyệt.",
+                    HttpStatus.CONFLICT);
+        });
     }
 
     private void validateRegistrationOpenWindow(Event event) {
@@ -917,12 +1022,17 @@ public class EventServiceImpl implements EventService {
 
     private void validateEventBeforeSemesterSettlement(Event event) {
         Semester semester = semesterRepository.findById(event.getSemesterID())
-                .orElseThrow(() -> new BusinessRuleException("Semester not found.", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new BusinessRuleException("Không tìm thấy học kỳ của sự kiện.", HttpStatus.NOT_FOUND));
 
         LocalDate settlementDate = semester.getEndDate().minusDays(1);
         LocalDate eventEndDate = event.getEndDate().toLocalDate();
         if (eventEndDate.isAfter(settlementDate)) {
-            throw new BusinessRuleException("Event must end before semester settlement date " + settlementDate + ".", HttpStatus.CONFLICT);
+            java.time.format.DateTimeFormatter dateFmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            throw new BusinessRuleException(
+                    "Sự kiện phải kết thúc trước ngày chốt sổ học kỳ (" + settlementDate.format(dateFmt)
+                            + "). Sự kiện này kết thúc ngày " + eventEndDate.format(dateFmt)
+                            + " nên chưa thể duyệt. Vui lòng yêu cầu CLB dời sang trước ngày chốt sổ, hoặc gán sự kiện vào học kỳ phù hợp.",
+                    HttpStatus.CONFLICT);
         }
     }
 
