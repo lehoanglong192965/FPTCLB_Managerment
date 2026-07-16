@@ -10,4 +10,5 @@ public interface ClubBoardService {
     ClubBoardMemberResponse changeBoardMember(Integer clubID, ClubBoardChangeRequest request, Integer actorID);
     List<ClubBoardMemberResponse> getBoardMembers(Integer clubID);
     List<ClubMemberResponse> getAllMembers(Integer clubID);
+    void removeMember(Integer clubID, Integer membershipID, Integer actorUserID);
 }

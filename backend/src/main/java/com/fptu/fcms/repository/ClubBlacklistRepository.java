@@ -18,6 +18,12 @@ public interface ClubBlacklistRepository
             Integer clubID
     );
 
+    // Lấy mọi bản ghi blacklist còn hiệu lực của một user (khắp các CLB) —
+    // dùng để cảnh báo người duyệt khi user này ứng tuyển sang CLB khác.
+    List<ClubBlacklist> findByUserIDAndIsDeletedFalse(
+            Integer userID
+    );
+
     // Tìm blacklist theo ID
     Optional<ClubBlacklist>
     findByBlacklistIDAndIsDeletedFalse(

@@ -1,7 +1,9 @@
 package com.fptu.fcms.service.impl;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.dto.request.ClubBlacklistRequest;
+import com.fptu.fcms.dto.response.ClubBlacklistResponse;
 import com.fptu.fcms.entity.ClubBlacklist;
+import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.repository.ClubBlacklistRepository;
 import com.fptu.fcms.repository.ClubRepository;
 import com.fptu.fcms.repository.UserRepository;
@@ -9,6 +11,7 @@ import com.fptu.fcms.service.ClubBlacklistService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.fptu.fcms.entity.ClubRole;
@@ -35,18 +38,31 @@ public class ClubBlacklistServiceImpl
     private final UserRepository
             userRepository;
 
-    // Lấy danh sách blacklist của CLB
+    // Lấy danh sách blacklist của CLB — kèm thông tin người bị cấm (tên, MSSV, ngành)
+    // vì họ đã bị khai trừ, frontend không thể tự tra từ danh sách thành viên.
     @Override
     public Object getBlacklist(Long clubID) {
-
         return clubBlacklistRepository
-                .findByClubIDAndIsDeletedFalse(
-                        clubID.intValue()
-                );
+                .findByClubIDAndIsDeletedFalse(clubID.intValue())
+                .stream()
+                .map(b -> {
+                    UserAccount user = userRepository.findById(b.getUserID()).orElse(null);
+                    return ClubBlacklistResponse.builder()
+                            .blacklistID(b.getBlacklistID())
+                            .userID(b.getUserID())
+                            .fullName(user != null ? user.getFullName() : "Không rõ")
+                            .studentCode(user != null ? user.getStudentId() : "")
+                            .major(user != null ? user.getMajor() : "")
+                            .reason(b.getReason())
+                            .createdAt(b.getCreatedAt())
+                            .build();
+                })
+                .toList();
     }
 
     // Thêm sinh viên vào blacklist
     @Override
+    @Transactional
     public Object addToBlacklist(
             Long clubID,
             ClubBlacklistRequest request
@@ -148,9 +164,29 @@ public class ClubBlacklistServiceImpl
 
         blacklist.setIsDeleted(false);
 
-        return clubBlacklistRepository.save(
-                blacklist
+        ClubBlacklist saved = clubBlacklistRepository.save(
+                        blacklist
         );
+
+        // Thêm vào blacklist thì đồng thời KHAI TRỪ khỏi CLB (xóa mềm membership
+        // ở học kỳ đang Active). Khai trừ đơn thuần vẫn dùng endpoint riêng.
+        Semester activeSemester = semesterRepository
+                .findByIsActiveTrueAndIsDeletedFalse()
+                .orElse(null);
+        if (activeSemester != null) {
+            clubMembershipRepository
+                    .findByClubIDAndUserIDAndSemesterIDAndIsDeletedFalse(
+                            clubID.intValue(),
+                            request.getUserID().intValue(),
+                            activeSemester.getSemesterID()
+                    )
+                    .ifPresent(membership -> {
+                        membership.setIsDeleted(true);
+                        clubMembershipRepository.save(membership);
+                    });
+        }
+
+        return saved;
     }
 
     // Cập nhật blacklist

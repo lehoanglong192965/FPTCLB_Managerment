@@ -53,6 +53,13 @@ public class Event {
     @Column(name = "totalCapacity")
     private Integer totalCapacity;
 
+    /**
+     * Số chỗ đã giữ (member + guest, theo CONFIRMED_STATUSES) — không lưu DB,
+     * được EventService gắn vào trước khi trả về API để FE hiển thị "x/y đã đăng ký".
+     */
+    @Transient
+    private Long currentParticipants;
+
     @Column(name = "allowWalkIn")
     private Boolean allowWalkIn = false;
 
@@ -91,7 +98,7 @@ public class Event {
     public boolean isEditable() {
         return EventStatus.DRAFT.equals(this.eventStatus) || EventStatus.PENDING.equals(this.eventStatus);
     }
-    
+
     public boolean isReportable() {
         return EventStatus.COMPLETED.equals(this.eventStatus);
     }

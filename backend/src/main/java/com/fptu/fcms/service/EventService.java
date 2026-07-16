@@ -27,6 +27,9 @@ public interface EventService {
     EventApprovalResponse approveEvent(Integer eventId, EventApprovalRequest request, UserPrincipal currentUser);
     List<Event> getPendingEvents();
     List<Event> getApprovedEvents();
+    List<Event> getIcpdpApprovedEvents();
+    List<Event> getRejectedEvents();
+    void deleteDraftEvent(Integer eventId, UserPrincipal currentUser);
     Event getEventById(Integer eventId);
     EventDetailResponse getPublicEventDetail(Integer eventId);
     EventDetailResponse getManagedEventDetail(Integer eventId, UserPrincipal currentUser);
@@ -45,6 +48,7 @@ public interface EventService {
     boolean isUserAssigned(Integer eventId, Integer userId);
     List<Event> getEventsByUserAssigned(Integer userId);
     List<Event> getReportUploadedEvents();
+    List<Event> getReportReviewedEvents();
     List<Map<String, Object>> getCheckedInAttendees(Integer eventId);
     List<EventRegistrationPolicyResponse> getRegistrationPolicies(Integer eventId, UserPrincipal currentUser);
 }

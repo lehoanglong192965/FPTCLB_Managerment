@@ -169,4 +169,15 @@ public class EventRegistrationApiController {
         eventRegistrationService.cancelRegistration(registrationId, currentUser);
         return ResponseEntity.ok(Map.of("message", "Registration cancelled."));
     }
+
+    @PostMapping({"/api/events/{eventId}/registrations/guest/{guestRegistrationId}/cancel"})
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @Operation(summary = "Leader huy dang ky cua khach")
+    public ResponseEntity<Map<String, String>> cancelGuestRegistration(
+            @PathVariable Integer eventId,
+            @PathVariable Integer guestRegistrationId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventRegistrationService.cancelGuestRegistration(eventId, guestRegistrationId, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Guest registration cancelled."));
+    }
 }

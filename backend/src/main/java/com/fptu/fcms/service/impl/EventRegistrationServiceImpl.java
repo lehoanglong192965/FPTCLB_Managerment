@@ -304,6 +304,38 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         cancelRegistrationInternal(registration, currentUser == null ? null : currentUser.getUserId(), false);
     }
 
+    /**
+     * Leader/ViceLeader huỷ đăng ký của KHÁCH theo id (khách tự huỷ thì dùng
+     * guestReference qua GuestRegistrationService). Nếu khách đang giữ chỗ,
+     * giải phóng chỗ và đôn waitlist lên như huỷ member.
+     */
+    @Override
+    @Transactional
+    public void cancelGuestRegistration(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser) {
+        ensureCanManageRegistrations(currentUser);
+        Event event = loadEventForUpdate(eventId);
+        GuestEventRegistration registration = guestRegistrationRepository
+                .findByGuestRegistrationIDAndIsDeletedFalse(guestRegistrationId)
+                .orElseThrow(() -> new IllegalArgumentException("Registration not found."));
+        if (!Objects.equals(registration.getEventID(), eventId)) {
+            throw new IllegalArgumentException("Registration does not belong to the event.");
+        }
+
+        RegistrationStatus oldStatus = registration.getRegistrationStatus();
+        if (RegistrationStatus.CANCELLED.equals(oldStatus)) {
+            return;
+        }
+        registration.setStatus(RegistrationStatus.CANCELLED.name());
+        registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
+        registration.setCancelledAt(LocalDateTime.now());
+        registration.setUpdatedAt(LocalDateTime.now());
+        guestRegistrationRepository.save(registration);
+
+        if (oldStatus != null && RegistrationLifecycle.CONFIRMED_STATUSES.contains(oldStatus)) {
+            allocationService.promoteWaitlisted(eventId, event.getMaxParticipants());
+        }
+    }
+
     private void cancelRegistrationInternal(EventRegistration registration, Integer actorUserId, boolean triggeredByLegacyEndpoint) {
         RegistrationStatus currentStatus = currentRegistrationStatus(registration);
         if (RegistrationLifecycle.STATUS_CANCELLED.equals(currentStatus)) {
