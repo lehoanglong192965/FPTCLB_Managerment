@@ -28,14 +28,14 @@ public class EventStateMachineServiceImpl implements EventStateMachineService {
     @Override
     public void ensureCanApprove(Event event) {
         if (event == null || !isAnyStatus(event.getEventStatus(), EventStatus.PENDING, EventStatus.PENDING_APPROVAL)) {
-            throw invalidState("Event must be Pending or PendingApproval before approval.");
+            throw invalidState("Chỉ có thể duyệt sự kiện đang ở trạng thái chờ duyệt. Sự kiện này có thể đã được xử lý — vui lòng tải lại danh sách.");
         }
     }
 
     @Override
     public void ensureCanReject(Event event) {
         if (event == null || !isAnyStatus(event.getEventStatus(), EventStatus.PENDING, EventStatus.PENDING_APPROVAL)) {
-            throw invalidState("Event must be Pending or PendingApproval before rejection.");
+            throw invalidState("Chỉ có thể từ chối sự kiện đang ở trạng thái chờ duyệt. Sự kiện này có thể đã được xử lý — vui lòng tải lại danh sách.");
         }
     }
 

@@ -41,6 +41,14 @@ public class RecruitmentApplicationController {
         return ResponseEntity.ok(recruitmentService.getMyApplications(currentUser.getUserId()));
     }
 
+    @PostMapping(value = "/cv", consumes = "multipart/form-data")
+    @PreAuthorize("hasAnyRole('Student', 'Admin', 'ICPDP')")
+    @Operation(summary = "Upload file CV (PDF)", description = "Upload CV trước khi nộp đơn; trả về url để gắn vào cvUrl khi gọi /apply. Chỉ nhận PDF, tối đa 10MB.")
+    public ResponseEntity<java.util.Map<String, String>> uploadCv(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        return ResponseEntity.ok(recruitmentService.uploadCv(file));
+    }
+
     @PostMapping("/apply")
     @PreAuthorize("hasAnyRole('Student', 'Admin', 'ICPDP')")
     @Operation(summary = "Nộp đơn ứng tuyển CLB", description = "Dành cho sinh viên nộp đơn ứng tuyển. Chặn nếu bị blacklist hoặc vượt 4 CLB/đơn (BR-R01).")
