@@ -1,6 +1,5 @@
 import { BrowserRouter } from "react-router-dom";
 import MainLayout from "./components/layout/MainLayout";
-import { ApplicationsProvider } from "./contexts/ApplicationsContext";
 import { NotificationsProvider } from "./contexts/NotificationsContext";
 import { ToastProvider } from "./contexts/ToastContext";
 import { ConfirmProvider } from "./contexts/ConfirmContext";
@@ -13,9 +12,7 @@ export default function App() {
         <ToastProvider>
           <ConfirmProvider>
             <NotificationsProvider>
-              <ApplicationsProvider>
-                <MainLayout />
-              </ApplicationsProvider>
+              <MainLayout />
             </NotificationsProvider>
           </ConfirmProvider>
         </ToastProvider>

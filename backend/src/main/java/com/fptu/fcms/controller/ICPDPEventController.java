@@ -67,8 +67,10 @@ public class ICPDPEventController {
             @ApiResponse(responseCode = "403", description = "Khong co quyen", content = @Content),
             @ApiResponse(responseCode = "404", description = "Event khong ton tai", content = @Content)
     })
-    public ResponseEntity<Map<String, String>> approveEvent(@PathVariable Integer eventId) {
-        eventService.approveEvent(eventId);
+    public ResponseEntity<Map<String, String>> approveEvent(
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.approveEvent(eventId, currentUser);
         return ResponseEntity.ok(Map.of("message", "Su kien da duoc phe duyet."));
     }
 

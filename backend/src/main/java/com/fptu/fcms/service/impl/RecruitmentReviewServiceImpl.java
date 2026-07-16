@@ -12,6 +12,8 @@ import com.fptu.fcms.entity.AuditLog;
 import com.fptu.fcms.entity.ClubMembership;
 import com.fptu.fcms.entity.ClubRole;
 import com.fptu.fcms.entity.InterviewSchedule;
+import com.fptu.fcms.entity.Notification;
+import com.fptu.fcms.entity.NotificationRecipient;
 import com.fptu.fcms.entity.RecruitmentApplication;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.exception.BusinessRuleException;
@@ -20,6 +22,8 @@ import com.fptu.fcms.repository.ClubBlacklistRepository;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.ClubRoleRepository;
 import com.fptu.fcms.repository.InterviewScheduleRepository;
+import com.fptu.fcms.repository.NotificationRecipientRepository;
+import com.fptu.fcms.repository.NotificationRepository;
 import com.fptu.fcms.repository.RecruitmentApplicationRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.repository.ClubRepository;
@@ -63,6 +67,8 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
     private final EmailService emailService;
     private final ClubRepository clubRepository;
     private final SemesterRepository semesterRepository;
+    private final NotificationRepository notificationRepository;
+    private final NotificationRecipientRepository notificationRecipientRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -130,6 +136,14 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
                     request.getInterviewLocation(),
                     clubName
             ));
+            notifyStudent(
+                    student,
+                    actorID,
+                    application.getClubID(),
+                    "APPLICATION_ACCEPTED",
+                    "Đơn ứng tuyển được chấp nhận",
+                    "Đơn ứng tuyển vào " + clubName + " của bạn đã được chấp nhận. Vui lòng tham gia phỏng vấn theo lịch hẹn."
+            );
 
             return buildResponse(savedApplication, student, schedule);
         }
@@ -150,6 +164,15 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
         String clubName = getClubName(application.getClubID());
         String reason = request.getReason();
         sendAfterCommit(() -> emailService.sendApplicationRejectedEmail(student.getEmail(), clubName, reason));
+        notifyStudent(
+                student,
+                actorID,
+                application.getClubID(),
+                "APPLICATION_REJECTED",
+                "Đơn ứng tuyển bị từ chối",
+                "Đơn ứng tuyển vào " + clubName + " của bạn đã bị từ chối."
+                        + (StringUtils.hasText(reason) ? " Lý do: " + reason : "")
+        );
 
         return buildResponse(savedApplication, student, null);
     }
@@ -201,6 +224,14 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
 
             String clubName = getClubName(application.getClubID());
             sendAfterCommit(() -> emailService.sendInterviewPassedEmail(student.getEmail(), clubName));
+            notifyStudent(
+                    student,
+                    actorID,
+                    application.getClubID(),
+                    "INTERVIEW_PASSED",
+                    "Chào mừng thành viên mới",
+                    "Bạn đã vượt qua vòng phỏng vấn và chính thức trở thành thành viên của " + clubName + "."
+            );
         } else {
             writeAuditLog(
                     actorID,
@@ -214,6 +245,14 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
 
             String clubName = getClubName(application.getClubID());
             sendAfterCommit(() -> emailService.sendInterviewFailedEmail(student.getEmail(), clubName));
+            notifyStudent(
+                    student,
+                    actorID,
+                    application.getClubID(),
+                    "INTERVIEW_FAILED",
+                    "Kết quả phỏng vấn",
+                    "Bạn không đạt vòng phỏng vấn của " + clubName + "."
+            );
         }
 
         return buildResponse(savedApplication, student, schedule);
@@ -397,6 +436,35 @@ public class RecruitmentReviewServiceImpl implements RecruitmentReviewService {
         } catch (ArithmeticException ex) {
             throw new BusinessRuleException("applicationId is out of supported range.");
         }
+    }
+
+    private void notifyStudent(
+            UserAccount student,
+            Integer actorID,
+            Integer clubId,
+            String notificationType,
+            String title,
+            String content
+    ) {
+        UserAccount actor = userRepository.findByUserIDAndIsDeletedFalse(actorID).orElse(student);
+        Club club = clubRepository.findById(clubId).orElse(null);
+
+        Notification notification = new Notification();
+        notification.setClub(club);
+        notification.setCreatedBy(actor);
+        notification.setTitle(title);
+        notification.setNotificationType(notificationType);
+        notification.setContent(content);
+        notification.setCreatedAt(LocalDateTime.now());
+        notification.setIsDeleted(false);
+        Notification savedNotification = notificationRepository.save(notification);
+
+        NotificationRecipient recipient = new NotificationRecipient();
+        recipient.setNotification(savedNotification);
+        recipient.setUser(student);
+        recipient.setIsRead(false);
+        recipient.setCreatedAt(LocalDateTime.now());
+        notificationRecipientRepository.save(recipient);
     }
 
     private void sendAfterCommit(Runnable emailAction) {

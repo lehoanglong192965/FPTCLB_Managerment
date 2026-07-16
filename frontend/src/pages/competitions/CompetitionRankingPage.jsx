@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Trophy, Medal, AlertCircle } from 'lucide-react';
-import competitionService from '../../services/api/competitions/competitionService';
+import competitionApi from '../../services/api/competitions/competitionApi';
 
 const RANK_STYLE = {
   1: 'bg-yellow-100 text-yellow-700 border-yellow-200',
@@ -17,7 +17,7 @@ export default function CompetitionRankingPage() {
 
   useEffect(() => {
     if (!competitionId) return;
-    competitionService.getPublicRanking(competitionId)
+    competitionApi.getPublicRanking(competitionId)
       .then((res) => setData(res?.data ?? res))
       .catch(() => setError('Không thể tải bảng xếp hạng.'))
       .finally(() => setLoading(false));

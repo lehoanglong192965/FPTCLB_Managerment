@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, X, Lock, Users } from 'lucide-react';
-import contributionService from '../../services/api/contribution/contributionService';
+import contributionApi from '../../services/api/contribution/contributionApi';
 import { useToast } from '../../contexts/ToastContext';
 
 const TIERS = ['A', 'B', 'C', 'D'];
@@ -127,26 +127,32 @@ export default function IcpdpContributionPage() {
 
   const fetchBatch = useCallback(async () => {
     try {
-      const res = await contributionService.getBatch(eventId);
+      const res = await contributionApi.getBatch(eventId);
       const b = res?.data ?? res;
       setBatch(b ?? null);
       return b;
-    } catch {
+    } catch (err) {
       setBatch(null);
+      if (err?.response?.status !== 404 && err?.code !== 'ERR_CANCELED' && err?.name !== 'CanceledError') {
+        toast.error(err?.response?.data?.message ?? 'Không thể tải bảng đóng góp.');
+      }
       return null;
     }
-  }, [eventId]);
+  }, [eventId, toast]);
 
   const fetchAppeals = useCallback(async (batchId) => {
     if (!batchId) return;
     try {
-      const res = await contributionService.getAppeals(batchId);
+      const res = await contributionApi.getAppeals(batchId);
       const list = Array.isArray(res) ? res : (res?.data ?? []);
       setAppeals(list.filter((a) => a.status === 'PENDING'));
-    } catch {
+    } catch (err) {
       setAppeals([]);
+      if (err?.response?.status !== 404 && err?.code !== 'ERR_CANCELED' && err?.name !== 'CanceledError') {
+        toast.error(err?.response?.data?.message ?? 'Không thể tải danh sách khiếu nại.');
+      }
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     setLoading(true);
@@ -159,7 +165,7 @@ export default function IcpdpContributionPage() {
     setShowFinalizeModal(false);
     setFinalizing(true);
     try {
-      const res = await contributionService.finalize(eventId);
+      const res = await contributionApi.finalize(eventId);
       const b = res?.data ?? res;
       setBatch(b ?? batch);
       toast.success('Đã chốt điểm cuối. Bảng đóng góp đã được chốt.');
@@ -172,7 +178,7 @@ export default function IcpdpContributionPage() {
 
   const handleResolve = async (appealId, payload) => {
     try {
-      await contributionService.resolveAppeal(appealId, payload);
+      await contributionApi.resolveAppeal(appealId, payload);
       toast.success('Đã xử lý khiếu nại.');
       setResolveTarget(null);
       const b = await fetchBatch();

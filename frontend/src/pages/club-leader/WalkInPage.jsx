@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, UserPlus, AlertCircle } from 'lucide-react';
-import walkInService from '../../services/api/attendance/walkInService';
-import attendanceService from '../../services/api/attendance/attendanceService';
+import walkInApi from '../../services/api/attendance/walkInApi';
+import attendanceApi from '../../services/api/attendance/attendanceApi';
 import { useToast } from '../../contexts/ToastContext';
 
 const TABS = [
@@ -29,7 +29,7 @@ export default function WalkInPage() {
 
   useEffect(() => {
     if (!eventId) return;
-    attendanceService.getSessions(eventId)
+    attendanceApi.getSessions(eventId)
       .then((sessions) => {
         const open = sessions.find((s) => s.status === 'OPEN');
         if (open) {
@@ -46,11 +46,11 @@ export default function WalkInPage() {
     if (!studentIdOrEmail.trim() || fptuLoading || !sessionId) return;
     setFptuLoading(true);
     try {
-      await walkInService.registerFptuWalkIn(sessionId, { studentIdOrEmail: studentIdOrEmail.trim() });
-      toast.success('Walk-in thành công!');
+      await walkInApi.registerFptuWalkIn(sessionId, { studentIdOrEmail: studentIdOrEmail.trim() });
+      toast.success('Đăng ký tại chỗ thành công!');
       setStudentIdOrEmail('');
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Walk-in thất bại.');
+      toast.error(err?.response?.data?.message || 'Đăng ký tại chỗ thất bại.');
     } finally {
       setFptuLoading(false);
     }
@@ -61,17 +61,17 @@ export default function WalkInPage() {
     if (guestLoading || !sessionId) return;
     setGuestLoading(true);
     try {
-      await walkInService.registerGuestWalkIn(sessionId, {
+      await walkInApi.registerGuestWalkIn(sessionId, {
         fullName: guestForm.fullName.trim(),
         email:    guestForm.email.trim(),
         phone:    guestForm.phone.trim(),
         consent:  true,
         discoverySource: 'WALK_IN',
       });
-      toast.success('Walk-in khách thành công!');
+      toast.success('Đăng ký tại chỗ cho khách thành công!');
       setGuestForm({ fullName: '', email: '', phone: '' });
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Walk-in guest thất bại.');
+      toast.error(err?.response?.data?.message || 'Đăng ký tại chỗ cho khách thất bại.');
     } finally {
       setGuestLoading(false);
     }
@@ -87,7 +87,7 @@ export default function WalkInPage() {
       </button>
 
       <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2 mb-1">
-        <UserPlus size={22} className="text-green-600" /> Đăng Ký Walk-in
+        <UserPlus size={22} className="text-green-600" /> Đăng Ký Tại Chỗ
       </h1>
       <p className="text-sm text-gray-500 mb-6">Đăng ký tại chỗ cho người tham dự chưa đăng ký trước</p>
 
@@ -134,7 +134,7 @@ export default function WalkInPage() {
               disabled={!studentIdOrEmail.trim() || fptuLoading || !sessionId}
               className="px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
             >
-              {fptuLoading ? 'Đang xử lý...' : 'Walk-in'}
+              {fptuLoading ? 'Đang xử lý...' : 'Đăng ký tại chỗ'}
             </button>
           </form>
         ) : (
@@ -178,7 +178,7 @@ export default function WalkInPage() {
                 disabled={guestLoading || !sessionId}
                 className="px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
               >
-                {guestLoading ? 'Đang xử lý...' : 'Walk-in khách'}
+                {guestLoading ? 'Đang xử lý...' : 'Đăng ký tại chỗ cho khách'}
               </button>
             </div>
           </form>

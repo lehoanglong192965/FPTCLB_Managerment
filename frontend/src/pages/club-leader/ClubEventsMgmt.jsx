@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Calendar, Clock, MapPin, Search, X, AlertTriangle, Users, ChevronRight } from "lucide-react";
 import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
-import clubService from "../../services/api/clubs/clubService";
-import eventService from "../../services/api/events/eventService";
+import clubApi from "../../services/api/clubs/clubApi";
+import eventApi from "../../services/api/events/eventApi";
 import FinishEventModal from "../../components/events/FinishEventModal";
 import CloseEventButton from "../../components/events/CloseEventButton";
 import { useConfirm } from "../../contexts/ConfirmContext";
@@ -203,7 +203,7 @@ export default function ClubEventsMgmt() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const response = await clubService.getAllEvents(clubId);
+        const response = await clubApi.getAllEvents(clubId);
         // axiosClient interceptor đã unwrap response.data, nên response IS the data
         // Hỗ trợ: plain array, { content: [...] } (paginated), { data: [...] }
         let raw;
@@ -273,6 +273,18 @@ export default function ClubEventsMgmt() {
     setSelectedEv((prev) => prev?.eventID === eventID ? { ...prev, ...patch } : prev);
   };
 
+  const handleDeleteDraft = async (ev) => {
+    if (!(await confirm(`Xóa bản nháp "${ev.eventName}"? Hành động này không thể hoàn tác.`, { danger: true, confirmLabel: "Xóa bản nháp" }))) return;
+    try {
+      await eventApi.deleteDraft(ev.eventID);
+      setEvents((prev) => prev.filter((e) => e.eventID !== ev.eventID));
+      closeDetail();
+      toast.success("Đã xóa bản nháp.");
+    } catch (e) {
+      toast.error("Lỗi xóa bản nháp: " + (e.response?.data?.message || e.message));
+    }
+  };
+
   const openDetail = (ev) => {
     setSelectedEv(ev);
     setIsEditing(false);
@@ -290,7 +302,7 @@ export default function ClubEventsMgmt() {
     // Fetch full detail để lấy các field không có trong list API (vd: budget)
     let full = { ...ev };
     try {
-      const detail = await eventService.getEventById(ev.eventID);
+      const detail = await eventApi.getEventById(ev.eventID);
       if (detail) {
         const det = normalizeEvent(detail);
         // Chỉ ghi đè field nào detail trả về non-null, giữ nguyên giá trị cũ nếu detail null
@@ -331,7 +343,7 @@ export default function ClubEventsMgmt() {
         toast.error("Giờ kết thúc phải sau giờ bắt đầu.");
         return;
       }
-      await eventService.update(selectedEv.eventID, {
+      await eventApi.update(selectedEv.eventID, {
         eventName:       editForm.name || undefined,
         description:     editForm.description || undefined,
         location:        editForm.location || undefined,
@@ -344,7 +356,7 @@ export default function ClubEventsMgmt() {
       let newBannerUrl = selectedEv.bannerUrl;
       if (editForm.bannerFile) {
         try {
-          const res = await eventService.uploadBanner(selectedEv.eventID, editForm.bannerFile);
+          const res = await eventApi.uploadBanner(selectedEv.eventID, editForm.bannerFile);
           newBannerUrl = res?.bannerUrl ?? res?.url ?? newBannerUrl;
         } catch {
           // Banner upload thất bại không chặn lưu thông tin khác
@@ -377,7 +389,7 @@ export default function ClubEventsMgmt() {
 
   const handleCancelConfirm = async (eventID, reason) => {
     try {
-      await eventService.cancel(clubId, eventID, reason);
+      await eventApi.cancel(clubId, eventID, reason);
       updateEvent(eventID, { eventStatus: "Cancelled" });
       setCancelTarget(null);
     } catch (error) {
@@ -451,7 +463,7 @@ export default function ClubEventsMgmt() {
                   Tạo đề xuất sự kiện để bắt đầu.
                 </p>
                 <button
-                  onClick={() => navigate("../event-create", { relative: "path" })}
+                  onClick={() => navigate("../../event-create", { relative: "path" })}
                   style={{ padding: "9px 22px", borderRadius: 10, border: "none", background: "#E6430A", color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}
                 >
                   + Tạo sự kiện ngay
@@ -760,13 +772,16 @@ export default function ClubEventsMgmt() {
                   </button>
                   <button onClick={async () => {
                     try {
-                      await eventService.submit(selectedEv.eventID);
+                      await eventApi.submit(selectedEv.eventID);
                       updateEvent(selectedEv.eventID, { eventStatus: "PendingApproval" });
                     } catch (e) {
                       toast.error("Lỗi gửi đề xuất: " + (e.response?.data?.message || e.message));
                     }
                   }} style={btnStyle("#059669")}>
                     Gửi đề xuất
+                  </button>
+                  <button onClick={() => handleDeleteDraft(selectedEv)} style={btnStyle("#dc2626")}>
+                    Xóa bản nháp
                   </button>
                 </>)}
                 {status === "DRAFT" && isEditing && (<>
@@ -784,16 +799,13 @@ export default function ClubEventsMgmt() {
 
                 {/* Approved */}
                 {(status === "APPROVED" || status === "UPCOMING") && (<>
-                  <button onClick={() => navigate(`${selectedEv.eventID}/assignments`, { relative: "path" })} style={btnStyle("#2563eb")}>
-                    <Users size={14} /> Phân công
-                  </button>
                   <button
                     disabled={openingRegId === selectedEv.eventID}
                     onClick={async () => {
                       if (!(await confirm("Bạn có chắc muốn mở đăng ký? Thành viên sẽ thấy và có thể đăng ký tham gia.", { confirmLabel: "Mở đăng ký" }))) return;
                       setOpeningRegId(selectedEv.eventID);
                       try {
-                        await eventService.openRegistration(selectedEv.eventID);
+                        await eventApi.openRegistration(selectedEv.eventID);
                         updateEvent(selectedEv.eventID, { eventStatus: "RegistrationOpen" });
                       } catch (e) {
                         toast.error("Lỗi mở đăng ký: " + (e.response?.data?.message || e.message));
@@ -810,9 +822,6 @@ export default function ClubEventsMgmt() {
 
                 {/* RegistrationOpen */}
                 {status === "REGISTRATIONOPEN" && (<>
-                  <button onClick={() => navigate(`${selectedEv.eventID}/assignments`, { relative: "path" })} style={btnStyle("#2563eb")}>
-                    <Users size={14} /> Phân công
-                  </button>
                   <button onClick={() => navigate(`${selectedEv.eventID}/registrations`, { relative: "path" })} style={btnStyle("#0891b2")}>
                     Quản lý đăng ký
                   </button>
@@ -822,7 +831,7 @@ export default function ClubEventsMgmt() {
                       if (!(await confirm("Bạn có chắc muốn đóng đăng ký? Thành viên sẽ không thể đăng ký thêm.", { danger: true, confirmLabel: "Đóng đăng ký" }))) return;
                       setClosingRegId(selectedEv.eventID);
                       try {
-                        await eventService.closeRegistration(selectedEv.eventID);
+                        await eventApi.closeRegistration(selectedEv.eventID);
                         updateEvent(selectedEv.eventID, { eventStatus: "RegistrationClosed" });
                       } catch (e) {
                         toast.error("Lỗi đóng đăng ký: " + (e.response?.data?.message || e.message));
@@ -832,16 +841,10 @@ export default function ClubEventsMgmt() {
                   >
                     {closingRegId === selectedEv.eventID ? "Đang xử lý..." : "Đóng đăng ký"}
                   </button>
-                  <button onClick={() => setCancelTarget(selectedEv)} style={btnStyle("#dc2626")}>
-                    Hủy sự kiện
-                  </button>
                 </>)}
 
                 {/* RegistrationClosed */}
                 {status === "REGISTRATIONCLOSED" && (<>
-                  <button onClick={() => navigate(`${selectedEv.eventID}/assignments`, { relative: "path" })} style={btnStyle("#2563eb")}>
-                    <Users size={14} /> Phân công
-                  </button>
                   <button onClick={() => navigate(`${selectedEv.eventID}/registrations`, { relative: "path" })} style={btnStyle("#0891b2")}>
                     Quản lý đăng ký
                   </button>
@@ -850,7 +853,7 @@ export default function ClubEventsMgmt() {
                     onClick={async () => {
                       setStartingId(selectedEv.eventID);
                       try {
-                        await eventService.start(selectedEv.eventID);
+                        await eventApi.start(selectedEv.eventID);
                         updateEvent(selectedEv.eventID, { eventStatus: "Ongoing" });
                       } catch (e) {
                         toast.error("Lỗi bắt đầu sự kiện: " + (e.response?.data?.message || e.message));
@@ -873,6 +876,9 @@ export default function ClubEventsMgmt() {
                   <button onClick={() => setFinishTarget(selectedEv.eventID)} style={btnStyle("#7c3aed")}>
                     Kết thúc sự kiện
                   </button>
+                  <button onClick={() => setCancelTarget(selectedEv)} style={btnStyle("#dc2626")}>
+                    Hủy sự kiện
+                  </button>
                 </>)}
 
                 {/* Completed — cần nộp báo cáo trước */}
@@ -885,19 +891,6 @@ export default function ClubEventsMgmt() {
                   </button>
                   <button onClick={() => navigate(`../contributions/${selectedEv.eventID}`, { relative: "path" })} style={btnStyle("#2563eb")}>
                     Chốt đóng góp
-                  </button>
-                </>)}
-
-                {/* ReportApproved — ICPDP đã duyệt → chấm đóng góp */}
-                {status === "REPORTAPPROVED" && (<>
-                  <div style={{ padding: "10px 14px", borderRadius: 10, background: "#ccfbf1", border: "1.5px solid #99f6e4", fontSize: 13, color: "#0f766e", fontWeight: 600 }}>
-                    ✓ Báo cáo đã được ICPDP phê duyệt
-                  </div>
-                  <button
-                    onClick={() => navigate(`../contributions/${selectedEv.eventID}`, { relative: "path" })}
-                    style={btnStyle("#0f766e")}
-                  >
-                    Chấm đóng góp thành viên
                   </button>
                 </>)}
 
@@ -916,23 +909,20 @@ export default function ClubEventsMgmt() {
                   />
                 </>)}
 
-                {/* ReportApproved — đã tạo batch đóng góp */}
+                {/* ReportApproved — ICPDP đã duyệt → chốt đóng góp */}
                 {status === "REPORTAPPROVED" && (<>
                   <div style={{ padding: "10px 14px", borderRadius: 10, background: "#ecfdf5", border: "1.5px solid #a7f3d0", fontSize: 13, color: "#047857", fontWeight: 600 }}>
-                    ✓ Báo cáo đã được duyệt — có thể chốt đóng góp
+                    ✓ Báo cáo đã được ICPDP phê duyệt — có thể chốt đóng góp
                   </div>
-                  <button onClick={() => navigate(`../contributions/${selectedEv.eventID}`, { relative: "path" })} style={btnStyle("#2563eb")}>
-                    Chốt đóng góp
+                  <button onClick={() => navigate(`../contributions/${selectedEv.eventID}`, { relative: "path" })} style={btnStyle("#0f766e")}>
+                    Chấm đóng góp thành viên
+                  </button>
+                  <button onClick={() => navigate(`../contributions/${selectedEv.eventID}?instant=1`, { relative: "path" })} style={btnStyle("#1d4ed8")}>
+                    Chốt ngay
                   </button>
                 </>)}
 
                 {/* Cancelled / Closed / Rejected / PendingApproval — không có thao tác */}
-                {status === "REPORTAPPROVED" && (
-                  <button onClick={() => navigate(`../contributions/${selectedEv.eventID}?instant=1`, { relative: "path" })} style={btnStyle("#1d4ed8")}>
-                    Chốt ngay
-                  </button>
-                )}
-
                 {["CANCELLED", "CLOSED", "REJECTED", "PENDINGAPPROVAL", "PENDING"].includes(status) && (
                   <p style={{ margin: 0, fontSize: 13, color: "#9ca3af", fontStyle: "italic" }}>
                     Không có thao tác khả dụng.
@@ -1032,7 +1022,7 @@ export default function ClubEventsMgmt() {
                   }
                   setReportModal((m) => ({ ...m, uploading: true, error: null }));
                   try {
-                    await eventService.uploadReport(selectedEv.eventID, reportModal.summary.trim(), reportModal.file);
+                    await eventApi.uploadReport(selectedEv.eventID, reportModal.summary.trim(), reportModal.file);
                     updateEvent(selectedEv.eventID, { eventStatus: "ReportUploaded" });
                     setReportModal({ open: false, summary: "", file: null, uploading: false, error: null });
                   } catch (e) {

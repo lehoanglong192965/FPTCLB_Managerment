@@ -191,7 +191,9 @@ public class ClubNotificationServiceImpl implements ClubNotificationService {
                 creator.getFullName(),
                 notification.getCreatedAt(),
                 recipient.getIsRead(),
-                recipient.getReadAt()
+                recipient.getReadAt(),
+                notification.getActionUrl(),
+                notification.getActionLabel()
         );
     }
 

@@ -1,19 +1,8 @@
 import { useState, useEffect } from "react";
-import clubService from "../services/api/clubs/clubService";
+import clubApi from "../services/api/clubs/clubApi";
 
-// Map từ giá trị lưu trong DB → nhãn hiển thị tiếng Việt
-export const CATEGORY_LABEL = {
-  "Công nghệ":  "Công nghệ",
-  "Thiết kế":   "Thiết kế",
-  "Kỹ năng":    "Kỹ năng",
-  "AI & Data":  "AI & Dữ liệu",
-  "Business":   "Kinh doanh",
-  "Ngôn ngữ":   "Ngôn ngữ",
-  "Nghệ thuật": "Nghệ thuật",
-  "Thể thao":   "Thể thao",
-};
-
-export const displayCategory = (tag) => CATEGORY_LABEL[tag] ?? tag;
+// Danh mục CLB dùng chung — xem constants/clubCategories.js
+export { CATEGORY_LABEL, displayCategory } from "../constants/clubCategories";
 
 //Hàm chuyển đổi dữ liệu từ backend sang format frontend dùng được.
 export function normalizeClub(raw) {
@@ -45,7 +34,7 @@ export function usePublicClubs() {
     let cancelled = false;
     setLoading(true);
     setError("");
-    clubService.getAllPublic()
+    clubApi.getAllPublic()
       .then((res) => {
         if (cancelled) return;
         const raw = Array.isArray(res) ? res : (res?.content ?? res?.data ?? []);
@@ -54,7 +43,7 @@ export function usePublicClubs() {
       .catch((err) => {
         if (cancelled) return;
         if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
-        setError(err?.message ?? "Không thể tải danh sách câu lạc bộ");
+        setError(err?.response?.data?.message ?? err?.message ?? "Không thể tải danh sách câu lạc bộ");
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

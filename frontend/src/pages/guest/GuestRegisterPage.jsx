@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { User, Mail, Phone, ArrowRight, AlertCircle } from 'lucide-react';
-import guestService from '../../services/api/guest/guestService';
-import eventService from '../../services/api/events/eventService';
+import { User, Mail, Phone, ArrowRight } from 'lucide-react';
+import guestApi from '../../services/api/guest/guestApi';
+import eventApi from '../../services/api/events/eventApi';
+import AlertModal from '../../components/ui/AlertModal';
+import { guestErrorMessage } from '../../utils/guestErrorMessages';
 
 export default function GuestRegisterPage() {
   const { eventId } = useParams();
@@ -15,10 +17,15 @@ export default function GuestRegisterPage() {
 
   useEffect(() => {
     if (!eventId) return;
-    eventService.getEventById(eventId)
-      .then((res) => setEvent(res?.data ?? res))
-      .catch(() => setEvent(null))
-      .finally(() => setEventLoading(false));
+    let cancelled = false;
+    eventApi.getEventById(eventId)
+      .then((res) => { if (!cancelled) setEvent(res?.data ?? res); })
+      .catch((err) => {
+        if (cancelled || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+        setEvent(null);
+      })
+      .finally(() => { if (!cancelled) setEventLoading(false); });
+    return () => { cancelled = true; };
   }, [eventId]);
 
   const handleChange = (e) => {
@@ -32,7 +39,7 @@ export default function GuestRegisterPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await guestService.register(Number(eventId), {
+      const res = await guestApi.register(Number(eventId), {
         fullName: form.fullName.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
@@ -45,13 +52,13 @@ export default function GuestRegisterPage() {
         state: { guestReference, email: form.email.trim() },
       });
     } catch (err) {
-      setError(err?.response?.data?.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+      setError(guestErrorMessage(err, 'Đăng ký thất bại. Vui lòng thử lại.'));
     } finally {
       setLoading(false);
     }
   };
 
-  const availableSlots = event ? (event.maxParticipants - (event.registeredCount ?? 0)) : null;
+  const availableSlots = event ? (event.maxParticipants - (event.currentParticipants ?? 0)) : null;
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -87,14 +94,6 @@ export default function GuestRegisterPage() {
         ) : (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6 text-sm text-yellow-700">
             Không tải được thông tin sự kiện.
-          </div>
-        )}
-
-        {/* Error banner */}
-        {error && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-4 py-3 mb-4 text-sm">
-            <AlertCircle size={16} className="shrink-0" />
-            {error}
           </div>
         )}
 
@@ -164,6 +163,17 @@ export default function GuestRegisterPage() {
           </Link>
         </p>
       </div>
+
+      {/* Popup báo lỗi đăng ký */}
+      {error && (
+        <AlertModal
+          type="error"
+          title="Đăng ký thất bại"
+          message={error}
+          confirmLabel="Đóng"
+          onClose={() => setError(null)}
+        />
+      )}
     </div>
   );
 }

@@ -6,16 +6,21 @@ import com.fptu.fcms.dto.request.LoginRequest;
 import com.fptu.fcms.dto.request.RegisterRequest;
 import com.fptu.fcms.dto.request.VerifyOTPRequest;
 import com.fptu.fcms.dto.response.AuthResponse;
+import com.fptu.fcms.dto.response.ClubRoleResponse;
+import com.fptu.fcms.entity.SystemRole;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.repository.AllowedEmailRepository;
+import com.fptu.fcms.repository.SystemRoleRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.security.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -28,6 +33,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final OTPService otpService;
     private final EmailService emailService;
+    private final UserService userService;
+    private final SystemRoleRepository systemRoleRepository;
 
     @Override
     public AuthResponse login(LoginRequest request) {
@@ -61,10 +68,27 @@ public class AuthServiceImpl implements AuthService {
 
         Integer roleId = userEntity.getRoleID();
 
+        // [Batch 2] Resolve roleName từ SystemRole
+        String roleName = systemRoleRepository.findById(roleId)
+                .map(SystemRole::getRoleName)
+                .orElse(null);
+
+        // [Batch 2] Resolve clubRole/clubId — tái dùng UserService.getClubRole(), KHÔNG viết lại logic
+        ClubRoleResponse clubRoleResponse = userService.getClubRole(userEntity.getUserID());
+        String clubRoleClaim = null;
+        Integer clubIdClaim = null;
+        if ("Leader".equals(clubRoleResponse.getRoleName()) || "ViceLeader".equals(clubRoleResponse.getRoleName())) {
+            clubRoleClaim = clubRoleResponse.getRoleName();
+            clubIdClaim = clubRoleResponse.getClubID();
+        }
+
         String token = jwtTokenProvider.generateToken(
                 userEntity.getEmail(),
                 userEntity.getUserID(),
-                roleId
+                roleId,
+                roleName,
+                clubRoleClaim,
+                clubIdClaim
         );
         String refreshToken = jwtTokenProvider.generateRefreshToken(userEntity.getEmail());
 
@@ -79,16 +103,41 @@ public class AuthServiceImpl implements AuthService {
             
             if (userOptional.isPresent()) {
                 UserAccount user = userOptional.get();
+
+                // [Batch 2] Resolve roleName từ SystemRole
+                String roleName = systemRoleRepository.findById(user.getRoleID())
+                        .map(SystemRole::getRoleName)
+                        .orElse(null);
+
+                // [Batch 2] Resolve clubRole/clubId — tái dùng UserService.getClubRole()
+                ClubRoleResponse clubRoleResponse = userService.getClubRole(user.getUserID());
+                String clubRoleClaim = null;
+                Integer clubIdClaim = null;
+                if ("Leader".equals(clubRoleResponse.getRoleName()) || "ViceLeader".equals(clubRoleResponse.getRoleName())) {
+                    clubRoleClaim = clubRoleResponse.getRoleName();
+                    clubIdClaim = clubRoleResponse.getClubID();
+                }
+
                 String newToken = jwtTokenProvider.generateToken(
                         user.getEmail(),
                         user.getUserID(),
-                        user.getRoleID()
+                        user.getRoleID(),
+                        roleName,
+                        clubRoleClaim,
+                        clubIdClaim
                 );
                 // Có thể tạo refresh token mới hoặc dùng lại cái cũ
                 return new AuthResponse(newToken, refreshToken);
             }
         }
         throw new IllegalArgumentException("Refresh token không hợp lệ hoặc đã hết hạn!");
+    }
+
+    @Override
+    public boolean isStudentIdAvailable(String studentId) {
+        String normalizedStudentId = normalizeStudentId(studentId);
+        return StringUtils.hasText(normalizedStudentId)
+                && !userRepository.existsByStudentIdIgnoreCaseAndIsDeletedFalse(normalizedStudentId);
     }
 
     @Override
@@ -107,6 +156,11 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalStateException("Email này đã được đăng ký trong hệ thống!");
         }
 
+        String studentId = normalizeStudentId(request.getStudentId());
+        if (StringUtils.hasText(studentId) && userRepository.existsByStudentIdIgnoreCaseAndIsDeletedFalse(studentId)) {
+            throw new IllegalStateException("MSSV này đã được đăng ký trong hệ thống!");
+        }
+
         UserAccount newUser = new UserAccount();
         newUser.setEmail(email);
 
@@ -118,7 +172,7 @@ public class AuthServiceImpl implements AuthService {
         newUser.setIsDeleted(false);
         newUser.setCreatedAt(LocalDateTime.now());
         newUser.setFullName(request.getFullName() != null ? request.getFullName() : "Chưa cập nhật");
-        newUser.setStudentId(request.getStudentId()); // Lưu mã sinh viên
+        newUser.setStudentId(studentId); // Lưu mã sinh viên
         newUser.setPhoneNumber(request.getPhoneNumber()); // Lưu SĐT
         newUser.setRoleID(3);
         newUser.setMajor(request.getMajor() != null ? request.getMajor() : "Chưa cập nhật");
@@ -127,6 +181,10 @@ public class AuthServiceImpl implements AuthService {
 
         // Tạo mã OTP và gửi qua email
         otpService.generateAndSendOTP(email);
+    }
+
+    private String normalizeStudentId(String studentId) {
+        return StringUtils.hasText(studentId) ? studentId.trim().toUpperCase(Locale.ROOT) : null;
     }
 
     @Override

@@ -1,8 +1,8 @@
 import { BarChart2, Users, Calendar, TrendingUp, Award, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import clubBoardApi from "../../services/api/club-leader/clubBoardApi";
-import attendanceService from "../../services/api/attendance/attendanceService";
-import clubService from "../../services/api/clubs/clubService";
+import attendanceApi from "../../services/api/attendance/attendanceApi";
+import clubApi from "../../services/api/clubs/clubApi";
 import { TokenService } from "../../services/api/axiosClient";
 
 const MONTH_LABELS = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
@@ -103,7 +103,7 @@ export default function ClubReports() {
     setEvLoading(true);
     setError("");
 
-    clubService.getAllEvents(clubId)
+    clubApi.getAllEvents(clubId)
       .then(async (res) => {
         if (cancelled) return;
 
@@ -123,7 +123,7 @@ export default function ClubReports() {
         const summaries = await Promise.allSettled(
           finishedEvents
             .filter((event) => event.eventID)
-            .map((event) => attendanceService.getEventAttendanceSummary(event.eventID))
+            .map((event) => attendanceApi.getEventAttendanceSummary(event.eventID))
         );
         if (cancelled) return;
 

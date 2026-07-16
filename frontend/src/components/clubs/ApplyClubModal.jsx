@@ -1,5 +1,8 @@
-import { useState } from "react";
-import { X, Send } from "lucide-react";
+import { useState, useRef } from "react";
+import { X, Send, FileText, Upload, Trash2 } from "lucide-react";
+import applicationApi from "../../services/api/member/applicationApi";
+
+const MAX_CV_SIZE_BYTES = 10 * 1024 * 1024;
 
 const inputStyle = {
   width: "100%", padding: "0.625rem 0.875rem", borderRadius: 8,
@@ -9,27 +12,57 @@ const inputStyle = {
 
 /**
  * Popup form đăng ký ứng tuyển vào một CLB cụ thể.
- * Không gọi API thật — tạo đơn qua ApplicationsContext (mock).
+ * Gọi API thật qua callback onSubmitted do trang cha (vd: ClubDetailPage) cung cấp.
  */
 export default function ApplyClubModal({ club, clubId, onClose, onSubmitted }) {
   const [introduction, setIntroduction] = useState("");
-  const [cvUrl, setCvUrl]               = useState("");
+  const [cvFile, setCvFile]             = useState(null);
   const [error, setError]               = useState("");
   const [submitting, setSubmitting]     = useState(false);
+  const fileInputRef                    = useRef(null);
 
-  const handleSubmit = () => {
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    // Cho phép chọn lại cùng một file sau khi đã gỡ
+    e.target.value = "";
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setError("Chỉ chấp nhận file PDF.");
+      return;
+    }
+    if (file.size > MAX_CV_SIZE_BYTES) {
+      setError("File CV không được vượt quá 10MB.");
+      return;
+    }
+    setError("");
+    setCvFile(file);
+  };
+
+  const handleSubmit = async () => {
     if (!introduction.trim()) {
       setError("Vui lòng giới thiệu bản thân.");
       return;
     }
     setSubmitting(true);
+    let uploadedCvUrl = "";
+    if (cvFile) {
+      try {
+        const res = await applicationApi.uploadCv(cvFile);
+        const data = res?.data ?? res;
+        uploadedCvUrl = data?.url ?? "";
+      } catch (err) {
+        setError(err?.response?.data?.message || "Không thể tải CV lên. Vui lòng thử lại.");
+        setSubmitting(false);
+        return;
+      }
+    }
     onSubmitted({
       clubId: clubId ?? club.abbr ?? club.id,
       clubName: club.name,
       clubEmoji: club.emoji,
       clubColor: club.color,
       introduction,
-      cvUrl,
+      cvUrl: uploadedCvUrl,
     });
   };
 
@@ -75,15 +108,41 @@ export default function ApplyClubModal({ club, clubId, onClose, onSubmitted }) {
 
           <div>
             <label style={{ fontSize: 13, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>
-              Link CV / Portfolio
+              CV / Portfolio (PDF)
             </label>
             <input
-              type="url"
-              value={cvUrl}
-              onChange={(e) => setCvUrl(e.target.value)}
-              placeholder="https://drive.google.com/..."
-              style={inputStyle}
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,application/pdf"
+              onChange={handleFileChange}
+              style={{ display: "none" }}
             />
+            {cvFile ? (
+              <div className="flex items-center gap-2.5 rounded-lg border-[1.5px] border-gray-200 bg-gray-50 px-3 py-2.5">
+                <FileText size={18} className="text-red-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-gray-800 m-0 truncate">{cvFile.name}</p>
+                  <p className="text-[11.5px] text-gray-400 m-0">{(cvFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+                <button
+                  onClick={() => setCvFile(null)}
+                  disabled={submitting}
+                  className="bg-none border-none cursor-pointer text-gray-400 hover:text-red-500 p-1"
+                  title="Gỡ file"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full flex flex-col items-center gap-1.5 rounded-lg border-[1.5px] border-dashed border-gray-300 bg-gray-50 px-3 py-5 cursor-pointer hover:border-[#E6430A] hover:bg-orange-50 transition-colors font-[inherit]"
+              >
+                <Upload size={18} className="text-gray-400" />
+                <span className="text-[13px] font-medium text-gray-600">Nhấn để chọn file PDF</span>
+                <span className="text-[11.5px] text-gray-400">Tối đa 10MB</span>
+              </button>
+            )}
           </div>
 
           {error && <p style={{ color: "#ef4444", fontSize: 12.5, margin: 0 }}>{error}</p>}
@@ -101,7 +160,7 @@ export default function ApplyClubModal({ club, clubId, onClose, onSubmitted }) {
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border-none text-white text-[13px] font-semibold cursor-pointer font-[inherit]"
               style={{ background: submitting ? "#f87171" : "#E6430A", opacity: submitting ? 0.75 : 1 }}
             >
-              <Send size={14} /> Nộp đơn
+              <Send size={14} /> {submitting ? "Đang nộp..." : "Nộp đơn"}
             </button>
           </div>
         </div>

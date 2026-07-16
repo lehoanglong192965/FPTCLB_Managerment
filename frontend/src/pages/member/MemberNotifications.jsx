@@ -1,17 +1,12 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Bell, CheckCircle2, Settings, ArrowRight } from "lucide-react";
 import { useNotifications } from "../../contexts/NotificationsContext";
 import { TYPE_META, relativeTime } from "../../utils/notificationUtils";
 
 const FILTER_TABS = [
-  { key: "all",      label: "Tất cả"    },
-  { key: "unread",   label: "Chưa đọc"  },
-  { key: "deadline", label: "Hạn chót"  },
-  { key: "approval", label: "Kết quả"   },
-  { key: "event",    label: "Sự kiện"   },
-  { key: "recruit",  label: "Tuyển dụng"},
-  { key: "reminder", label: "Nhắc lịch" },
+  { key: "all",    label: "Tất cả"   },
+  { key: "unread", label: "Chưa đọc" },
 ];
 
 
@@ -33,14 +28,18 @@ const GROUP_ORDER = ["Hôm nay", "Hôm qua", "Tuần này", "Cũ hơn"];
 
 export default function MemberNotifications() {
   const navigate                                              = useNavigate();
+  const location                                              = useLocation();
   const { notifications, isRead, markRead, markAllRead, unreadCount } = useNotifications();
   const [activeFilter, setActiveFilter]                       = useState("all");
+
+  // Trang dùng chung cho member/club-leader/vice-leader — lấy base path theo role hiện tại
+  // để nút "Cài đặt" trỏ đúng /member|/club-leader|/vice-leader + /notification-settings.
+  const basePath = "/" + (location.pathname.split("/")[1] || "member");
 
   // Áp dụng filter
   const filtered = useMemo(() => {
     if (activeFilter === "unread") return notifications.filter((n) => !isRead(n.id));
-    if (activeFilter === "all")    return notifications;
-    return notifications.filter((n) => n.type === activeFilter);
+    return notifications;
   }, [notifications, activeFilter, isRead]);
 
   // Nhóm theo ngày
@@ -80,7 +79,7 @@ export default function MemberNotifications() {
           </button>
           <button
             className="flex items-center gap-[7px] px-[14px] py-[9px] rounded-[10px] border-[1.5px] border-gray-300 bg-white text-[13px] font-medium text-gray-600 cursor-pointer transition-all hover:border-[#e6430a] hover:text-[#e6430a] font-[inherit]"
-            onClick={() => navigate("/member/notification-settings")}
+            onClick={() => navigate(`${basePath}/notification-settings`)}
             title="Cài đặt thông báo"
           >
             <Settings size={15} />

@@ -72,16 +72,19 @@ export function ClubDataProvider({ children }) {
       .then((res) => {
         if (cancelled) return;
         const list = Array.isArray(res) ? res : (res?.data ?? res?.content ?? []);
-        setBlacklist(list.map((b) => ({
-          blacklistID:  b.blacklistId  ?? b.blacklistID  ?? b.id,
-          userID:       b.userId       ?? b.userID,
-          fullName:     b.fullName     ?? b.studentName  ?? "",
-          studentCode:  b.studentCode  ?? b.studentId    ?? "",
-          major:        b.major        ?? "",
-          clubRoleName: b.clubRoleName ?? b.roleName     ?? "Member",
-          reason:       b.reason       ?? "",
-          bannedDate:   b.bannedDate   ?? b.createdAt    ?? "",
-        })));
+        setBlacklist(list.map((b) => {
+          const rawDate = b.bannedDate ?? b.createdAt ?? "";
+          return {
+            blacklistID:  b.blacklistId  ?? b.blacklistID  ?? b.id,
+            userID:       b.userId       ?? b.userID,
+            fullName:     b.fullName     ?? b.studentName  ?? "",
+            studentCode:  b.studentCode  ?? b.studentId    ?? "",
+            major:        b.major        ?? "",
+            clubRoleName: b.clubRoleName ?? b.roleName     ?? "Member",
+            reason:       b.reason       ?? "",
+            bannedDate:   rawDate ? new Date(rawDate).toLocaleDateString("vi-VN") : "",
+          };
+        }));
       })
       .catch((err) => {
         if (cancelled) return;
@@ -91,28 +94,21 @@ export function ClubDataProvider({ children }) {
     return () => { cancelled = true; };
   }, [clubId]);
 
-  const expelMember = (member) => {
-    memberApi.remove(clubId, member.membershipID)
-      .then(() => {
-        setMembers((prev) => prev.filter((m) => m.membershipID !== member.membershipID));
-      })
-      .catch((err) => {
-        toast.error(err?.response?.data?.message || "Không thể xóa thành viên. Vui lòng thử lại.");
-      });
+  const expelMember = async (member) => {
+    try {
+      await memberApi.remove(clubId, member.membershipID);
+      setMembers((prev) => prev.filter((m) => m.membershipID !== member.membershipID));
+      return true;
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Không thể khai trừ thành viên. Vui lòng thử lại.");
+      return false;
+    }
   };
 
   const addToBlacklist = async (member, reason) => {
-    // Bước 1: Khai trừ khỏi CLB
-    try {
-      await memberApi.remove(clubId, member.membershipID);
-    } catch (err) {
-      toast.error(err?.response?.data?.message || "Không thể khai trừ thành viên. Vui lòng thử lại.");
-      return;
-    }
-    // Bước 1 thành công → cập nhật UI ngay để tránh trạng thái không nhất quán
-    setMembers((prev) => prev.filter((m) => m.membershipID !== member.membershipID));
-
-    // Bước 2: Thêm vào danh sách đen
+    // Backend yêu cầu người bị cấm vẫn đang là thành viên CLB khi gọi API,
+    // và sẽ TỰ KHAI TRỪ (xóa mềm membership) sau khi thêm vào blacklist —
+    // nên phía client cũng loại họ khỏi danh sách thành viên.
     try {
       const entry = await blacklistApi.add(clubId, { userID: member.userID, reason });
       setBlacklist((prev) => [
@@ -128,9 +124,11 @@ export function ClubDataProvider({ children }) {
         },
         ...prev,
       ]);
+      setMembers((prev) => prev.filter((m) => m.userID !== member.userID));
+      return true;
     } catch (err) {
-      // Thành viên đã bị khai trừ khỏi CLB nhưng chưa vào danh sách đen
-      toast.error(err?.response?.data?.message || "Đã khai trừ thành viên nhưng không thể thêm vào danh sách đen. Vui lòng thêm thủ công.");
+      toast.error(err?.response?.data?.message || "Không thể thêm vào danh sách đen. Vui lòng thử lại.");
+      return false;
     }
   };
 
@@ -138,8 +136,10 @@ export function ClubDataProvider({ children }) {
     try {
       await blacklistApi.remove(clubId, blacklistID);
       setBlacklist((prev) => prev.filter((b) => b.blacklistID !== blacklistID));
+      return true;
     } catch (err) {
       toast.error(err?.response?.data?.message || "Không thể gỡ khai trừ. Vui lòng thử lại.");
+      return false;
     }
   };
 

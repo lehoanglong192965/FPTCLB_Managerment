@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
+import { ShieldCheck, RefreshCw } from 'lucide-react';
 import OTPInput from '../../components/ui/OTPInput';
-import guestService from '../../services/api/guest/guestService';
+import AlertModal from '../../components/ui/AlertModal';
+import guestApi from '../../services/api/guest/guestApi';
 import { maskEmail } from '../../utils/piiMask';
+import { guestErrorMessage } from '../../utils/guestErrorMessages';
 
 export default function GuestVerifyOtpPage() {
   const navigate = useNavigate();
@@ -27,10 +29,10 @@ export default function GuestVerifyOtpPage() {
     setLoading(true);
     setError(null);
     try {
-      await guestService.verifyOtp(guestReference, { otp: otp.join('') });
+      await guestApi.verifyOtp(guestReference, { otp: otp.join('') });
       navigate(`/guest/status/${guestReference}`, { replace: true });
     } catch (err) {
-      setError(err?.response?.data?.message || 'Mã OTP không đúng hoặc đã hết hạn.');
+      setError(guestErrorMessage(err, 'Mã OTP không đúng hoặc đã hết hạn.'));
     } finally {
       setLoading(false);
     }
@@ -42,10 +44,10 @@ export default function GuestVerifyOtpPage() {
     setResendMsg(null);
     setError(null);
     try {
-      await guestService.resendOtp(guestReference);
+      await guestApi.resendOtp(guestReference);
       setResendMsg('Đã gửi lại mã OTP. Vui lòng kiểm tra email.');
     } catch (err) {
-      setResendMsg(err?.response?.data?.message || 'Không thể gửi lại. Thử lại sau ít phút.');
+      setResendMsg(guestErrorMessage(err, 'Không thể gửi lại. Thử lại sau ít phút.'));
     } finally {
       setResending(false);
     }
@@ -61,13 +63,6 @@ export default function GuestVerifyOtpPage() {
         <p className="text-sm text-gray-500 mb-6">
           Nhập mã 6 chữ số đã gửi đến <strong>{maskedEmail}</strong>
         </p>
-
-        {error && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 rounded-lg px-3 py-2.5 mb-4 text-sm text-left">
-            <AlertCircle size={15} className="shrink-0" />
-            {error}
-          </div>
-        )}
 
         {resendMsg && (
           <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-3 py-2.5 mb-4 text-sm">
@@ -98,6 +93,17 @@ export default function GuestVerifyOtpPage() {
 
         <p className="text-xs text-gray-400 mt-4">Mã OTP có hiệu lực trong 10 phút</p>
       </div>
+
+      {/* Popup báo lỗi xác thực */}
+      {error && (
+        <AlertModal
+          type="error"
+          title="Xác thực thất bại"
+          message={error}
+          confirmLabel="Đóng"
+          onClose={() => setError(null)}
+        />
+      )}
     </div>
   );
 }

@@ -47,12 +47,18 @@ export default function MemberClubs() {
   // Khi chọn xem CLB, kiểm tra member đã nộp đơn chưa
   useEffect(() => {
     if (!user || !viewingClub?.id) { setAlreadyApplied(false); return; }
+    let cancelled = false;
     applicationApi.getMyApplications()
       .then((data) => {
+        if (cancelled) return;
         const arr = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
         setAlreadyApplied(arr.some((a) => a.clubID === viewingClub.id && ACTIVE_STATUSES.has(a.status)));
       })
-      .catch(() => setAlreadyApplied(false));
+      .catch((err) => {
+        if (cancelled || err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        setAlreadyApplied(false);
+      });
+    return () => { cancelled = true; };
   }, [user, viewingClub?.id]);
 
   const handleApplySubmitted = async (payload) => {

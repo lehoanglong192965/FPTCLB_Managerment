@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Tabs, Table, Button, InputNumber, DatePicker,
   Modal, Tag, Popconfirm, Input,
@@ -6,13 +6,13 @@ import {
 import { Plus, Trash2, RotateCcw, Eye } from "lucide-react";
 import DynamicForm from "../../components/ui/DynamicForm";
 import { useToast } from "../../contexts/ToastContext";
+import axiosClient from "../../services/api/axiosClient";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
 const MOCK_CONFIG = {
   submitThresholdDays: 7,
   minPoints: 10,
-  aiConfidenceThreshold: 0.85,
   maxFileSize: 10,
   fileSizeUnit: "MB",
 };
@@ -31,18 +31,17 @@ const MOCK_HOLIDAYS = [
 const MOCK_VERSIONS = [
   {
     version: 2, changedBy: "Admin B", changedAt: "15/06/2025",
-    config: { submitThresholdDays: 5, minPoints: 8, aiConfidenceThreshold: 0.80, maxFileSize: 5, fileSizeUnit: "MB" },
+    config: { submitThresholdDays: 5, minPoints: 8, maxFileSize: 5, fileSizeUnit: "MB" },
   },
   {
     version: 1, changedBy: "Admin A", changedAt: "10/06/2025",
-    config: { submitThresholdDays: 3, minPoints: 5, aiConfidenceThreshold: 0.75, maxFileSize: 10, fileSizeUnit: "MB" },
+    config: { submitThresholdDays: 3, minPoints: 5, maxFileSize: 10, fileSizeUnit: "MB" },
   },
 ];
 
 const CONFIG_LABELS = {
   submitThresholdDays:    "Ngưỡng ngày submit",
   minPoints:              "Điểm tối thiểu",
-  aiConfidenceThreshold:  "AI Confidence Threshold",
   maxFileSize:            "Giới hạn file",
   fileSizeUnit:           "Đơn vị file",
 };
@@ -61,18 +60,6 @@ const GENERAL_CONFIG_SCHEMA = {
       type: "number", name: "minPoints", label: "Điểm tối thiểu",
       required: true, span: 12, min: 0,
       placeholder: "VD: 10",
-    },
-    {
-      type: "number", name: "aiConfidenceThreshold",
-      label: "AI Confidence Threshold (0 – 1)",
-      required: true, span: 12, min: 0, max: 1, step: 0.01,
-      placeholder: "VD: 0.85",
-      rules: [{
-        validator: (_, val) =>
-          val !== null && val !== undefined && val >= 0 && val <= 1
-            ? Promise.resolve()
-            : Promise.reject(new Error("Phải nằm trong khoảng 0 đến 1")),
-      }],
     },
     {
       type: "number", name: "maxFileSize", label: "Giới hạn kích thước file",
@@ -122,6 +109,61 @@ export default function SystemConfigPage() {
   // Diff modal
   const [diffVersion, setDiffVersion] = useState(null);
 
+  const [aiRuntimeConfig, setAiRuntimeConfig] = useState({
+    confidenceThreshold: "",
+    fallbackMessage: "",
+  });
+  const [savedAiRuntimeConfig, setSavedAiRuntimeConfig] = useState(null);
+  const [aiRuntimeLoading, setAiRuntimeLoading] = useState(true);
+  const [aiRuntimeSaving, setAiRuntimeSaving] = useState(false);
+  const [aiRuntimeError, setAiRuntimeError] = useState("");
+  const [aiRuntimeReload, setAiRuntimeReload] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAiRuntimeConfig = async () => {
+      setAiRuntimeLoading(true);
+      setAiRuntimeError("");
+
+      try {
+        const configs = await axiosClient.get("/admin/system-configs");
+        const configsByKey = new Map(
+          (Array.isArray(configs) ? configs : []).map((item) => [
+            item.configKey,
+            item.configValue,
+          ]),
+        );
+        const nextConfig = {
+          confidenceThreshold: configsByKey.get("AI_CONFIDENCE_THRESHOLD") ?? "",
+          fallbackMessage: configsByKey.get("RAG_FALLBACK_MESSAGE") ?? "",
+        };
+
+        if (!nextConfig.confidenceThreshold || !nextConfig.fallbackMessage) {
+          throw new Error("AI_RUNTIME_CONFIG_MISSING");
+        }
+
+        if (!cancelled) {
+          setAiRuntimeConfig(nextConfig);
+          setSavedAiRuntimeConfig(nextConfig);
+        }
+      } catch {
+        if (!cancelled) {
+          setAiRuntimeError("Không thể tải cấu hình AI/RAG đang chạy.");
+        }
+      } finally {
+        if (!cancelled) {
+          setAiRuntimeLoading(false);
+        }
+      }
+    };
+
+    loadAiRuntimeConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, [aiRuntimeReload]);
+
   // ── Tab 1: Cấu hình chung ─────────────────────────────────────────────────
 
   const handleSaveConfig = (values) => {
@@ -134,6 +176,70 @@ export default function SystemConfigPage() {
     setVersions((prev) => [snapshot, ...prev]);
     setConfig(values);
     toast.success("Đã lưu cấu hình thành công.");
+  };
+
+  const handleSaveAiRuntimeConfig = async () => {
+    if (!savedAiRuntimeConfig) {
+      toast.error("Cấu hình AI/RAG chưa sẵn sàng để lưu.");
+      return;
+    }
+
+    const thresholdValue = String(aiRuntimeConfig.confidenceThreshold ?? "").trim();
+    const confidenceThreshold = Number(thresholdValue);
+    const fallbackMessage = aiRuntimeConfig.fallbackMessage.trim();
+
+    if (!thresholdValue || !Number.isFinite(confidenceThreshold)
+      || confidenceThreshold < 0 || confidenceThreshold > 1) {
+      toast.error("Ngưỡng độ tin cậy AI phải nằm trong khoảng 0 đến 1.");
+      return;
+    }
+
+    if (!fallbackMessage) {
+      toast.error("Vui lòng nhập thông điệp dự phòng.");
+      return;
+    }
+
+    if (fallbackMessage.length > 500) {
+      toast.error("Thông điệp dự phòng không được vượt quá 500 ký tự.");
+      return;
+    }
+
+    const updates = [];
+    if (confidenceThreshold !== Number(savedAiRuntimeConfig.confidenceThreshold)) {
+      updates.push({ key: "AI_CONFIDENCE_THRESHOLD", value: String(confidenceThreshold) });
+    }
+    if (fallbackMessage !== savedAiRuntimeConfig.fallbackMessage) {
+      updates.push({ key: "RAG_FALLBACK_MESSAGE", value: fallbackMessage });
+    }
+
+    if (updates.length === 0) {
+      toast.success("Cấu hình AI/RAG không có thay đổi.");
+      return;
+    }
+
+    setAiRuntimeSaving(true);
+    try {
+      for (const update of updates) {
+        await axiosClient.put(`/admin/system-configs/${update.key}`, {
+          configValue: update.value,
+        });
+      }
+
+      const nextConfig = {
+        confidenceThreshold: confidenceThreshold === Number(savedAiRuntimeConfig.confidenceThreshold)
+          ? savedAiRuntimeConfig.confidenceThreshold
+          : String(confidenceThreshold),
+        fallbackMessage,
+      };
+      setAiRuntimeConfig(nextConfig);
+      setSavedAiRuntimeConfig(nextConfig);
+      toast.success("Đã lưu cấu hình AI/RAG. Yêu cầu chat mới sẽ dùng giá trị này ngay.");
+    } catch {
+      toast.error("Không thể lưu cấu hình AI/RAG. Dữ liệu đã được tải lại để tránh trạng thái không đồng bộ.");
+      setAiRuntimeReload((current) => current + 1);
+    } finally {
+      setAiRuntimeSaving(false);
+    }
   };
 
   // ── Tab 2: Hệ số nhân điểm ────────────────────────────────────────────────
@@ -280,6 +386,75 @@ export default function SystemConfigPage() {
             initialValues={config}
             onSubmit={handleSaveConfig}
           />
+
+          <section className="mt-7 rounded-xl border border-orange-100 bg-orange-50/40 p-5">
+            <div className="mb-4">
+              <h2 className="text-base font-semibold text-slate-800">Cấu hình AI/RAG đang chạy</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Hai giá trị này được đọc và lưu trực tiếp qua backend. Sau khi lưu, các yêu cầu chat mới dùng giá trị mới mà không cần khởi động lại backend.
+              </p>
+            </div>
+
+            {aiRuntimeLoading ? (
+              <p className="text-sm text-slate-500">Đang tải cấu hình AI/RAG…</p>
+            ) : aiRuntimeError ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="m-0 text-sm text-red-600">{aiRuntimeError}</p>
+                <Button onClick={() => setAiRuntimeReload((current) => current + 1)}>
+                  Tải lại
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="ai-confidence-threshold">
+                    Ngưỡng độ tin cậy AI (0 – 1)
+                  </label>
+                  <InputNumber
+                    id="ai-confidence-threshold"
+                    value={aiRuntimeConfig.confidenceThreshold}
+                    onChange={(value) => setAiRuntimeConfig((current) => ({
+                      ...current,
+                      confidenceThreshold: value == null ? "" : String(value),
+                    }))}
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    stringMode
+                    className="w-full max-w-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="rag-fallback-message">
+                    Thông điệp dự phòng
+                  </label>
+                  <Input.TextArea
+                    id="rag-fallback-message"
+                    value={aiRuntimeConfig.fallbackMessage}
+                    onChange={(event) => setAiRuntimeConfig((current) => ({
+                      ...current,
+                      fallbackMessage: event.target.value,
+                    }))}
+                    maxLength={500}
+                    showCount
+                    rows={4}
+                  />
+                </div>
+
+                <div>
+                  <Button
+                    type="primary"
+                    loading={aiRuntimeSaving}
+                    onClick={handleSaveAiRuntimeConfig}
+                    style={{ background: "#E6430A", borderColor: "#E6430A" }}
+                  >
+                    Lưu cấu hình AI/RAG
+                  </Button>
+                </div>
+              </div>
+            )}
+          </section>
         </div>
       ),
     },

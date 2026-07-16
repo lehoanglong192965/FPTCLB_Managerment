@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { Ticket, Search, Loader2 } from "lucide-react";
 import EventCard from "../../components/events/EventCard";
-import eventService from "../../services/api/events/eventService";
-import clubService from "../../services/api/clubs/clubService";
-import contributionService from "../../services/api/contribution/contributionService";
+import eventApi from "../../services/api/events/eventApi";
+import clubApi from "../../services/api/clubs/clubApi";
+import contributionApi from "../../services/api/contribution/contributionApi";
 
 const FILTER_TABS = [
   { key: "all",        label: "Tất cả"       },
@@ -19,14 +19,17 @@ export default function MemberMyTickets() {
   const [activeTab, setActiveTab] = useState("all");
   const [tickets, setTickets]     = useState([]);
   const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     const fetchTickets = async () => {
+      setError("");
       try {
         const [regRes, assignRes, clubRes] = await Promise.all([
-          eventService.getMyRegistrations(),
-          eventService.getMyAssignments(),
-          clubService.getAll(),
+          eventApi.getMyRegistrations(),
+          eventApi.getMyAssignments(),
+          clubApi.getAll(),
         ]);
 
         const regs    = Array.isArray(regRes)    ? regRes    : (regRes.data    || []);
@@ -78,7 +81,7 @@ export default function MemberMyTickets() {
             .filter((ticket) => ticket.ticketStatus === "ongoing")
             .map(async (ticket) => {
               try {
-                const batchRes = await contributionService.getBatch(ticket.id);
+                const batchRes = await contributionApi.getBatch(ticket.id);
                 const batch = batchRes?.data ?? batchRes;
                 return [ticket.id, isAppealWindowStatus(batch?.status)];
               } catch {
@@ -88,18 +91,21 @@ export default function MemberMyTickets() {
         );
         const appealOpenIds = new Set(appealChecks.filter(([, open]) => open).map(([id]) => id));
 
+        if (cancelled) return;
         setTickets(combined.map((ticket) => ({
           ...ticket,
           canAppealContribution: ticket.ticketStatus === "ongoing" && appealOpenIds.has(ticket.id),
         })));
       } catch (err) {
-        console.error("Lỗi khi tải danh sách vé:", err);
+        if (cancelled || err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        setError(err?.response?.data?.message ?? "Không thể tải danh sách vé. Vui lòng thử lại.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchTickets();
+    return () => { cancelled = true; };
   }, []);
 
   const filtered = tickets.filter((e) => {
@@ -156,7 +162,12 @@ export default function MemberMyTickets() {
             <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
               {filtered.length} vé
             </p>
-            {filtered.length === 0 ? (
+            {error ? (
+              <div className="page-placeholder">
+                <Ticket size={48} className="page-placeholder-icon" />
+                <p className="page-placeholder-label" style={{ color: "#dc2626" }}>{error}</p>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="page-placeholder">
                 <Ticket size={48} className="page-placeholder-icon" />
                 <p className="page-placeholder-label">

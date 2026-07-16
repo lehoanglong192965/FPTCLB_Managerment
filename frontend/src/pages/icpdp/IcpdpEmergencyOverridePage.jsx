@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShieldAlert, AlertCircle, CheckCircle2 } from 'lucide-react';
-import walkInService from '../../services/api/attendance/walkInService';
-import attendanceService from '../../services/api/attendance/attendanceService';
-import eventService from '../../services/api/events/eventService';
+import walkInApi from '../../services/api/attendance/walkInApi';
+import attendanceApi from '../../services/api/attendance/attendanceApi';
+import eventApi from '../../services/api/events/eventApi';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function IcpdpEmergencyOverridePage() {
@@ -33,8 +33,8 @@ export default function IcpdpEmergencyOverridePage() {
       setLoading(true);
       try {
         const [evRes, sessRes] = await Promise.allSettled([
-          eventService.getEventById(eventId),
-          attendanceService.getSessions(eventId),
+          eventApi.getEventById(eventId),
+          attendanceApi.getSessions(eventId),
         ]);
         if (evRes.status === 'fulfilled') setEvent(evRes.value?.data ?? evRes.value);
         if (sessRes.status === 'fulfilled') {
@@ -68,13 +68,13 @@ export default function IcpdpEmergencyOverridePage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.reason.trim()) {
-      toast.error('Lý do override là bắt buộc.');
+      toast.error('Lý do ghi đè là bắt buộc.');
       return;
     }
     if (!sessionId) return;
     setSubmitting(true);
     try {
-      await walkInService.emergencyOverride(sessionId, {
+      await walkInApi.emergencyOverride(sessionId, {
         fullName:        form.fullName.trim(),
         email:           form.email.trim(),
         phone:           form.phone.trim(),
@@ -84,11 +84,11 @@ export default function IcpdpEmergencyOverridePage() {
         discoverySource: 'EMERGENCY_OVERRIDE',
       });
       const name = form.fullName.trim();
-      toast.success(`Override thành công: ${name}`);
+      toast.success(`Ghi đè thành công: ${name}`);
       setSuccess(name);
       setForm({ fullName: '', email: '', phone: '', reason: '', note: '' });
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Override thất bại. Vui lòng thử lại.');
+      toast.error(err?.response?.data?.message || 'Ghi đè thất bại. Vui lòng thử lại.');
     } finally {
       setSubmitting(false);
     }
@@ -108,9 +108,9 @@ export default function IcpdpEmergencyOverridePage() {
           <ShieldAlert size={20} className="text-red-500" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Emergency Override Check-in</h1>
+          <h1 className="text-xl font-bold text-gray-900">Điểm Danh Ghi Đè Khẩn Cấp</h1>
           <p className="text-sm text-gray-500">
-            Bypass giới hạn capacity — chỉ dùng trong trường hợp khẩn cấp
+            Bỏ qua giới hạn sức chứa — chỉ dùng trong trường hợp khẩn cấp
           </p>
         </div>
       </div>
@@ -145,7 +145,7 @@ export default function IcpdpEmergencyOverridePage() {
           <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6 text-sm text-red-700">
             <ShieldAlert size={16} className="shrink-0 mt-0.5" />
             <span>
-              Override sẽ bỏ qua mọi kiểm tra capacity và tự động check-in ngay lập tức.
+              Ghi đè sẽ bỏ qua mọi kiểm tra sức chứa và tự động điểm danh ngay lập tức.
               Hành động này được ghi lại trong audit log.
             </span>
           </div>
@@ -206,7 +206,7 @@ export default function IcpdpEmergencyOverridePage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Lý do override <span className="text-red-500">*</span>
+                Lý do ghi đè <span className="text-red-500">*</span>
               </label>
               <textarea
                 name="reason"
@@ -242,7 +242,7 @@ export default function IcpdpEmergencyOverridePage() {
                 className="px-6 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2"
               >
                 <ShieldAlert size={15} />
-                {submitting ? 'Đang xử lý...' : 'Xác nhận Override'}
+                {submitting ? 'Đang xử lý...' : 'Xác nhận Ghi Đè'}
               </button>
               <button
                 type="button"

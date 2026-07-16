@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Zap, Loader, Edit2, Trash2, CheckCircle } from "lucide-react";
+import { Plus, Loader, Edit2, Trash2, CheckCircle } from "lucide-react";
 import semesterApi from "../../services/api/admin/semesterApi";
 import { useConfirm } from "../../contexts/ConfirmContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -199,9 +199,6 @@ export default function SemesterManagement() {
           <p className="page-subtitle">Tạo và quản lý các học kỳ trong hệ thống</p>
         </div>
         <div className="flex gap-2.5 flex-shrink-0">
-          <button className="pr-btn-ghost">
-            <Zap size={15} /> Emergency Leader Exit
-          </button>
           <button className="dl-btn-add" onClick={openCreateModal}>
             <Plus size={15} /> Tạo học kỳ mới
           </button>

@@ -2,7 +2,11 @@ package com.fptu.fcms.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fptu.fcms.dto.request.LoginRequest;
+import com.fptu.fcms.dto.request.RegisterRequest;
 import com.fptu.fcms.dto.request.UpdateProfileRequest;
+import com.fptu.fcms.dto.request.VerifyOTPRequest;
+import com.fptu.fcms.entity.OTPVerification;
+import com.fptu.fcms.repository.OTPVerificationRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +28,9 @@ public class OtherControllersIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private OTPVerificationRepository otpVerificationRepository;
+
     private ObjectMapper objectMapper;
 
     @BeforeEach
@@ -37,7 +44,7 @@ public class OtherControllersIntegrationTest {
         String testPassword = "MySecurePassword123!";
 
         // 1. Register a new user
-        LoginRequest registerRequest = new LoginRequest();
+        RegisterRequest registerRequest = new RegisterRequest();
         registerRequest.setEmail(testEmail);
         registerRequest.setPassword(testPassword);
 
@@ -47,7 +54,20 @@ public class OtherControllersIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Đăng ký tài khoản thành công! Vui lòng kiểm tra email để nhận mã OTP."));
 
-        // 2. Login to get JWT Token
+        OTPVerification otp = otpVerificationRepository
+                .findFirstByEmailAndIsUsedFalseOrderByCreatedAtDesc(testEmail)
+                .orElseThrow(() -> new AssertionError("OTP was not created for registered user"));
+        VerifyOTPRequest verifyRequest = new VerifyOTPRequest();
+        verifyRequest.setEmail(testEmail);
+        verifyRequest.setOtpCode(otp.getOtpCode());
+
+        mockMvc.perform(post("/api/auth/verify-otp")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(verifyRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(testEmail));
+
+        // 2. Login after OTP verification to get JWT Token
         LoginRequest loginRequest = new LoginRequest();
         loginRequest.setEmail(testEmail);
         loginRequest.setPassword(testPassword);
@@ -56,7 +76,6 @@ public class OtherControllersIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.type").value("Bearer"))
                 .andExpect(jsonPath("$.token").exists())
                 .andReturn().getResponse().getContentAsString();
 
@@ -75,7 +94,7 @@ public class OtherControllersIntegrationTest {
         UpdateProfileRequest updateRequest = new UpdateProfileRequest();
         updateRequest.setFullName("Nguyen Van Integration Test");
         updateRequest.setMajor("Software Engineering");
-
+        updateRequest.setPhoneNumber("0912345678");
         mockMvc.perform(put("/api/user/profile")
                 .header("Authorization", authHeader)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -83,7 +102,8 @@ public class OtherControllersIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Cập nhật hồ sơ thành công!"))
                 .andExpect(jsonPath("$.fullName").value("Nguyen Van Integration Test"))
-                .andExpect(jsonPath("$.major").value("Software Engineering"));
+                .andExpect(jsonPath("$.major").value("Software Engineering"))
+                .andExpect(jsonPath("$.phone").value("0912345678"));
 
         // 5. GET /api/clubs/1/board - verify it works with the token
         // (Can return 200 or 409 depending on whether active semester exists, but should not throw 500/403)

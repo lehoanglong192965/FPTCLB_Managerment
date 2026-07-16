@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
-import contributionService from '../../services/api/contribution/contributionService';
+import contributionApi from '../../services/api/contribution/contributionApi';
 import { useToast } from '../../contexts/ToastContext';
 
 const APPEAL_STATUS_CFG = {
   PENDING:  { label: 'Đang xét',     icon: <Clock size={16} className="text-yellow-500" />, bg: 'bg-yellow-50', border: 'border-yellow-200' },
   APPROVED: { label: 'Đã chấp nhận', icon: <CheckCircle2 size={16} className="text-green-500" />, bg: 'bg-green-50', border: 'border-green-200' },
   ACCEPTED: { label: 'Đã chấp nhận', icon: <CheckCircle2 size={16} className="text-green-500" />, bg: 'bg-green-50', border: 'border-green-200' },
-  APPROVED: { label: 'Đã chấp nhận', icon: <CheckCircle2 size={16} className="text-green-500" />, bg: 'bg-green-50', border: 'border-green-200' },
   REJECTED: { label: 'Đã từ chối',   icon: <XCircle size={16} className="text-red-400" />, bg: 'bg-red-50', border: 'border-red-200' },
 };
 
@@ -64,7 +63,7 @@ export default function MemberAppealPage() {
   useEffect(() => {
     if (!eventId) return;
     let ignore = false;
-    contributionService.getMyEventContribution(eventId)
+    contributionApi.getMyEventContribution(eventId)
       .then((res) => {
         const item = res?.data ?? res;
         if (ignore) return;
@@ -88,7 +87,7 @@ export default function MemberAppealPage() {
     if (!reason.trim() || submitting || !batchId) return;
     setSubmitting(true);
     try {
-      const res = await contributionService.submitAppeal(batchId, { reason: reason.trim() });
+      const res = await contributionApi.submitAppeal(batchId, { reason: reason.trim() });
       const appeal = res?.data ?? res;
       toast.success('Đã nộp khiếu nại thành công!');
       setSubmittedAppeal(appeal);

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Lock, CheckCircle2 } from "lucide-react";
 import axiosClient from "../../services/api/axiosClient";
 
@@ -73,8 +73,12 @@ function SettingRow({ label, desc, settingKey, settings, onChange, locked }) {
 
 export default function MemberNotificationSettings() {
   const navigate             = useNavigate();
+  const location             = useLocation();
   const [settings, setSettings] = useState(loadSettings);
   const [saved,    setSaved]    = useState(false);
+
+  // Dùng chung cho member/club-leader/vice-leader — back về đúng trang thông báo theo role.
+  const basePath = "/" + (location.pathname.split("/")[1] || "member");
 
   const handleChange = (key, val) => {
     setSettings((prev) => ({ ...prev, [key]: val }));
@@ -98,7 +102,7 @@ export default function MemberNotificationSettings() {
       <div className="flex items-center gap-3 mb-6">
         <button
           className="w-9 h-9 rounded-[10px] border border-gray-200 bg-white flex items-center justify-center text-gray-500 cursor-pointer hover:border-[#E6430A] hover:text-[#E6430A] transition-colors"
-          onClick={() => navigate("/member/notifications")}
+          onClick={() => navigate(`${basePath}/notifications`)}
         >
           <ArrowLeft size={16} />
         </button>

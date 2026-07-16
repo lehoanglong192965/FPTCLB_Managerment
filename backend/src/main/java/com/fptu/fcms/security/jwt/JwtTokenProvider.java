@@ -24,15 +24,27 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
-    // Tạo JWT Access Token đính kèm Custom Claims (userID, roleID)
-    public String generateToken(String email, Integer userId, Integer roleId) {
+    // Tạo JWT Access Token đính kèm Custom Claims (userID, roleID, roleName, clubRole, clubId)
+    public String generateToken(String email, Integer userId, Integer roleId,
+                                String roleName, String clubRole, Integer clubId) {
         Date currentDate = new Date();
         Date expireDate = new Date(currentDate.getTime() + jwtExpirationDate);
 
-        return Jwts.builder()
+        JwtBuilder builder = Jwts.builder()
                 .setSubject(email)
                 .claim("userID", userId)
                 .claim("roleID", roleId)
+                .claim("roleName", roleName);
+
+        // clubRole và clubId chỉ set khi khác null
+        if (clubRole != null) {
+            builder.claim("clubRole", clubRole);
+        }
+        if (clubId != null) {
+            builder.claim("clubId", clubId);
+        }
+
+        return builder
                 .setIssuedAt(currentDate)
                 .setExpiration(expireDate)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
@@ -105,5 +117,37 @@ public class JwtTokenProvider {
         return claims.get("roleID", Integer.class);
     }
 
+    // [MỚI] Trích xuất roleName từ Token
+    public String getRoleNameFromJwt(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .setAllowedClockSkewSeconds(60)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.get("roleName", String.class);
+    }
+
+    // [MỚI] Trích xuất clubRole từ Token (nullable)
+    public String getClubRoleFromJwt(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .setAllowedClockSkewSeconds(60)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.get("clubRole", String.class);
+    }
+
+    // [MỚI] Trích xuất clubId từ Token (nullable)
+    public Integer getClubIdFromJwt(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .setAllowedClockSkewSeconds(60)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.get("clubId", Integer.class);
+    }
 
 }

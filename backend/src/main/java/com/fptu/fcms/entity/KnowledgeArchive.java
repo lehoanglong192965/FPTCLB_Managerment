@@ -1,5 +1,7 @@
 package com.fptu.fcms.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.hibernate.annotations.Nationalized;
 import org.hibernate.annotations.SQLRestriction;
 
 import jakarta.persistence.*;
@@ -24,14 +26,26 @@ public class KnowledgeArchive {
     @Column(name = "clubID")
     private Integer clubID;
 
-    @Column(name = "title")
+    @Nationalized
+    @Column(name = "title", nullable = false, length = 200, columnDefinition = "NVARCHAR(200)")
     private String title;
 
-    @Column(name = "content")
+    @Nationalized
+    @Column(name = "content", nullable = false, columnDefinition = "NVARCHAR(MAX)")
     private String content;
 
-    @Column(name = "fileUrl")
+    @JsonIgnore
+    @Column(name = "fileUrl", length = 500)
     private String fileUrl;
+
+    @Column(name = "visibilityScope", nullable = false, length = 20)
+    private String visibilityScope = "ClubInternal";
+
+    @Column(name = "indexingStatus", nullable = false, length = 20)
+    private String indexingStatus = "Pending";
+
+    @Column(name = "sourceFormat", nullable = false, length = 10)
+    private String sourceFormat = "MD";
 
     @Column(name = "uploadedBy")
     private Integer uploadedBy;
@@ -41,5 +55,21 @@ public class KnowledgeArchive {
 
     @Column(name = "isDeleted")
     private Boolean isDeleted;
+
+    @PrePersist
+    void prePersist() {
+        if (visibilityScope == null) {
+            visibilityScope = "ClubInternal";
+        }
+        if (indexingStatus == null) {
+            indexingStatus = "Pending";
+        }
+        if (sourceFormat == null) {
+            sourceFormat = "MD";
+        }
+        if (isDeleted == null) {
+            isDeleted = false;
+        }
+    }
 
 }
