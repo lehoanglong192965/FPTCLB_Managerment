@@ -35,6 +35,7 @@ import {
 export const SIDEBAR_CONFIGS = {
   ADMIN: [
     { key: "semesters",     label: "Quản Lý Học Kỳ",        icon: BookOpen,    path: "/admin",               exact: true },
+    { key: "club-dashboard", label: "Dashboard CLB",         icon: LayoutDashboard, path: "/admin/club-dashboard" },
     { key: "users",         label: "Quản Lý Người Dùng",     icon: Users,       path: "/admin/users" },
     { key: "system-config", label: "Cấu Hình Hệ Thống",     icon: Settings,    path: "/admin/system-config" },
     { key: "knowledge-archive", label: "Kho Tri Thức",       icon: Library,     path: "/admin/knowledge-archive" },
@@ -42,6 +43,8 @@ export const SIDEBAR_CONFIGS = {
   ],
 
   ICPDP: [
+    { key: "club-dashboard",    label: "Dashboard CLB",       icon: LayoutDashboard, path: "/icpdp/club-dashboard" },
+    { key: "club-overview",      label: "Tổng Quan CLB",       icon: Building2,      path: "/icpdp/club-overview" },
     { key: "club-management",    label: "Quản Lý CLB",         icon: Layers,         path: "/icpdp/club-management" },
     { key: "club-create",        label: "Tạo CLB",             icon: PlusCircle,     path: "/icpdp/clubs/create" },
     { key: "event-approval",     label: "Phê Duyệt Sự Kiện",   icon: Calendar,       path: "/icpdp/event-approval" },
@@ -57,25 +60,30 @@ export const SIDEBAR_CONFIGS = {
   ],
 
   CLUB_LEADER: [
-    { key: "my-club",       label: "Câu Lạc Bộ Của Tôi",   icon: Building2,  path: "/club-leader/my-club" },
-    { key: "clubs",         label: "Khám Phá CLB",         icon: Star,       path: "/club-leader/clubs" },
-    { key: "events",        label: "Khám Phá Sự Kiện",     icon: Calendar,   path: "/club-leader/events" },
-    { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/club-leader/tickets" },
-    { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/club-leader/pending-feedback" },
-    { key: "contributions", label: "Đóng Góp Của Tôi",     icon: Award,      path: "/club-leader/contributions" },
-    { key: "knowledge-archive", label: "Kho Tri Thức CLB", icon: Library, path: "/club-leader/knowledge-archive" },
-    { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle, path: "/club-leader/profile" },
+    { key: "overview",      label: "Tổng Quan CLB",        icon: Home,            path: "/club-leader",              exact: true },
+    { key: "dashboard",     label: "Dashboard CLB",         icon: LayoutDashboard, path: "/club-leader/dashboard" },
+    { key: "club-info",     label: "Thông Tin CLB",        icon: Building2,       path: "/club-leader/club-info" },
+    { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/club-leader/members" },
+    { key: "applications",  label: "Đơn Ứng Tuyển",        icon: ClipboardList,   path: "/club-leader/applications" },
+    { key: "event-create",  label: "Tạo Sự Kiện",          icon: PlusCircle,      path: "/club-leader/event-create" },
+    { key: "events",        label: "Quản Lý Sự Kiện",      icon: Calendar,        path: "/club-leader/events" },
+    { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/club-leader/notifications" },
+    { key: "reports",       label: "Báo Cáo CLB",          icon: BarChart2,       path: "/club-leader/reports" },
+    { key: "blacklist",     label: "Danh Sách Đen",        icon: Ban,             path: "/club-leader/blacklist" },
+    { key: "leaderboard",   label: "BXH Thành Viên",       icon: Trophy,          path: "/club-leader/leaderboard" },
+    { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/club-leader/profile" },
   ],
 
   VICE_LEADER: [
-    { key: "my-club",       label: "Câu Lạc Bộ Của Tôi",   icon: Building2,  path: "/vice-leader/my-club" },
-    { key: "clubs",         label: "Khám Phá CLB",         icon: Star,       path: "/vice-leader/clubs" },
-    { key: "events",        label: "Khám Phá Sự Kiện",     icon: Calendar,   path: "/vice-leader/events" },
-    { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/vice-leader/tickets" },
-    { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/vice-leader/pending-feedback" },
-    { key: "contributions", label: "Đóng Góp Của Tôi",     icon: Award,      path: "/vice-leader/contributions" },
-    { key: "knowledge-archive", label: "Kho Tri Thức CLB", icon: Library, path: "/vice-leader/knowledge-archive" },
-    { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle, path: "/vice-leader/profile" },
+    { key: "overview",      label: "Tổng Quan CLB",        icon: Home,            path: "/vice-leader",              exact: true },
+    { key: "dashboard",     label: "Dashboard CLB",         icon: LayoutDashboard, path: "/vice-leader/dashboard" },
+    { key: "club-info",     label: "Thông Tin CLB",        icon: Building2,       path: "/vice-leader/club-info" },
+    { key: "members",       label: "Quản Lý Thành Viên",   icon: Users,           path: "/vice-leader/members" },
+    { key: "event-create",  label: "Tạo Sự Kiện",          icon: PlusCircle,      path: "/vice-leader/event-create" },
+    { key: "events",        label: "Quản Lý Sự Kiện",      icon: Calendar,        path: "/vice-leader/events" },
+    { key: "notifications", label: "Thông Báo",            icon: Bell,            path: "/vice-leader/notifications" },
+    { key: "leaderboard",   label: "BXH Thành Viên",       icon: Trophy,          path: "/vice-leader/leaderboard" },
+    { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/vice-leader/profile" },
   ],
 
   MEMBER: [
