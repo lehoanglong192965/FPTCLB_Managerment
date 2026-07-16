@@ -20,6 +20,19 @@ public interface GuestEventRegistrationRepository extends JpaRepository<GuestEve
             Collection<RegistrationStatus> statuses
     );
 
+    @Query("""
+    SELECT gr.eventID, COUNT(gr)
+    FROM GuestEventRegistration gr
+    WHERE gr.eventID IN :eventIDs
+      AND gr.registrationStatus IN :statuses
+      AND gr.isDeleted = false
+    GROUP BY gr.eventID
+""")
+    List<Object[]> countGroupedByEventIDs(
+            @Param("eventIDs") Collection<Integer> eventIDs,
+            @Param("statuses") Collection<RegistrationStatus> statuses
+    );
+
     List<GuestEventRegistration> findByEventIDAndIsDeletedFalse(Integer eventID);
 
     Optional<GuestEventRegistration> findByGuestRegistrationIDAndIsDeletedFalse(Integer guestRegistrationID);

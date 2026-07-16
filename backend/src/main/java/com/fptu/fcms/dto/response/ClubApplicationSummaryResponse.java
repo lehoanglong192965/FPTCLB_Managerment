@@ -17,4 +17,9 @@ public class ClubApplicationSummaryResponse {
     private String cvUrl;
     private String status;
     private LocalDateTime createdAt;
+
+    // Cảnh báo cho người duyệt: ứng viên đang bị blacklist ở CLB khác.
+    private boolean blacklisted;
+    // Mô tả ngắn: CLB nào + lý do (nếu có), để hiển thị trên đơn.
+    private String blacklistWarning;
 }

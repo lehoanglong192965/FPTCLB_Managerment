@@ -247,6 +247,74 @@ public class ClubBoardServiceImpl implements ClubBoardService {
                 .collect(Collectors.toList());
     }
 
+    // =====================================================================
+    // KHAI TRỪ THÀNH VIÊN KHỎI CLB (Leader thực hiện)
+    // =====================================================================
+
+    /**
+     * Khai trừ (xóa mềm membership) một thành viên khỏi CLB trong học kỳ Active.
+     *
+     * Ràng buộc:
+     *  - Người thực hiện phải là Leader đang active của chính CLB này
+     *  - Không thể tự khai trừ chính mình
+     *  - Không thể khai trừ Leader (bãi nhiệm Leader là quyền của Admin/ICPDP qua /board)
+     *  - Chỉ khai trừ được membership thuộc học kỳ đang Active
+     */
+    @Override
+    @Transactional
+    public void removeMember(Integer clubID, Integer membershipID, Integer actorUserID) {
+        Semester activeSemester = semesterRepo.findByIsActiveTrueAndIsDeletedFalse()
+                .orElseThrow(() -> new BusinessRuleException(
+                        "Không tìm thấy học kỳ Active.",
+                        HttpStatus.CONFLICT
+                ));
+
+        boolean actorIsLeader = membershipRepo
+                .existsByClubIDAndUserIDAndSemesterIDAndClubRoleIDAndIsDeletedFalse(
+                        clubID, actorUserID, activeSemester.getSemesterID(), CLUB_ROLE_ID_LEADER);
+        if (!actorIsLeader) {
+            throw new BusinessRuleException(
+                    "Chỉ Leader của CLB mới được khai trừ thành viên.",
+                    HttpStatus.FORBIDDEN
+            );
+        }
+
+        // @SQLRestriction trên ClubMembership đã loại bản ghi bị xóa mềm
+        ClubMembership membership = membershipRepo.findById(membershipID)
+                .orElseThrow(() -> new BusinessRuleException(
+                        "Không tìm thấy thành viên với membershipID: " + membershipID,
+                        HttpStatus.NOT_FOUND
+                ));
+
+        if (!clubID.equals(membership.getClubID())) {
+            throw new BusinessRuleException(
+                    "Thành viên này không thuộc CLB hiện tại.",
+                    HttpStatus.FORBIDDEN
+            );
+        }
+        if (!activeSemester.getSemesterID().equals(membership.getSemesterID())) {
+            throw new BusinessRuleException(
+                    "Chỉ khai trừ được thành viên thuộc học kỳ đang Active.",
+                    HttpStatus.CONFLICT
+            );
+        }
+        if (membership.getUserID().equals(actorUserID)) {
+            throw new BusinessRuleException(
+                    "Không thể tự khai trừ chính mình khỏi CLB.",
+                    HttpStatus.FORBIDDEN
+            );
+        }
+        if (Integer.valueOf(CLUB_ROLE_ID_LEADER).equals(membership.getClubRoleID())) {
+            throw new BusinessRuleException(
+                    "Không thể khai trừ Leader. Việc bãi nhiệm Leader do Admin/IC-PDP thực hiện.",
+                    HttpStatus.FORBIDDEN
+            );
+        }
+
+        membership.setIsDeleted(true);
+        membershipRepo.save(membership);
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<ClubBoardMemberResponse> getBoardMembers(Integer clubID) {
