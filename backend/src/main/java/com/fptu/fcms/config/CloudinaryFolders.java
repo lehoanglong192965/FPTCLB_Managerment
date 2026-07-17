@@ -7,6 +7,7 @@ public final class CloudinaryFolders {
     public static final String CLUB_REGISTRATION_IMAGES = ROOT + "/clubs/registrations";
     public static final String MEMBER_CARD_EVIDENCE = ROOT + "/clubs/member-cards";
     public static final String EVENT_BANNERS = ROOT + "/events/banners";
+    public static final String EVENT_REPORTS = ROOT + "/reports/events";
 
     private CloudinaryFolders() {
     }

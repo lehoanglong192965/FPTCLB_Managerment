@@ -1,6 +1,8 @@
 package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.dto.request.CreateEventReportRequest;
+import com.fptu.fcms.dto.response.CloudinaryUploadResult;
+import com.fptu.fcms.config.CloudinaryFolders;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventReport;
 import com.fptu.fcms.enums.EventReportStatus;
@@ -8,8 +10,9 @@ import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.repository.EventReportRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.service.ReportUploadService;
+import com.fptu.fcms.service.DocumentStorageService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -17,16 +20,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ReportUploadServiceImpl implements ReportUploadService {
 
     private static final long MAX_PDF_SIZE_BYTES = 10L * 1024 * 1024;
@@ -37,9 +36,7 @@ public class ReportUploadServiceImpl implements ReportUploadService {
     private final EventRepository eventRepository;
     private final EventReportRepository eventReportRepository;
     private final ClamAvScanService clamAvScanService;
-
-    @Value("${app.reports.storage-dir:reports}")
-    private String storageDir;
+    private final DocumentStorageService documentStorageService;
 
     @Override
     public EventReport getReportByEventId(Integer eventId) {
@@ -63,16 +60,18 @@ public class ReportUploadServiceImpl implements ReportUploadService {
         validatePdf(file);
         clamAvScanService.scan(file);
 
-        String fileName = UUID.randomUUID() + ".pdf";
-        Path baseDir = Paths.get(storageDir).toAbsolutePath().normalize();
+        CloudinaryUploadResult uploaded = documentStorageService.uploadPdf(file, CloudinaryFolders.EVENT_REPORTS);
+        String previousPublicId = null;
         try {
-            Files.createDirectories(baseDir);
-            Path target = baseDir.resolve(fileName);
-            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
-
-            EventReport report = new EventReport();
+            EventReport report = eventReportRepository.findByEventIDAndIsDeletedFalse(event.getEventID())
+                    .orElseGet(EventReport::new);
+            previousPublicId = report.getCloudinaryPublicId();
             report.setEventID(event.getEventID());
-            report.setReportUrl("/api/uploads/" + fileName);
+            report.setReportUrl(uploaded.getSecureUrl());
+            report.setCloudinaryPublicId(uploaded.getPublicId());
+            report.setOriginalFilename(StringUtils.cleanPath(file.getOriginalFilename()));
+            report.setFileSize(uploaded.getBytes() != null ? uploaded.getBytes() : file.getSize());
+            report.setMimeType("application/pdf");
             report.setSummary(request.getSummary());
             report.setUploadedBy(uploadedBy);
             report.setUploadedAt(LocalDateTime.now());
@@ -83,19 +82,42 @@ public class ReportUploadServiceImpl implements ReportUploadService {
             report.setRejectedAt(null);
             report.setRejectionReason(null);
             report.setIsDeleted(false);
-            eventReportRepository.save(report);
+            eventReportRepository.saveAndFlush(report);
 
             event.setEventStatus(STATUS_REPORT_UPLOADED);
-            eventRepository.save(event);
+            eventRepository.saveAndFlush(event);
+
+            deletePreviousCloudinaryFile(previousPublicId, uploaded.getPublicId());
 
             return Map.of(
                     "reportID", String.valueOf(report.getReportID()),
                     "eventID", String.valueOf(event.getEventID()),
-                    "filename", fileName,
+                    "filename", report.getOriginalFilename(),
                     "url", report.getReportUrl()
             );
-        } catch (IOException ex) {
-            throw new IllegalStateException("Failed to store report file.", ex);
+        } catch (RuntimeException ex) {
+            rollbackUpload(uploaded.getPublicId());
+            throw ex;
+        }
+    }
+
+    private void deletePreviousCloudinaryFile(String previousPublicId, String currentPublicId) {
+        if (!StringUtils.hasText(previousPublicId) || previousPublicId.equals(currentPublicId)) {
+            return;
+        }
+        try {
+            documentStorageService.deleteDocument(previousPublicId);
+        } catch (RuntimeException ex) {
+            log.warn("New report was saved but the previous Cloudinary file could not be removed. publicId={}",
+                    previousPublicId, ex);
+        }
+    }
+
+    private void rollbackUpload(String publicId) {
+        try {
+            documentStorageService.deleteDocument(publicId);
+        } catch (RuntimeException cleanupError) {
+            log.warn("Could not rollback Cloudinary report upload. publicId={}", publicId, cleanupError);
         }
     }
 

@@ -3,12 +3,12 @@ spring:
     name: fcms
 
   profiles:
-    active: local
+    active: ${SPRING_PROFILES_ACTIVE:local}
 
   datasource:
-    url: jdbc:sqlserver://localhost:1433;databaseName=FPTUCLUB;encrypt=true;trustServerCertificate=true
-    username: sa
-    password: 123456
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
 
   jpa:
@@ -39,8 +39,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${MAIL_USERNAME:baoduy214365@gmail.com}
-    password: ${MAIL_PASSWORD:your_app_password_here}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -70,8 +70,9 @@ spring:
       timeout: 2000ms
 
 jwt:
-  secret: day-la-mot-chuoi-bi-mat-rat-dai-de-ky-jwt-token-fptu-2026
-  expiration: 86400000
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}
+  refreshExpiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
 gemini:
   api-key: ${GEMINI_API_KEY:}
@@ -85,7 +86,7 @@ cloudinary:
   max-image-size-bytes: ${CLOUDINARY_MAX_IMAGE_SIZE_BYTES:5242880}
 
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
   tomcat:
     max-http-form-post-size: -1
     max-swallow-size: -1
@@ -103,3 +104,15 @@ management:
   endpoint:
     health:
       show-details: always
+
+app:
+  reports:
+    storage-dir: ${REPORTS_STORAGE_DIR:reports}
+
+clamav:
+  host: ${CLAMAV_HOST:localhost}
+  port: ${CLAMAV_PORT:3310}
+
+fcms:
+  feedback:
+    public-base-url: ${FEEDBACK_PUBLIC_BASE_URL:http://localhost:5173/feedback/guest}

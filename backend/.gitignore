@@ -54,4 +54,5 @@ backend/src/main/resources/application-local.yml
 # Environment files containing secrets
 .env
 **/.env
+!.env.example
 

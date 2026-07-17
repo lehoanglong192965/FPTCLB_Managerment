@@ -30,8 +30,8 @@ public class EmailServiceImpl implements EmailService {
     @Override
     @Async
     public void sendOTPEmail(String email, String otpCode) {
+        SimpleMailMessage message = new SimpleMailMessage();
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom("FPTU Club <" + senderEmail + ">");
             message.setTo(email);
             message.setSubject("FPTU Club Management - Ma xac thuc OTP cua ban");
@@ -48,14 +48,16 @@ public class EmailServiceImpl implements EmailService {
             log.info("OTP email sent successfully to: {}", EmailMaskingUtil.maskEmail(email));
         } catch (Exception e) {
             log.error("Error sending OTP email to: {}", EmailMaskingUtil.maskEmail(email), e);
+        } finally {
+            logEmailPreview(message, "OTP", otpCode);
         }
     }
 
     @Override
     @Async
     public void sendAccountActivationEmail(String email, String fullName) {
+        SimpleMailMessage message = new SimpleMailMessage();
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom("FPTU Club <" + senderEmail + ">");
             message.setTo(email);
             message.setSubject("FPTU Club Management - Tai khoan da duoc kich hoat");
@@ -72,6 +74,8 @@ public class EmailServiceImpl implements EmailService {
             log.info("Account activation email sent successfully to: {}", EmailMaskingUtil.maskEmail(email));
         } catch (Exception e) {
             log.error("Error sending account activation email to: {}", EmailMaskingUtil.maskEmail(email), e);
+        } finally {
+            logEmailPreview(message, "account activation", null);
         }
     }
 
@@ -147,8 +151,8 @@ public class EmailServiceImpl implements EmailService {
     @Override
     @Async
     public void sendSimpleEmail(String to, String subject, String content) {
+        SimpleMailMessage message = new SimpleMailMessage();
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom("FPTU Club <" + senderEmail + ">");
             message.setTo(to);
             message.setSubject(subject);
@@ -158,6 +162,8 @@ public class EmailServiceImpl implements EmailService {
             log.info("Simple email sent successfully to: {}", EmailMaskingUtil.maskEmail(to));
         } catch (Exception e) {
             log.error("Error sending simple email to: {}", EmailMaskingUtil.maskEmail(to), e);
+        } finally {
+            logEmailPreview(message, "simple", null);
         }
     }
 
@@ -167,8 +173,8 @@ public class EmailServiceImpl implements EmailService {
             String text,
             String emailType
     ) {
+        SimpleMailMessage message = new SimpleMailMessage();
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom("FPTU Club <" + senderEmail + ">");
             message.setTo(email);
             message.setSubject(subject);
@@ -178,6 +184,33 @@ public class EmailServiceImpl implements EmailService {
             log.info("{} email sent successfully to: {}", emailType, EmailMaskingUtil.maskEmail(email));
         } catch (Exception e) {
             log.error("Error sending {} email to: {}", emailType, EmailMaskingUtil.maskEmail(email), e);
+        } finally {
+            logEmailPreview(message, emailType, null);
         }
+    }
+
+    private void logEmailPreview(SimpleMailMessage message, String emailType, String secretToRedact) {
+        String recipient = message.getTo() != null && message.getTo().length > 0
+                ? EmailMaskingUtil.maskEmail(message.getTo()[0])
+                : "(unknown)";
+        String content = message.getText() != null ? message.getText() : "(empty content)";
+        if (secretToRedact != null && !secretToRedact.isBlank()) {
+            content = content.replace(secretToRedact, "******");
+        }
+
+        log.info("""
+
+                ==================== EMAIL PREVIEW ====================
+                Type    : {}
+                To      : {}
+                Subject : {}
+                ----------------------- CONTENT -----------------------
+                {}
+                ========================================================
+                """,
+                emailType,
+                recipient,
+                message.getSubject() != null ? message.getSubject() : "(no subject)",
+                content);
     }
 }

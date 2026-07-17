@@ -26,6 +26,18 @@ public class EventReport {
     @Column(name = "reportUrl")
     private String reportUrl;
 
+    @Column(name = "cloudinaryPublicId", length = 500)
+    private String cloudinaryPublicId;
+
+    @Column(name = "originalFilename", length = 500)
+    private String originalFilename;
+
+    @Column(name = "fileSize")
+    private Long fileSize;
+
+    @Column(name = "mimeType", length = 100)
+    private String mimeType;
+
     @org.hibernate.annotations.Nationalized
     @Column(name = "summary")
     private String summary;
