@@ -201,7 +201,6 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<SemesterManagement />} />
-        <Route path="club-dashboard" element={<ClubDashboardPage />} />
         <Route path="users" element={<UserManagement />} />
         <Route path="system-config" element={<SystemConfigPage />} />
         <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />

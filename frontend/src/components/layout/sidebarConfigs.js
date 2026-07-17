@@ -36,7 +36,6 @@ import {
 export const SIDEBAR_CONFIGS = {
   ADMIN: [
     { key: "semesters",     label: "Quản Lý Học Kỳ",        icon: BookOpen,    path: "/admin",               exact: true },
-    { key: "club-dashboard", label: "Dashboard CLB",         icon: LayoutDashboard, path: "/admin/club-dashboard" },
     { key: "users",         label: "Quản Lý Người Dùng",     icon: Users,       path: "/admin/users" },
     { key: "system-config", label: "Cấu Hình Hệ Thống",     icon: Settings,    path: "/admin/system-config" },
     { key: "knowledge-archive", label: "Kho Tri Thức",       icon: Library,     path: "/admin/knowledge-archive" },
