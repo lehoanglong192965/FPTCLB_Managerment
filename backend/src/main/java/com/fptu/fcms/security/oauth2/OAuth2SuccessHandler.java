@@ -15,6 +15,9 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+// Lớp xử lý logic sau khi đăng nhập Google OAuth2 thành công.
+// Đầu vào: Kết quả trả về từ Google (thông qua Authentication object chứa UserPrincipal).
+// Đầu ra: Tính toán và cập nhật các phân quyền mới nhất (System Role, Club Role) từ cơ sở dữ liệu, sau đó phát hành chuỗi JWT chứa đầy đủ thông tin phân quyền và chuyển hướng người dùng về Frontend kèm theo JWT.
 @Component
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 

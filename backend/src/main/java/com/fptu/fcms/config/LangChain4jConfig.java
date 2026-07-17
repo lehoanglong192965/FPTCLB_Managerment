@@ -16,6 +16,9 @@ import org.springframework.context.annotation.Configuration;
  * Bean LangChain4j cho RAG (Batch 4).
  * Không dùng langchain4j spring-boot-starter — khai báo thủ công từ gemini.*.
  */
+// Cấu hình các Bean của LangChain4j.
+// Đầu vào: API Key hoặc thông tin cấu hình từ file properties.
+// Đầu ra: Khởi tạo các Bean (như GoogleAiGeminiChatModel, GoogleAiGeminiEmbeddingModel) phục vụ cho RAG. Cấu hình taskType = RETRIEVAL_DOCUMENT để tối ưu hóa vector nhúng.
 @Configuration
 @Slf4j
 public class LangChain4jConfig {

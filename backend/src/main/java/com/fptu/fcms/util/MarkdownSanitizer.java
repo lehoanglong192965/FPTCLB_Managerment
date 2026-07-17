@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 /**
  * Khử độc nội dung Markdown/HTML: xoá <script>, chặn javascript: trong link.
  * Dùng jsoup — KHÔNG tự viết regex sanitizer.
+ * Đầu vào: Chuỗi văn bản Markdown (hoặc HTML) nguyên thủy.
+ * Đầu ra: Trả về chuỗi an toàn đã được xử lý (XSS protection), có thể lưu trữ và hiển thị an toàn trên Frontend.
  */
 @Component
 public class MarkdownSanitizer {

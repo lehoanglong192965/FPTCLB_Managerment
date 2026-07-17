@@ -40,6 +40,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 2. Nếu có token và token đó hợp lệ
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
 
+                // Cổng bảo mật & Ánh xạ Claim:
+                // Lớp này chịu trách nhiệm trích xuất thông tin người dùng (roleName, clubRole, clubId) trực tiếp từ chuỗi JWT.
+                // Đầu vào: Chuỗi JWT đã được xác thực thành công.
+                // Đầu ra: Trích xuất các claim để tạo đối tượng UserPrincipal, quá trình này hoàn toàn không cần truy vấn database (0 SELECT), giúp tối ưu hiệu năng.
                 // 3. Lấy thông tin từ chuỗi jwt — ĐỌC CLAIM TRỰC TIẾP, 0 QUERY DB
                 String email = tokenProvider.getEmailFromJwt(jwt);
                 Integer userId = tokenProvider.getUserIdFromJwt(jwt);

@@ -351,6 +351,9 @@ export default function AiChat() {
     history,
   }) => {
     try {
+      // Lớp giao diện (Frontend) xử lý gửi câu hỏi cho AI Chatbot.
+      // Đầu vào: Câu hỏi văn bản của người dùng (text) và bộ nhớ ngữ cảnh (history - tối đa 5 lượt hội thoại gần nhất).
+      // Đầu ra: Gọi API POST đến /v1/ai/chat, nhận về phản hồi của AI kèm theo danh sách tài liệu tham khảo (citations) và hiển thị lên giao diện.
       const response = await axiosClient.post("/v1/ai/chat", {
         message: text,
         history,
