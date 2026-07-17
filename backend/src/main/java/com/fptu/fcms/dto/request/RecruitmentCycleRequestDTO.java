@@ -22,6 +22,10 @@ public class RecruitmentCycleRequestDTO {
     @NotNull(message = "startDate is required")
     private LocalDate startDate;
 
+    private LocalDate endDate;
+
+    private Integer semesterID;
+
     /** Optional status: e.g., Open, Closed */
     private String status = "Open";
 }

@@ -3,6 +3,7 @@ package com.fptu.fcms.controller;
 import com.fptu.fcms.dto.request.RecruitmentCycleRequestDTO;
 import com.fptu.fcms.dto.response.RecruitmentCycleResponseDTO;
 import com.fptu.fcms.service.RecruitmentCycleService;
+import com.fptu.fcms.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -16,8 +17,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/recruitments")
@@ -27,6 +30,45 @@ import java.util.List;
 public class RecruitmentCycleController {
 
     private final RecruitmentCycleService cycleService;
+
+    @GetMapping("/club/{clubId}")
+    @PreAuthorize("hasAnyRole('Admin','ICPDP','Leader','ViceLeader')")
+    @Operation(summary = "Lấy các đợt tuyển thành viên của một CLB")
+    public ResponseEntity<List<RecruitmentCycleResponseDTO>> getClubCycles(
+            @PathVariable Integer clubId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(cycleService.getClubCycles(clubId, currentUser));
+    }
+
+    @PostMapping("/club/{clubId}")
+    @PreAuthorize("hasAnyRole('Admin','ICPDP','Leader','ViceLeader')")
+    @Operation(summary = "Tạo và mở đợt tuyển thành viên cho một CLB")
+    public ResponseEntity<RecruitmentCycleResponseDTO> createClubCycle(
+            @PathVariable Integer clubId,
+            @Valid @RequestBody RecruitmentCycleRequestDTO dto,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(cycleService.createClubCycle(clubId, dto, currentUser));
+    }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('Admin','ICPDP','Leader','ViceLeader')")
+    @Operation(summary = "Mở hoặc đóng đợt tuyển thành viên của CLB")
+    public ResponseEntity<RecruitmentCycleResponseDTO> changeClubCycleStatus(
+            @PathVariable Integer id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(cycleService.changeClubCycleStatus(id, body.get("status"), currentUser));
+    }
+
+    @GetMapping("/{seasonId}/clubs")
+    @PreAuthorize("hasAnyRole('Admin','ICPDP')")
+    @Operation(summary = "Xem các CLB tham gia một mùa tuyển dụng")
+    public ResponseEntity<List<RecruitmentCycleResponseDTO>> getSeasonClubCycles(
+            @PathVariable Integer seasonId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(cycleService.getSeasonClubCycles(seasonId, currentUser));
+    }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('Admin','ICPDP')")

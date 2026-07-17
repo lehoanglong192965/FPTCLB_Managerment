@@ -19,6 +19,15 @@ public class RecruitmentCycle {
     @Column(name = "cycleID")
     private Integer cycleID;
 
+    @Column(name = "clubID")
+    private Integer clubID;
+
+    @Column(name = "parentCycleID")
+    private Integer parentCycleID;
+
+    @Column(name = "semesterID")
+    private Integer semesterID;
+
     @Column(name = "title")
     private String title;
 
@@ -35,6 +44,9 @@ public class RecruitmentCycle {
 
     @Column(name = "startDate")
     private LocalDate startDate;
+
+    @Column(name = "endDate")
+    private LocalDate endDate;
 
     @Column(name = "closedAt")
     private LocalDateTime closedAt;

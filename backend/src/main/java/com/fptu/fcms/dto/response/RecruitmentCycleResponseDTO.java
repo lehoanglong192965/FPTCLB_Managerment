@@ -12,11 +12,17 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class RecruitmentCycleResponseDTO {
     private Integer cycleID;
+    private Integer clubID;
+    private String clubName;
+    private Integer parentCycleID;
+    private Integer semesterID;
+    private String semesterCode;
     private String title;
     private String questionsJson;
     private String status;
     private LocalDateTime createdAt;
     private LocalDate startDate;
+    private LocalDate endDate;
     private LocalDateTime closedAt;
     private Boolean reminded;
 }
