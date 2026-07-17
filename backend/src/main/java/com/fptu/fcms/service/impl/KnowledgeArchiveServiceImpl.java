@@ -46,6 +46,16 @@ public class KnowledgeArchiveServiceImpl implements KnowledgeArchiveService {
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("md", "txt", "pdf");
     private static final String UPLOAD_DIR = "uploads/knowledge-archive";
 
+    /**
+     * Lớp dịch vụ chịu trách nhiệm xử lý chính quá trình nhập tài liệu (Ingestion) trước khi lưu.
+     * Đầu vào: File thô (.md, .txt, .pdf) từ Controller.
+     * Quá trình xử lý tuần tự bao gồm:
+     * - Validate: Kiểm tra kích thước (<5MB) và định dạng file.
+     * - Quét Virus: Gọi ClamAvScanService (đồng bộ).
+     * - Phân tách PDF: Gọi thư viện opendataloader để chuyển file PDF sang Markdown.
+     * - Khử độc (Sanitization): Sử dụng thư viện jsoup loại bỏ các đoạn mã script độc hại khỏi Markdown.
+     * Đầu ra: Lưu file vật lý vào ổ đĩa, ghi metadata vào Database (với indexingStatus = 'Pending'), và bắn event KnowledgeArchiveIndexedEvent(CREATE) để bắt đầu tiến trình nhúng Vector (Vector Embedding) ở chế độ bất đồng bộ.
+     */
     @Override
     @Transactional
     public KnowledgeArchive create(String title, MultipartFile file, Integer clubID,

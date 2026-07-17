@@ -18,6 +18,9 @@ public class ClamAvScanService {
     @Value("${clamav.port:3310}")
     private int port;
 
+    // Dịch vụ kiểm tra virus bằng ClamAV.
+    // Đầu vào: File tải lên (MultipartFile).
+    // Đầu ra: Đẩy luồng byte vào socket ClamAV để quét. Ném lỗi BusinessRuleException nếu phát hiện chữ ký virus, ngược lại trả về bình thường (chạy đồng bộ).
     public void scan(MultipartFile file) {
         try (Socket socket = new Socket(host, port);
              InputStream inputStream = file.getInputStream()) {

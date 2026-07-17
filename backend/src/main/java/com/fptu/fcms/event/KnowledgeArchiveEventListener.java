@@ -19,6 +19,9 @@ public class KnowledgeArchiveEventListener {
 
     private final KnowledgeIngestionService knowledgeIngestionService;
 
+    // Lắng nghe sự kiện lưu trữ tài liệu hoàn tất.
+    // Đầu vào: Bắt sự kiện KnowledgeArchiveIndexedEvent bằng @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT).
+    // Đầu ra: Gọi Service để chạy tiến trình vector hóa bất đồng bộ (@Async), đảm bảo không chặn luồng chính của client.
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onKnowledgeArchiveIndexed(KnowledgeArchiveIndexedEvent event) {

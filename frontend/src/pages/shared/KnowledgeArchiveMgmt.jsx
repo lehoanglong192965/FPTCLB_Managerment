@@ -534,6 +534,8 @@ export default function KnowledgeArchiveMgmt() {
         return;
       }
 
+      // Đóng gói dữ liệu đầu vào (file, tiêu đề, ID CLB, phạm vi truy cập) vào FormData để gửi lên server.
+      // Đầu ra mong đợi: Hệ thống tiếp nhận file, lưu tạm và trả về thông báo thành công trước khi tiến hành xử lý ngầm (vector hóa).
       const formData = new FormData();
       formData.append("title", values.title.trim());
       formData.append("file", file);

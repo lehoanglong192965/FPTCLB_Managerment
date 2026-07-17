@@ -75,9 +75,9 @@ public class KnowledgeIngestionServiceImpl implements KnowledgeIngestionService 
     }
 
     /**
-     * TC3-06: @Retryable(maxAttempts=3) — sau 3 lần thất bại → recoverIngest được gọi.
-     * TC3-05: method này chỉ được gọi SAU khi KnowledgeArchiveIndexedEvent AFTER_COMMIT fired
-     *         (đảm bảo bởi @TransactionalEventListener trong KnowledgeArchiveEventListener).
+     * Quá trình nhúng Vector (Vector Embedding) với cơ chế tự động thử lại.
+     * Đầu vào: Nhận ID tài liệu (archiveID) từ event sau khi transaction được commit.
+     * Đầu ra: Hàm được bọc bằng @Retryable kết hợp cấu hình maxRetries(3) của LangChain4j nhằm tự động thực hiện lại nếu gặp lỗi mạng đột xuất. Sau 3 lần thất bại sẽ gọi logic recover.
      */
     @Override
     @Retryable(
@@ -214,12 +214,16 @@ public class KnowledgeIngestionServiceImpl implements KnowledgeIngestionService 
         ));
         Document document = Document.from(archive.getContent(), docMeta);
 
-        // TC3-02: Split bằng DocumentSplitters.recursive(500, 100) theo plan DEV3
+        // Phân rã văn bản (Chunking):
+        // Đầu vào: Nội dung Markdown đã khử độc toàn phần.
+        // Đầu ra: Dùng DocumentSplitters.recursive(500, 100) để chia nhỏ văn bản thành các TextSegment (tối đa 500 ký tự, đè lên 100 ký tự để không mất thông tin giáp ranh).
         List<TextSegment> rawSegments = DocumentSplitters.recursive(500, 100).split(document);
 
         int chunkIndex = 0;
         for (TextSegment raw : rawSegments) {
-            // TC3-02: Contextual chunk header — prepend title vào mỗi chunk TRƯỚC khi embed
+            // Chèn tiêu đề ngữ cảnh (Contextual Headers):
+            // Đầu vào: Tên tài liệu gốc (archiveTitle) và nội dung chunk.
+            // Đầu ra: Ghép nối tên tài liệu vào trước mỗi chunk, giúp các chunk giữ được thông tin nguồn gốc của CLB khi đứng riêng lẻ trước khi đem đi nhúng.
             String headedText = title + "\n" + raw.text();
 
             Metadata segmentMeta = raw.metadata() != null ? raw.metadata().copy() : new Metadata();
@@ -249,6 +253,9 @@ public class KnowledgeIngestionServiceImpl implements KnowledgeIngestionService 
             chunkIndex++;
         }
 
+        // Cập nhật trạng thái Vector hóa (Persistence):
+        // Đầu vào: Tất cả các chunk đã được nhúng vector và lưu vào Database/Memory.
+        // Đầu ra: Đổi cột indexingStatus của bản ghi KnowledgeArchive tương ứng thành Success (hoặc Failed nếu xảy ra lỗi trong tiến trình).
         archive.setIndexingStatus("Success");
         knowledgeArchiveRepository.save(archive);
         log.info("Ingest success archiveID={} chunks={}", archiveID, chunkIndex);
