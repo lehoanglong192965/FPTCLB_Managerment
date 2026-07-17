@@ -62,14 +62,12 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
-//                        .requestMatchers(HttpMethod.GET, "/api/uploads/**").permitAll()
-//                        .requestMatchers(HttpMethod.GET, "/api/clubs", "/api/clubs/**").permitAll()
-//                        .requestMatchers(HttpMethod.POST, "/api/v1/reports").authenticated()
-//                        .requestMatchers(HttpMethod.POST, "/api/events/*/guest-registrations").permitAll()
-//                        .requestMatchers(HttpMethod.POST, "/api/events/*/registrations/guest", "/api/v1/events/*/registrations/guest").permitAll()
-//                        .requestMatchers("/api/guest-registrations/**", "/api/guest-feedback/**", "/api/v1/feedback/guest/**").permitAll()
-//                        .requestMatchers(HttpMethod.GET, "/api/v1/events/**").authenticated()
-//                        .requestMatchers("/api/v1/events/**", "/api/icpdp/events/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/uploads/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/clubs", "/api/clubs/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/events/approved", "/api/v1/events/*").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/events/*/guest-registrations").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/events/*/registrations/guest", "/api/v1/events/*/registrations/guest").permitAll()
+                        .requestMatchers("/api/guest-registrations/**", "/api/guest-feedback/**", "/api/v1/feedback/guest/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex

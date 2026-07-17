@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
 import eventApi from "../../services/api/events/eventApi";
@@ -27,7 +27,7 @@ export default function PersonnelAssignmentPage() {
   const [newUserId, setNewUserId] = useState("");
   const [newRoleId, setNewRoleId] = useState("");
 
-  const fetchAssignments = async () => {
+  const fetchAssignments = useCallback(async () => {
     try {
       const response = await eventApi.getAssignments(eventId);
       const data = Array.isArray(response) ? response : (response.data || []);
@@ -39,7 +39,7 @@ export default function PersonnelAssignmentPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId, toast]);
 
   const unassignedMembers = members?.filter(
     m => !assignments.some(a => a.userID === m.userID)
@@ -47,7 +47,7 @@ export default function PersonnelAssignmentPage() {
 
   useEffect(() => {
     fetchAssignments();
-  }, [eventId]);
+  }, [fetchAssignments]);
 
   const handleAddAssignment = async () => {
     if (!newUserId || !newRoleId) {

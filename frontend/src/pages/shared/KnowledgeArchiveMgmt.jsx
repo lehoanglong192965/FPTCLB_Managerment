@@ -35,6 +35,7 @@ import {
 import axiosClient, { TokenService } from "../../services/api/axiosClient";
 import clubApi from "../../services/api/clubs/clubApi";
 import { decodeJwtPayload } from "../../utils/tokenGuard";
+import { isCanceledRequest } from "../../utils/apiErrors";
 import { useToast } from "../../contexts/ToastContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
 
@@ -115,10 +116,6 @@ function extractErrorMessage(err, fallback) {
     ?? err?.message
     ?? fallback
   );
-}
-
-function isCanceledRequest(err) {
-  return err?.code === "ERR_CANCELED" || err?.name === "CanceledError";
 }
 
 function StatCard({ label, value, accent, icon: Icon }) {

@@ -2,18 +2,26 @@ import { useState, useMemo, useEffect } from "react";
 import { useConfirm } from "../../contexts/ConfirmContext";
 import { useToast } from "../../contexts/ToastContext";
 import {
-  Search, X, Plus, ShieldAlert, Clock,
-  CheckCircle2, FileText, ChevronLeft, Loader2,
+  Search, X, Plus, ShieldAlert, Clock, Users, UserCheck, UserX,
+  CheckCircle2, FileText, ChevronLeft, Mail, GraduationCap, Calendar, Loader2,
 } from "lucide-react";
 import SuspendButton from "../../components/admin/SuspendButton";
 import adminApi from "../../services/api/admin/adminApi";
 import { getInitials } from "../../utils/avatar";
 
 const ROLE_LABEL = { 1: "Admin", 2: "ICPDP", 3: "Sinh viên" };
+const ROLE_CHIP = {
+  1: "bg-violet-50 text-violet-700 border-violet-200",
+  2: "bg-blue-50 text-blue-700 border-blue-200",
+  3: "bg-slate-100 text-slate-600 border-slate-200",
+};
 
+// Ghi chú: backend chưa có API cho "Quản lý Kỷ luật" — phần này vẫn giữ mockdata
+// cục bộ (chỉ lưu trong state, mất khi tải lại trang) cho tới khi có API riêng.
+const MOCK_DISCIPLINES = {};
 
 const PANEL_TABS = [
-  { key: "info",       label: "Thông tin" },
+  { key: "info", label: "Thông tin" },
   { key: "discipline", label: "Quản lý Kỷ luật" },
 ];
 
@@ -34,28 +42,98 @@ function formatDate(s) {
   return new Date(s).toLocaleDateString("vi-VN");
 }
 
+function StatCard({ icon: Icon, label, value, tint }) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${tint}`}>
+        <Icon size={20} />
+      </div>
+      <div>
+        <p className="text-2xl font-extrabold text-gray-950 m-0 leading-none">{value}</p>
+        <p className="text-xs font-medium text-gray-500 m-0 mt-1">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function UserCard({ user, onOpen, onToggle }) {
+  return (
+    <div
+      onClick={() => onOpen(user)}
+      className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex flex-col gap-3.5 cursor-pointer hover:border-[#e6430a]/40 hover:shadow-md transition-all"
+    >
+      <div className="flex items-start gap-3">
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#e6430a] to-[#ff8c5a] flex items-center justify-center text-[15px] font-bold text-white shrink-0">
+          {getInitials(user.fullName)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-gray-900 m-0 text-[14.5px] truncate">{user.fullName}</p>
+          <p className="text-xs text-gray-400 m-0 mt-0.5 truncate flex items-center gap-1">
+            <Mail size={11} className="shrink-0" /> {user.email}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${ROLE_CHIP[user.roleID]}`}>
+          {ROLE_LABEL[user.roleID] ?? user.roleID}
+        </span>
+        <StatusBadge status={user.accountStatus} />
+      </div>
+
+      {user.major && (
+        <p className="text-xs text-gray-500 m-0 flex items-center gap-1.5">
+          <GraduationCap size={13} className="text-gray-400" /> {user.major}
+        </p>
+      )}
+
+      <div className="flex items-center justify-between pt-3 border-t border-gray-50" onClick={(e) => e.stopPropagation()}>
+        <button
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-gray-200 rounded-md bg-white text-[11.5px] font-semibold text-gray-500 cursor-pointer hover:border-[#e6430a] hover:text-[#e6430a] transition-colors"
+          onClick={() => onOpen(user, "discipline")}
+        >
+          <ShieldAlert size={12} /> Kỷ luật
+        </button>
+        <SuspendButton user={user} onToggle={onToggle} variant="compact" />
+      </div>
+    </div>
+  );
+}
+
 export default function UserManagement() {
   const confirm = useConfirm();
   const toast = useToast();
-  const [users,          setUsers]          = useState([]);
-  const [usersLoading,   setUsersLoading]   = useState(true);
-  const [search,         setSearch]         = useState("");
-  const [filter,         setFilter]         = useState("all");
-  const [selectedUser,   setSelectedUser]   = useState(null);
-  const [activeTab,      setActiveTab]      = useState("info");
-  const [disciplinesMap, setDisciplinesMap] = useState({});
-  const [showAddForm,    setShowAddForm]    = useState(false);
-  const [addForm,        setAddForm]        = useState(EMPTY_FORM);
-  const [addError,       setAddError]       = useState("");
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState("");
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [activeTab, setActiveTab] = useState("info");
+  const [disciplinesMap, setDisciplinesMap] = useState(MOCK_DISCIPLINES);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm, setAddForm] = useState(EMPTY_FORM);
+  const [addError, setAddError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+    setUsersLoading(true);
+    setUsersError("");
     adminApi.getAllUsers()
       .then((data) => {
+        if (cancelled) return;
         const list = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
         setUsers(list);
       })
-      .catch(() => setUsers([]))
-      .finally(() => setUsersLoading(false));
+      .catch((err) => {
+        if (cancelled || err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
+        setUsersError(err?.response?.data?.message ?? "Không thể tải danh sách người dùng.");
+      })
+      .finally(() => {
+        if (!cancelled) setUsersLoading(false);
+      });
+    return () => { cancelled = true; };
   }, []);
 
   function openUser(user, tab = "info") {
@@ -84,9 +162,7 @@ export default function UserManagement() {
         await adminApi.activateUser(user.userID);
       }
       const newStatus = type === "suspend" ? "Suspended" : "Active";
-      setUsers((prev) =>
-        prev.map((u) => u.userID === user.userID ? { ...u, accountStatus: newStatus } : u)
-      );
+      setUsers((prev) => prev.map((u) => u.userID === user.userID ? { ...u, accountStatus: newStatus } : u));
       if (selectedUser?.userID === user.userID) {
         setSelectedUser((prev) => ({ ...prev, accountStatus: newStatus }));
       }
@@ -95,8 +171,7 @@ export default function UserManagement() {
         : `Đã mở khóa tài khoản "${user.fullName}".`
       );
     } catch (err) {
-      const errMsg = err?.response?.data?.message ?? "Thao tác thất bại. Vui lòng thử lại.";
-      toast.error(errMsg);
+      toast.error(err?.response?.data?.message ?? "Thao tác thất bại. Vui lòng thử lại.");
     }
   }
 
@@ -106,11 +181,11 @@ export default function UserManagement() {
       return;
     }
     const newLog = {
-      id:        Date.now(),
-      reason:    addForm.reason.trim(),
-      semester:  addForm.semester.trim(),
-      status:    "Active",
-      createdAt: new Date().toISOString().slice(0, 10),
+      id: Date.now(),
+      reason: addForm.reason.trim(),
+      semester: addForm.semester.trim(),
+      status: "Active",
+      createdAt: new Date().toISOString(),
     };
     setDisciplinesMap((prev) => ({
       ...prev,
@@ -132,23 +207,32 @@ export default function UserManagement() {
     toast.success("Đã đánh dấu vi phạm là Đã giải quyết.");
   }
 
+  const stats = useMemo(() => ({
+    total: users.length,
+    active: users.filter((u) => u.accountStatus === "Active").length,
+    suspended: users.filter((u) => u.accountStatus === "Suspended").length,
+    staff: users.filter((u) => u.roleID === 1 || u.roleID === 2).length,
+  }), [users]);
+
   const filtered = useMemo(() => {
     return users.filter((u) => {
       const matchSearch =
         u.fullName?.toLowerCase().includes(search.toLowerCase()) ||
         u.email?.toLowerCase().includes(search.toLowerCase());
-      const matchFilter =
-        filter === "all" ||
-        (filter === "active"    && u.accountStatus === "Active") ||
-        (filter === "suspended" && u.accountStatus === "Suspended");
-      return matchSearch && matchFilter;
+      const matchRole = roleFilter === "all" || String(u.roleID) === roleFilter;
+      const matchStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" && u.accountStatus === "Active") ||
+        (statusFilter === "suspended" && u.accountStatus === "Suspended");
+      return matchSearch && matchRole && matchStatus;
     });
-  }, [users, search, filter]);
+  }, [users, search, roleFilter, statusFilter]);
 
   const selectedDisciplines = selectedUser ? (disciplinesMap[selectedUser.userID] ?? []) : [];
-  const activeViolations    = selectedDisciplines.filter((d) => d.status === "Active").length;
+  const activeViolations = selectedDisciplines.filter((d) => d.status === "Active").length;
 
   const inputCls = "w-full px-3 py-2 border border-gray-200 rounded-lg text-[13.5px] text-gray-900 bg-white outline-none transition-colors focus:border-[#e6430a] focus:shadow-[0_0_0_3px_rgba(230,67,10,0.08)] box-border";
+  const selectCls = "px-3 py-2 border border-gray-300 rounded-lg text-[13.5px] bg-white text-gray-700 outline-none cursor-pointer transition-colors focus:border-[#e6430a]";
 
   return (
     <div>
@@ -158,113 +242,74 @@ export default function UserManagement() {
           <h1 className="page-title">Quản Lý Người Dùng</h1>
           <p className="page-subtitle">Xem và quản lý tài khoản, kỷ luật người dùng trong hệ thống</p>
         </div>
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="relative">
-            <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <input
-              className="pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-[13.5px] w-60 outline-none transition-colors focus:border-[#e6430a]"
-              type="text"
-              placeholder="Tìm tên hoặc email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <select
-            className="px-3 py-2 border border-gray-300 rounded-lg text-[13.5px] bg-white text-gray-700 outline-none cursor-pointer transition-colors focus:border-[#e6430a]"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Hoạt động</option>
-            <option value="suspended">Tạm khóa</option>
-          </select>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
+        <StatCard icon={Users} label="Tổng người dùng" value={stats.total} tint="bg-orange-50 text-[#e6430a]" />
+        <StatCard icon={UserCheck} label="Đang hoạt động" value={stats.active} tint="bg-emerald-50 text-emerald-600" />
+        <StatCard icon={UserX} label="Đang tạm khóa" value={stats.suspended} tint="bg-red-50 text-red-500" />
+        <StatCard icon={ShieldAlert} label="Admin / ICPDP" value={stats.staff} tint="bg-violet-50 text-violet-600" />
+      </div>
+
+      {/* Filter bar */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6 flex items-center gap-2.5 flex-wrap">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-[13.5px] outline-none transition-colors focus:border-[#e6430a]"
+            type="text"
+            placeholder="Tìm tên hoặc email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
+        <select className={selectCls} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+          <option value="all">Tất cả vai trò</option>
+          <option value="1">Admin</option>
+          <option value="2">ICPDP</option>
+          <option value="3">Sinh viên</option>
+        </select>
+        <select className={selectCls} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="all">Tất cả trạng thái</option>
+          <option value="active">Hoạt động</option>
+          <option value="suspended">Tạm khóa</option>
+        </select>
       </div>
 
       <p className="text-[13px] text-gray-500 mb-3">
-        Hiển thị <strong>{filtered.length}</strong> / {users.length} người dùng · Nhấp vào hàng để xem hồ sơ
+        Hiển thị <strong>{filtered.length}</strong> / {users.length} người dùng · Nhấp vào thẻ để xem hồ sơ
       </p>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <table className="w-full border-collapse text-[13.5px]">
-          <thead className="bg-slate-50 border-b-2 border-gray-200">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Người dùng</th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Chuyên ngành</th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Vai trò</th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Trạng thái</th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Ngày tạo</th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {usersLoading ? (
-              <tr>
-                <td colSpan={6} className="text-center py-12 px-4">
-                  <Loader2 className="animate-spin inline text-gray-400" size={24} />
-                </td>
-              </tr>
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center py-12 px-4 text-gray-400 text-[14px]">
-                  Không tìm thấy người dùng nào.
-                </td>
-              </tr>
-            ) : (
-              filtered.map((u) => (
-                <tr
-                  key={u.userID}
-                  className="border-b border-gray-100 last:border-b-0 hover:[&>td]:bg-gray-50 cursor-pointer"
-                  onClick={() => openUser(u)}
-                >
-                  <td className="px-4 py-3 text-gray-700 align-middle">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-[34px] h-[34px] rounded-full bg-gradient-to-br from-[#e6430a] to-[#ff8c5a] flex items-center justify-center text-[13px] font-bold text-white flex-shrink-0">
-                        {getInitials(u.fullName)}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 mb-0 text-[13.5px]">{u.fullName ?? "—"}</p>
-                        <p className="text-xs text-gray-400 mb-0">{u.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-700 align-middle">{u.major ?? "—"}</td>
-                  <td className="px-4 py-3 text-gray-700 align-middle">{ROLE_LABEL[u.roleID] ?? u.roleID}</td>
-                  <td className="px-4 py-3 text-gray-700 align-middle"><StatusBadge status={u.accountStatus} /></td>
-                  <td className="px-4 py-3 text-gray-700 align-middle">{u.createdAt?.slice(0, 10) ?? "—"}</td>
-                  <td className="px-4 py-3 align-middle" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-1.5">
-                      <SuspendButton user={u} onToggle={handleToggle} variant="compact" />
-                      <button
-                        className="inline-flex items-center gap-1 px-2.5 py-1 border border-gray-200 rounded-md bg-white text-[11.5px] font-semibold text-gray-500 cursor-pointer hover:border-[#e6430a] hover:text-[#e6430a] transition-colors whitespace-nowrap"
-                        onClick={() => openUser(u, "discipline")}
-                      >
-                        <ShieldAlert size={12} /> Kỷ luật
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* User grid */}
+      {usersLoading ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 py-16 flex justify-center">
+          <Loader2 className="animate-spin text-gray-400" size={28} />
+        </div>
+      ) : usersError ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-red-100 py-16 text-center text-red-500 text-sm">
+          {usersError}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 py-16 text-center text-gray-400 text-sm">
+          Không tìm thấy người dùng nào.
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filtered.map((u) => (
+            <UserCard key={u.userID} user={u} onOpen={openUser} onToggle={handleToggle} />
+          ))}
+        </div>
+      )}
 
       {/* ── Right drawer ──────────────────────────────────────────────── */}
       {selectedUser && (
         <>
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-black/25 z-40"
-            onClick={closePanel}
-          />
+          <div className="fixed inset-0 bg-black/25 z-40" onClick={closePanel} />
 
-          {/* Drawer */}
           <div className="fixed inset-y-0 right-0 w-[480px] max-w-full bg-white z-50 flex flex-col"
             style={{ boxShadow: "-8px 0 40px rgba(0,0,0,0.14)" }}>
 
-            {/* Drawer header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <button
                 className="flex items-center gap-1.5 text-[13px] font-medium text-gray-500 bg-transparent border-none cursor-pointer hover:text-gray-900 transition-colors p-0"
@@ -280,33 +325,32 @@ export default function UserManagement() {
               </button>
             </div>
 
-            {/* User info card */}
-            <div className="px-6 py-4 border-b border-gray-100 bg-slate-50 flex-shrink-0">
+            <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-b from-orange-50/40 to-white flex-shrink-0">
               <div className="flex items-start gap-3.5">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#e6430a] to-[#ff8c5a] flex items-center justify-center text-[18px] font-extrabold text-white flex-shrink-0 select-none">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#e6430a] to-[#ff8c5a] flex items-center justify-center text-[20px] font-extrabold text-white flex-shrink-0 select-none">
                   {getInitials(selectedUser.fullName)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[15px] font-bold text-gray-900 m-0 mb-0.5 leading-tight">{selectedUser.fullName}</p>
+                  <p className="text-[16px] font-bold text-gray-900 m-0 mb-0.5 leading-tight">{selectedUser.fullName}</p>
                   <p className="text-[12.5px] text-gray-500 m-0 mb-2.5">{selectedUser.email}</p>
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[11.5px] font-semibold bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
+                    <span className={`text-[11.5px] font-semibold px-2 py-0.5 rounded-full border ${ROLE_CHIP[selectedUser.roleID]}`}>
                       {ROLE_LABEL[selectedUser.roleID]}
                     </span>
-                    <span className="text-[11.5px] font-semibold bg-gray-200 text-gray-600 px-2 py-0.5 rounded">
-                      {selectedUser.major}
-                    </span>
+                    {selectedUser.major && (
+                      <span className="text-[11.5px] font-semibold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full border border-gray-200">
+                        {selectedUser.major}
+                      </span>
+                    )}
                     <StatusBadge status={selectedUser.accountStatus} />
                   </div>
                 </div>
-                {/* FE1 component — imported from components/admin/SuspendButton */}
-                <div className="flex-shrink-0">
-                  <SuspendButton user={selectedUser} onToggle={handleToggle} />
-                </div>
+              </div>
+              <div className="mt-4">
+                <SuspendButton user={selectedUser} onToggle={handleToggle} />
               </div>
             </div>
 
-            {/* Tabs */}
             <div className="flex border-b border-gray-200 px-6 flex-shrink-0 bg-white">
               {PANEL_TABS.map((tab) => (
                 <button
@@ -329,25 +373,28 @@ export default function UserManagement() {
               ))}
             </div>
 
-            {/* Tab content */}
             <div className="flex-1 overflow-y-auto px-6 py-5">
 
-              {/* ── Tab: Thông tin ── */}
               {activeTab === "info" && (
                 <div className="flex flex-col gap-3">
                   <div className="grid grid-cols-2 gap-3">
                     {[
-                      ["User ID",      `#${selectedUser.userID}`],
-                      ["Họ và tên",    selectedUser.fullName],
+                      ["User ID", `#${selectedUser.userID}`],
+                      ["Họ và tên", selectedUser.fullName],
                       ["Chuyên ngành", selectedUser.major ?? "—"],
-                      ["Vai trò",      ROLE_LABEL[selectedUser.roleID]],
-                      ["Ngày tạo",     formatDate(selectedUser.createdAt)],
+                      ["Vai trò", ROLE_LABEL[selectedUser.roleID]],
                     ].map(([k, v]) => (
                       <div key={k} className="flex flex-col gap-1 p-3.5 bg-gray-50 rounded-xl border border-gray-100">
                         <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">{k}</span>
                         <span className="text-[13.5px] font-semibold text-gray-900 break-all">{v}</span>
                       </div>
                     ))}
+                    <div className="flex flex-col gap-1 p-3.5 bg-gray-50 rounded-xl border border-gray-100">
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1">
+                        <Calendar size={11} /> Ngày tạo
+                      </span>
+                      <span className="text-[13.5px] font-semibold text-gray-900">{formatDate(selectedUser.createdAt)}</span>
+                    </div>
                     <div className="flex flex-col gap-1 p-3.5 bg-gray-50 rounded-xl border border-gray-100">
                       <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Trạng thái</span>
                       <StatusBadge status={selectedUser.accountStatus} />
@@ -377,10 +424,8 @@ export default function UserManagement() {
                 </div>
               )}
 
-              {/* ── Tab: Quản lý Kỷ luật ── */}
               {activeTab === "discipline" && (
                 <div className="flex flex-col gap-4">
-                  {/* Section header */}
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-[14px] font-bold text-gray-900 m-0">Nhật ký vi phạm</h3>
@@ -401,7 +446,6 @@ export default function UserManagement() {
                     </button>
                   </div>
 
-                  {/* Add form */}
                   {showAddForm && (
                     <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                       <h4 className="text-[13px] font-bold text-gray-700 m-0 mb-3 flex items-center gap-1.5">
@@ -453,7 +497,6 @@ export default function UserManagement() {
                     </div>
                   )}
 
-                  {/* Log list */}
                   {selectedDisciplines.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <ShieldAlert size={36} className="text-gray-200 mb-3" />

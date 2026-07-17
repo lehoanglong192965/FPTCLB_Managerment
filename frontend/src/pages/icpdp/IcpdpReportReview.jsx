@@ -197,18 +197,19 @@ export default function IcpdpReportReview() {
   const [search, setSearch]         = useState("");
   const [statusFilter, setStatusFilter] = useState("pending");
 
-  const fetchReportFor = async (eventId) => {
-    try {
-      const res = await reportApi.getByEventId(eventId);
-      setReports((prev) => ({ ...prev, [eventId]: res?.data ?? res }));
-    } catch (err) {
-      if (err?.response?.status !== 404 && err?.code !== "ERR_CANCELED" && err?.name !== "CanceledError") {
-        toast.error(err?.response?.data?.message ?? "Không thể tải thông tin báo cáo.");
-      }
-    }
-  };
-
   useEffect(() => {
+    // Chỉ dùng bên trong effect này nên khai báo tại chỗ — khỏi cần useCallback.
+    const fetchReportFor = async (eventId) => {
+      try {
+        const res = await reportApi.getByEventId(eventId);
+        setReports((prev) => ({ ...prev, [eventId]: res?.data ?? res }));
+      } catch (err) {
+        if (err?.response?.status !== 404 && err?.code !== "ERR_CANCELED" && err?.name !== "CanceledError") {
+          toast.error(err?.response?.data?.message ?? "Không thể tải thông tin báo cáo.");
+        }
+      }
+    };
+
     setLoading(true);
     Promise.all([
       eventApi.getReportUploadedEvents(),
@@ -233,7 +234,7 @@ export default function IcpdpReportReview() {
         toast.error(err?.response?.data?.message ?? "Không thể tải danh sách sự kiện chờ duyệt báo cáo.");
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [toast]);
 
   const handleApprove = async (eventId) => {
     if (!(await confirm("Xác nhận phê duyệt báo cáo? Hành động không thể hoàn tác.", { confirmLabel: "Phê duyệt" }))) return;

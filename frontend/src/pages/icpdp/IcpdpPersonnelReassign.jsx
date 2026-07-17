@@ -71,7 +71,7 @@ export default function IcpdpPersonnelReassign() {
         toast.error(err?.response?.data?.message ?? "Không thể tải lịch sử điều động.");
       })
       .finally(() => setLoadingHistory(false));
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     if (!form.clubId) { setClubMembers([]); return; }

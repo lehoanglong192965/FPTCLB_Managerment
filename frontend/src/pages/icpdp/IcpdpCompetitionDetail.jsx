@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Trophy, ArrowLeft, Calculator, CheckCircle2, Send, Lock, Eye, RefreshCw } from 'lucide-react';
 import competitionApi from '../../services/api/competitions/competitionApi';
@@ -43,7 +43,7 @@ export default function IcpdpCompetitionDetail() {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(null);
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     competitionApi.getById(competitionId)
       .then((res) => setData(res?.data ?? res))
@@ -52,9 +52,9 @@ export default function IcpdpCompetitionDetail() {
         toast.error(err?.response?.data?.message ?? 'Không thể tải thông tin cuộc thi.');
       })
       .finally(() => setLoading(false));
-  };
+  }, [competitionId, toast]);
 
-  useEffect(load, [competitionId]);
+  useEffect(load, [load]);
 
   const doAction = async (action, confirmMsg, fn) => {
     if (!(await confirm(confirmMsg))) return;

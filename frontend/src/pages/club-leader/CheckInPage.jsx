@@ -86,8 +86,8 @@ export default function CheckInPage() {
       const list = Array.isArray(res) ? res : (res?.data ?? []);
       setSessions(list);
       const openSessions = list.filter((s) => s.status === 'OPEN');
-      if (openSessions.length === 1 && !activeSession) {
-        setActiveSession(openSessions[0]);
+      if (openSessions.length === 1) {
+        setActiveSession((cur) => cur ?? openSessions[0]);
       }
     } catch {
       // silently ignore — event may not have sessions yet

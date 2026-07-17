@@ -5,9 +5,9 @@ import { useAuth } from "../../contexts/AuthContext";
 import ClubsSection from "../../components/clubs/ClubsSection";
 import EventsSection from "../../components/events/EventsSection";
 import AiChat from "../../components/ui/AiChat";
-import heroImg1 from "../../assets/img/Screen-Shot-2021-05-24-at-12.36.27-PM-910x603.png";
-import heroImg2 from "../../assets/img/b25-1536x1024-1.jpg";
-import heroImg3 from "../../assets/img/dsc8129-16182196527121381711280-910x607.jpeg";
+import heroImg1 from "../../assets/img/Screen-Shot-2021-05-24-at-12.36.27-PM-910x603.webp";
+import heroImg2 from "../../assets/img/b25-1536x1024-1.webp";
+import heroImg3 from "../../assets/img/dsc8129-16182196527121381711280-910x607.webp";
 
 const scrollTo = (id) =>
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });

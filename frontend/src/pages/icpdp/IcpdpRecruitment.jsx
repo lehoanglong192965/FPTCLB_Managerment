@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, RefreshCw, Bell, X, ChevronDown } from "lucide-react";
 import recruitmentApi from "../../services/api/icpdp/recruitmentApi";
 import { useToast } from "../../contexts/ToastContext";
@@ -31,7 +31,7 @@ export default function IcpdpRecruitment() {
   const [submitting, setSubmitting] = useState(false);
   const [reminding, setReminding]   = useState({});
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await recruitmentApi.getAll();
@@ -41,9 +41,9 @@ export default function IcpdpRecruitment() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const set = (f) => (e) => setForm((p) => ({ ...p, [f]: e.target.value }));
 

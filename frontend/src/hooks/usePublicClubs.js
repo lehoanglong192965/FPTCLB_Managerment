@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import clubApi from "../services/api/clubs/clubApi";
+import { isCanceledRequest } from "../utils/apiErrors";
 
 // Danh mục CLB dùng chung — xem constants/clubCategories.js
 export { CATEGORY_LABEL, displayCategory } from "../constants/clubCategories";
@@ -42,8 +43,8 @@ export function usePublicClubs() {
       })
       .catch((err) => {
         if (cancelled) return;
-        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
-        setError(err?.response?.data?.message ?? err?.message ?? "Không thể tải danh sách câu lạc bộ");
+        if (isCanceledRequest(err)) return;
+        setError(err?.response?.data?.message ?? "Không thể tải danh sách câu lạc bộ. Vui lòng thử lại sau.");
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
