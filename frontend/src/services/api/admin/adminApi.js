@@ -9,6 +9,9 @@ const adminApi = {
 
   activateUser: (id) =>
     axiosClient.put(`/admin/users/${id}/activate`),
+
+  createIcpdpAccount: (data) =>
+    axiosClient.post("/admin/users/icpdp", data),
 };
 
 export default adminApi;

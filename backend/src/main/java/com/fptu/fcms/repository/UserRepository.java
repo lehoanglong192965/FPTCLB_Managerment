@@ -23,4 +23,12 @@ public interface UserRepository extends JpaRepository<UserAccount, Integer> {
     Optional<UserAccount> findByUserIDAndIsDeletedFalse(Integer userID);
     List<UserAccount> findAllByUserIDIn(List<Integer> userIDs);
     List<UserAccount> findByRoleIDAndIsDeletedFalse(Integer roleID);
+
+    Optional<UserAccount> findByEmailIgnoreCaseAndIsDeletedFalse(String email);
+
+    @org.springframework.data.jpa.repository.Query(
+        value = "SELECT TOP 1 * FROM UserAccount WHERE LOWER(email) = LOWER(:email)",
+        nativeQuery = true
+    )
+    Optional<UserAccount> findAnyByEmailIgnoreCase(@org.springframework.data.repository.query.Param("email") String email);
 }

@@ -37,6 +37,24 @@ public class AdminUserController {
     private static final String STATUS_SUSPENDED = "Suspended";
 
     private final UserRepository userRepository;
+    private final com.fptu.fcms.service.AdminUserService adminUserService;
+
+    @org.springframework.web.bind.annotation.PostMapping("/icpdp")
+    @PreAuthorize("hasRole('Admin')")
+    @Operation(summary = "Cấp quyền/Tạo tài khoản ICPDP")
+    public ResponseEntity<com.fptu.fcms.dto.response.ProvisionIcpdpResponse> provisionIcpdp(
+            @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody com.fptu.fcms.dto.request.CreateIcpdpRequest request,
+            @AuthenticationPrincipal UserPrincipal currentAdmin) {
+
+        com.fptu.fcms.dto.response.ProvisionIcpdpResponse response =
+                adminUserService.provisionIcpdp(request, currentAdmin.getUserId());
+
+        HttpStatus status = response.getAction() == com.fptu.fcms.enums.ProvisionIcpdpAction.CREATED
+                ? HttpStatus.CREATED
+                : HttpStatus.OK;
+
+        return ResponseEntity.status(status).body(response);
+    }
 
     @GetMapping
     @PreAuthorize("hasRole('Admin')")
