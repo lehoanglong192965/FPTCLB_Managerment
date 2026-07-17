@@ -29,28 +29,34 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         this.allowedEmailRepository = allowedEmailRepository;
     }
 
+    protected OAuth2User getGoogleUser(OAuth2UserRequest userRequest) {
+        return super.loadUser(userRequest);
+    }
+
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
         // 1. Lấy thông tin User từ Google (thông qua class cha)
-        OAuth2User oAuth2User = super.loadUser(userRequest);
+        OAuth2User oAuth2User = getGoogleUser(userRequest);
 
         // 2. Trích xuất Email và Tên từ dữ liệu Google trả về
-        String email = oAuth2User.getAttribute("email");
+        String emailAttribute = oAuth2User.getAttribute("email");
         String name = oAuth2User.getAttribute("name");
 
-        if (email == null) {
+        if (emailAttribute == null) {
             throw new OAuth2AuthenticationException(new OAuth2Error("email_not_found"), "Không lấy được email từ Google.");
         }
+        
+        String email = emailAttribute.trim().toLowerCase(java.util.Locale.ROOT);
 
         // 3. KIỂM TRA ĐUÔI EMAIL VÀ WHITELIST
         if (!email.endsWith("@fpt.edu.vn") && !email.endsWith("@fe.edu.vn")) {
-            if (!allowedEmailRepository.existsByEmail(email)) {
+            if (!allowedEmailRepository.existsByEmailIgnoreCase(email)) {
                 throw new OAuth2AuthenticationException(new OAuth2Error("invalid_domain"), "Tài khoản email này chưa được cấp phép trong hệ thống.");
             }
         }
 
         // 4. Kiểm tra User đã tồn tại trong Database chưa
-        Optional<UserAccount> userOptional = userRepository.findByEmailAndIsDeletedFalse(email);
+        Optional<UserAccount> userOptional = userRepository.findByEmailIgnoreCaseAndIsDeletedFalse(email);
         UserAccount userEntity;
 
         if (userOptional.isPresent()) {

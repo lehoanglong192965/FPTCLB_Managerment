@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useConfirm } from "../../contexts/ConfirmContext";
 import { useToast } from "../../contexts/ToastContext";
 import {
@@ -116,25 +116,71 @@ export default function UserManagement() {
   const [addForm, setAddForm] = useState(EMPTY_FORM);
   const [addError, setAddError] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
+  const [showIcpdpForm, setShowIcpdpForm] = useState(false);
+  const [icpdpForm, setIcpdpForm] = useState({ email: "", fullName: "" });
+  const [isIcpdpLoading, setIsIcpdpLoading] = useState(false);
+
+  const loadUsers = useCallback(async () => {
     setUsersLoading(true);
     setUsersError("");
-    adminApi.getAllUsers()
-      .then((data) => {
-        if (cancelled) return;
-        const list = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
-        setUsers(list);
-      })
-      .catch((err) => {
-        if (cancelled || err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
-        setUsersError(err?.response?.data?.message ?? "Không thể tải danh sách người dùng.");
-      })
-      .finally(() => {
-        if (!cancelled) setUsersLoading(false);
-      });
-    return () => { cancelled = true; };
+    try {
+      const data = await adminApi.getAllUsers();
+      const list = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
+      setUsers(list);
+      return true;
+    } catch (err) {
+      if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") {
+        return false;
+      }
+      setUsersError(err?.response?.data?.message ?? "Không thể tải danh sách người dùng.");
+      return false;
+    } finally {
+      setUsersLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
+
+  const closeIcpdpForm = () => {
+    if (isIcpdpLoading) return;
+    setShowIcpdpForm(false);
+    setIcpdpForm({ email: "", fullName: "" });
+  };
+
+  const handleCreateIcpdp = async (e) => {
+    e.preventDefault();
+    if (!icpdpForm.email.trim() || !icpdpForm.fullName.trim()) {
+      toast.error("Vui lòng điền đầy đủ Email và Họ tên.");
+      return;
+    }
+    setIsIcpdpLoading(true);
+    try {
+      const res = await adminApi.createIcpdpAccount(icpdpForm);
+      const data = res?.data ?? res;
+      switch (data.action) {
+        case "CREATED":
+          toast.success("Đã tạo và cấp trước tài khoản ICPDP.");
+          break;
+        case "UPGRADED":
+          toast.success("Đã nâng cấp tài khoản hiện có lên ICPDP.");
+          break;
+        case "ALREADY_ICPDP":
+          toast.success("Tài khoản đã có quyền ICPDP. Thông tin đã được cập nhật.");
+          break;
+        default:
+          toast.success("Thao tác thành công.");
+      }
+      await loadUsers();
+      closeIcpdpForm();
+    } catch (error) {
+      const msg = error?.response?.data?.message || error?.response?.data?.email || error?.response?.data?.fullName || "Có lỗi xảy ra khi cấp tài khoản ICPDP.";
+      toast.error(msg);
+    } finally {
+      setIsIcpdpLoading(false);
+    }
+  };
 
   function openUser(user, tab = "info") {
     setSelectedUser(user);
@@ -242,6 +288,12 @@ export default function UserManagement() {
           <h1 className="page-title">Quản Lý Người Dùng</h1>
           <p className="page-subtitle">Xem và quản lý tài khoản, kỷ luật người dùng trong hệ thống</p>
         </div>
+        <button
+          onClick={() => setShowIcpdpForm(true)}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#e6430a] hover:bg-[#d13d09] text-white border-none rounded-lg text-[13.5px] font-semibold cursor-pointer transition-colors shadow-sm"
+        >
+          <Plus size={16} /> Cấp tài khoản ICPDP
+        </button>
       </div>
 
       {/* Stat cards */}
@@ -552,6 +604,87 @@ export default function UserManagement() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ICPDP Creation Modal */}
+      {showIcpdpForm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-orange-50 to-white">
+              <h2 className="text-lg font-bold text-gray-900 m-0">Cấp quyền ICPDP</h2>
+              <button
+                onClick={closeIcpdpForm}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 border-none cursor-pointer transition-colors"
+                disabled={isIcpdpLoading}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateIcpdp} className="p-6 flex flex-col gap-4">
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-2.5">
+                <ShieldAlert size={16} className="text-blue-600 mt-0.5 shrink-0" />
+                <p className="text-[12.5px] text-blue-800 m-0 leading-relaxed">
+                  Nếu email đã tồn tại với vai trò Sinh viên, tài khoản sẽ được nâng cấp thành ICPDP. Tài khoản Admin hoặc tài khoản đang bị tạm khóa sẽ không được thay đổi tự động.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[13.5px] font-semibold text-gray-700 mb-1.5">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  disabled={isIcpdpLoading}
+                  placeholder="VD: canbo@fe.edu.vn"
+                  className={inputCls}
+                  value={icpdpForm.email}
+                  onChange={(e) => setIcpdpForm({ ...icpdpForm, email: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[13.5px] font-semibold text-gray-700 mb-1.5">
+                  Họ và tên <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  disabled={isIcpdpLoading}
+                  placeholder="VD: Nguyễn Văn A"
+                  className={inputCls}
+                  value={icpdpForm.fullName}
+                  onChange={(e) => setIcpdpForm({ ...icpdpForm, fullName: e.target.value })}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={closeIcpdpForm}
+                  disabled={isIcpdpLoading}
+                  className="px-4 py-2 border border-gray-300 bg-white text-gray-700 rounded-lg text-[13.5px] font-semibold cursor-pointer hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isIcpdpLoading}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2 bg-[#e6430a] text-white border-none rounded-lg text-[13.5px] font-semibold cursor-pointer hover:bg-[#d13d09] transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed min-w-[140px]"
+                >
+                  {isIcpdpLoading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Đang xử lý...
+                    </>
+                  ) : (
+                    "Cấp quyền ICPDP"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -15,9 +15,16 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.fptu.fcms.dto.request.CreateIcpdpRequest;
+import com.fptu.fcms.dto.response.ProvisionIcpdpResponse;
+import com.fptu.fcms.enums.ProvisionIcpdpAction;
+import com.fptu.fcms.service.AdminUserService;
+import jakarta.validation.Valid;
 
 import java.util.List;
 import java.util.Map;
@@ -37,6 +44,24 @@ public class AdminUserController {
     private static final String STATUS_SUSPENDED = "Suspended";
 
     private final UserRepository userRepository;
+    private final AdminUserService adminUserService;
+
+    @PostMapping("/icpdp")
+    @PreAuthorize("hasRole('Admin')")
+    @Operation(summary = "Cấp quyền/Tạo tài khoản ICPDP")
+    public ResponseEntity<ProvisionIcpdpResponse> provisionIcpdp(
+            @Valid @RequestBody CreateIcpdpRequest request,
+            @AuthenticationPrincipal UserPrincipal currentAdmin) {
+
+        ProvisionIcpdpResponse response =
+                adminUserService.provisionIcpdp(request, currentAdmin.getUserId());
+
+        HttpStatus status = response.getAction() == ProvisionIcpdpAction.CREATED
+                ? HttpStatus.CREATED
+                : HttpStatus.OK;
+
+        return ResponseEntity.status(status).body(response);
+    }
 
     @GetMapping
     @PreAuthorize("hasRole('Admin')")
