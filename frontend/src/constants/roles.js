@@ -13,7 +13,7 @@ export const ROLE_MAP = {
 
 export const ROLE_REDIRECT = {
   ADMIN:        "/admin",
-  ICPDP:        "/icpdp",
+  ICPDP:        "/icpdp/club-dashboard",
   MEMBER:       "/member",
   ALUMNI:       "/alumni",
   CLUB_LEADER:  "/club-leader",

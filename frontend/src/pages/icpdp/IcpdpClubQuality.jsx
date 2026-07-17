@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Gauge, Search, Users, Calendar, Star, ShieldCheck, Sparkles,
   TrendingUp, TrendingDown, Minus, AlertTriangle, X, PauseCircle,
-  PlayCircle, CheckCircle2, ChevronRight,
+  PlayCircle, CheckCircle2, ChevronRight, Loader2,
 } from "lucide-react";
 import { useToast } from "../../contexts/ToastContext";
+import clubApi from "../../services/api/clubs/clubApi";
+import dashboardApi from "../../services/api/clubs/dashboardApi";
+import semesterApi from "../../services/api/admin/semesterApi";
 
 /* =========================================================================
  * MOCKDATA — trang đang chạy dữ liệu giả để duyệt UI.
@@ -81,8 +84,58 @@ const MOCK_CLUBS = [
 
 const MOCK_SEMESTERS = ["Summer 2026", "Spring 2026", "Fall 2025"];
 
-const totalScore = (scores) =>
-  Math.round(SCORE_GROUPS.reduce((sum, g) => sum + (scores[g.key] ?? 0) * g.weight, 0) / 100);
+const totalScore = (scores, kpiScore) => {
+  if (Number.isFinite(Number(kpiScore))) return Math.round(Number(kpiScore));
+  return Math.round(SCORE_GROUPS.reduce((sum, g) => sum + (scores[g.key] ?? 0) * g.weight, 0) / 100);
+};
+
+const numberOrZero = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
+
+function toQualityClub(summary, dashboard) {
+  const comparisons = Object.fromEntries(
+    (dashboard?.semesterComparison ?? []).map((item) => [item.key, item]),
+  );
+  const members = numberOrZero(dashboard?.memberMetrics?.totalMembers);
+  const memberDelta = numberOrZero(comparisons.totalMembers?.delta);
+  const eventsHeld = numberOrZero(dashboard?.eventMetrics?.completedEvents);
+  const violations = numberOrZero(dashboard?.violationMetrics?.activeViolations);
+  const warnings = dashboard?.warnings ?? [];
+  const kpiScore = numberOrZero(dashboard?.suggestedDecision?.kpiScore);
+
+  return {
+    clubID: summary.clubID ?? summary.clubId ?? summary.id,
+    clubName: dashboard?.club?.clubName ?? summary.name ?? summary.clubName ?? "CLB",
+    category: dashboard?.club?.category ?? "Chưa phân loại",
+    emoji: "🏛️",
+    status: dashboard?.club?.clubStatus ?? summary.clubStatus ?? summary.status ?? "Unknown",
+    members,
+    memberDelta,
+    eventsHeld,
+    eventsCancelled: numberOrZero(dashboard?.eventMetrics?.cancelledEvents),
+    avgFeedback: null,
+    attendanceRate: dashboard?.attendanceMetrics?.attendanceRate ?? null,
+    reportOnTime: dashboard?.reportMetrics?.totalRequiredReports
+      ? Math.round(numberOrZero(dashboard.reportMetrics.onTimeReports) * 100 / numberOrZero(dashboard.reportMetrics.totalRequiredReports))
+      : null,
+    disciplineCount: violations,
+    applications: numberOrZero(dashboard?.recruitmentMetrics?.totalApplications),
+    scores: {
+      scale: numberOrZero(dashboard?.memberMetrics?.activeMemberRate),
+      activity: numberOrZero(dashboard?.eventMetrics?.eventCompletionRate),
+      quality: numberOrZero(dashboard?.attendanceMetrics?.attendanceRate),
+      compliance: Math.max(0, 100 - violations * 10),
+      appeal: numberOrZero(dashboard?.recruitmentMetrics?.successRate),
+    },
+    kpiScore,
+    history: (dashboard?.semesterComparison ?? [])
+      .filter((item) => item.key === "kpiScore")
+      .flatMap((item) => [item.previousValue, item.currentValue])
+      .filter((value) => value != null)
+      .map(numberOrZero),
+    redFlags: warnings.map((warning) => warning.message).filter(Boolean),
+    suspendReason: undefined,
+  };
+}
 
 /* ── Small pieces ─────────────────────────────────────────────── */
 
@@ -196,7 +249,7 @@ function SuspendModal({ club, onConfirm, onClose }) {
 /* ── Detail panel ─────────────────────────────────────────────── */
 
 function DetailPanel({ club, onClose, onSuspend, onReactivate, onKeep }) {
-  const score = totalScore(club.scores);
+  const score = totalScore(club.scores, club.kpiScore);
   const tier = tierOf(score);
   const cfg = TIER_CFG[tier];
 
@@ -351,53 +404,140 @@ function DetailPanel({ club, onClose, onSuspend, onReactivate, onKeep }) {
  */
 export default function IcpdpClubQuality({ embedded = false }) {
   const toast = useToast();
-  const [clubs, setClubs] = useState(MOCK_CLUBS);
-  const [semester, setSemester] = useState(MOCK_SEMESTERS[0]);
+  const [clubs, setClubs] = useState(() => MOCK_CLUBS.slice(0, 0));
+  const [semesters, setSemesters] = useState([]);
+  const [semester, setSemester] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [tierFilter, setTierFilter] = useState("ALL");
   const [selected, setSelected] = useState(null);
   const [suspendTarget, setSuspendTarget] = useState(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMetadata() {
+      setLoading(true);
+      setError("");
+      try {
+        const [clubRows, semesterRows] = await Promise.all([
+          clubApi.getAllForManagement(),
+          semesterApi.getAll(),
+        ]);
+        if (cancelled) return;
+        const rawSemesters = Array.isArray(semesterRows) ? semesterRows : (semesterRows?.data ?? semesterRows?.content ?? []);
+        const normalizedSemesters = rawSemesters.map((item) => ({
+          id: item.semesterID ?? item.semesterId ?? item.id,
+          code: item.semesterCode ?? item.code ?? `Học kỳ ${item.semesterID ?? item.id}`,
+          isActive: Boolean(item.isActive),
+        })).filter((item) => item.id);
+        const preferredSemester = normalizedSemesters.find((item) => item.isActive) ?? normalizedSemesters[0];
+        setSemesters(normalizedSemesters);
+        setSemester(String(preferredSemester?.id ?? ""));
+
+        const rawClubs = Array.isArray(clubRows) ? clubRows : (clubRows?.data ?? clubRows?.content ?? []);
+        setClubs(rawClubs.map((item) => ({
+          clubID: item.clubID ?? item.clubId ?? item.id,
+          clubName: item.name ?? item.clubName ?? "CLB",
+          status: item.clubStatus ?? item.status ?? "Unknown",
+          category: "Chưa phân loại", emoji: "🏛️", members: 0, memberDelta: 0,
+          eventsHeld: 0, eventsCancelled: 0, avgFeedback: null, attendanceRate: null,
+          reportOnTime: null, disciplineCount: 0, applications: 0,
+          scores: { scale: 0, activity: 0, quality: 0, compliance: 0, appeal: 0 },
+          kpiScore: 0, history: [], redFlags: [],
+        })));
+      } catch (err) {
+        if (!cancelled) setError(err?.response?.data?.message ?? "Không thể tải danh sách CLB và học kỳ.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    loadMetadata();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!semester || clubs.length === 0) return;
+    let cancelled = false;
+    async function loadDashboards() {
+      setLoading(true);
+      setError("");
+      const results = await Promise.allSettled(
+        clubs.map((club) => dashboardApi.getDashboard(club.clubID, { semesterId: Number(semester) })),
+      );
+      if (cancelled) return;
+      setClubs((current) => current.map((club, index) => {
+        const result = results[index];
+        return result?.status === "fulfilled" ? toQualityClub(club, result.value) : club;
+      }));
+      const failed = results.filter((result) => result.status === "rejected").length;
+      if (failed === results.length) setError("Không thể tải dữ liệu KPI của các CLB trong học kỳ này.");
+      else if (failed > 0) setError(`${failed} CLB không tải được dữ liệu KPI.`);
+      setLoading(false);
+    }
+    loadDashboards();
+    return () => { cancelled = true; };
+    // Danh sách CLB được nạp một lần; effect này chỉ cần chạy lại khi đổi học kỳ.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semester]);
+
   const ranked = useMemo(
-    () => [...clubs].sort((a, b) => totalScore(b.scores) - totalScore(a.scores)),
+    () => [...clubs].sort((a, b) => totalScore(b.scores, b.kpiScore) - totalScore(a.scores, a.kpiScore)),
     [clubs],
   );
 
   const filtered = ranked.filter((c) => {
-    if (tierFilter !== "ALL" && tierOf(totalScore(c.scores)) !== tierFilter) return false;
+    if (tierFilter !== "ALL" && tierOf(totalScore(c.scores, c.kpiScore)) !== tierFilter) return false;
     const q = search.trim().toLowerCase();
     return !q || c.clubName.toLowerCase().includes(q) || c.category.toLowerCase().includes(q);
   });
 
   const stats = useMemo(() => {
-    const scores = clubs.map((c) => totalScore(c.scores));
+    const scores = clubs.map((c) => totalScore(c.scores, c.kpiScore));
     return {
       total: clubs.length,
       avg: Math.round(scores.reduce((a, b) => a + b, 0) / Math.max(scores.length, 1)),
-      alert: clubs.filter((c) => tierOf(totalScore(c.scores)) === "D").length,
-      inactive: clubs.filter((c) => c.status === "Inactive").length,
+      alert: clubs.filter((c) => tierOf(totalScore(c.scores, c.kpiScore)) === "D").length,
+      inactive: clubs.filter((c) => ["Inactive", "Suspended"].includes(c.status)).length,
     };
   }, [clubs]);
 
   const updateClub = (clubID, patch) =>
     setClubs((prev) => prev.map((c) => (c.clubID === clubID ? { ...c, ...patch } : c)));
 
-  const handleSuspendConfirm = (reason) => {
-    updateClub(suspendTarget.clubID, { status: "Inactive", suspendReason: reason });
-    setSuspendTarget(null);
-    setSelected(null);
-    toast.success(`Đã tạm dừng hoạt động ${suspendTarget.clubName}. (Mock — chưa gọi API)`);
+  const handleSuspendConfirm = async (reason) => {
+    setSaving(true);
+    try {
+      await clubApi.review(suspendTarget.clubID, { status: "Suspended", reason });
+      updateClub(suspendTarget.clubID, { status: "Suspended", suspendReason: reason });
+      setSuspendTarget(null);
+      setSelected(null);
+      toast.success(`Đã tạm dừng hoạt động ${suspendTarget.clubName}.`);
+    } catch (err) {
+      toast.error(err?.response?.data?.message ?? "Không thể tạm dừng CLB.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleReactivate = (club) => {
-    updateClub(club.clubID, { status: "Active", suspendReason: undefined });
-    setSelected(null);
-    toast.success(`Đã khôi phục hoạt động ${club.clubName}. (Mock — chưa gọi API)`);
+  const handleReactivate = async (club) => {
+    setSaving(true);
+    try {
+      await clubApi.review(club.clubID, { status: "Active", reason: "Khôi phục hoạt động từ trang tổng quan CLB" });
+      updateClub(club.clubID, { status: "Active", suspendReason: undefined });
+      setSelected(null);
+      toast.success(`Đã khôi phục hoạt động ${club.clubName}.`);
+    } catch (err) {
+      toast.error(err?.response?.data?.message ?? "Không thể khôi phục CLB.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleKeep = (club) => {
     setSelected(null);
-    toast.success(`Đã ghi nhận quyết định duy trì hoạt động ${club.clubName}. (Mock — chưa gọi API)`);
+    toast.success(`${club.clubName} đang được duy trì hoạt động.`);
   };
 
   const STAT_TILES = [
@@ -426,9 +566,22 @@ export default function IcpdpClubQuality({ embedded = false }) {
           onChange={(e) => setSemester(e.target.value)}
           className="px-3.5 py-2 rounded-[10px] border-[1.5px] border-gray-200 bg-white text-[13px] font-semibold text-gray-700 outline-none cursor-pointer font-[inherit]"
         >
-          {MOCK_SEMESTERS.map((s) => <option key={s} value={s}>Học kỳ: {s}</option>)}
+          {semesters.map((s) => <option key={s.id} value={s.id}>Học kỳ: {s.code}</option>)}
         </select>
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-600">
+          {error}
+        </div>
+      )}
+
+      {(loading || saving) && (
+        <div className="mb-4 flex items-center gap-2 text-[13px] text-gray-500">
+          <Loader2 size={16} className="animate-spin" />
+          {saving ? "Đang lưu thay đổi..." : "Đang tải dữ liệu KPI thật..."}
+        </div>
+      )}
 
       {/* Stat tiles */}
       <div className="grid grid-cols-4 gap-4 mb-5 max-[900px]:grid-cols-2">
@@ -494,7 +647,7 @@ export default function IcpdpClubQuality({ embedded = false }) {
           </thead>
           <tbody>
             {filtered.map((c, idx) => {
-              const score = totalScore(c.scores);
+              const score = totalScore(c.scores, c.kpiScore);
               const tier = tierOf(score);
               const cfg = TIER_CFG[tier];
               return (
@@ -545,7 +698,7 @@ export default function IcpdpClubQuality({ embedded = false }) {
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-gray-500">
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> Tạm dừng
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400" /> {c.status === "Suspended" ? "Tạm dừng" : c.status}
                       </span>
                     )}
                   </td>

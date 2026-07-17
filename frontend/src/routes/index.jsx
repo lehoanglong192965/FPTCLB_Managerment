@@ -48,7 +48,6 @@ const DashboardLayout = lazy(() => import("../components/layout/DashboardLayout"
 const ClubDashboardPage = lazy(() => import("../pages/dashboard/ClubDashboardPage"));
 
 // ICPDP pages
-const IcpdpOverview = lazy(() => import("../pages/icpdp/IcpdpOverview"));
 const IcpdpNotifications = lazy(() => import("../pages/icpdp/IcpdpNotifications"));
 const IcpdpEventApproval = lazy(() => import("../pages/icpdp/IcpdpEventApproval"));
 const IcpdpPersonnelReassign = lazy(() => import("../pages/icpdp/IcpdpPersonnelReassign"));
@@ -170,7 +169,7 @@ export default function AppRoutes() {
           </PrivateRoute>
         }
       >
-        <Route index element={<IcpdpOverview />} />
+        <Route index element={<Navigate to="/icpdp/club-dashboard" replace />} />
         <Route path="club-dashboard" element={<ClubDashboardPage />} />
         <Route path="club-overview" element={<IcpdpClubQuality />} />
         <Route path="club-management" element={<IcpdpClubManagement />} />
