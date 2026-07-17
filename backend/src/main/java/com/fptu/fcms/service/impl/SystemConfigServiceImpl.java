@@ -51,6 +51,9 @@ public class SystemConfigServiceImpl
         return systemConfigRepository.save(config);
     }
 
+    // Lấy giá trị cấu hình hệ thống (như AI_CONFIDENCE_THRESHOLD, RAG_FALLBACK_MESSAGE).
+    // Đầu vào: Tên khóa cấu hình (key).
+    // Đầu ra: Giá trị của cấu hình được lưu trong DB, có sử dụng bộ nhớ đệm (@Cacheable) để tối ưu hiệu năng không phải truy vấn DB nhiều lần.
     @Override
     @Cacheable(value = "systemConfig", key = "#key")
     public String getConfigValue(String key) {

@@ -11,6 +11,9 @@ import java.util.Map; // <--- Import mới
 
 @Getter
 @Setter
+// Lớp đối tượng bảo mật (Security Principal) chứa thông tin phân quyền của người dùng hiện tại.
+// Đầu vào: Nhận dữ liệu (ID, vai trò, club ID...) từ JwtAuthenticationFilter sau khi giải mã token.
+// Đầu ra: Cung cấp thông tin quyền hạn cho toàn bộ ứng dụng (ví dụ: dùng ở Controller để chặn quyền, dùng ở AIChatServiceImpl để lọc tài liệu theo quyền).
 // LƯU Ý QUAN TRỌNG: Thêm implements OAuth2User vào đây
 public class UserPrincipal implements OAuth2User, UserDetails {
 

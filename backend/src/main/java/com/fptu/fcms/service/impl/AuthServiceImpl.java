@@ -36,6 +36,9 @@ public class AuthServiceImpl implements AuthService {
     private final UserService userService;
     private final SystemRoleRepository systemRoleRepository;
 
+    // Xử lý xác thực đăng nhập người dùng (thông qua hệ thống nội bộ).
+    // Đầu vào: Email và mật khẩu người dùng gửi lên.
+    // Đầu ra: Kiểm tra thông tin, nếu hợp lệ sẽ tính toán các vai trò (System Role, Club Role) và trả về JWT + Refresh Token.
     @Override
     public AuthResponse login(LoginRequest request) {
         String email = request.getEmail();
@@ -95,6 +98,9 @@ public class AuthServiceImpl implements AuthService {
         return new AuthResponse(token, refreshToken);
     }
 
+    // Cấp phát lại Token mới.
+    // Đầu vào: Refresh Token hiện tại do Client gửi lên.
+    // Đầu ra: Kiểm tra tính hợp lệ của Refresh Token, truy vấn lại các phân quyền mới nhất (Role, Club Role) và trả về bộ JWT + Refresh Token mới.
     @Override
     public AuthResponse refreshToken(String refreshToken) {
         if (jwtTokenProvider.validateToken(refreshToken)) {

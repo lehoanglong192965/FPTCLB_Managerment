@@ -28,6 +28,8 @@ import java.util.List;
 /**
  * Controller cho Knowledge Archive API.
  * Phân quyền dùng UserPrincipal.getClubId()/getClubRole() — không query DB thêm.
+ * Đầu vào: Client gửi request upload file, tìm kiếm AI (có kèm JWT).
+ * Đầu ra: Kiểm tra quyền truy cập thông qua @PreAuthorize (hoặc thủ công), nếu hợp lệ thì định tuyến gọi Service Layer xử lý logic, trả về dữ liệu chuẩn JSON.
  */
 @RestController
 @RequestMapping("/api/v1/knowledge-archive")

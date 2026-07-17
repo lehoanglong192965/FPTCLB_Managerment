@@ -20,6 +20,11 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Controller xử lý các yêu cầu giao tiếp với AI Chatbot.
+ * Đầu vào: Request chứa câu hỏi của người dùng và JWT (để xác thực).
+ * Đầu ra: Sử dụng thư viện Bucket4j để giới hạn tần suất yêu cầu (Rate Limiting) dựa trên userID. Nếu vượt quá giới hạn (ví dụ: 10 request/phút), trả về mã lỗi 429 Too Many Requests. Nếu hợp lệ, chuyển tiếp request xuống Service Layer.
+ */
 @RestController
 @RequestMapping("/api/v1/ai")
 @RequiredArgsConstructor

@@ -69,6 +69,15 @@ public class AIChatServiceImpl implements AIChatService {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Dịch vụ xử lý luồng Hỏi-Đáp (RAG Chatbot).
+     * Đầu vào: Câu hỏi của người dùng và thông tin UserPrincipal (chứa vai trò, ID CLB).
+     * Đầu ra: 
+     * 1. Xác định phạm vi tài liệu được phép đọc (Resolve Scope).
+     * 2. Tìm kiếm các đoạn tài liệu phù hợp bằng mô hình Vector (Retrieval) với điểm tin cậy >= ngưỡng.
+     * 3. Lập Prompt chứa câu hỏi, lịch sử và ngữ cảnh tài liệu để gửi cho AI (Gemini).
+     * 4. Ghi nhận lịch sử (Audit Log) và trả về câu trả lời cùng nguồn trích dẫn cho Client.
+     */
     @Override
     @Transactional
     public AIChatResponse chat(AIChatRequest request, UserPrincipal principal) {
