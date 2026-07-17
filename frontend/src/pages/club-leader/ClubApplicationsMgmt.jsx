@@ -96,7 +96,7 @@ export default function ClubApplicationsMgmt() {
     } finally {
       setLoading(false);
     }
-  }, [clubId]);
+  }, [clubId, toast]);
 
   useEffect(() => { loadApps(); }, [loadApps]);
 

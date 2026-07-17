@@ -69,7 +69,7 @@ function CorrectModal({ record, onConfirm, onClose }) {
 }
 
 export default function AttendanceCorrectionPage() {
-  const { eventId, sessionId } = useParams();
+  const { sessionId } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -90,7 +90,7 @@ export default function AttendanceCorrectionPage() {
     } finally {
       setLoading(false);
     }
-  }, [eventId, sessionId]);
+  }, [sessionId, toast]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
 

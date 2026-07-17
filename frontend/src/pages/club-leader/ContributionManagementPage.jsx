@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Lock, AlertTriangle, X, Users, Clock, CheckCircle2 } from 'lucide-react';
 import contributionApi from '../../services/api/contribution/contributionApi';
 import { useToast } from '../../contexts/ToastContext';
+import { isCanceledRequest } from '../../utils/apiErrors';
 
 const CONTRIBUTION_TYPES = [
   { value: 'CORE_TEAM', label: 'Ban tổ chức chính', points: 50 },
@@ -34,12 +35,6 @@ function penaltyFor(evaluation) {
 function previewFinalPoints(item) {
   const base = Number(item.basePoints ?? 0);
   return base + bonusFor(item.contributionType) - penaltyFor(item.leaderEvaluation);
-}
-
-function isCanceledRequest(err) {
-  return err?.code === 'ERR_CANCELED'
-    || err?.name === 'CanceledError'
-    || err?.message === 'canceled';
 }
 
 function FinalizeModal({ count, onConfirm, onClose }) {
@@ -320,7 +315,7 @@ export default function ContributionManagementPage() {
 
   useEffect(() => {
     if (batchId) fetchAppeals(batchId);
-  }, [batchId]);
+  }, [batchId, fetchAppeals]);
 
   useEffect(() => {
     if (

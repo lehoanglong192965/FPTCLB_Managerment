@@ -475,7 +475,9 @@ export default function CreateEventPage() {
   const location   = useLocation();
   const clubId     = TokenService.getClubId();
   const roleBase   = location.pathname.startsWith("/vice-leader") ? "/vice-leader" : "/club-leader";
-  const eventsPath = `${roleBase}/events`;
+  // Trang quản lý sự kiện nằm trong /my-club; `${roleBase}/events` là trang
+  // khám phá sự kiện dành cho thành viên.
+  const eventsPath = `${roleBase}/my-club/events`;
 
   const [step, setStep]             = useState(1);
   const [form, setForm]             = useState(EMPTY_FORM);

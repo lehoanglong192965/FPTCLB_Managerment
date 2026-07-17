@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { CheckCircle2, Clock, XCircle, Calendar, MapPin, RefreshCw } from 'lucide-react';
 import guestApi from '../../services/api/guest/guestApi';
@@ -45,7 +45,7 @@ export default function GuestStatusPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -57,9 +57,9 @@ export default function GuestStatusPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [ref]);
 
-  useEffect(() => { fetchStatus(); }, [ref]);
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
   if (loading) {
     return (

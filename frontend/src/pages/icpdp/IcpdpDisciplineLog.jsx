@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   ShieldAlert, Plus, Search, X,
   CheckCircle2, FileText, Clock, RefreshCw,
@@ -48,7 +48,7 @@ export default function IcpdpDisciplineLog() {
   const toast = useToast();
   const [submitting, setSubmitting] = useState(false);
 
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     setLoading(true);
     try {
       const data = await disciplineLogApi.getAll();
@@ -58,9 +58,9 @@ export default function IcpdpDisciplineLog() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  useEffect(() => { loadLogs(); }, []);
+  useEffect(() => { loadLogs(); }, [loadLogs]);
 
   const set = (f) => (e) => setForm((p) => ({ ...p, [f]: e.target.value }));
 

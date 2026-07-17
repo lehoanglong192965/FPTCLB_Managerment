@@ -45,7 +45,7 @@ export default function MemberApply() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => { loadApplications(); }, [loadApplications]);
 

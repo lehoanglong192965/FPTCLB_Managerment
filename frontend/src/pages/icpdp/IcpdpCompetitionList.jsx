@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trophy, Plus, ChevronRight, Calendar, X, AlertCircle } from 'lucide-react';
 import competitionApi from '../../services/api/competitions/competitionApi';
@@ -130,7 +130,7 @@ export default function IcpdpCompetitionList() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     competitionApi.getAll()
       .then((res) => {
@@ -142,9 +142,9 @@ export default function IcpdpCompetitionList() {
         toast.error(err?.response?.data?.message ?? 'Không thể tải danh sách cuộc thi.');
       })
       .finally(() => setLoading(false));
-  };
+  }, [toast]);
 
-  useEffect(load, []);
+  useEffect(load, [load]);
 
   const handleCreated = (newComp) => {
     if (newComp?.competitionId) {
