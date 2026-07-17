@@ -2,7 +2,7 @@ import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   Home, Calendar, CalendarPlus, Users, ClipboardList,
-  Ban, BarChart2, Settings,
+  Ban, BarChart2, Settings, UserPlus,
 } from "lucide-react";
 
 export default function ClubManagementLayout() {
@@ -20,6 +20,7 @@ export default function ClubManagementLayout() {
     { icon: Calendar,     label: "Quản lý sự kiện",    path: `${myClubBase}/events` },
     { icon: CalendarPlus, label: "Tạo sự kiện",        path: `${base}/event-create` },
     { icon: Users,        label: "Quản lý thành viên", path: `${myClubBase}/members` },
+    { icon: UserPlus,     label: "Mở / đóng tuyển",    path: `${myClubBase}/recruitment` },
     ...(isClubLeader ? [
       { icon: ClipboardList, label: "Đơn ứng tuyển",   path: `${myClubBase}/applications` },
       { icon: Ban,           label: "Danh sách đen",   path: `${myClubBase}/blacklist` },

@@ -73,6 +73,7 @@ const ClubEventsMgmt = lazy(() => import("../pages/club-leader/ClubEventsMgmt"))
 const PersonnelAssignmentPage = lazy(() => import("../pages/club-leader/PersonnelAssignmentPage"));
 const ClubReports = lazy(() => import("../pages/club-leader/ClubReports"));
 const ClubApplicationsMgmt = lazy(() => import("../pages/club-leader/ClubApplicationsMgmt"));
+const RecruitmentCycleMgmtPage = lazy(() => import("../pages/club-leader/RecruitmentCycleMgmtPage"));
 const ClubBlacklist = lazy(() => import("../pages/club-leader/ClubBlacklist"));
 const CreateEventPage = lazy(() => import("../pages/club-leader/CreateEventPage"));
 const ClubInfoPage = lazy(() => import("../pages/club-leader/ClubInfoPage"));
@@ -235,6 +236,7 @@ export default function AppRoutes() {
             <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
             <Route path="members" element={<ClubMemberMgmt />} />
             <Route path="applications" element={<ClubApplicationsMgmt />} />
+            <Route path="recruitment" element={<RecruitmentCycleMgmtPage />} />
             <Route path="reports" element={<ClubReports />} />
             <Route path="blacklist" element={<ClubBlacklist />} />
             <Route path="club-info" element={<ClubInfoPage />} />
@@ -281,6 +283,7 @@ export default function AppRoutes() {
             <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
             <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
             <Route path="members" element={<ClubMemberMgmt />} />
+            <Route path="recruitment" element={<RecruitmentCycleMgmtPage />} />
             <Route path="reports" element={<ClubReports />} />
             <Route path="club-info" element={<ClubInfoPage />} />
           </Route>
