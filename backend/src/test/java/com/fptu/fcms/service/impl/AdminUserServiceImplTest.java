@@ -214,6 +214,24 @@ public class AdminUserServiceImplTest {
     }
 
     @Test
+    void pendingUserShouldBeRejected409() {
+        UserAccount pending = new UserAccount();
+        pending.setUserID(200);
+        pending.setRoleID(3);
+        pending.setAccountStatus("PENDING");
+
+        when(userRepository.findByEmailIgnoreCaseAndIsDeletedFalse("test@gmail.com"))
+                .thenReturn(Optional.of(pending));
+
+        BusinessRuleException exception = assertThrows(
+                BusinessRuleException.class,
+                () -> adminUserService.provisionIcpdp(defaultRequest, 100)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        verify(userRepository, never()).save(pending);
+    }
+    @Test
     void testAdminCreateIcpdp_SoftDeletedUser_ShouldReject409() {
         when(userRepository.findByEmailIgnoreCaseAndIsDeletedFalse("test@gmail.com")).thenReturn(Optional.empty());
         UserAccount deleted = new UserAccount();

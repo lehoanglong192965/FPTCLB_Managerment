@@ -15,9 +15,16 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import com.fptu.fcms.dto.request.CreateIcpdpRequest;
+import com.fptu.fcms.dto.response.ProvisionIcpdpResponse;
+import com.fptu.fcms.enums.ProvisionIcpdpAction;
+import com.fptu.fcms.service.AdminUserService;
+import jakarta.validation.Valid;
 
 import java.util.List;
 import java.util.Map;
@@ -37,19 +44,19 @@ public class AdminUserController {
     private static final String STATUS_SUSPENDED = "Suspended";
 
     private final UserRepository userRepository;
-    private final com.fptu.fcms.service.AdminUserService adminUserService;
+    private final AdminUserService adminUserService;
 
-    @org.springframework.web.bind.annotation.PostMapping("/icpdp")
+    @PostMapping("/icpdp")
     @PreAuthorize("hasRole('Admin')")
     @Operation(summary = "Cấp quyền/Tạo tài khoản ICPDP")
-    public ResponseEntity<com.fptu.fcms.dto.response.ProvisionIcpdpResponse> provisionIcpdp(
-            @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody com.fptu.fcms.dto.request.CreateIcpdpRequest request,
+    public ResponseEntity<ProvisionIcpdpResponse> provisionIcpdp(
+            @Valid @RequestBody CreateIcpdpRequest request,
             @AuthenticationPrincipal UserPrincipal currentAdmin) {
 
-        com.fptu.fcms.dto.response.ProvisionIcpdpResponse response =
+        ProvisionIcpdpResponse response =
                 adminUserService.provisionIcpdp(request, currentAdmin.getUserId());
 
-        HttpStatus status = response.getAction() == com.fptu.fcms.enums.ProvisionIcpdpAction.CREATED
+        HttpStatus status = response.getAction() == ProvisionIcpdpAction.CREATED
                 ? HttpStatus.CREATED
                 : HttpStatus.OK;
 

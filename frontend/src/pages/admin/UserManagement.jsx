@@ -120,26 +120,34 @@ export default function UserManagement() {
   const [icpdpForm, setIcpdpForm] = useState({ email: "", fullName: "" });
   const [isIcpdpLoading, setIsIcpdpLoading] = useState(false);
 
-  const loadUsers = useCallback(() => {
+  const loadUsers = useCallback(async () => {
     setUsersLoading(true);
     setUsersError("");
-    adminApi.getAllUsers()
-      .then((data) => {
-        const list = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
-        setUsers(list);
-      })
-      .catch((err) => {
-        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
-        setUsersError(err?.response?.data?.message ?? "Không thể tải danh sách người dùng.");
-      })
-      .finally(() => {
-        setUsersLoading(false);
-      });
+    try {
+      const data = await adminApi.getAllUsers();
+      const list = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
+      setUsers(list);
+      return true;
+    } catch (err) {
+      if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") {
+        return false;
+      }
+      setUsersError(err?.response?.data?.message ?? "Không thể tải danh sách người dùng.");
+      return false;
+    } finally {
+      setUsersLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  const closeIcpdpForm = () => {
+    if (isIcpdpLoading) return;
+    setShowIcpdpForm(false);
+    setIcpdpForm({ email: "", fullName: "" });
+  };
 
   const handleCreateIcpdp = async (e) => {
     e.preventDefault();
@@ -164,9 +172,8 @@ export default function UserManagement() {
         default:
           toast.success("Thao tác thành công.");
       }
-      setShowIcpdpForm(false);
-      setIcpdpForm({ email: "", fullName: "" });
-      loadUsers();
+      await loadUsers();
+      closeIcpdpForm();
     } catch (error) {
       const msg = error?.response?.data?.message || error?.response?.data?.email || error?.response?.data?.fullName || "Có lỗi xảy ra khi cấp tài khoản ICPDP.";
       toast.error(msg);
@@ -606,7 +613,7 @@ export default function UserManagement() {
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-orange-50 to-white">
               <h2 className="text-lg font-bold text-gray-900 m-0">Cấp quyền ICPDP</h2>
               <button
-                onClick={() => setShowIcpdpForm(false)}
+                onClick={closeIcpdpForm}
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 border-none cursor-pointer transition-colors"
                 disabled={isIcpdpLoading}
               >
@@ -655,7 +662,7 @@ export default function UserManagement() {
               <div className="flex justify-end gap-2 mt-4">
                 <button
                   type="button"
-                  onClick={() => setShowIcpdpForm(false)}
+                  onClick={closeIcpdpForm}
                   disabled={isIcpdpLoading}
                   className="px-4 py-2 border border-gray-300 bg-white text-gray-700 rounded-lg text-[13.5px] font-semibold cursor-pointer hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >

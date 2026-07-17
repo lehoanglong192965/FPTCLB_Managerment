@@ -86,8 +86,11 @@ public class AdminUserServiceImpl implements AdminUserService {
             if (targetUser.getRoleID().equals(adminRole.getRoleID())) {
                 throw new BusinessRuleException("Không thể thay đổi quyền của Admin khác.", HttpStatus.FORBIDDEN);
             }
-            if ("Suspended".equalsIgnoreCase(targetUser.getAccountStatus())) {
-                throw new BusinessRuleException("Tài khoản đang bị tạm khóa. Vui lòng mở khóa trước khi cấp quyền ICPDP.", HttpStatus.CONFLICT);
+            if (!"Active".equalsIgnoreCase(targetUser.getAccountStatus())) {
+                throw new BusinessRuleException(
+                        "Chỉ có thể cấp quyền ICPDP cho tài khoản đang hoạt động. Vui lòng kích hoạt tài khoản trước.",
+                        HttpStatus.CONFLICT
+                );
             }
 
             if (targetUser.getRoleID().equals(icpdpRole.getRoleID())) {
