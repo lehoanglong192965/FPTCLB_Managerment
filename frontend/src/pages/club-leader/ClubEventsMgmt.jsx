@@ -7,6 +7,7 @@ import eventApi from "../../services/api/events/eventApi";
 import FinishEventModal from "../../components/events/FinishEventModal";
 import CloseEventButton from "../../components/events/CloseEventButton";
 import { useConfirm } from "../../contexts/ConfirmContext";
+import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 
 const getImageUrl = (url) => {
@@ -182,6 +183,8 @@ function normalizeEvent(ev) {
 
 export default function ClubEventsMgmt() {
   const confirm  = useConfirm();
+  const { user } = useAuth();
+  const canInstantFinalize = user?.role === "CLUB_LEADER";
   const toast    = useToast();
   const clubId   = resolveClubId();
   const navigate = useNavigate();
@@ -929,9 +932,11 @@ export default function ClubEventsMgmt() {
                   <button onClick={() => navigate(`../contributions/${selectedEv.eventID}`, { relative: "path" })} style={btnStyle("#0f766e")}>
                     Chấm đóng góp thành viên
                   </button>
-                  <button onClick={() => navigate(`../contributions/${selectedEv.eventID}?instant=1`, { relative: "path" })} style={btnStyle("#1d4ed8")}>
-                    Chốt ngay
-                  </button>
+                  {canInstantFinalize && (
+                    <button onClick={() => navigate(`../contributions/${selectedEv.eventID}?instant=1`, { relative: "path" })} style={btnStyle("#1d4ed8")}>
+                      Chốt ngay
+                    </button>
+                  )}
                 </>)}
 
                 {/* Cancelled / Closed / Rejected / PendingApproval — không có thao tác */}

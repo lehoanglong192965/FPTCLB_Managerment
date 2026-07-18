@@ -250,6 +250,7 @@ export default function AppRoutes() {
         <Route path="tickets" element={<MemberMyTickets />} />
         <Route path="pending-feedback" element={<MemberPendingFeedback />} />
         <Route path="contributions" element={<MemberMyContributionsPage />} />
+        <Route path="events/:eventId/appeal" element={<MemberAppealPage />} />
         <Route path="notifications" element={<MemberNotifications />} />
         <Route path="notification-settings" element={<MemberNotificationSettings />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
@@ -296,6 +297,7 @@ export default function AppRoutes() {
         <Route path="tickets" element={<MemberMyTickets />} />
         <Route path="pending-feedback" element={<MemberPendingFeedback />} />
         <Route path="contributions" element={<MemberMyContributionsPage />} />
+        <Route path="events/:eventId/appeal" element={<MemberAppealPage />} />
         <Route path="notifications" element={<MemberNotifications />} />
         <Route path="notification-settings" element={<MemberNotificationSettings />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />

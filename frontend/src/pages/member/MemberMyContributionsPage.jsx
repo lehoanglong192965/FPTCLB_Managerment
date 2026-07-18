@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Users, ChevronRight, AlertCircle, CheckCircle, Clock, FileText } from 'lucide-react';
 import contributionApi from '../../services/api/contribution/contributionApi';
 
@@ -71,6 +71,12 @@ function isAppealOpen(item) {
 
 export default function MemberMyContributionsPage() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const roleBasePath = pathname.startsWith('/club-leader')
+    ? '/club-leader'
+    : pathname.startsWith('/vice-leader')
+      ? '/vice-leader'
+      : '/member';
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -165,7 +171,7 @@ export default function MemberMyContributionsPage() {
 
                 {canAppeal && (
                   <button
-                    onClick={() => navigate(`/member/events/${item.eventID}/appeal`)}
+                    onClick={() => navigate(`${roleBasePath}/events/${item.eventID}/appeal`)}
                     className="shrink-0 text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-1"
                   >
                     Khiếu nại <ChevronRight size={13} />
