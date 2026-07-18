@@ -157,7 +157,11 @@ public class EventServiceImpl implements EventService {
         event.setEventCode(request.getEventCode());
         event.setEventName(request.getEventName().trim());
         event.setDescription(request.getDescription());
+        event.setVenueName(request.getVenueName());
         event.setLocation(request.getLocation());
+        event.setLocationDetail(request.getLocationDetail());
+        event.setLatitude(request.getLatitude());
+        event.setLongitude(request.getLongitude());
         event.setBudget(request.getBudget());
         event.setMaxParticipants(request.getMaxParticipants() != null ? request.getMaxParticipants() : request.getTotalCapacity());
         event.setTotalCapacity(request.getTotalCapacity() != null ? request.getTotalCapacity() : request.getMaxParticipants());
@@ -711,7 +715,11 @@ public class EventServiceImpl implements EventService {
         boolean bannerTouched = request.getBannerUrl() != null;
         if (request.getEventName() != null)     event.setEventName(request.getEventName());
         if (request.getDescription() != null)   event.setDescription(request.getDescription());
+        if (request.getVenueName() != null)     event.setVenueName(request.getVenueName());
         if (request.getLocation() != null)      event.setLocation(request.getLocation());
+        if (request.getLocationDetail() != null) event.setLocationDetail(request.getLocationDetail());
+        if (request.getLatitude() != null)      event.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null)     event.setLongitude(request.getLongitude());
         if (request.getStartDate() != null)     event.setStartDate(request.getStartDate());
         if (request.getEndDate() != null)       event.setEndDate(request.getEndDate());
         if (request.getMaxParticipants() != null) {
@@ -1074,7 +1082,11 @@ public class EventServiceImpl implements EventService {
                 event.getEventCode(),
                 event.getEventName(),
                 event.getDescription(),
+                event.getVenueName(),
                 event.getLocation(),
+                event.getLocationDetail(),
+                event.getLatitude(),
+                event.getLongitude(),
                 event.getStartDate(),
                 event.getEndDate(),
                 event.getEventStatus(),

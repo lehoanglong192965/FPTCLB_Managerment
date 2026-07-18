@@ -9,6 +9,7 @@ import semesterApi from "../../services/api/admin/semesterApi";
 import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
 import clubRegistrationApi from "../../services/api/clubs/clubRegistrationApi";
 import { useToast } from "../../contexts/ToastContext";
+import LocationPicker from "../../components/events/LocationPicker";
 
 /* ─── Constants ─────────────────────────────────────────────── */
 
@@ -21,7 +22,9 @@ const STEPS = [
 const EMPTY_FORM = {
   name: "", desc: "", budget: "", banner: null, bannerPublicId: "",
   isInternal: false, maxParticipants: "",
-  date: "", startTime: "", endTime: "", location: "",
+  date: "", startTime: "", endTime: "",
+  venueName: "", location: "", locationDetail: "",
+  latitude: null, longitude: null,
 };
 
 const BUDGET_LIMIT = 5_000_000;
@@ -342,14 +345,42 @@ function Step2({ form, onChange, errors }) {
       </div>
 
       <div>
-        <Label required>Địa điểm tổ chức</Label>
+        <Label>Tên địa điểm / Toà nhà</Label>
         <input
-          style={inputStyle(errors.location)}
-          placeholder="VD: Hội trường A, Tòa nhà FPT, Tầng 3"
-          value={form.location}
-          onChange={(e) => onChange("location", e.target.value)}
+          style={inputStyle(false)}
+          placeholder="VD: Hội trường Beta – Đại học FPT"
+          value={form.venueName}
+          onChange={(e) => onChange("venueName", e.target.value)}
+        />
+      </div>
+
+      <div>
+        <Label required>Địa chỉ (định vị trên bản đồ)</Label>
+        <LocationPicker
+          address={form.location}
+          lat={form.latitude}
+          lng={form.longitude}
+          error={errors.location}
+          onChange={({ address, lat, lng }) => {
+            onChange("location", address);
+            onChange("latitude", typeof lat === "number" ? lat : null);
+            onChange("longitude", typeof lng === "number" ? lng : null);
+          }}
         />
         <FieldError msg={errors.location} />
+      </div>
+
+      <div>
+        <Label>Chi tiết cụ thể</Label>
+        <input
+          style={inputStyle(false)}
+          placeholder="VD: Tầng 3, phòng 302, lối vào cổng chính"
+          value={form.locationDetail}
+          onChange={(e) => onChange("locationDetail", e.target.value)}
+        />
+        <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "#9ca3af" }}>
+          Tầng, phòng, hoặc hướng dẫn tìm đường trong khuôn viên (không bắt buộc).
+        </p>
       </div>
     </div>
   );
@@ -376,7 +407,7 @@ function SummaryRow({ label, value }) {
   return (
     <div style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid #f9fafb" }}>
       <span style={{ fontSize: 12.5, color: "#6b7280", minWidth: 140, flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 13, color: "#111827", fontWeight: 500 }}>{value}</span>
+      <span style={{ fontSize: 13, color: "#111827", fontWeight: 500, minWidth: 0, wordBreak: "break-word", overflowWrap: "anywhere" }}>{value}</span>
     </div>
   );
 }
@@ -421,7 +452,9 @@ function Step3({ form }) {
       <SummaryCard icon={<CalendarDays size={15} color="#E6430A" />} title="Thời gian & Địa điểm">
         <SummaryRow label="Ngày"      value={form.date} />
         <SummaryRow label="Thời gian" value={`${form.startTime} – ${form.endTime}`} />
-        <SummaryRow label="Địa điểm" value={form.location || "—"} />
+        {form.venueName && <SummaryRow label="Địa điểm" value={form.venueName} />}
+        <SummaryRow label="Địa chỉ" value={form.location || "—"} />
+        {form.locationDetail && <SummaryRow label="Chi tiết" value={form.locationDetail} />}
       </SummaryCard>
     </div>
   );
@@ -527,7 +560,11 @@ export default function CreateEventPage() {
         eventCode:     `EVT-${clubId}-${Date.now()}`,
         eventName:     form.name,
         description:   form.desc,
+        venueName:     form.venueName?.trim() || null,
         location:      form.location || null,
+        locationDetail: form.locationDetail?.trim() || null,
+        latitude:      typeof form.latitude === "number" ? form.latitude : null,
+        longitude:     typeof form.longitude === "number" ? form.longitude : null,
         budget:        Number(form.budget) || 0,
         startDate:     `${form.date}T${form.startTime}:00`,
         endDate:       `${form.date}T${form.endTime}:00`,

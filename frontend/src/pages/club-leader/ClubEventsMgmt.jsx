@@ -6,6 +6,7 @@ import clubApi from "../../services/api/clubs/clubApi";
 import eventApi from "../../services/api/events/eventApi";
 import FinishEventModal from "../../components/events/FinishEventModal";
 import CloseEventButton from "../../components/events/CloseEventButton";
+import LocationPicker from "../../components/events/LocationPicker";
 import { useConfirm } from "../../contexts/ConfirmContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -170,7 +171,11 @@ function normalizeEvent(ev) {
     endDate:         ev.endDate         ?? null,
     date:            ev.date            ?? "",
     time:            ev.time            ?? "",
+    venueName:       ev.venueName       ?? "",
     location:        ev.location        ?? "",
+    locationDetail:  ev.locationDetail  ?? "",
+    latitude:        ev.latitude        ?? null,
+    longitude:       ev.longitude       ?? null,
     description:     ev.description     ?? "",
     maxParticipants: ev.maxParticipants ?? null,
     budget:          ev.budget          ?? null,
@@ -323,7 +328,11 @@ export default function ClubEventsMgmt() {
       date:            dt ? `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}` : "",
       time:            dt ? `${pad(dt.getHours())}:${pad(dt.getMinutes())}` : "",
       endTime:         endDt ? `${pad(endDt.getHours())}:${pad(endDt.getMinutes())}` : "",
+      venueName:       full.venueName || "",
       location:        full.location || "",
+      locationDetail:  full.locationDetail || "",
+      latitude:        typeof full.latitude === "number" ? full.latitude : null,
+      longitude:       typeof full.longitude === "number" ? full.longitude : null,
       description:     full.description || "",
       maxParticipants: full.maxParticipants ?? "",
       budget:          full.budget ?? "",
@@ -351,7 +360,11 @@ export default function ClubEventsMgmt() {
       await eventApi.update(selectedEv.eventID, {
         eventName:       editForm.name || undefined,
         description:     editForm.description || undefined,
+        venueName:       editForm.venueName ?? undefined,
         location:        editForm.location || undefined,
+        locationDetail:  editForm.locationDetail ?? undefined,
+        latitude:        typeof editForm.latitude === "number" ? editForm.latitude : undefined,
+        longitude:       typeof editForm.longitude === "number" ? editForm.longitude : undefined,
         startDate:       startDate || undefined,
         endDate:         endDate || undefined,
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : undefined,
@@ -380,7 +393,11 @@ export default function ClubEventsMgmt() {
       updateEvent(selectedEv.eventID, {
         eventName:       editForm.name,
         description:     editForm.description,
+        venueName:       editForm.venueName,
         location:        editForm.location,
+        locationDetail:  editForm.locationDetail,
+        latitude:        editForm.latitude,
+        longitude:       editForm.longitude,
         startDate:       startDate || selectedEv.startDate,
         endDate:         endDate || selectedEv.endDate,
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : selectedEv.maxParticipants,
@@ -632,8 +649,29 @@ export default function ClubEventsMgmt() {
                     </div>
                   </div>
                   <div>
-                    <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Địa điểm</label>
-                    <input value={editForm.location} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))}
+                    <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Tên địa điểm / Toà nhà</label>
+                    <input value={editForm.venueName} onChange={(e) => setEditForm((f) => ({ ...f, venueName: e.target.value }))}
+                      placeholder="VD: Hội trường Beta – Đại học FPT"
+                      style={{ width: "100%", fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", boxSizing: "border-box", outline: "none" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Địa chỉ (định vị trên bản đồ)</label>
+                    <LocationPicker
+                      address={editForm.location}
+                      lat={editForm.latitude}
+                      lng={editForm.longitude}
+                      onChange={({ address, lat, lng }) => setEditForm((f) => ({
+                        ...f,
+                        location: address,
+                        latitude: typeof lat === "number" ? lat : null,
+                        longitude: typeof lng === "number" ? lng : null,
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 }}>Chi tiết cụ thể</label>
+                    <input value={editForm.locationDetail} onChange={(e) => setEditForm((f) => ({ ...f, locationDetail: e.target.value }))}
+                      placeholder="VD: Tầng 3, phòng 302, lối vào cổng chính"
                       style={{ width: "100%", fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", boxSizing: "border-box", outline: "none" }} />
                   </div>
                   <div>
@@ -709,7 +747,13 @@ export default function ClubEventsMgmt() {
                       {
                         icon: <MapPin size={14} color="#E6430A" />,
                         label: "Địa điểm",
-                        value: selectedEv.location || null,
+                        value: (selectedEv.venueName || selectedEv.location || selectedEv.locationDetail) ? (
+                          <span style={{ display: "block" }}>
+                            {selectedEv.venueName && <span style={{ display: "block", fontWeight: 600 }}>{selectedEv.venueName}</span>}
+                            {selectedEv.location && <span style={{ display: "block" }}>{selectedEv.location}</span>}
+                            {selectedEv.locationDetail && <span style={{ display: "block", fontSize: 12.5, color: "#6b7280" }}>{selectedEv.locationDetail}</span>}
+                          </span>
+                        ) : null,
                       },
                       {
                         icon: <Users size={14} color="#E6430A" />,
@@ -725,9 +769,9 @@ export default function ClubEventsMgmt() {
                     return rows.filter(r => r.value).map((r, i) => (
                       <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                         <div style={{ width: 20, display: "flex", justifyContent: "center", paddingTop: 1, flexShrink: 0 }}>{r.icon}</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0, flex: 1 }}>
                           <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.4 }}>{r.label}</span>
-                          <span style={{ fontSize: 13.5, color: "#111827" }}>{r.value}</span>
+                          <span style={{ fontSize: 13.5, color: "#111827", minWidth: 0, wordBreak: "break-word", overflowWrap: "anywhere" }}>{r.value}</span>
                         </div>
                       </div>
                     ));
@@ -735,7 +779,7 @@ export default function ClubEventsMgmt() {
                   {selectedEv.description && (
                     <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 10, marginTop: 2 }}>
                       <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 6 }}>Mô tả sự kiện</span>
-                      <p style={{ margin: 0, fontSize: 13, color: "#374151", lineHeight: 1.75, whiteSpace: "pre-line" }}>
+                      <p style={{ margin: 0, fontSize: 13, color: "#374151", lineHeight: 1.75, whiteSpace: "pre-line", wordBreak: "break-word", overflowWrap: "anywhere" }}>
                         {selectedEv.description}
                       </p>
                     </div>

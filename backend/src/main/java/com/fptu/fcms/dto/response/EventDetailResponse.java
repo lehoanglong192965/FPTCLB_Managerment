@@ -21,7 +21,11 @@ public class EventDetailResponse {
     private final String eventCode;
     private final String eventName;
     private final String description;
+    private final String venueName;
     private final String location;
+    private final String locationDetail;
+    private final Double latitude;
+    private final Double longitude;
     private final LocalDateTime startDate;
     private final LocalDateTime endDate;
     private final EventStatus eventStatus;

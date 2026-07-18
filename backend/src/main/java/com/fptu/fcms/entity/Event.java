@@ -41,8 +41,22 @@ public class Event {
     private String description;
 
     @org.hibernate.annotations.Nationalized
+    @Column(name = "venueName")
+    private String venueName;
+
+    @org.hibernate.annotations.Nationalized
     @Column(name = "location")
     private String location;
+
+    @org.hibernate.annotations.Nationalized
+    @Column(name = "locationDetail")
+    private String locationDetail;
+
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
 
     @Column(name = "budget")
     private BigDecimal budget;

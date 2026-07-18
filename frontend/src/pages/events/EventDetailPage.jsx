@@ -4,6 +4,7 @@ import { Calendar, MapPin, Clock, ArrowLeft } from "lucide-react";
 import eventApi from "../../services/api/events/eventApi";
 import clubApi from "../../services/api/clubs/clubApi";
 import EventRegistrationBtn from "../../components/events/EventRegistrationBtn";
+import EventLocationMap from "../../components/events/EventLocationMap";
 import { useAuth } from "../../contexts/AuthContext";
 import { getServerOrigin } from "../../services/api/axiosClient";
 
@@ -138,9 +139,28 @@ export default function EventDetailPage() {
 
               <div className="flex items-start gap-3 text-sm text-[#374151]">
                 <MapPin size={16} className="text-[#F37021] shrink-0 mt-0.5" />
-                <div>
+                <div className="w-full">
                   <p className="font-semibold m-0 mb-0.5">Địa điểm</p>
+                  {event.venueName && (
+                    <p className="text-[#111827] font-medium m-0">{event.venueName}</p>
+                  )}
                   <p className="text-[#6B7280] m-0">{event.location || "Chưa xếp phòng"}</p>
+                  {event.locationDetail && (
+                    <p className="text-[#6B7280] m-0 text-xs mt-0.5">{event.locationDetail}</p>
+                  )}
+                  {typeof event.latitude === "number" && typeof event.longitude === "number" && (
+                    <div className="mt-2">
+                      <EventLocationMap lat={event.latitude} lng={event.longitude} label={event.venueName || event.location} />
+                      <a
+                        href={`https://www.openstreetmap.org/?mlat=${event.latitude}&mlon=${event.longitude}#map=17/${event.latitude}/${event.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block mt-1.5 text-xs text-[#F37021] hover:underline"
+                      >
+                        Xem bản đồ lớn hơn →
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
