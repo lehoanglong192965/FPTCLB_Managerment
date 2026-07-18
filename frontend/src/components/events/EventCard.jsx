@@ -1,5 +1,6 @@
 ﻿import { useNavigate } from "react-router-dom";
 import { getServerOrigin } from "../../services/api/axiosClient";
+import { useLocation } from "react-router-dom";
 
 import { MessageSquare } from "lucide-react";
 
@@ -25,12 +26,18 @@ const TICKET_STATUS = {
 
 export default function EventCard({ event }) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const roleBasePath = pathname.startsWith("/club-leader")
+    ? "/club-leader"
+    : pathname.startsWith("/vice-leader")
+      ? "/vice-leader"
+      : "/member";
   const isTicketMode = !!event.ticketStatus;
   const toDetail = () => navigate(
     `/events/${event.id}`,
     isTicketMode ? { state: { fromTickets: true, ticketStatus: event.ticketStatus } } : undefined
   );
-  const toAppeal = () => navigate(`/member/events/${event.id}/appeal`);
+  const toAppeal = () => navigate(`${roleBasePath}/events/${event.id}/appeal`);
 
   const badge = BADGE[event.badgeType] ?? BADGE.upcoming;
   const ticket = TICKET_STATUS[event.ticketStatus] ?? TICKET_STATUS.registered;

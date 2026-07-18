@@ -84,7 +84,7 @@ public class ContributionBatchController {
     }
 
     @PostMapping("/events/{eventId}/contribution-batch/finalize")
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
+    @PreAuthorize("hasRole('Leader')")
     public ResponseEntity<ContributionBatchResponse> finalizeBatch(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal principal
@@ -109,7 +109,7 @@ public class ContributionBatchController {
     }
 
     @PatchMapping("/contribution-appeals/{appealId}/resolve")
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
+    @PreAuthorize("hasRole('Leader')")
     public ResponseEntity<AppealResponse> resolveAppeal(
             @PathVariable Integer appealId,
             @Valid @RequestBody AppealResolveRequest request,

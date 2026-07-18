@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Lock, AlertTriangle, X, Users, Clock, CheckCircle2 } from 'lucide-react';
 import contributionApi from '../../services/api/contribution/contributionApi';
+import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { isCanceledRequest } from '../../utils/apiErrors';
 
@@ -100,7 +101,7 @@ function InstantFinalizeModal({ count, onConfirm, onClose }) {
 }
 
 
-function AppealsPanel({ appeals, contributions, onProcess }) {
+function AppealsPanel({ appeals, contributions, onProcess, canProcess }) {
   const [processing, setProcessing] = useState(null);
   const [form, setForm] = useState({ isAccepted: true, contributionType: 'PARTICIPANT', leaderEvaluation: 'GOOD', reason: '' });
   const [activeAppeal, setActiveAppeal] = useState(null);
@@ -146,20 +147,24 @@ function AppealsPanel({ appeals, contributions, onProcess }) {
                   Vai trò: <strong>{contributionTypeLabel(contribution?.contributionType)}</strong> · Đánh giá: <strong>{evaluationLabel(contribution?.leaderEvaluation)}</strong> · Lý do: {appeal.reason}
                 </p>
               </div>
-              <button
-                onClick={() => {
-                  setActiveAppeal(appeal);
-                  setForm({
-                    isAccepted: true,
-                    contributionType: contribution?.contributionType || 'PARTICIPANT',
-                    leaderEvaluation: contribution?.leaderEvaluation || 'GOOD',
-                    reason: '',
-                  });
-                }}
-                className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
-              >
-                Xử lý
-              </button>
+              {canProcess ? (
+                <button
+                  onClick={() => {
+                    setActiveAppeal(appeal);
+                    setForm({
+                      isAccepted: true,
+                      contributionType: contribution?.contributionType || 'PARTICIPANT',
+                      leaderEvaluation: contribution?.leaderEvaluation || 'GOOD',
+                      reason: '',
+                    });
+                  }}
+                  className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+                >
+                  Xử lý
+                </button>
+              ) : (
+                <span className="text-xs text-gray-400">Chỉ Trưởng CLB được xử lý</span>
+              )}
           </div>
         );
         })}
@@ -230,6 +235,8 @@ function AppealsPanel({ appeals, contributions, onProcess }) {
 export default function ContributionManagementPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canResolveOrFinalize = user?.role === 'CLUB_LEADER';
   const [searchParams] = useSearchParams();
   const instantPromptShownRef = useRef(false);
   const toast = useToast();
@@ -320,6 +327,7 @@ export default function ContributionManagementPage() {
   useEffect(() => {
     if (
       loading
+      || !canResolveOrFinalize
       || instantPromptShownRef.current
       || searchParams.get('instant') !== '1'
       || batchStatus === 'FINALIZED'
@@ -330,7 +338,7 @@ export default function ContributionManagementPage() {
     }
     instantPromptShownRef.current = true;
     setShowInstantFinalizeModal(true);
-  }, [batchStatus, contributions.length, loading, searchParams]);
+  }, [batchStatus, canResolveOrFinalize, contributions.length, loading, searchParams]);
 
   const handleFieldChange = (userId, field, value) => {
     setContributions((prev) => prev.map((item) => item.userId === userId ? { ...item, [field]: value } : item));
@@ -357,6 +365,10 @@ export default function ContributionManagementPage() {
   };
 
   const handleInstantFinalize = async () => {
+    if (!canResolveOrFinalize) {
+      toast.error('Chỉ Trưởng CLB được chốt điểm ngay.');
+      return;
+    }
     setShowInstantFinalizeModal(false);
     setFinalizing(true);
     try {
@@ -443,13 +455,15 @@ export default function ContributionManagementPage() {
             >
               <Lock size={15} /> Chốt điểm
             </button>
-            <button
-              onClick={() => setShowInstantFinalizeModal(true)}
-              disabled={finalizing || saving || contributions.length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
-            >
-              <CheckCircle2 size={15} /> Chốt ngay
-            </button>
+            {canResolveOrFinalize && (
+              <button
+                onClick={() => setShowInstantFinalizeModal(true)}
+                disabled={finalizing || saving || contributions.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+              >
+                <CheckCircle2 size={15} /> Chốt ngay
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -467,14 +481,16 @@ export default function ContributionManagementPage() {
             )}
           </div>
           </div>
-          <button
-            onClick={() => setShowInstantFinalizeModal(true)}
-            disabled={finalizing || contributions.length === 0 || appeals.length > 0}
-            className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
-            title={appeals.length > 0 ? 'Cần xử lý khiếu nại trước khi chốt ngay' : undefined}
-          >
-            <CheckCircle2 size={15} /> Chốt ngay
-          </button>
+          {canResolveOrFinalize && (
+            <button
+              onClick={() => setShowInstantFinalizeModal(true)}
+              disabled={finalizing || contributions.length === 0 || appeals.length > 0}
+              className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+              title={appeals.length > 0 ? 'Cần xử lý khiếu nại trước khi chốt ngay' : undefined}
+            >
+              <CheckCircle2 size={15} /> Chốt ngay
+            </button>
+          )}
         </div>
       ) : batchStatus === 'FINALIZED' ? (
         <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-5 text-sm text-green-700 font-medium">
@@ -491,6 +507,7 @@ export default function ContributionManagementPage() {
         <AppealsPanel
           appeals={appeals}
           contributions={contributions}
+          canProcess={canResolveOrFinalize}
           onProcess={() => { fetchData(); if (batchId) fetchAppeals(batchId); }}
         />
       )}
@@ -585,7 +602,7 @@ export default function ContributionManagementPage() {
           onClose={() => setShowFinalizeModal(false)}
         />
       )}
-      {showInstantFinalizeModal && (
+      {showInstantFinalizeModal && canResolveOrFinalize && (
         <InstantFinalizeModal
           count={contributions.length}
           onConfirm={handleInstantFinalize}
