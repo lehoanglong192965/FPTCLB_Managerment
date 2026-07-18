@@ -85,8 +85,8 @@ public class AttendanceRecord {
     @Column(name = "aiMatchConfidence")
     private BigDecimal aiMatchConfidence;
 
-    @Column(name = "isVerifiedByAI")
-    private Boolean isVerifiedByAI;
+    @Column(name = "isVerifiedByAI", nullable = false)
+    private Boolean isVerifiedByAI = false;
 
     @Column(name = "markedAt")
     private LocalDateTime markedAt;
@@ -103,6 +103,12 @@ public class AttendanceRecord {
     @PrePersist
     @PreUpdate
     private void normalizeLifecycle() {
+        if (isVerifiedByAI == null) {
+            isVerifiedByAI = false;
+        }
+        if (isDeleted == null) {
+            isDeleted = false;
+        }
         if (checkedInAt == null) {
             checkedInAt = markedAt != null ? markedAt : LocalDateTime.now();
         }

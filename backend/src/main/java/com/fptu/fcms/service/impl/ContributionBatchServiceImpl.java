@@ -213,7 +213,19 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     @Override
     @Transactional
     public ContributionBatchResponse getBatchByEvent(Integer eventId) {
-        Event event = findEvent(eventId);
+        ContributionBatch existingBatch = contributionBatchRepository
+                .findByEventIDAndIsDeletedFalse(eventId)
+                .orElse(null);
+        if (existingBatch != null) {
+            if (isDraftStatus(existingBatch.getStatus())
+                    && contributionRepository.findByBatchIDAndIsDeletedFalse(existingBatch.getBatchID()).isEmpty()) {
+                Event event = findEventForRead(eventId);
+                generateDraftContributions(event, existingBatch, null, LocalDateTime.now());
+            }
+            return toBatchResponse(existingBatch);
+        }
+
+        Event event = findEventForRead(eventId);
         LocalDateTime now = LocalDateTime.now();
         ContributionBatch batch = getOrCreateDraftBatch(event, null, now);
         generateDraftContributions(event, batch, null, now);
@@ -223,9 +235,18 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     @Override
     @Transactional
     public List<ContributionDTO> getContributionScores(Integer eventId) {
-        Event event = findEvent(eventId);
-        ContributionBatch batch = getOrCreateDraftBatch(event, null, LocalDateTime.now());
-        generateDraftContributions(event, batch, null, LocalDateTime.now());
+        ContributionBatch batch = contributionBatchRepository
+                .findByEventIDAndIsDeletedFalse(eventId)
+                .orElse(null);
+        if (batch == null) {
+            Event event = findEventForRead(eventId);
+            LocalDateTime now = LocalDateTime.now();
+            batch = getOrCreateDraftBatch(event, null, now);
+            generateDraftContributions(event, batch, null, now);
+        } else if (isDraftStatus(batch.getStatus())
+                && contributionRepository.findByBatchIDAndIsDeletedFalse(batch.getBatchID()).isEmpty()) {
+            generateDraftContributions(findEventForRead(eventId), batch, null, LocalDateTime.now());
+        }
         return contributionRepository.findByBatchIDAndIsDeletedFalse(batch.getBatchID())
                 .stream()
                 .map(this::toContributionDto)
@@ -819,6 +840,11 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
 
     private Event findEvent(Integer eventId) {
         return eventRepository.findByEventIDAndIsDeletedFalseForUpdate(eventId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
+    }
+
+    private Event findEventForRead(Integer eventId) {
+        return eventRepository.findByEventIDAndIsDeletedFalse(eventId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
     }
 
