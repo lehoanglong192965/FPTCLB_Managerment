@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import SuspendButton from "../../components/admin/SuspendButton";
 import adminApi from "../../services/api/admin/adminApi";
+import semesterApi from "../../services/api/admin/semesterApi";
 import { getInitials } from "../../utils/avatar";
 
 const ROLE_LABEL = { 1: "Admin", 2: "ICPDP", 3: "Sinh viên" };
@@ -15,10 +16,6 @@ const ROLE_CHIP = {
   2: "bg-blue-50 text-blue-700 border-blue-200",
   3: "bg-slate-100 text-slate-600 border-slate-200",
 };
-
-// Ghi chú: backend chưa có API cho "Quản lý Kỷ luật" — phần này vẫn giữ mockdata
-// cục bộ (chỉ lưu trong state, mất khi tải lại trang) cho tới khi có API riêng.
-const MOCK_DISCIPLINES = {};
 
 const PANEL_TABS = [
   { key: "info", label: "Thông tin" },
@@ -111,7 +108,10 @@ export default function UserManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedUser, setSelectedUser] = useState(null);
   const [activeTab, setActiveTab] = useState("info");
-  const [disciplinesMap, setDisciplinesMap] = useState(MOCK_DISCIPLINES);
+  const [disciplinesMap, setDisciplinesMap] = useState({});
+  const [semesters, setSemesters] = useState([]);
+  const [disciplineLoading, setDisciplineLoading] = useState(true);
+  const [disciplineSaving, setDisciplineSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState(EMPTY_FORM);
   const [addError, setAddError] = useState("");
@@ -142,6 +142,48 @@ export default function UserManagement() {
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  const loadDisciplines = useCallback(async () => {
+    setDisciplineLoading(true);
+    try {
+      const [logsResponse, semesterResponse] = await Promise.all([
+        adminApi.getDisciplineLogs(),
+        semesterApi.getAll(),
+      ]);
+      const logs = Array.isArray(logsResponse) ? logsResponse : (logsResponse?.data ?? []);
+      const semesterList = Array.isArray(semesterResponse) ? semesterResponse : (semesterResponse?.data ?? []);
+      setSemesters(semesterList);
+
+      const semesterCodeById = new Map(
+        semesterList.map((semester) => [semester.semesterID, semester.semesterCode]),
+      );
+      const grouped = {};
+      logs.forEach((log) => {
+        const item = {
+          id: log.disciplineID,
+          userID: log.userID,
+          semesterID: log.semesterID,
+          semester: semesterCodeById.get(log.semesterID) ?? `#${log.semesterID}`,
+          reason: log.reason,
+          status: log.disciplineStatus === "Expired" ? "Resolved" : log.disciplineStatus,
+          createdAt: log.createdAt,
+        };
+        grouped[log.userID] = [...(grouped[log.userID] ?? []), item];
+      });
+      Object.values(grouped).forEach((items) =>
+        items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+      );
+      setDisciplinesMap(grouped);
+    } catch (err) {
+      toast.error(err?.response?.data?.message ?? "Không thể tải nhật ký kỷ luật.");
+    } finally {
+      setDisciplineLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadDisciplines();
+  }, [loadDisciplines]);
 
   const closeIcpdpForm = () => {
     if (isIcpdpLoading) return;
@@ -221,36 +263,55 @@ export default function UserManagement() {
     }
   }
 
-  function handleAddDiscipline() {
+  async function handleAddDiscipline() {
     if (!addForm.reason.trim() || !addForm.semester.trim()) {
       setAddError("Vui lòng điền đầy đủ thông tin.");
       return;
     }
-    const newLog = {
-      id: Date.now(),
-      reason: addForm.reason.trim(),
-      semester: addForm.semester.trim(),
-      status: "Active",
-      createdAt: new Date().toISOString(),
-    };
-    setDisciplinesMap((prev) => ({
-      ...prev,
-      [selectedUser.userID]: [newLog, ...(prev[selectedUser.userID] ?? [])],
-    }));
-    setAddForm(EMPTY_FORM);
-    setShowAddForm(false);
-    setAddError("");
-    toast.success("Đã ghi nhận vi phạm kỷ luật thành công.");
+    const semester = semesters.find(
+      (item) => item.semesterCode?.toLowerCase() === addForm.semester.trim().toLowerCase(),
+    );
+    if (!semester) {
+      setAddError("Mã học kỳ không tồn tại. Vui lòng nhập đúng mã học kỳ.");
+      return;
+    }
+
+    setDisciplineSaving(true);
+    try {
+      await adminApi.createDisciplineLog({
+        userID: selectedUser.userID,
+        semesterID: semester.semesterID,
+        reason: addForm.reason.trim(),
+        disciplineStatus: "Active",
+      });
+      await Promise.all([loadDisciplines(), loadUsers()]);
+      setSelectedUser((current) => current ? { ...current, accountStatus: "Suspended" } : current);
+      setAddForm(EMPTY_FORM);
+      setShowAddForm(false);
+      setAddError("");
+      toast.success("Đã ghi nhận vi phạm kỷ luật thành công.");
+    } catch (err) {
+      setAddError(err?.response?.data?.message ?? "Không thể lưu vi phạm.");
+    } finally {
+      setDisciplineSaving(false);
+    }
   }
 
-  function resolveLog(logId) {
-    setDisciplinesMap((prev) => ({
-      ...prev,
-      [selectedUser.userID]: (prev[selectedUser.userID] ?? []).map((d) =>
-        d.id === logId ? { ...d, status: "Resolved" } : d
-      ),
-    }));
-    toast.success("Đã đánh dấu vi phạm là Đã giải quyết.");
+  async function resolveLog(logId) {
+    const log = (disciplinesMap[selectedUser.userID] ?? []).find((item) => item.id === logId);
+    if (!log) return;
+    try {
+      await adminApi.updateDisciplineLog(logId, {
+        userID: log.userID,
+        semesterID: log.semesterID,
+        reason: log.reason,
+        disciplineStatus: "Expired",
+      });
+      await loadDisciplines();
+      toast.success("Đã đánh dấu vi phạm là Đã giải quyết.");
+    } catch (err) {
+      toast.error(err?.response?.data?.message ?? "Không thể cập nhật vi phạm.");
+    }
   }
 
   const stats = useMemo(() => ({
@@ -540,16 +601,23 @@ export default function UserManagement() {
                           </button>
                           <button
                             onClick={handleAddDiscipline}
+                            disabled={disciplineSaving}
                             className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#e6430a] hover:bg-[#d13d09] text-white border-none rounded-lg text-[12.5px] font-semibold cursor-pointer transition-colors"
                           >
-                            <FileText size={12} /> Lưu vi phạm
+                            {disciplineSaving
+                              ? <><Loader2 size={12} className="animate-spin" /> Đang lưu...</>
+                              : <><FileText size={12} /> Lưu vi phạm</>}
                           </button>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {selectedDisciplines.length === 0 ? (
+                  {disciplineLoading ? (
+                    <div className="flex items-center justify-center gap-2 py-12 text-gray-400 text-[13px]">
+                      <Loader2 size={16} className="animate-spin" /> Đang tải nhật ký...
+                    </div>
+                  ) : selectedDisciplines.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <ShieldAlert size={36} className="text-gray-200 mb-3" />
                       <p className="text-[13.5px] font-semibold text-gray-400 m-0">Không có vi phạm nào</p>
