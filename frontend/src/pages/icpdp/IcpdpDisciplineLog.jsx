@@ -7,14 +7,14 @@ import disciplineLogApi from "../../services/api/icpdp/disciplineLogApi";
 import { useToast } from "../../contexts/ToastContext";
 
 const STATUS_CONFIG = {
-  Active:   { label: "Đang xử lý",    color: "orange" },
-  Resolved: { label: "Đã giải quyết", color: "green"  },
+  Active:  { label: "Đang xử lý",    color: "orange" },
+  Expired: { label: "Đã giải quyết", color: "green"  },
 };
 
 const TABS = [
   { key: "all",      label: "Tất cả" },
   { key: "Active",   label: "Đang xử lý" },
-  { key: "Resolved", label: "Đã giải quyết" },
+  { key: "Expired", label: "Đã giải quyết" },
 ];
 
 const INIT_FORM = { userID: "", semesterID: "", reason: "" };
@@ -94,7 +94,7 @@ export default function IcpdpDisciplineLog() {
         userID: log.userID,
         semesterID: log.semesterID,
         reason: log.reason,
-        disciplineStatus: "Resolved",
+        disciplineStatus: "Expired",
       });
       setDetail(null);
       toast.success("Đã đánh dấu vi phạm là Đã giải quyết.");
@@ -146,7 +146,7 @@ export default function IcpdpDisciplineLog() {
           <CheckCircle2 size={22} className="flex-shrink-0 opacity-75 text-green-500" />
           <div>
             <p className="text-[12.5px] text-gray-500 m-0 mb-0.5">Đã giải quyết</p>
-            <p className="text-[26px] font-bold text-gray-900 m-0 leading-none">{logs.filter((l) => l.disciplineStatus === "Resolved").length}</p>
+            <p className="text-[26px] font-bold text-gray-900 m-0 leading-none">{logs.filter((l) => l.disciplineStatus === "Expired").length}</p>
           </div>
         </div>
         <div className="flex items-center gap-3.5 px-5 py-4 bg-white rounded-xl shadow-sm border-l-4 border-l-green-500">

@@ -13,6 +13,7 @@ import com.fptu.fcms.repository.ClubBlacklistRepository;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.ClubRepository;
 import com.fptu.fcms.repository.RecruitmentApplicationRepository;
+import com.fptu.fcms.repository.RecruitmentCycleRepository;
 import com.fptu.fcms.repository.SemesterRepository;
 import com.fptu.fcms.repository.WithdrawLogRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -56,6 +58,7 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
     private static final byte[] PDF_MAGIC = new byte[] {'%', 'P', 'D', 'F', '-'};
 
     private final RecruitmentApplicationRepository recruitmentRepository;
+    private final RecruitmentCycleRepository recruitmentCycleRepository;
     private final ClubMembershipRepository membershipRepository;
     private final ClubBlacklistRepository blacklistRepository;
     private final SemesterRepository semesterRepository;
@@ -127,6 +130,13 @@ public class RecruitmentApplicationServiceImpl implements RecruitmentApplication
         Semester activeSemester = semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
                 .orElseThrow(() -> new BusinessRuleException("Không tìm thấy học kỳ Active."));
         currentSemesterID = activeSemester.getSemesterID();
+
+        if (!recruitmentCycleRepository.isRecruitmentOpenForClub(
+                request.getClubID(), LocalDate.now())) {
+            throw new BusinessRuleException(
+                    "Câu lạc bộ hiện không có đợt tuyển thành viên đang mở."
+            );
+        }
 
         // 1. Kiểm tra Blacklist (BR-B07/Validate 2)
         boolean isBlacklisted = blacklistRepository.existsByClubIDAndUserIDAndIsDeletedFalse(request.getClubID(), currentUserID);

@@ -4,6 +4,7 @@ import com.fptu.fcms.dto.response.ClubManagementSummaryDTO;
 import com.fptu.fcms.entity.Club;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.ClubRepository;
+import com.fptu.fcms.repository.RecruitmentCycleRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -27,6 +28,9 @@ class ClubServiceImplTest {
 
     @Mock
     private ClubMembershipRepository clubMembershipRepository;
+
+    @Mock
+    private RecruitmentCycleRepository recruitmentCycleRepository;
 
     @InjectMocks
     private ClubServiceImpl service;

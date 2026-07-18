@@ -29,6 +29,24 @@ public interface RecruitmentCycleRepository extends JpaRepository<RecruitmentCyc
 
     boolean existsByParentCycleIDAndClubIDAndIsDeletedFalse(Integer parentCycleID, Integer clubID);
 
+    @Query("SELECT CASE WHEN COUNT(c) > 0 THEN true ELSE false END " +
+            "FROM RecruitmentCycle c, RecruitmentCycle p " +
+            "WHERE c.parentCycleID = p.cycleID " +
+            "AND c.clubID = :clubId " +
+            "AND c.status = 'Open' " +
+            "AND c.isDeleted = false " +
+            "AND c.startDate <= :date " +
+            "AND (c.endDate IS NULL OR c.endDate >= :date) " +
+            "AND p.clubID IS NULL " +
+            "AND p.status = 'Open' " +
+            "AND p.isDeleted = false " +
+            "AND p.startDate <= :date " +
+            "AND (p.endDate IS NULL OR p.endDate >= :date)")
+    boolean isRecruitmentOpenForClub(
+            @Param("clubId") Integer clubId,
+            @Param("date") LocalDate date
+    );
+
     @Query("SELECT c FROM RecruitmentCycle c " +
             "WHERE c.status = 'Open' " +
             "AND c.startDate <= :date " +
