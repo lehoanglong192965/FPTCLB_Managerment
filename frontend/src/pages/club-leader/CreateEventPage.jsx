@@ -262,11 +262,6 @@ function Step1({ form, onChange, errors }) {
           value={form.desc}
           onChange={(e) => onChange("desc", e.target.value)}
         />
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-          <span style={{ fontSize: 11.5, color: form.desc.length >= 30 ? "#059669" : "#9ca3af" }}>
-            {form.desc.length} / 30+ ký tự
-          </span>
-        </div>
         <FieldError msg={errors.desc} />
       </div>
 
@@ -439,10 +434,21 @@ function validate(step, form) {
   if (step === 1) {
     if (!form.banner)
       e.banner = "Vui lòng tải lên banner sự kiện.";
-    if (!form.name.trim() || form.name.trim().length < 5)
-      e.name = "Tên sự kiện phải có ít nhất 5 ký tự.";
+    {
+      const name = form.name.trim();
+      if (!name)
+        e.name = "Vui lòng nhập tên sự kiện.";
+      else if (name.length < 5)
+        e.name = "Tên sự kiện quá ngắn (< 5 ký tự). Vui lòng đặt tên rõ ràng, đầy đủ hơn.";
+      else if (name.length > 100)
+        e.name = "Tên sự kiện quá dài (> 100 ký tự). Vui lòng rút gọn lại cho súc tích.";
+      else if (!/\p{L}/u.test(name))
+        e.name = "Tên sự kiện phải chứa ít nhất một chữ cái, không thể chỉ gồm số hoặc ký tự đặc biệt.";
+    }
     if (!form.desc.trim() || form.desc.trim().length < 30)
-      e.desc = "Mô tả phải có ít nhất 30 ký tự.";
+      e.desc = "Nội dung của bạn quá ngắn (< 30 ký tự), vui lòng kiểm tra và nhập đầy đủ hơn.";
+    else if (form.desc.trim().length > 1000)
+      e.desc = "Nội dung quá dài (> 1000 ký tự), vui lòng kiểm tra và rút gọn nội dung của bạn.";
     if (!form.budget || Number(form.budget) < 0)
       e.budget = "Vui lòng nhập ngân sách dự kiến (nhập 0 nếu không có).";
     if (!form.maxParticipants || Number(form.maxParticipants) < 1)
