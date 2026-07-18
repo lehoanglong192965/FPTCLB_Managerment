@@ -9,6 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -28,24 +31,26 @@ public class SystemConfigServiceImpl
     // Cập nhật giá trị cấu hình theo configKey
     @Override
     @CacheEvict(value = "systemConfig", key = "#configKey")
+    @Transactional
     public Object updateConfig(
             String configKey,
             SystemConfigRequest request
     ) {
 
         // Tìm cấu hình theo key
-        SystemConfig config =
-                systemConfigRepository
-                        .findByConfigKey(configKey)
-                        .orElseThrow(() ->
-                                new EntityNotFoundException(
-                                        "Config not found"
-                                ));
+        SystemConfig config = systemConfigRepository
+                .findByConfigKey(configKey)
+                .orElseGet(() -> {
+                    SystemConfig created = new SystemConfig();
+                    created.setConfigKey(configKey);
+                    return created;
+                });
 
         // Cập nhật giá trị mới
         config.setConfigValue(
                 request.getConfigValue()
         );
+        config.setUpdatedAt(LocalDateTime.now());
 
         // Lưu cấu hình sau khi cập nhật
         return systemConfigRepository.save(config);

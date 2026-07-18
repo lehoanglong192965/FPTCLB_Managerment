@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import {
   Tabs, Table, Button, InputNumber, DatePicker,
-  Modal, Tag, Popconfirm, Input,
+  Modal, Tag, Popconfirm, Input, Select,
 } from "antd";
 import { Plus, Trash2, RotateCcw, Eye } from "lucide-react";
-import DynamicForm from "../../components/ui/DynamicForm";
 import { useToast } from "../../contexts/ToastContext";
 import axiosClient from "../../services/api/axiosClient";
 
@@ -28,17 +27,6 @@ const MOCK_HOLIDAYS = [
   { id: 3, date: "02/09/2025", name: "Quốc khánh" },
 ];
 
-const MOCK_VERSIONS = [
-  {
-    version: 2, changedBy: "Admin B", changedAt: "15/06/2025",
-    config: { submitThresholdDays: 5, minPoints: 8, maxFileSize: 5, fileSizeUnit: "MB" },
-  },
-  {
-    version: 1, changedBy: "Admin A", changedAt: "10/06/2025",
-    config: { submitThresholdDays: 3, minPoints: 5, maxFileSize: 10, fileSizeUnit: "MB" },
-  },
-];
-
 const CONFIG_LABELS = {
   submitThresholdDays:    "Ngưỡng ngày submit",
   minPoints:              "Điểm tối thiểu",
@@ -46,36 +34,11 @@ const CONFIG_LABELS = {
   fileSizeUnit:           "Đơn vị file",
 };
 
-// ─── General Config Schema (dùng cho DynamicForm) ────────────────────────────
-
-const GENERAL_CONFIG_SCHEMA = {
-  submitText: "Lưu cấu hình",
-  fields: [
-    {
-      type: "number", name: "submitThresholdDays", label: "Ngưỡng ngày submit",
-      required: true, span: 12, min: 1, max: 365,
-      placeholder: "VD: 7",
-    },
-    {
-      type: "number", name: "minPoints", label: "Điểm tối thiểu",
-      required: true, span: 12, min: 0,
-      placeholder: "VD: 10",
-    },
-    {
-      type: "number", name: "maxFileSize", label: "Giới hạn kích thước file",
-      required: true, span: 12, min: 1,
-      placeholder: "VD: 10",
-    },
-    {
-      type: "select", name: "fileSizeUnit", label: "Đơn vị file",
-      required: true, span: 12,
-      options: [
-        { value: "KB", label: "KB" },
-        { value: "MB", label: "MB" },
-        { value: "GB", label: "GB" },
-      ],
-    },
-  ],
+const PERSISTED_CONFIG_KEYS = {
+  general: "ADMIN_GENERAL_CONFIG",
+  multipliers: "ADMIN_POINT_MULTIPLIERS",
+  holidays: "ADMIN_PUBLIC_HOLIDAYS",
+  versions: "ADMIN_CONFIG_VERSIONS",
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -93,10 +56,10 @@ const tdStyle = {
 export default function SystemConfigPage() {
   const toast = useToast();
   const [config, setConfig]           = useState(MOCK_CONFIG);
-  const [formKey, setFormKey]         = useState(0);
+  const [configDraft, setConfigDraft] = useState(MOCK_CONFIG);
   const [multipliers, setMultipliers] = useState(MOCK_MULTIPLIERS);
   const [holidays, setHolidays]       = useState(MOCK_HOLIDAYS);
-  const [versions, setVersions]       = useState(MOCK_VERSIONS);
+  const [versions, setVersions]       = useState([]);
 
   // Add multiplier form
   const [newCondition, setNewCondition]   = useState("");
@@ -118,6 +81,53 @@ export default function SystemConfigPage() {
   const [aiRuntimeSaving, setAiRuntimeSaving] = useState(false);
   const [aiRuntimeError, setAiRuntimeError] = useState("");
   const [aiRuntimeReload, setAiRuntimeReload] = useState(0);
+  const [configLoading, setConfigLoading] = useState(true);
+  const [configSaving, setConfigSaving] = useState(false);
+
+  const saveJsonConfig = async (key, value) => {
+    await axiosClient.put(`/admin/system-configs/${key}`, {
+      configValue: JSON.stringify(value),
+    });
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadPersistedConfig = async () => {
+      setConfigLoading(true);
+      try {
+        const response = await axiosClient.get("/admin/system-configs");
+        const items = Array.isArray(response) ? response : (response?.data ?? []);
+        const byKey = new Map(items.map((item) => [item.configKey, item.configValue]));
+        const parse = (key, fallback) => {
+          const raw = byKey.get(key);
+          if (!raw) return fallback;
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return fallback;
+          }
+        };
+        if (!cancelled) {
+          const persistedGeneral = parse(PERSISTED_CONFIG_KEYS.general, MOCK_CONFIG);
+          setConfig(persistedGeneral);
+          setConfigDraft(persistedGeneral);
+          setMultipliers(parse(PERSISTED_CONFIG_KEYS.multipliers, MOCK_MULTIPLIERS));
+          setHolidays(parse(PERSISTED_CONFIG_KEYS.holidays, MOCK_HOLIDAYS));
+          setVersions(parse(PERSISTED_CONFIG_KEYS.versions, []));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          toast.error(err?.response?.data?.message ?? "Không thể tải cấu hình hệ thống.");
+        }
+      } finally {
+        if (!cancelled) setConfigLoading(false);
+      }
+    };
+    loadPersistedConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,16 +176,75 @@ export default function SystemConfigPage() {
 
   // ── Tab 1: Cấu hình chung ─────────────────────────────────────────────────
 
-  const handleSaveConfig = (values) => {
+  const handleSaveConfig = async () => {
+    const values = configDraft;
+    const normalized = {
+      submitThresholdDays: Number(values?.submitThresholdDays),
+      minPoints: Number(values?.minPoints),
+      maxFileSize: Number(values?.maxFileSize),
+      fileSizeUnit: values?.fileSizeUnit,
+    };
+
+    if (values?.submitThresholdDays === undefined
+      || values?.submitThresholdDays === null
+      || values?.submitThresholdDays === ""
+      || !Number.isInteger(normalized.submitThresholdDays)
+      || normalized.submitThresholdDays < 1
+      || normalized.submitThresholdDays > 365) {
+      toast.error("Ngưỡng ngày submit là bắt buộc và phải là số nguyên từ 1 đến 365.");
+      return;
+    }
+    if (values?.minPoints === undefined
+      || values?.minPoints === null
+      || values?.minPoints === ""
+      || !Number.isInteger(normalized.minPoints)
+      || normalized.minPoints < 0) {
+      toast.error("Điểm tối thiểu là bắt buộc và phải là số nguyên không âm.");
+      return;
+    }
+    if (values?.maxFileSize === undefined
+      || values?.maxFileSize === null
+      || values?.maxFileSize === ""
+      || !Number.isInteger(normalized.maxFileSize)
+      || normalized.maxFileSize < 1) {
+      toast.error("Giới hạn kích thước file là bắt buộc và phải là số nguyên lớn hơn 0.");
+      return;
+    }
+    if (!["KB", "MB", "GB"].includes(normalized.fileSizeUnit)) {
+      toast.error("Vui lòng chọn đơn vị file hợp lệ.");
+      return;
+    }
+
+    const hasChanges = Object.keys(CONFIG_LABELS).some(
+      (key) => String(config[key]) !== String(normalized[key]),
+    );
+    if (!hasChanges) {
+      toast.success("Cấu hình không có thay đổi.");
+      return;
+    }
+
     const snapshot = {
       version:   (versions[0]?.version ?? 0) + 1,
       changedBy: "Admin",
       changedAt: new Date().toLocaleDateString("vi-VN"),
-      config:    { ...config },
+      config:    { ...normalized },
     };
-    setVersions((prev) => [snapshot, ...prev]);
-    setConfig(values);
-    toast.success("Đã lưu cấu hình thành công.");
+    const nextVersions = [snapshot, ...versions].slice(0, 20);
+    setConfigSaving(true);
+    try {
+      await Promise.all([
+        saveJsonConfig(PERSISTED_CONFIG_KEYS.general, normalized),
+        saveJsonConfig(PERSISTED_CONFIG_KEYS.versions, nextVersions),
+      ]);
+      setVersions(nextVersions);
+      setConfig(normalized);
+      setConfigDraft(normalized);
+      toast.success("Đã lưu cấu hình thành công.");
+    } catch (err) {
+      toast.error(err?.response?.data?.message ?? "Không thể lưu cấu hình hệ thống.");
+    } finally {
+      setConfigSaving(false);
+    }
   };
 
   const handleSaveAiRuntimeConfig = async () => {
@@ -244,63 +313,96 @@ export default function SystemConfigPage() {
 
   // ── Tab 2: Hệ số nhân điểm ────────────────────────────────────────────────
 
-  const addMultiplier = () => {
+  const addMultiplier = async () => {
     if (!newCondition.trim())
       return toast.error("Vui lòng nhập điều kiện.");
     if (!newMultiplier || newMultiplier <= 0)
       return toast.error("Hệ số nhân phải lớn hơn 0.");
-    setMultipliers((prev) => [
-      ...prev,
+    const next = [
+      ...multipliers,
       { id: Date.now(), condition: newCondition.trim(), multiplier: newMultiplier },
-    ]);
-    setNewCondition("");
-    setNewMultiplier(2);
-    toast.success("Đã thêm quy tắc nhân điểm.");
+    ];
+    try {
+      await saveJsonConfig(PERSISTED_CONFIG_KEYS.multipliers, next);
+      setMultipliers(next);
+      setNewCondition("");
+      setNewMultiplier(2);
+      toast.success("Đã thêm quy tắc nhân điểm.");
+    } catch {
+      toast.error("Không thể lưu quy tắc nhân điểm.");
+    }
   };
 
-  const deleteMultiplier = (id) => {
-    setMultipliers((prev) => prev.filter((m) => m.id !== id));
-    toast.success("Đã xóa quy tắc.");
+  const deleteMultiplier = async (id) => {
+    const next = multipliers.filter((m) => m.id !== id);
+    try {
+      await saveJsonConfig(PERSISTED_CONFIG_KEYS.multipliers, next);
+      setMultipliers(next);
+      toast.success("Đã xóa quy tắc.");
+    } catch {
+      toast.error("Không thể xóa quy tắc.");
+    }
   };
 
   // ── Tab 3: Ngày lễ công cộng ──────────────────────────────────────────────
 
-  const addHoliday = () => {
+  const addHoliday = async () => {
     if (!newHolidayDate)
       return toast.error("Vui lòng chọn ngày.");
     if (!newHolidayName.trim())
       return toast.error("Vui lòng nhập tên ngày lễ.");
-    setHolidays((prev) => [
-      ...prev,
+    const next = [
+      ...holidays,
       {
         id:   Date.now(),
         date: newHolidayDate.format("DD/MM/YYYY"),
         name: newHolidayName.trim(),
       },
-    ]);
-    setNewHolidayDate(null);
-    setNewHolidayName("");
-    toast.success("Đã thêm ngày lễ.");
+    ];
+    try {
+      await saveJsonConfig(PERSISTED_CONFIG_KEYS.holidays, next);
+      setHolidays(next);
+      setNewHolidayDate(null);
+      setNewHolidayName("");
+      toast.success("Đã thêm ngày lễ.");
+    } catch {
+      toast.error("Không thể lưu ngày lễ.");
+    }
   };
 
-  const deleteHoliday = (id) => {
-    setHolidays((prev) => prev.filter((h) => h.id !== id));
-    toast.success("Đã xóa ngày lễ.");
+  const deleteHoliday = async (id) => {
+    const next = holidays.filter((h) => h.id !== id);
+    try {
+      await saveJsonConfig(PERSISTED_CONFIG_KEYS.holidays, next);
+      setHolidays(next);
+      toast.success("Đã xóa ngày lễ.");
+    } catch {
+      toast.error("Không thể xóa ngày lễ.");
+    }
   };
 
   // ── Tab 4: Lịch sử phiên bản ──────────────────────────────────────────────
 
-  const handleRollback = (ver) => {
+  const handleRollback = async (ver) => {
     const snapshot = {
       version:   (versions[0]?.version ?? 0) + 1,
       changedBy: "Admin (Rollback)",
       changedAt: new Date().toLocaleDateString("vi-VN"),
       config:    { ...config },
     };
-    setVersions((prev) => [snapshot, ...prev]);
-    setConfig(ver.config);
-    setFormKey((k) => k + 1); // force DynamicForm re-mount với initialValues mới
-    toast.success(`Đã khôi phục về phiên bản ${ver.version}.`);
+    const nextVersions = [snapshot, ...versions].slice(0, 20);
+    try {
+      await Promise.all([
+        saveJsonConfig(PERSISTED_CONFIG_KEYS.general, ver.config),
+        saveJsonConfig(PERSISTED_CONFIG_KEYS.versions, nextVersions),
+      ]);
+      setVersions(nextVersions);
+      setConfig(ver.config);
+      setConfigDraft(ver.config);
+      toast.success(`Đã khôi phục về phiên bản ${ver.version}.`);
+    } catch {
+      toast.error("Không thể khôi phục phiên bản cấu hình.");
+    }
   };
 
   // ── Diff helpers ──────────────────────────────────────────────────────────
@@ -380,12 +482,86 @@ export default function SystemConfigPage() {
           <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>
             Các thông số được nhận từ hệ thống và hiển thị tự động qua JSON schema.
           </p>
-          <DynamicForm
-            key={formKey}
-            schema={GENERAL_CONFIG_SCHEMA}
-            initialValues={config}
-            onSubmit={handleSaveConfig}
-          />
+          <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                <span className="text-red-500">*</span> Ngưỡng ngày submit
+              </label>
+              <InputNumber
+                value={configDraft.submitThresholdDays}
+                onChange={(value) => setConfigDraft((current) => ({
+                  ...current,
+                  submitThresholdDays: value,
+                }))}
+                min={1}
+                max={365}
+                precision={0}
+                placeholder="VD: 7"
+                style={{ width: "100%" }}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                <span className="text-red-500">*</span> Điểm tối thiểu
+              </label>
+              <InputNumber
+                value={configDraft.minPoints}
+                onChange={(value) => setConfigDraft((current) => ({
+                  ...current,
+                  minPoints: value,
+                }))}
+                min={0}
+                precision={0}
+                placeholder="VD: 10"
+                style={{ width: "100%" }}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                <span className="text-red-500">*</span> Giới hạn kích thước file
+              </label>
+              <InputNumber
+                value={configDraft.maxFileSize}
+                onChange={(value) => setConfigDraft((current) => ({
+                  ...current,
+                  maxFileSize: value,
+                }))}
+                min={1}
+                precision={0}
+                placeholder="VD: 10"
+                style={{ width: "100%" }}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                <span className="text-red-500">*</span> Đơn vị file
+              </label>
+              <Select
+                value={configDraft.fileSizeUnit}
+                onChange={(value) => setConfigDraft((current) => ({
+                  ...current,
+                  fileSizeUnit: value,
+                }))}
+                options={[
+                  { value: "KB", label: "KB" },
+                  { value: "MB", label: "MB" },
+                  { value: "GB", label: "GB" },
+                ]}
+                placeholder="Chọn đơn vị"
+                allowClear
+                style={{ width: "100%" }}
+              />
+            </div>
+          </div>
+          <Button
+            type="primary"
+            onClick={handleSaveConfig}
+            loading={configLoading || configSaving}
+            className="mt-5"
+            style={{ background: "#E6430A", borderColor: "#E6430A" }}
+          >
+            Lưu cấu hình
+          </Button>
 
           <section className="mt-7 rounded-xl border border-orange-100 bg-orange-50/40 p-5">
             <div className="mb-4">

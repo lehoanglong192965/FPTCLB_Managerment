@@ -12,6 +12,15 @@ const adminApi = {
 
   createIcpdpAccount: (data) =>
     axiosClient.post("/admin/users/icpdp", data),
+
+  getDisciplineLogs: () =>
+    axiosClient.get("/discipline-logs"),
+
+  createDisciplineLog: (data) =>
+    axiosClient.post("/discipline-logs", data),
+
+  updateDisciplineLog: (id, data) =>
+    axiosClient.put(`/discipline-logs/${id}`, data),
 };
 
 export default adminApi;

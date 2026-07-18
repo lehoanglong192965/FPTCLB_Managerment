@@ -25,7 +25,7 @@ public class SystemConfig {
     private String configKey;
 
     @Nationalized
-    @Column(name = "configValue", nullable = false, length = 500)
+    @Column(name = "configValue", nullable = false, length = 10000)
     private String configValue;
 
     @Column(name = "updatedAt")
