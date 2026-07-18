@@ -5,6 +5,7 @@ import com.fptu.fcms.repository.ClubBlacklistRepository;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.ClubRepository;
 import com.fptu.fcms.repository.RecruitmentApplicationRepository;
+import com.fptu.fcms.repository.RecruitmentCycleRepository;
 import com.fptu.fcms.repository.SemesterRepository;
 import com.fptu.fcms.repository.WithdrawLogRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +34,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class RecruitmentApplicationServiceImplCvUploadTest {
 
     @Mock private RecruitmentApplicationRepository recruitmentRepository;
+    @Mock private RecruitmentCycleRepository recruitmentCycleRepository;
     @Mock private ClubMembershipRepository membershipRepository;
     @Mock private ClubBlacklistRepository blacklistRepository;
     @Mock private SemesterRepository semesterRepository;

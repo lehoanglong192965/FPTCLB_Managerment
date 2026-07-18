@@ -7,6 +7,7 @@ import com.fptu.fcms.entity.Club;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.ClubRepository;
 import com.fptu.fcms.repository.ClubMembershipRepository;
+import com.fptu.fcms.repository.RecruitmentCycleRepository;
 import com.fptu.fcms.service.ClubService;
 import com.fptu.fcms.service.ImageCleanupService;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Objects;
+import java.time.LocalDate;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,6 +26,7 @@ public class ClubServiceImpl implements ClubService {
 
     private final ClubRepository clubRepository;
     private final ClubMembershipRepository clubMembershipRepository;
+    private final RecruitmentCycleRepository recruitmentCycleRepository;
     private final ImageCleanupService imageCleanupService;
 
     @Override
@@ -130,8 +133,8 @@ public class ClubServiceImpl implements ClubService {
         int membersCount = clubMembershipRepository.countByClubIDAndIsDeletedFalse(club.getClubID());
         dto.setMembers(membersCount);
         
-        // Default recruiting = true for active clubs
-        dto.setRecruiting(true);
+        dto.setRecruiting(recruitmentCycleRepository.isRecruitmentOpenForClub(
+                club.getClubID(), LocalDate.now()));
         dto.setClubImage(club.getClubImage());
         dto.setClubImagePublicId(club.getClubImagePublicId());
         dto.setContactEmail(club.getContactEmail());
