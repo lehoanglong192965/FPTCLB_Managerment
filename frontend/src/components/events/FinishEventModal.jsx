@@ -25,7 +25,7 @@ const FinishEventModal = ({ eventId, isOpen, onClose, onFinishSuccess }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm transition-opacity">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm transition-opacity" style={{ zIndex: 9999 }}>
             <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl transform transition-all">
                 <div className="flex flex-col items-center text-center mb-6">
                     <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">

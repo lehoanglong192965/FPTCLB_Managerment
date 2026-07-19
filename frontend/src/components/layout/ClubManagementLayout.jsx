@@ -1,8 +1,8 @@
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import {
-  Home, Calendar, CalendarPlus, Users, ClipboardList,
-  Ban, BarChart2, Settings, UserPlus,
+  Home, Calendar, Users, ClipboardList,
+  Ban, BarChart2, Settings, UserPlus, Library,
 } from "lucide-react";
 
 export default function ClubManagementLayout() {
@@ -18,7 +18,6 @@ export default function ClubManagementLayout() {
   const navItems = [
     { icon: Home,         label: "Trang câu lạc bộ",   path: home },
     { icon: Calendar,     label: "Quản lý sự kiện",    path: `${myClubBase}/events` },
-    { icon: CalendarPlus, label: "Tạo sự kiện",        path: `${base}/event-create` },
     { icon: Users,        label: "Quản lý thành viên", path: `${myClubBase}/members` },
     { icon: UserPlus,     label: "Mở / đóng tuyển",    path: `${myClubBase}/recruitment` },
     ...(isClubLeader ? [
@@ -26,6 +25,7 @@ export default function ClubManagementLayout() {
       { icon: Ban,           label: "Danh sách đen",   path: `${myClubBase}/blacklist` },
     ] : []),
     { icon: BarChart2,    label: "Báo cáo CLB",        path: `${myClubBase}/reports` },
+    { icon: Library,      label: "Kho tri thức CLB",   path: `${base}/knowledge-archive` },
     { icon: Settings,     label: "Thông tin CLB",      path: `${myClubBase}/club-info` },
   ];
 

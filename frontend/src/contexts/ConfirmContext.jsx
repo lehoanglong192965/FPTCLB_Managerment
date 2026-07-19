@@ -28,7 +28,8 @@ export function ConfirmProvider({ children }) {
       {children}
       {state && (
         <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40"
+          className="fixed inset-0 flex items-center justify-center bg-black/40"
+          style={{ zIndex: 9999 }}
           onClick={() => resolve(false)}
         >
           <div

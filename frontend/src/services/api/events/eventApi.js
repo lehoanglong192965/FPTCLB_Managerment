@@ -4,6 +4,8 @@ const eventApi = {
   // PUBLIC
   getApprovedEvents: () => axiosClient.get("/v1/events/approved"),
   getEventById: (eventId) => axiosClient.get(`/v1/events/${eventId}`),
+  // CLUB_LEADER / VICE_LEADER — trả đủ trường quản lý (maxParticipants, budget, cửa sổ đăng ký/điểm danh...)
+  getManagedEventById: (eventId) => axiosClient.get(`/v1/events/${eventId}/manage`),
   getMyEventStatus: (eventId) => axiosClient.get(`/v1/events/${eventId}/my-status`),
   getMyAssignments: () => axiosClient.get("/v1/events/my-assignments"),
 

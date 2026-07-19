@@ -708,8 +708,37 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public void updateEvent(Integer eventId, UpdateEventRequest request) {
         Event event = getActiveEventOrThrow(eventId);
-        if (!STATUS_DRAFT.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Chỉ có thể chỉnh sửa sự kiện ở trạng thái Nháp.");
+        EventStatus status = event.getEventStatus();
+        boolean isDraft = STATUS_DRAFT.equals(status);
+        // Sau khi ICPDP đã duyệt (Approved/RegistrationOpen/RegistrationClosed) nhưng
+        // sự kiện chưa diễn ra: vẫn cho sửa, nhưng chỉ được đổi số người tham gia tối đa.
+        boolean isPostApprovalEditable = STATUS_APPROVED.equals(status)
+                || STATUS_REGISTRATION_OPEN.equals(status)
+                || STATUS_REGISTRATION_CLOSED.equals(status);
+        if (!isDraft && !isPostApprovalEditable) {
+            throw new IllegalArgumentException("Chỉ có thể chỉnh sửa sự kiện trước khi diễn ra.");
+        }
+        if (!isDraft) {
+            boolean editsOtherFields = request.getEventName() != null
+                    || request.getDescription() != null
+                    || request.getVenueName() != null
+                    || request.getLocation() != null
+                    || request.getLocationDetail() != null
+                    || request.getLatitude() != null
+                    || request.getLongitude() != null
+                    || request.getStartDate() != null
+                    || request.getEndDate() != null
+                    || request.getAllowWalkIn() != null
+                    || request.getRegistrationOpenAt() != null
+                    || request.getRegistrationCloseAt() != null
+                    || request.getCheckInOpenAt() != null
+                    || request.getCheckInCloseAt() != null
+                    || request.getBudget() != null
+                    || request.getBannerUrl() != null
+                    || (request.getRegistrationPolicies() != null && !request.getRegistrationPolicies().isEmpty());
+            if (editsOtherFields) {
+                throw new IllegalArgumentException("Sau khi được ICPDP duyệt, chỉ có thể chỉnh sửa số người tham gia tối đa.");
+            }
         }
         String oldBannerPublicId = event.getBannerPublicId();
         boolean bannerTouched = request.getBannerUrl() != null;

@@ -67,8 +67,9 @@ function RejectModal({ name, onConfirm, onClose }) {
   );
 }
 
-export default function RegistrationMgmtPage() {
-  const { eventId } = useParams();
+export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = false, maxParticipants } = {}) {
+  const { eventId: eventIdParam } = useParams();
+  const eventId = eventIdProp ?? eventIdParam;
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -179,21 +180,47 @@ export default function RegistrationMgmtPage() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className={embedded ? "" : "p-6 max-w-5xl mx-auto"}>
       {/* Header */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors"
-      >
-        <ArrowLeft size={16} /> Quay lại
-      </button>
+      {!embedded && (
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors"
+        >
+          <ArrowLeft size={16} /> Quay lại
+        </button>
+      )}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Users size={22} className="text-blue-600" /> Quản lý đăng ký
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">Duyệt và quản lý danh sách đăng ký tham gia sự kiện</p>
-        </div>
+        {embedded ? (
+          <div className="flex items-center gap-2.5">
+            <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 m-0">
+              <Users size={16} className="text-blue-600" /> Danh sách đăng ký
+            </p>
+            {typeof maxParticipants === 'number' && maxParticipants > 0 && (
+              <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                counts.CONFIRMED >= maxParticipants ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+              }`}>
+                {counts.CONFIRMED}/{maxParticipants} đã đăng ký
+              </span>
+            )}
+          </div>
+        ) : (
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Users size={22} className="text-blue-600" /> Quản lý đăng ký
+            </h1>
+            <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
+              Duyệt và quản lý danh sách đăng ký tham gia sự kiện
+              {typeof maxParticipants === 'number' && maxParticipants > 0 && (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                  counts.CONFIRMED >= maxParticipants ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {counts.CONFIRMED}/{maxParticipants}
+                </span>
+              )}
+            </p>
+          </div>
+        )}
         <button
           onClick={fetchRegistrations}
           className="text-sm px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"

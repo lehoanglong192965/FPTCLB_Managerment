@@ -33,7 +33,7 @@ export default function IcpdpEmergencyOverridePage() {
       setLoading(true);
       try {
         const [evRes, sessRes] = await Promise.allSettled([
-          eventApi.getEventById(eventId),
+          eventApi.getEventByIdForIcpdp(eventId),
           attendanceApi.getSessions(eventId),
         ]);
         if (evRes.status === 'fulfilled') setEvent(evRes.value?.data ?? evRes.value);

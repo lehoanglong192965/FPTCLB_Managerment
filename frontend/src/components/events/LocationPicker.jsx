@@ -4,8 +4,8 @@ import "leaflet/dist/leaflet.css";
 import "./leafletDefaultIcon";
 import { Search, MapPin, Loader2 } from "lucide-react";
 
-/* Toạ độ mặc định: khuôn viên ĐH FPT (Hoà Lạc). Chỉ dùng khi chưa chọn vị trí. */
-const DEFAULT_CENTER = [21.0138, 105.5256];
+/* Toạ độ mặc định: khuôn viên ĐH FPT TP.HCM (Khu CNC, Thủ Đức). Chỉ dùng khi chưa chọn vị trí. */
+const DEFAULT_CENTER = [10.8411, 106.8099];
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 
 /* Di chuyển bản đồ tới toạ độ mới khi chọn từ ô tìm kiếm. */
@@ -25,7 +25,19 @@ function ClickCapture({ onPick }) {
   return null;
 }
 
-export default function LocationPicker({ address, lat, lng, onChange, error }) {
+/* Ép Leaflet đo lại kích thước container — tránh mảng xám do đo sai lúc mount (VD: cột lưới chưa ổn định layout). */
+function InvalidateSizeOnMount() {
+  const map = useMap();
+  useEffect(() => {
+    const id = requestAnimationFrame(() => map.invalidateSize());
+    const onResize = () => map.invalidateSize();
+    window.addEventListener("resize", onResize);
+    return () => { cancelAnimationFrame(id); window.removeEventListener("resize", onResize); };
+  }, [map]);
+  return null;
+}
+
+export default function LocationPicker({ address, lat, lng, onChange, error, readOnly = false }) {
   const [query, setQuery]         = useState(address || "");
   const [results, setResults]     = useState([]);
   const [open, setOpen]           = useState(false);
@@ -108,23 +120,24 @@ export default function LocationPicker({ address, lat, lng, onChange, error }) {
         <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
         <input
           value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          onFocus={() => results.length && setOpen(true)}
+          readOnly={readOnly}
+          onChange={(e) => !readOnly && onQueryChange(e.target.value)}
+          onFocus={() => !readOnly && results.length && setOpen(true)}
           placeholder="Tìm địa chỉ hoặc gõ tên địa điểm, rồi tinh chỉnh bằng cách click trên bản đồ"
           style={{
             width: "100%", padding: "9px 12px 9px 34px", fontSize: 13.5, color: "#111827",
             border: `1.5px solid ${error ? "#f87171" : "#e5e7eb"}`,
             borderRadius: 10, outline: "none", background: error ? "#fff5f5" : "#fff",
-            boxSizing: "border-box",
+            boxSizing: "border-box", cursor: readOnly ? "default" : "text",
           }}
         />
-        {(searching || locating) && (
+        {!readOnly && (searching || locating) && (
           <Loader2 size={15} style={{ position: "absolute", right: 12, top: 11, color: "#E6430A", animation: "otp-spin 1s linear infinite" }} />
         )}
       </div>
 
       {/* Danh sách gợi ý */}
-      {open && results.length > 0 && (
+      {!readOnly && open && results.length > 0 && (
         <div style={{
           position: "absolute", zIndex: 1000, top: 44, left: 0, right: 0,
           background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 10,
@@ -162,12 +175,13 @@ export default function LocationPicker({ address, lat, lng, onChange, error }) {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <ClickCapture onPick={reverseGeocode} />
+          <InvalidateSizeOnMount />
+          {!readOnly && <ClickCapture onPick={reverseGeocode} />}
           {hasPin && (
             <Marker
               position={[lat, lng]}
-              draggable
-              eventHandlers={{
+              draggable={!readOnly}
+              eventHandlers={readOnly ? undefined : {
                 dragend: (e) => { const p = e.target.getLatLng(); reverseGeocode(p.lat, p.lng); },
               }}
             />
@@ -179,8 +193,12 @@ export default function LocationPicker({ address, lat, lng, onChange, error }) {
       <p style={{ margin: "6px 0 0", fontSize: 11.5, color: "#9ca3af", display: "flex", alignItems: "center", gap: 5 }}>
         <MapPin size={12} />
         {hasPin
-          ? `Đã ghim: ${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)} — click hoặc kéo ghim để chỉnh.`
-          : "Click lên bản đồ hoặc tìm địa chỉ để đặt ghim vị trí (không bắt buộc)."}
+          ? readOnly
+            ? `Đã ghim: ${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`
+            : `Đã ghim: ${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)} — click hoặc kéo ghim để chỉnh.`
+          : readOnly
+            ? "Chưa có vị trí trên bản đồ."
+            : "Click lên bản đồ hoặc tìm địa chỉ để đặt ghim vị trí (không bắt buộc)."}
       </p>
     </div>
   );

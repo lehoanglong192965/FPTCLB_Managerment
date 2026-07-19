@@ -232,8 +232,9 @@ function AppealsPanel({ appeals, contributions, onProcess, canProcess }) {
   );
 }
 
-export default function ContributionManagementPage() {
-  const { eventId } = useParams();
+export default function ContributionManagementPage({ eventId: eventIdProp, embedded = false } = {}) {
+  const { eventId: eventIdParam } = useParams();
+  const eventId = eventIdProp ?? eventIdParam;
   const navigate = useNavigate();
   const { user } = useAuth();
   const canResolveOrFinalize = user?.role === 'CLUB_LEADER';
@@ -269,10 +270,13 @@ export default function ContributionManagementPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [contribRes, batchRes] = await Promise.allSettled([
-        contributionApi.getDraft(eventId),
-        contributionApi.getBatch(eventId),
-      ]);
+      // Gọi tuần tự (không song song) — cả 2 API tự tạo ContributionBatch nếu
+      // sự kiện chưa có batch nào; gọi song song từng gây race condition tạo
+      // ra 2 batch trùng cho cùng 1 sự kiện, khiến lần đọc sau lỗi 500 (query
+      // chỉ mong 1 kết quả nhưng nhận về 2). getDraft chạy trước để nó tạo/tìm
+      // batch xong rồi mới đến getBatch.
+      const [contribRes] = await Promise.allSettled([contributionApi.getDraft(eventId)]);
+      const [batchRes] = await Promise.allSettled([contributionApi.getBatch(eventId)]);
       if (contribRes.status === 'fulfilled') {
         const raw = contribRes.value;
         const data = Array.isArray(raw) ? raw : (raw?.data ?? raw?.content ?? []);
@@ -427,18 +431,26 @@ export default function ContributionManagementPage() {
   if (loading) return <div className="p-10 text-center text-sm text-gray-400">Đang tải...</div>;
 
   return (
-    <div className="p-6 max-w-6xl">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors">
-        <ArrowLeft size={16} /> Quay lại
-      </button>
+    <div className={embedded ? "" : "p-6 max-w-6xl"}>
+      {!embedded && (
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors">
+          <ArrowLeft size={16} /> Quay lại
+        </button>
+      )}
 
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Users size={22} className="text-blue-600" /> Chốt Bảng Đóng Góp
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">Chọn vai trò đóng góp và nhận xét Good/Not good. Tier BXH sẽ tự tính theo tổng điểm.</p>
-        </div>
+        {embedded ? (
+          <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 m-0">
+            <Users size={16} className="text-blue-600" /> Chốt bảng đóng góp
+          </p>
+        ) : (
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Users size={22} className="text-blue-600" /> Chốt Bảng Đóng Góp
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">Chọn vai trò đóng góp và nhận xét Good/Not good. Tier BXH sẽ tự tính theo tổng điểm.</p>
+          </div>
+        )}
         {!isFinalized && (
           <div className="flex gap-3">
             <button

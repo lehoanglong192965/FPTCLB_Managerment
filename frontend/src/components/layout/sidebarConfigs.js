@@ -66,7 +66,6 @@ export const SIDEBAR_CONFIGS = {
     { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/club-leader/tickets" },
     { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/club-leader/pending-feedback" },
     { key: "contributions", label: "Đóng Góp Của Tôi",     icon: Award,      path: "/club-leader/contributions" },
-    { key: "knowledge-archive", label: "Kho Tri Thức CLB", icon: Library, path: "/club-leader/knowledge-archive" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle, path: "/club-leader/profile" },
   ],
 
@@ -77,7 +76,6 @@ export const SIDEBAR_CONFIGS = {
     { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/vice-leader/tickets" },
     { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/vice-leader/pending-feedback" },
     { key: "contributions", label: "Đóng Góp Của Tôi",     icon: Award,      path: "/vice-leader/contributions" },
-    { key: "knowledge-archive", label: "Kho Tri Thức CLB", icon: Library, path: "/vice-leader/knowledge-archive" },
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle, path: "/vice-leader/profile" },
   ],
 

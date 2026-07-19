@@ -70,6 +70,7 @@ const SystemConfigPage = lazy(() => import("../pages/admin/SystemConfigPage"));
 // Club Leader pages
 const ClubMemberMgmt = lazy(() => import("../pages/club-leader/ClubMemberMgmt"));
 const ClubEventsMgmt = lazy(() => import("../pages/club-leader/ClubEventsMgmt"));
+const EventManageDetailPage = lazy(() => import("../pages/club-leader/EventManageDetailPage"));
 const PersonnelAssignmentPage = lazy(() => import("../pages/club-leader/PersonnelAssignmentPage"));
 const ClubReports = lazy(() => import("../pages/club-leader/ClubReports"));
 const ClubApplicationsMgmt = lazy(() => import("../pages/club-leader/ClubApplicationsMgmt"));
@@ -225,6 +226,7 @@ export default function AppRoutes() {
           <Route element={<ClubManagementLayout />}>
             <Route path="space" element={<ClubSpace />} />
             <Route path="events" element={<ClubEventsMgmt />} />
+            <Route path="events/:eventId" element={<EventManageDetailPage />} />
             <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
             <Route path="events/:eventId/checkin" element={<CheckInPage />} />
             <Route path="events/:eventId/walkin" element={<WalkInPage />} />
@@ -244,6 +246,7 @@ export default function AppRoutes() {
         </Route>
         <Route element={<ClubManagementLayout />}>
           <Route path="event-create" element={<CreateEventPage />} />
+          <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         </Route>
         <Route path="events" element={<MemberEvents />} />
         <Route path="clubs" element={<MemberClubs />} />
@@ -254,7 +257,6 @@ export default function AppRoutes() {
         <Route path="notifications" element={<MemberNotifications />} />
         <Route path="notification-settings" element={<MemberNotificationSettings />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
-        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -275,6 +277,7 @@ export default function AppRoutes() {
           <Route element={<ClubManagementLayout />}>
             <Route path="space" element={<ClubSpace />} />
             <Route path="events" element={<ClubEventsMgmt />} />
+            <Route path="events/:eventId" element={<EventManageDetailPage />} />
             <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
             <Route path="events/:eventId/checkin" element={<CheckInPage />} />
             <Route path="events/:eventId/walkin" element={<WalkInPage />} />
@@ -291,6 +294,7 @@ export default function AppRoutes() {
         </Route>
         <Route element={<ClubManagementLayout />}>
           <Route path="event-create" element={<CreateEventPage />} />
+          <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         </Route>
         <Route path="events" element={<MemberEvents />} />
         <Route path="clubs" element={<MemberClubs />} />
@@ -301,7 +305,6 @@ export default function AppRoutes() {
         <Route path="notifications" element={<MemberNotifications />} />
         <Route path="notification-settings" element={<MemberNotificationSettings />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
-        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
