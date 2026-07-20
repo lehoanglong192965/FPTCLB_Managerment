@@ -29,6 +29,7 @@ public interface EventService {
     List<Event> getApprovedEvents();
     List<Event> getPublicEventsIncludingCompleted();
     List<Event> getIcpdpApprovedEvents();
+    List<Event> getIcpdpAllEvents();
     List<Event> getRejectedEvents();
     Event getEventById(Integer eventId);
     EventDetailResponse getPublicEventDetail(Integer eventId);

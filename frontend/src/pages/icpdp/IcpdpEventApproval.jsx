@@ -271,7 +271,7 @@ function DetailPopup({ event, onClose, onApprove, onReject }) {
 }
 
 /* ── Main ──────────────────────────────────────────────── */
-export default function IcpdpEventApproval() {
+export default function IcpdpEventApproval({ embedded = false }) {
   const toast = useToast();
   const [activeTab, setActiveTab]       = useState("pending");
   const [events, setEvents]             = useState([]);
@@ -397,10 +397,12 @@ export default function IcpdpEventApproval() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Phê Duyệt Sự Kiện</h1>
-        <p className="page-subtitle">Xét duyệt đề xuất tổ chức sự kiện từ các câu lạc bộ</p>
-      </div>
+      {!embedded && (
+        <div className="page-header">
+          <h1 className="page-title">Phê Duyệt Sự Kiện</h1>
+          <p className="page-subtitle">Xét duyệt đề xuất tổ chức sự kiện từ các câu lạc bộ</p>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative max-w-sm mb-4">

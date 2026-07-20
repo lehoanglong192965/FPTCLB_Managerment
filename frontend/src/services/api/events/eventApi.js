@@ -55,6 +55,8 @@ const eventApi = {
   getPendingForIcpdp: () => axiosClient.get("/icpdp/events/pending"),
   // Lịch sử đã duyệt cho ICPDP — bao gồm cả sự kiện đã kết thúc (khác /v1/events/approved của trang chủ)
   getApprovedForIcpdp: () => axiosClient.get("/icpdp/events/approved"),
+  // Toàn bộ vòng đời sự kiện (kể cả CANCELLED) — dùng cho trang tổng quan Quản Lý Sự Kiện
+  getAllForIcpdp: () => axiosClient.get("/icpdp/events/all"),
   getRejectedForIcpdp: () => axiosClient.get("/icpdp/events/rejected"),
   getEventByIdForIcpdp: (eventId) => axiosClient.get(`/icpdp/events/${eventId}`),
   approveForIcpdp: (eventId) => axiosClient.patch(`/icpdp/events/${eventId}/approve`),

@@ -86,6 +86,14 @@ public class EventServiceImpl implements EventService {
                     EventStatus.CANCELLED
             ))
     );
+    private static final List<EventStatus> ICPDP_ALL_LIFECYCLE_STATUSES = List.copyOf(
+            java.util.EnumSet.complementOf(java.util.EnumSet.of(
+                    EventStatus.DRAFT,
+                    EventStatus.PENDING,
+                    EventStatus.PENDING_APPROVAL,
+                    EventStatus.REJECTED
+            ))
+    );
     private static final List<String> DEFAULT_PARTICIPANT_TYPES = List.of(
             "CORE_TEAM",
             "SUPPORT_ORGANIZER",
@@ -403,6 +411,20 @@ public class EventServiceImpl implements EventService {
     @Transactional(readOnly = true)
     public List<Event> getIcpdpApprovedEvents() {
         List<Event> events = eventRepository.findByEventStatusInAndIsDeletedFalse(ICPDP_APPROVED_LIFECYCLE_STATUSES);
+        attachCurrentParticipants(events);
+        return events;
+    }
+
+    /**
+     * Dành cho trang "Quản Lý Sự Kiện" tổng quan của ICPDP: toàn bộ vòng đời sự kiện
+     * kể cả CANCELLED (khác getIcpdpApprovedEvents() vốn loại CANCELLED ra khỏi lịch sử
+     * đã duyệt). Vẫn loại DRAFT/PENDING/PENDING_APPROVAL/REJECTED vì đó là các sự kiện
+     * chưa từng được ICPDP phê duyệt.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getIcpdpAllEvents() {
+        List<Event> events = eventRepository.findByEventStatusInAndIsDeletedFalse(ICPDP_ALL_LIFECYCLE_STATUSES);
         attachCurrentParticipants(events);
         return events;
     }

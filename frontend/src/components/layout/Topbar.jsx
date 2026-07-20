@@ -10,7 +10,6 @@ const NOTIF_PATH = {
   MEMBER:       "/member/notifications",
   CLUB_LEADER:  "/club-leader/notifications",
   VICE_LEADER:  "/vice-leader/notifications",
-  ICPDP:        "/icpdp/notifications",
 };
 
 /* ── Bell Popover ─────────────────────────────────────────────────── */
