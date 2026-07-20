@@ -3,6 +3,7 @@ import axiosClient from "../axiosClient";
 const eventApi = {
   // PUBLIC
   getApprovedEvents: () => axiosClient.get("/v1/events/approved"),
+  getPublicEventsIncludingCompleted: () => axiosClient.get("/v1/events/public-list"),
   getEventById: (eventId) => axiosClient.get(`/v1/events/${eventId}`),
   // CLUB_LEADER / VICE_LEADER — trả đủ trường quản lý (maxParticipants, budget, cửa sổ đăng ký/điểm danh...)
   getManagedEventById: (eventId) => axiosClient.get(`/v1/events/${eventId}/manage`),

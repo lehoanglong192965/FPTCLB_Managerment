@@ -49,6 +49,11 @@ public class EventController {
         return ResponseEntity.ok(eventService.getApprovedEvents());
     }
 
+    @GetMapping("/public-list")
+    public ResponseEntity<List<Event>> getPublicEventsIncludingCompleted() {
+        return ResponseEntity.ok(eventService.getPublicEventsIncludingCompleted());
+    }
+
     @GetMapping("/report-uploaded")
     @PreAuthorize("hasRole('ICPDP')")
     public ResponseEntity<List<Event>> getReportUploadedEvents() {

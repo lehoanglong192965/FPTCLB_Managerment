@@ -14,8 +14,10 @@ const getImageUrl = (url) => {
 const BADGE = {
   open:    { bg: "#FFF3EC", color: "#F37021", border: "#FED7AA", label: "Đăng ký mở" },
   upcoming: { bg: "#DBEAFE", color: "#2563EB", border: "#BFDBFE", label: "Sắp diễn ra" },
+  ongoing: { bg: "#DCFCE7", color: "#16A34A", border: "#BBF7D0", label: "Đang diễn ra" },
   full:    { bg: "#FEE2E2", color: "#DC2626", border: "#FECACA", label: "Hết chỗ" },
   closed:  { bg: "#F3F4F6", color: "#6B7280", border: "#E5E7EB", label: "Đóng đăng ký" },
+  completed: { bg: "#F3F4F6", color: "#6B7280", border: "#E5E7EB", label: "Đã kết thúc" },
 };
 
 const TICKET_STATUS = {

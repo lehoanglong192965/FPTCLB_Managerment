@@ -4,14 +4,14 @@ import eventApi from "../../services/api/events/eventApi";
 import clubApi from "../../services/api/clubs/clubApi";
 import { useAuth } from "../../contexts/AuthContext";
 
-const BADGE_FILTERS = ["Tất cả", "Đăng ký mở", "Sắp diễn ra", "Hết chỗ"];
+const BADGE_FILTERS = ["Tất cả", "Sắp diễn ra", "Đăng ký mở", "Đang diễn ra", "Đã kết thúc"];
 
 function getStatusBadge(event) {
   const s = (event.eventStatus || "").toUpperCase();
-  if (s === "APPROVED")             return { badge: "Sắp mở đăng ký",  badgeType: "upcoming" };
+  if (s === "APPROVED")             return { badge: "Sắp diễn ra",     badgeType: "upcoming" };
   if (s === "REGISTRATIONCLOSED")   return { badge: "Đóng đăng ký",    badgeType: "closed" };
-  if (s === "UPCOMING")             return { badge: "Sắp diễn ra",     badgeType: "upcoming" };
   if (s === "ONGOING")              return { badge: "Đang diễn ra",    badgeType: "ongoing" };
+  if (s === "COMPLETED")            return { badge: "Đã kết thúc",     badgeType: "completed" };
   const isFull = Number(event.maxParticipants) > 0 && Number(event.currentParticipants) >= Number(event.maxParticipants);
   if (isFull) return { badge: "Hết chỗ", badgeType: "full" };
   return { badge: "Đăng ký mở", badgeType: "open" };
@@ -48,7 +48,7 @@ export default function EventListPage() {
       setError(null);
       try {
         const requests = [
-          safeGet(() => eventApi.getApprovedEvents()),
+          safeGet(() => eventApi.getPublicEventsIncludingCompleted()),
           safeGet(() => clubApi.getAll()),
           user ? eventApi.getMyRegistrations().catch(() => []) : Promise.resolve([]),
         ];

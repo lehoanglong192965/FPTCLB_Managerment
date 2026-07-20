@@ -362,6 +362,20 @@ public class EventServiceImpl implements EventService {
     }
 
     /**
+     * Dành cho trang danh sách sự kiện công khai (có tab "Đã kết thúc") — giống
+     * getApprovedEvents() nhưng gồm cả COMPLETED. Không dùng cho landing page teaser
+     * vì trang đó chỉ muốn hiện sự kiện sắp/đang diễn ra.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getPublicEventsIncludingCompleted() {
+        List<Event> events = eventRepository.findByEventStatusInAndIsDeletedFalse(
+                List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_REGISTRATION_CLOSED, STATUS_ONGOING, STATUS_COMPLETED));
+        attachCurrentParticipants(events);
+        return events;
+    }
+
+    /**
      * Gắn currentParticipants (member + guest theo CONFIRMED_STATUSES — cùng định nghĩa
      * với kiểm tra sức chứa lúc đăng ký) để FE hiển thị "x/y đã đăng ký".
      */

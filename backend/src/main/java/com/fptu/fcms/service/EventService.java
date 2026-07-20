@@ -27,6 +27,7 @@ public interface EventService {
     EventApprovalResponse approveEvent(Integer eventId, EventApprovalRequest request, UserPrincipal currentUser);
     List<Event> getPendingEvents();
     List<Event> getApprovedEvents();
+    List<Event> getPublicEventsIncludingCompleted();
     List<Event> getIcpdpApprovedEvents();
     List<Event> getRejectedEvents();
     Event getEventById(Integer eventId);
