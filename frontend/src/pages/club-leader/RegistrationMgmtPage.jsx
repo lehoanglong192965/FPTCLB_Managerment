@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, Search, CheckCircle2, XCircle, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Users, Search, CheckCircle2, XCircle, Trash2, X, Download } from 'lucide-react';
 import eventApi from '../../services/api/events/eventApi';
+import { buildEventCsvFileName, downloadCsvFile, getDownloadErrorMessage } from '../../utils/csvDownload';
 import { useToast } from '../../contexts/ToastContext';
 
 const STATUS_CFG = {
@@ -79,6 +80,7 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
   const [tab, setTab] = useState('');
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState(null); // registrationId
+  const [exportLoading, setExportLoading] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null); // { id, name }
 
   const fetchRegistrations = useCallback(async () => {
@@ -158,6 +160,31 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
     }
   };
 
+  const handleExport = async (exportType) => {
+    if (!eventId || exportLoading) return;
+
+    const isAttendance = exportType === 'attendance';
+    setExportLoading(exportType);
+    try {
+      const csvData = isAttendance
+        ? await eventApi.exportAttendance(eventId)
+        : await eventApi.exportRegistrations(eventId);
+      downloadCsvFile(csvData, buildEventCsvFileName(eventId, exportType));
+      toast.success(isAttendance
+        ? '\u0110\u00e3 t\u1ea3i CSV \u0111i\u1ec3m danh.'
+        : '\u0110\u00e3 t\u1ea3i CSV \u0111\u0103ng k\u00fd.');
+    } catch (err) {
+      toast.error(await getDownloadErrorMessage(
+        err,
+        isAttendance
+          ? 'Kh\u00f4ng th\u1ec3 xu\u1ea5t CSV \u0111i\u1ec3m danh.'
+          : 'Kh\u00f4ng th\u1ec3 xu\u1ea5t CSV \u0111\u0103ng k\u00fd.',
+      ));
+    } finally {
+      setExportLoading(null);
+    }
+  };
+
   const filtered = registrations.filter((r) => {
     if (tab) {
       const matchTab = tab === 'PENDING_APPROVAL' ? isPendingApproval(r.status) : r.status === tab;
@@ -221,6 +248,30 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
             </p>
           </div>
         )}
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => handleExport('registrations')}
+            disabled={Boolean(exportLoading) || !eventId}
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Download size={15} />
+            {exportLoading === 'registrations'
+              ? '\u0110ang xu\u1ea5t...'
+              : 'Xu\u1ea5t CSV \u0111\u0103ng k\u00fd'}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleExport('attendance')}
+            disabled={Boolean(exportLoading) || !eventId}
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Download size={15} />
+            {exportLoading === 'attendance'
+              ? '\u0110ang xu\u1ea5t...'
+              : 'Xu\u1ea5t CSV \u0111i\u1ec3m danh'}
+          </button>
+        </div>
         <button
           onClick={fetchRegistrations}
           className="text-sm px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600"

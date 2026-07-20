@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FileText, Upload, ArrowLeft, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { FileText, Upload, ArrowLeft, CheckCircle2, AlertCircle, RefreshCw, Download } from 'lucide-react';
 import reportApi from '../../services/api/report/reportApi';
 import eventApi from '../../services/api/events/eventApi';
+import { buildEventCsvFileName, downloadCsvFile, getDownloadErrorMessage } from '../../utils/csvDownload';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function ReportSubmitPage({ eventId: eventIdProp, embedded = false, onSubmitted } = {}) {
@@ -18,6 +19,7 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
   const [uploading, setUploading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [exportingAttendance, setExportingAttendance] = useState(false);
 
   useEffect(() => {
     if (!eventId) return;
@@ -74,6 +76,24 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
       toast.error(err?.response?.data?.message || 'Nộp báo cáo thất bại. Vui lòng thử lại.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleExportAttendance = async () => {
+    if (!eventId || exportingAttendance) return;
+
+    setExportingAttendance(true);
+    try {
+      const csvData = await eventApi.exportAttendance(eventId);
+      downloadCsvFile(csvData, buildEventCsvFileName(eventId, 'attendance'));
+      toast.success('\u0110\u00e3 t\u1ea3i CSV \u0111i\u1ec3m danh.');
+    } catch (err) {
+      toast.error(await getDownloadErrorMessage(
+        err,
+        'Kh\u00f4ng th\u1ec3 xu\u1ea5t CSV \u0111i\u1ec3m danh.',
+      ));
+    } finally {
+      setExportingAttendance(false);
     }
   };
 
@@ -189,6 +209,17 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
         </div>
 
         <div className="flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={handleExportAttendance}
+            disabled={!eventId || exportingAttendance}
+            className="px-5 py-2.5 border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+          >
+            <Download size={15} />
+            {exportingAttendance
+              ? '\u0110ang xu\u1ea5t...'
+              : 'Xu\u1ea5t CSV \u0111i\u1ec3m danh'}
+          </button>
           <button
             type="submit"
             disabled={!file || uploading}

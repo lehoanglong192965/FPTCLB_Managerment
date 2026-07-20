@@ -10,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -63,6 +65,12 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
             }
             registration.setStatus(RegistrationLifecycle.STATUS_CONFIRMED.name());
             registration.setRegistrationStatus(RegistrationLifecycle.STATUS_CONFIRMED);
+            if (registration.getTicketCode() == null || registration.getTicketCode().isBlank()) {
+                registration.setTicketCode(UUID.randomUUID().toString());
+            }
+            if (registration.getTicketIssuedAt() == null) {
+                registration.setTicketIssuedAt(LocalDateTime.now());
+            }
             registrationRepository.save(registration);
             confirmedCount++;
             promoted++;

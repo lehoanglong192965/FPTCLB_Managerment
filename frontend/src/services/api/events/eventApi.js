@@ -67,7 +67,15 @@ const eventApi = {
   register: (eventId) => axiosClient.post(`/events/${eventId}/registrations/me`),
   registerGuest: (eventId, payload) => axiosClient.post(`/events/${eventId}/registrations/guest`, payload),
   registerWalkIn: (eventId, payload) => axiosClient.post(`/events/${eventId}/registrations/walk-in`, payload),
+  // Member ticket details, including the static ticket eligibility flag.
+  getMyRegistrationDetails: () => axiosClient.get("/registrations/me"),
   getMyRegistrations: () => axiosClient.get("/registrations/me/events"),
+
+  // Registration and attendance exports
+  exportRegistrations: (eventId) =>
+    axiosClient.get(`/v1/events/${eventId}/registrations/export`, { responseType: "blob" }),
+  exportAttendance: (eventId) =>
+    axiosClient.get(`/v1/events/${eventId}/attendance/export`, { responseType: "blob" }),
 
   // Registration management
   listRegistrations: (eventId, params = {}) =>

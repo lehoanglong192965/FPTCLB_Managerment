@@ -171,6 +171,24 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
             @Param("roleNames") java.util.Collection<String> roleNames
     );
 
+    @Query("""
+            SELECT COUNT(m) > 0
+            FROM ClubMembership m
+            JOIN ClubRole r ON r.clubRoleID = m.clubRoleID
+            WHERE m.clubID = :clubID
+              AND m.userID = :userID
+              AND m.semesterID = :semesterID
+              AND m.isDeleted = false
+              AND r.isDeleted = false
+              AND r.roleName IN :roleNames
+            """)
+    boolean existsActiveMembershipByClubUserSemesterAndRoleNames(
+            @Param("clubID") Integer clubID,
+            @Param("userID") Integer userID,
+            @Param("semesterID") Integer semesterID,
+            @Param("roleNames") java.util.Collection<String> roleNames
+    );
+
     int countByClubIDAndIsDeletedFalse(Integer clubID);
 
     @Query("SELECT COUNT(m) > 0 FROM ClubMembership m, UserAccount u " +

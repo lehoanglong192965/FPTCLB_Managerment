@@ -16,10 +16,11 @@ import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
-import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.AttendanceSessionService;
+import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.AuditLogService;
 import com.fptu.fcms.service.event.RegistrationLifecycle;
 import lombok.RequiredArgsConstructor;
@@ -46,22 +47,21 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final EventRegistrationRepository eventRegistrationRepository;
     private final GuestEventRegistrationRepository guestEventRegistrationRepository;
-    private final EventRepository eventRepository;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
+    private final EventAssignmentAccessService eventAssignmentAccessService;
 
     @Override
     @Transactional
-    public AttendanceSessionResponse create(Integer eventId, AttendanceSessionRequest request, Integer actorId) {
-        eventRepository.findByEventIDAndIsDeletedFalse(eventId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
+    public AttendanceSessionResponse create(Integer eventId, AttendanceSessionRequest request, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         AttendanceSession session = new AttendanceSession();
         session.setEventID(eventId);
         session.setSessionName(request.getName());
         session.setStatus(AttendanceSessionStatus.DRAFT);
         session.setOpensAt(request.getOpensAt());
         session.setClosesAt(request.getClosesAt());
-        session.setCreatedBy(actorId);
+        session.setCreatedBy(currentUser.getUserId());
         session.setCreatedAt(LocalDateTime.now());
         session.setIsDeleted(false);
         return toSessionResponse(attendanceSessionRepository.save(session));
@@ -69,8 +69,9 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
 
     @Override
     @Transactional
-    public AttendanceSessionResponse update(Integer sessionId, AttendanceSessionRequest request) {
+    public AttendanceSessionResponse update(Integer sessionId, AttendanceSessionRequest request, UserPrincipal currentUser) {
         AttendanceSession session = findSession(sessionId);
+        eventAssignmentAccessService.ensureCanManageEvent(session.getEventID(), currentUser);
         if (session.getStatus() != AttendanceSessionStatus.DRAFT) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "ATTENDANCE_SESSION_NOT_DRAFT");
         }
@@ -83,21 +84,23 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
 
     @Override
     @Transactional(readOnly = true)
-    public AttendanceSessionResponse getByEvent(Integer eventId) {
+    public AttendanceSessionResponse getByEvent(Integer eventId, UserPrincipal currentUser) {
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ATTENDANCE_SESSION_NOT_FOUND"));
+        eventAssignmentAccessService.ensureCanManageCheckIn(session.getEventID(), currentUser);
         return toSessionResponse(session);
     }
 
     @Override
     @Transactional
-    public AttendanceSessionResponse open(Integer sessionId, Integer actorId) {
+    public AttendanceSessionResponse open(Integer sessionId, UserPrincipal currentUser) {
         AttendanceSession session = findSession(sessionId);
+        eventAssignmentAccessService.ensureCanManageEvent(session.getEventID(), currentUser);
         if (session.getStatus() != AttendanceSessionStatus.DRAFT) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "ATTENDANCE_SESSION_TRANSITION_INVALID");
         }
         session.setStatus(AttendanceSessionStatus.OPEN);
-        session.setOpenedBy(actorId);
+        session.setOpenedBy(currentUser.getUserId());
         session.setCheckInTime(LocalDateTime.now());
         session.setUpdatedAt(LocalDateTime.now());
         return toSessionResponse(attendanceSessionRepository.save(session));
@@ -105,8 +108,9 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
 
     @Override
     @Transactional
-    public AttendanceSessionResponse close(Integer sessionId, Integer actorId) {
+    public AttendanceSessionResponse close(Integer sessionId, UserPrincipal currentUser) {
         AttendanceSession session = findSession(sessionId);
+        eventAssignmentAccessService.ensureCanManageEvent(session.getEventID(), currentUser);
         if (session.getStatus() == AttendanceSessionStatus.CLOSED) {
             return toSessionResponse(session);
         }
@@ -162,7 +166,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         attendanceRecordRepository.saveAll(absentRows);
 
         session.setStatus(AttendanceSessionStatus.CLOSED);
-        session.setClosedBy(actorId);
+        session.setClosedBy(currentUser.getUserId());
         session.setClosesAt(now);
         session.setUpdatedAt(now);
         return toSessionResponse(attendanceSessionRepository.save(session));
@@ -170,8 +174,9 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AttendanceRegistrationSearchResponse> searchRegistrations(Integer sessionId, String keyword) {
+    public List<AttendanceRegistrationSearchResponse> searchRegistrations(Integer sessionId, String keyword, UserPrincipal currentUser) {
         AttendanceSession session = findSession(sessionId);
+        eventAssignmentAccessService.ensureCanManageCheckIn(session.getEventID(), currentUser);
         String normalized = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
         List<AttendanceRecord> records = attendanceRecordRepository.findBySessionID(sessionId);
         Map<Integer, AttendanceRecord> attendanceByRegistration = records.stream()
@@ -198,8 +203,9 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
 
     @Override
     @Transactional(readOnly = true)
-    public AttendanceRegistrationSearchResponse preview(Integer sessionId, Integer registrationId) {
+    public AttendanceRegistrationSearchResponse preview(Integer sessionId, Integer registrationId, UserPrincipal currentUser) {
         AttendanceSession session = findSession(sessionId);
+        eventAssignmentAccessService.ensureCanManageCheckIn(session.getEventID(), currentUser);
         EventRegistration registration = (EventRegistration) eventRegistrationRepository.findByRegistrationIDAndIsDeletedFalse(registrationId).orElse(null);
         if (registration != null) {
             if (!session.getEventID().equals(registration.getEventID())) {
@@ -223,7 +229,8 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
 
     @Override
     @Transactional(readOnly = true)
-    public AttendanceSummaryResponse summary(Integer eventId) {
+    public AttendanceSummaryResponse summary(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageCheckIn(eventId, currentUser);
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElse(null);
         List<AttendanceRecord> records = session == null ? List.of() : attendanceRecordRepository.findBySessionID(session.getSessionID());
         long present = records.stream().filter(row -> AttendanceStatus.PRESENT.equals(row.getAttendanceStatus())).count();
@@ -235,9 +242,11 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
 
     @Override
     @Transactional
-    public AttendanceRegistrationSearchResponse correct(Integer recordId, AttendanceCorrectionRequest request, Integer actorId) {
+    public AttendanceRegistrationSearchResponse correct(Integer recordId, AttendanceCorrectionRequest request, UserPrincipal currentUser) {
         AttendanceRecord record = attendanceRecordRepository.findById(recordId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ATTENDANCE_RECORD_NOT_FOUND"));
+        AttendanceSession session = findSession(record.getSessionID());
+        eventAssignmentAccessService.ensureCanManageEvent(session.getEventID(), currentUser);
         String status = normalize(request.getAttendanceStatus());
         if (!AttendanceStatus.PRESENT.name().equals(status) && !AttendanceStatus.ABSENT.name().equals(status)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ATTENDANCE_STATUS_INVALID");
@@ -248,14 +257,14 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         record.setNote(request.getNote());
         record.setUpdatedAt(LocalDateTime.now());
         AttendanceRecord savedRecord = attendanceRecordRepository.save(record);
-        auditLogService.record(actorId, "AttendanceRecord", savedRecord.getRecordID(), "ATTENDANCE_CORRECTION", before, savedRecord, request.getOverrideReason());
+        auditLogService.record(currentUser.getUserId(), "AttendanceRecord", savedRecord.getRecordID(), "ATTENDANCE_CORRECTION", before, savedRecord, request.getOverrideReason());
         if (record.getGuestRegistrationID() != null) {
             GuestEventRegistration guestRegistration = guestEventRegistrationRepository
                     .findByGuestRegistrationIDAndIsDeletedFalse(record.getGuestRegistrationID())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "REGISTRATION_NOT_FOUND"));
             return toGuestSearchResponse(guestRegistration, record);
         }
-        return preview(record.getSessionID(), record.getRegistrationID());
+        return preview(record.getSessionID(), record.getRegistrationID(), currentUser);
     }
 
     private AttendanceSession findSession(Integer sessionId) {

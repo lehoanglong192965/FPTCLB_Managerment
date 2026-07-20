@@ -4,7 +4,6 @@ import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.SchedulerLogRepository;
-import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EventService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -12,7 +11,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 
 @Component
@@ -39,15 +37,13 @@ public class RegistrationCloseScheduler extends BaseScheduler {
         String slotSuffix = now.getHour() + "_" + (now.getMinute() / 5);
         executeIdempotentIntraday("RegistrationCloseScheduler", slotSuffix, () -> {
             List<Event> openEvents = eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_REGISTRATION_OPEN);
-            
-            UserPrincipal systemUser = new UserPrincipal(-1, "system@scheduler", -1, Collections.emptyList());
-            
+
             for (Event event : openEvents) {
                 if (event.getRegistrationCloseAt() == null || event.getRegistrationCloseAt().isAfter(now)) {
                     continue;
                 }
                 try {
-                    eventService.closeRegistration(event.getEventID(), systemUser);
+                    eventService.closeRegistrationAutomatically(event.getEventID());
                     log.info("Auto-closed registration for event {}", event.getEventID());
                 } catch (Exception ex) {
                     log.warn("Skipping auto-close for event {}: {}", event.getEventID(), ex.getMessage());

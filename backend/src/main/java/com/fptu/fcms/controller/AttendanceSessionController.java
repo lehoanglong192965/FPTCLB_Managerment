@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +28,7 @@ import java.util.List;
 @RestController
 @RequestMapping({"/api/v1", "/api"})
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class AttendanceSessionController {
 
     private final AttendanceSessionService attendanceSessionService;
@@ -38,28 +40,32 @@ public class AttendanceSessionController {
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(attendanceSessionService.create(eventId, request, userId(principal)));
+                .body(attendanceSessionService.create(eventId, request, principal));
     }
 
     @PutMapping("/attendance-sessions/{sessionId}")
     public ResponseEntity<AttendanceSessionResponse> update(
             @PathVariable Integer sessionId,
-            @Valid @RequestBody AttendanceSessionRequest request
+            @Valid @RequestBody AttendanceSessionRequest request,
+            @AuthenticationPrincipal UserPrincipal principal
     ) {
-        return ResponseEntity.ok(attendanceSessionService.update(sessionId, request));
+        return ResponseEntity.ok(attendanceSessionService.update(sessionId, request, principal));
     }
 
 
     @GetMapping("/events/{eventId}/attendance-session")
-    public ResponseEntity<AttendanceSessionResponse> getByEvent(@PathVariable Integer eventId) {
-        return ResponseEntity.ok(attendanceSessionService.getByEvent(eventId));
+    public ResponseEntity<AttendanceSessionResponse> getByEvent(
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        return ResponseEntity.ok(attendanceSessionService.getByEvent(eventId, principal));
     }
     @PostMapping("/attendance-sessions/{sessionId}/open")
     public ResponseEntity<AttendanceSessionResponse> open(
             @PathVariable Integer sessionId,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
-        return ResponseEntity.ok(attendanceSessionService.open(sessionId, userId(principal)));
+        return ResponseEntity.ok(attendanceSessionService.open(sessionId, principal));
     }
 
     @PostMapping("/attendance-sessions/{sessionId}/close")
@@ -67,28 +73,33 @@ public class AttendanceSessionController {
             @PathVariable Integer sessionId,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
-        return ResponseEntity.ok(attendanceSessionService.close(sessionId, userId(principal)));
+        return ResponseEntity.ok(attendanceSessionService.close(sessionId, principal));
     }
 
     @GetMapping("/attendance-sessions/{sessionId}/registrations/search")
     public ResponseEntity<List<AttendanceRegistrationSearchResponse>> search(
             @PathVariable Integer sessionId,
-            @RequestParam(required = false) String keyword
+            @RequestParam(required = false) String keyword,
+            @AuthenticationPrincipal UserPrincipal principal
     ) {
-        return ResponseEntity.ok(attendanceSessionService.searchRegistrations(sessionId, keyword));
+        return ResponseEntity.ok(attendanceSessionService.searchRegistrations(sessionId, keyword, principal));
     }
 
     @GetMapping("/attendance-sessions/{sessionId}/registrations/{registrationId}/preview")
     public ResponseEntity<AttendanceRegistrationSearchResponse> preview(
             @PathVariable Integer sessionId,
-            @PathVariable Integer registrationId
+            @PathVariable Integer registrationId,
+            @AuthenticationPrincipal UserPrincipal principal
     ) {
-        return ResponseEntity.ok(attendanceSessionService.preview(sessionId, registrationId));
+        return ResponseEntity.ok(attendanceSessionService.preview(sessionId, registrationId, principal));
     }
 
     @GetMapping("/events/{eventId}/attendance-summary")
-    public ResponseEntity<AttendanceSummaryResponse> summary(@PathVariable Integer eventId) {
-        return ResponseEntity.ok(attendanceSessionService.summary(eventId));
+    public ResponseEntity<AttendanceSummaryResponse> summary(
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        return ResponseEntity.ok(attendanceSessionService.summary(eventId, principal));
     }
 
     @PatchMapping("/attendance-records/{attendanceRecordId}")
@@ -97,10 +108,7 @@ public class AttendanceSessionController {
             @Valid @RequestBody AttendanceCorrectionRequest request,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
-        return ResponseEntity.ok(attendanceSessionService.correct(attendanceRecordId, request, userId(principal)));
+        return ResponseEntity.ok(attendanceSessionService.correct(attendanceRecordId, request, principal));
     }
 
-    private Integer userId(UserPrincipal principal) {
-        return principal == null ? null : principal.getUserId();
-    }
 }

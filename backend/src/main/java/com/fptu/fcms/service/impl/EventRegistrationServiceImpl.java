@@ -5,6 +5,7 @@ import com.fptu.fcms.dto.request.EventWalkInRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
 import com.fptu.fcms.dto.response.RegistrationListItemResponse;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
+import com.fptu.fcms.dto.response.MyRegistrationResponse;
 import com.fptu.fcms.entity.AuditLog;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventAssignment;
@@ -13,12 +14,14 @@ import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.entity.Notification;
 import com.fptu.fcms.entity.NotificationRecipient;
 import com.fptu.fcms.entity.UserAccount;
+import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.ParticipantType;
 import com.fptu.fcms.enums.RegistrationChannel;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.exception.ApiErrorCode;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.AuditLogRepository;
+import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.ClubBlacklistRepository;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.DisciplineLogRepository;
@@ -52,7 +55,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -63,8 +65,6 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     private static final String AUDIT_TABLE = "EventRegistration";
     private static final String ACCOUNT_STATUS_ACTIVE = "Active";
     private static final String DISCIPLINE_STATUS_ACTIVE = "Active";
-    private static final Set<String> LEADER_AUTHORITIES = Set.of("ROLE_Leader", "ROLE_ViceLeader");
-    private static final Set<String> PRIVILEGED_AUTHORITIES = Set.of("ROLE_Leader", "ROLE_ViceLeader", "ROLE_ICPDP", "ROLE_Admin");
     private static final String DEFAULT_SORT_BY = "registeredAt";
 
     private final EventRegistrationRepository registrationRepo;
@@ -77,6 +77,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     private final EventRegistrationPolicyRepository registrationPolicyRepository;
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
+    private final AttendanceRecordRepository attendanceRecordRepository;
     private final RegistrationAllocationService allocationService;
     private final EventPermissionService permissionService;
     private final EventAssignmentAccessService eventAssignmentAccessService;
@@ -156,7 +157,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                         RegistrationLifecycle.ACTIVE_STATUSES
                 )
                 .orElseThrow(() -> new IllegalArgumentException("Ban chua dang ky su kien nay."));
-        cancelRegistrationInternal(registration, userID, true);
+        cancelRegistrationInternal(registration, userID, true, false);
     }
 
     @Override
@@ -181,6 +182,48 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<MyRegistrationResponse> getMyRegistrationDetails(Integer userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("Authenticated user is required.");
+        }
+        return registrationRepo.findByUserIDAndIsDeletedFalse(userId).stream()
+                .filter(registration -> RegistrationLifecycle.ACTIVE_STATUSES.contains(currentRegistrationStatus(registration)))
+                .map(registration -> eventRepository.findByEventIDAndIsDeletedFalse(registration.getEventID())
+                        .map(event -> toMyRegistrationResponse(registration, event))
+                        .orElse(null))
+                .filter(Objects::nonNull)
+                .sorted(Comparator
+                        .comparing(MyRegistrationResponse::getStartDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(MyRegistrationResponse::getRegistrationId))
+                .toList();
+    }
+
+    private MyRegistrationResponse toMyRegistrationResponse(EventRegistration registration, Event event) {
+        RegistrationStatus status = currentRegistrationStatus(registration);
+        boolean ticketEligible = RegistrationLifecycle.CONFIRMED_STATUSES.contains(status)
+                && StringUtils.hasText(registration.getTicketCode())
+                && registration.getTicketRevokedAt() == null;
+        return new MyRegistrationResponse(
+                registration.getRegistrationID(),
+                event.getEventID(),
+                event.getClubID(),
+                event.getEventName(),
+                event.getStartDate(),
+                event.getEndDate(),
+                event.getLocation(),
+                event.getBannerUrl(),
+                event.getEventStatus(),
+                status,
+                registration.getParticipantType(),
+                ticketEligible ? registration.getTicketCode() : null,
+                ticketEligible ? registration.getTicketIssuedAt() : null,
+                ticketEligible,
+                registration.getRegisteredAt()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public RegistrationPageResponse getRegistrations(
             Integer eventId,
             String participantType,
@@ -192,7 +235,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             String sortDir,
             UserPrincipal currentUser
     ) {
-        ensureCanManageRegistrations(currentUser);
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         List<RegistrationListItemResponse> fptuViews = registrationRepo.findByEventIDAndIsDeletedFalse(eventId).stream()
                 .map(reg -> toView(reg, currentUser))
                 .toList();
@@ -227,7 +270,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     @Transactional
     @CacheEvict(value = "memberRanking", allEntries = true)
     public void approveRegistration(Integer eventId, Integer registrationId, UserPrincipal currentUser) {
-        ensureCanManageRegistrations(currentUser);
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = loadEventForUpdate(eventId);
         EventRegistration registration = loadRegistrationForEvent(eventId, registrationId);
         RegistrationStatus currentStatus = currentRegistrationStatus(registration);
@@ -241,9 +284,13 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setRegistrationStatus(allocation.status());
         registration.setUpdatedAt(LocalDateTime.now());
         registration.setUpdatedBy(currentUser.getUserId());
-        if (allocation.consumesSeat() && registration.getTicketCode() == null) {
-            registration.setTicketCode(UUID.randomUUID().toString());
-            registration.setTicketIssuedAt(LocalDateTime.now());
+        if (allocation.consumesSeat()) {
+            if (!StringUtils.hasText(registration.getTicketCode())) {
+                registration.setTicketCode(UUID.randomUUID().toString());
+            }
+            if (registration.getTicketIssuedAt() == null) {
+                registration.setTicketIssuedAt(LocalDateTime.now());
+            }
         }
         registration.setIsDeleted(false);
         registrationRepo.save(registration);
@@ -261,7 +308,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     @Transactional
     @CacheEvict(value = "memberRanking", allEntries = true)
     public void rejectRegistration(Integer eventId, Integer registrationId, RegistrationRejectRequest request, UserPrincipal currentUser) {
-        ensureCanManageRegistrations(currentUser);
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         if (request == null || !StringUtils.hasText(request.getReason())) {
             throw new IllegalArgumentException("Reason is required.");
         }
@@ -296,12 +343,22 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     @Transactional
     @CacheEvict(value = "memberRanking", allEntries = true)
     public void cancelRegistration(Integer registrationId, UserPrincipal currentUser) {
+        if (currentUser == null || currentUser.getUserId() == null) {
+            throw new BusinessRuleException(ApiErrorCode.UNAUTHORIZED.name(), "You are not authenticated.", org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
         EventRegistration registration = registrationRepo.findById(registrationId)
                 .orElseThrow(() -> new IllegalArgumentException("Registration not found."));
-        if (registration.getUserID() != null && currentUser != null && !Objects.equals(registration.getUserID(), currentUser.getUserId()) && !hasPrivilegedAuthority(currentUser)) {
-            throw new IllegalArgumentException("You are not allowed to cancel this registration.");
+        boolean ownsRegistration = Objects.equals(registration.getUserID(), currentUser.getUserId());
+        boolean privilegedActor = false;
+        try {
+            eventAssignmentAccessService.ensureCanManageEvent(registration.getEventID(), currentUser);
+            privilegedActor = true;
+        } catch (BusinessRuleException exception) {
+            if (!ownsRegistration || !ApiErrorCode.FORBIDDEN.name().equals(exception.getErrorCode())) {
+                throw exception;
+            }
         }
-        cancelRegistrationInternal(registration, currentUser == null ? null : currentUser.getUserId(), false);
+        cancelRegistrationInternal(registration, currentUser.getUserId(), false, privilegedActor);
     }
 
     /**
@@ -312,7 +369,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     @Override
     @Transactional
     public void cancelGuestRegistration(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser) {
-        ensureCanManageRegistrations(currentUser);
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = loadEventForUpdate(eventId);
         GuestEventRegistration registration = guestRegistrationRepository
                 .findByGuestRegistrationIDAndIsDeletedFalse(guestRegistrationId)
@@ -336,13 +393,37 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
     }
 
-    private void cancelRegistrationInternal(EventRegistration registration, Integer actorUserId, boolean triggeredByLegacyEndpoint) {
+    private void cancelRegistrationInternal(
+            EventRegistration registration,
+            Integer actorUserId,
+            boolean triggeredByLegacyEndpoint,
+            boolean privilegedActor
+    ) {
         RegistrationStatus currentStatus = currentRegistrationStatus(registration);
         if (RegistrationLifecycle.STATUS_CANCELLED.equals(currentStatus)) {
             return;
         }
 
         Event event = loadEventForUpdate(registration.getEventID());
+        boolean cancellationWindowClosed = isSelfCancellationWindowClosed(event);
+        if (!privilegedActor && cancellationWindowClosed) {
+            throw new BusinessRuleException(
+                    ApiErrorCode.REGISTRATION_CANCEL_WINDOW_CLOSED.name(),
+                    "The event has already started. You cannot cancel your registration.",
+                    org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY
+            );
+        }
+        boolean hasPresentAttendance = attendanceRecordRepository.existsByRegistrationIDAndAttendanceStatusAndIsDeletedFalse(
+                registration.getRegistrationID(),
+                AttendanceStatus.PRESENT
+        );
+        if (hasPresentAttendance && !privilegedActor) {
+            throw new BusinessRuleException(
+                    ApiErrorCode.EVENT_STATE_INVALID.name(),
+                    "A checked-in registration cannot be cancelled.",
+                    org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY
+            );
+        }
         RegistrationStatus oldStatus = currentStatus;
         registration.setStatus(String.valueOf(RegistrationLifecycle.STATUS_CANCELLED));
         registration.setRegistrationStatus(RegistrationLifecycle.STATUS_CANCELLED);
@@ -355,10 +436,28 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         boolean freedSeat = RegistrationLifecycle.CONFIRMED_STATUSES.contains(oldStatus);
         int promoted = freedSeat ? allocationService.promoteWaitlisted(event.getEventID(), event.getMaxParticipants()) : 0;
         saveAudit(actorUserId, registration, "REGISTRATION_CANCELLED", oldStatus == null ? null : oldStatus.name(), RegistrationLifecycle.STATUS_CANCELLED.name(),
-                triggeredByLegacyEndpoint ? "Cancelled from legacy unregister endpoint" : "Cancelled by user");
+                privilegedActor
+                        ? (hasPresentAttendance ? "Cancelled by manager after check-in" : cancellationWindowClosed ? "Cancelled by manager after event start" : "Cancelled by manager")
+                        : (triggeredByLegacyEndpoint ? "Cancelled from legacy unregister endpoint" : "Cancelled by user"));
         if (promoted > 0) {
             // no-op: promotion is handled atomically by allocation service
         }
+    }
+
+    private boolean isSelfCancellationWindowClosed(Event event) {
+        if (event.getStartDate() != null
+                && !LocalDateTime.now().isBefore(event.getStartDate())) {
+            return true;
+        }
+        if (event.getEventStatus() == null) {
+            return false;
+        }
+        String status = event.getEventStatus().name();
+        return "ONGOING".equals(status)
+                || "COMPLETED".equals(status)
+                || "CLOSED".equals(status)
+                || status.startsWith("REPORT_")
+                || status.startsWith("CONTRIBUTION_");
     }
 
     private Event loadEventForUpdate(Integer eventId) {
@@ -520,7 +619,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 ? null
                 : userRepository.findByUserIDAndIsDeletedFalse(registration.getUserID()).orElse(null);
 
-        boolean canViewGuestContact = canViewGuestContact(currentUser);
+        boolean canViewGuestContact = canViewGuestContact(registration.getEventID(), currentUser);
         return new RegistrationListItemResponse(
                 registration.getRegistrationID(),
                 null,
@@ -539,7 +638,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     }
 
     private RegistrationListItemResponse toGuestView(GuestEventRegistration registration, UserPrincipal currentUser) {
-        boolean canViewGuestContact = canViewGuestContact(currentUser);
+        boolean canViewGuestContact = canViewGuestContact(registration.getEventID(), currentUser);
         return new RegistrationListItemResponse(
                 null,
                 registration.getGuestRegistrationID(),
@@ -629,17 +728,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         return StringUtils.hasText(sortDir) && "desc".equalsIgnoreCase(sortDir.trim());
     }
 
-    private boolean canViewGuestContact(UserPrincipal currentUser) {
-        return permissionService.isLeader(currentUser);
+    private boolean canViewGuestContact(Integer eventId, UserPrincipal currentUser) {
+        return eventAssignmentAccessService.canViewGuestContact(eventId, currentUser);
     }
 
-    private boolean hasPrivilegedAuthority(UserPrincipal currentUser) {
-        return permissionService.canManageRegistrations(currentUser);
-    }
-
-    private void ensureCanManageRegistrations(UserPrincipal currentUser) {
-        if (!permissionService.canManageRegistrations(currentUser)) {
-            throw new IllegalArgumentException("You do not have permission to manage registrations.");
-        }
-    }
 }

@@ -14,6 +14,8 @@ import com.fptu.fcms.enums.CheckInMethod;
 import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.enums.VerificationMethod;
+import com.fptu.fcms.exception.ApiErrorCode;
+import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
@@ -23,6 +25,9 @@ import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.service.AttendanceService;
 import com.fptu.fcms.service.event.RegistrationLifecycle;
 import com.fptu.fcms.service.AuditLogService;
+import com.fptu.fcms.service.EventAssignmentAccessService;
+import com.fptu.fcms.security.UserPrincipal;
+import org.springframework.http.HttpStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -45,9 +50,13 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
 
+    private final EventAssignmentAccessService eventAssignmentAccessService;
     @Override
     @Transactional
     public AttendanceCheckInResponse checkIn(Integer sessionId, AttendanceCheckInRequest request, Integer actorId) {
+        if (VerificationMethod.QR_TICKET.name().equals(normalize(request.getVerificationMethod()))) {
+            throw invalidQrTicket();
+        }
         AttendanceSession session = attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Attendance session not found."));
         if (session.getStatus() != AttendanceSessionStatus.OPEN) {
@@ -324,6 +333,181 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     private String normalizeSpaces(String value) {
         return value == null ? "" : value.trim().replaceAll("\\s+", " ");
+    }
+    @Override
+    @Transactional
+    public AttendanceCheckInResponse checkIn(
+            Integer sessionId,
+            AttendanceCheckInRequest request,
+            UserPrincipal currentUser
+    ) {
+        AttendanceSession session = attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Attendance session not found."));
+        eventAssignmentAccessService.ensureCanManageCheckIn(session.getEventID(), currentUser);
+        if (session.getStatus() != AttendanceSessionStatus.OPEN) {
+            throw new IllegalArgumentException("Attendance session is not open.");
+        }
+
+        Event event = eventRepository.findByEventIDAndIsDeletedFalse(session.getEventID())
+                .orElseThrow(() -> new IllegalArgumentException("Event not found."));
+        EventStatus eventStatus = EventStatus.fromValue(String.valueOf(event.getEventStatus()));
+        if (eventStatus != EventStatus.ONGOING && eventStatus != EventStatus.CHECKIN_OPEN) {
+            throw new IllegalArgumentException("Event must be Ongoing for check-in.");
+        }
+
+        VerificationMethod verificationMethod = parseVerificationMethod(request.getVerificationMethod());
+        if (verificationMethod != VerificationMethod.QR_TICKET) {
+            Integer actorId = currentUser == null ? null : currentUser.getUserId();
+            return checkIn(sessionId, request, actorId);
+        }
+
+        Integer actorId = currentUser == null ? null : currentUser.getUserId();
+        return checkInQrTicket(session, event, request, actorId);
+    }
+
+    private AttendanceCheckInResponse checkInQrTicket(
+            AttendanceSession session,
+            Event event,
+            AttendanceCheckInRequest request,
+            Integer actorId
+    ) {
+        EventRegistration registration = resolveQrTicket(event.getEventID(), request.getVerificationValue());
+        Integer sessionId = session.getSessionID();
+
+        var existingRecord = attendanceRecordRepository.findBySessionIDAndRegistrationID(
+                sessionId,
+                registration.getRegistrationID()
+        );
+        if (existingRecord.isPresent()) {
+            AttendanceRecord existing = existingRecord.get();
+            if (existing.getAttendanceStatus() == AttendanceStatus.PRESENT) {
+                throw alreadyCheckedIn();
+            }
+
+            AttendanceRecord before = snapshot(existing);
+            Integer existingRecordId = existing.getRecordID();
+            LocalDateTime now = LocalDateTime.now();
+            int updatedRows = attendanceRecordRepository.markPresentWithQrTicketIfNotAlreadyCheckedIn(
+                    existingRecordId,
+                    AttendanceStatus.PRESENT,
+                    CheckInMethod.QR_CODE,
+                    VerificationMethod.QR_TICKET.name(),
+                    actorId,
+                    now
+            );
+            if (updatedRows != 1) {
+                throw alreadyCheckedIn();
+            }
+
+            AttendanceRecord after = snapshot(before);
+            after.setAttendanceStatus(AttendanceStatus.PRESENT);
+            after.setCheckInMethod(CheckInMethod.QR_CODE);
+            after.setVerificationMethod(VerificationMethod.QR_TICKET.name());
+            after.setMarkedAt(now);
+            after.setUpdatedAt(now);
+            after.setCheckedInBy(actorId);
+            after.setCheckedInAt(now);
+            auditLogService.record(
+                    actorId,
+                    "AttendanceRecord",
+                    existingRecordId,
+                    "ATTENDANCE_CHECK_IN_EXISTING",
+                    before,
+                    after,
+                    request.getNote()
+            );
+            return new AttendanceCheckInResponse(
+                    event.getEventID(),
+                    registration.getRegistrationID(),
+                    registration.getUserID(),
+                    AttendanceStatus.PRESENT,
+                    "Check-in successful."
+            );
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        AttendanceRecord record = new AttendanceRecord();
+        record.setSessionID(sessionId);
+        record.setUserID(registration.getUserID());
+        record.setRegistrationID(registration.getRegistrationID());
+        record.setParticipantTypeSnapshotAt(registration.getParticipantTypeSnapshotAt());
+        record.setAttendanceStatus(AttendanceStatus.PRESENT);
+        record.setCheckInMethod(CheckInMethod.QR_CODE);
+        record.setParticipantTypeSnapshot(
+                registration.getParticipantType() == null
+                        ? "PARTICIPANT"
+                        : registration.getParticipantType().name()
+        );
+        record.setVerificationMethod(VerificationMethod.QR_TICKET.name());
+        record.setCheckedInBy(actorId);
+        record.setCheckedInAt(now);
+        record.setManualReason(request.getNote());
+        record.setNote(request.getNote());
+        record.setMarkedAt(now);
+        record.setCreatedAt(now);
+        record.setIsVerifiedByAI(false);
+        record.setIsDeleted(false);
+
+        try {
+            AttendanceRecord savedRecord = attendanceRecordRepository.saveAndFlush(record);
+            auditLogService.record(
+                    actorId,
+                    "AttendanceRecord",
+                    savedRecord.getRecordID(),
+                    "ATTENDANCE_CHECK_IN",
+                    null,
+                    savedRecord,
+                    request.getNote()
+            );
+        } catch (DataIntegrityViolationException ex) {
+            throw alreadyCheckedIn();
+        }
+
+        return new AttendanceCheckInResponse(
+                event.getEventID(),
+                registration.getRegistrationID(),
+                registration.getUserID(),
+                AttendanceStatus.PRESENT,
+                "Check-in successful."
+        );
+    }
+
+    private EventRegistration resolveQrTicket(Integer eventId, String ticketCode) {
+        if (!StringUtils.hasText(ticketCode)) {
+            throw invalidQrTicket();
+        }
+
+        EventRegistration registration = eventRegistrationRepository
+                .findByEventIDAndTicketCodeAndIsDeletedFalse(eventId, ticketCode.trim())
+                .orElseThrow(this::invalidQrTicket);
+        if (registration.getTicketRevokedAt() != null || !isConfirmedForCheckIn(registration)) {
+            throw invalidQrTicket();
+        }
+        return registration;
+    }
+
+    private boolean isConfirmedForCheckIn(EventRegistration registration) {
+        RegistrationStatus registrationStatus = registration.getRegistrationStatus();
+        if (registrationStatus == null && registration.getStatus() != null) {
+            registrationStatus = RegistrationStatus.fromValue(registration.getStatus());
+        }
+        return RegistrationLifecycle.CONFIRMED_STATUSES.contains(registrationStatus);
+    }
+
+    private BusinessRuleException alreadyCheckedIn() {
+        return new BusinessRuleException(
+                ApiErrorCode.ALREADY_CHECKED_IN.name(),
+                "Participant is already checked in.",
+                HttpStatus.CONFLICT
+        );
+    }
+
+    private BusinessRuleException invalidQrTicket() {
+        return new BusinessRuleException(
+                "TICKET_INVALID",
+                "The QR ticket is invalid or no longer eligible for check-in.",
+                HttpStatus.UNPROCESSABLE_ENTITY
+        );
     }
 }
 

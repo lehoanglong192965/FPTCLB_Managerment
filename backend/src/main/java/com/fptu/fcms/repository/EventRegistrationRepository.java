@@ -15,6 +15,7 @@ import java.util.Set;
 public interface EventRegistrationRepository extends JpaRepository<EventRegistration, Integer> {
     boolean existsByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
     Optional<EventRegistration> findByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
+    Optional<EventRegistration> findByEventIDAndTicketCodeAndIsDeletedFalse(Integer eventID, String ticketCode);
     boolean existsByEventIDAndGuestEmailAndIsDeletedFalse(Integer eventID, String guestEmail);
     long countByEventIDAndIsDeletedFalse(Integer eventID);
     long countByEventIDAndRegistrationStatusInAndIsDeletedFalse(Integer eventID, Collection<RegistrationStatus> statuses);

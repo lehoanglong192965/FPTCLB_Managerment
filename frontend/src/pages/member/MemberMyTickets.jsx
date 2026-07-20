@@ -4,6 +4,7 @@ import EventCard from "../../components/events/EventCard";
 import eventApi from "../../services/api/events/eventApi";
 import clubApi from "../../services/api/clubs/clubApi";
 import contributionApi from "../../services/api/contribution/contributionApi";
+import TicketDetailModal from "../../components/events/TicketDetailModal";
 
 const FILTER_TABS = [
   { key: "all",        label: "Tất cả"       },
@@ -20,6 +21,7 @@ export default function MemberMyTickets() {
   const [tickets, setTickets]     = useState([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState("");
+  const [selectedTicket, setSelectedTicket] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,7 +29,7 @@ export default function MemberMyTickets() {
       setError("");
       try {
         const [regRes, assignRes, clubRes] = await Promise.all([
-          eventApi.getMyRegistrations(),
+          eventApi.getMyRegistrationDetails(),
           eventApi.getMyAssignments(),
           clubApi.getAll(),
         ]);
@@ -36,7 +38,8 @@ export default function MemberMyTickets() {
         const assigns = Array.isArray(assignRes) ? assignRes : (assignRes.data || []);
         const clubList = Array.isArray(clubRes)  ? clubRes   : (clubRes.data   || []);
 
-        const mappedRegs = regs.map((e) => {
+        const mappedRegs = regs.map((registration) => {
+          const e = { ...registration, eventID: registration.eventId, clubID: registration.clubId };
           const clubObj = clubList.find((c) => c.clubID === e.clubID);
           return {
             id: e.eventID,
@@ -49,6 +52,19 @@ export default function MemberMyTickets() {
             location: e.location || "Chưa xếp phòng",
             bannerUrl: e.bannerUrl ?? null,
             ticketStatus: "registered",
+            registrationId: e.registrationId,
+            eventId: e.eventId,
+            clubId: e.clubId,
+            eventName: e.eventName,
+            startDate: e.startDate,
+            endDate: e.endDate,
+            eventStatus: e.eventStatus,
+            registrationStatus: e.registrationStatus,
+            participantType: e.participantType,
+            ticketCode: e.ticketCode,
+            ticketIssuedAt: e.ticketIssuedAt,
+            ticketEligible: e.ticketEligible === true,
+            registeredAt: e.registeredAt,
           };
         });
 
@@ -75,6 +91,13 @@ export default function MemberMyTickets() {
             combined.push(r);
           }
         });
+        mappedRegs.forEach((registration) => {
+          const assignedTicket = combined.find((ticket) => ticket.id === registration.id);
+          if (assignedTicket && assignedTicket !== registration) {
+            Object.assign(assignedTicket, registration, { ticketStatus: assignedTicket.ticketStatus });
+          }
+        });
+
 
         const appealChecks = await Promise.all(
           combined
@@ -179,13 +202,28 @@ export default function MemberMyTickets() {
             ) : (
               <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
                 {filtered.map((ev) => (
-                  <EventCard key={ev.id} event={ev} />
+                  <div key={`${ev.ticketStatus}-${ev.registrationId ?? ev.id}`} className="space-y-2">
+                    <EventCard event={ev} />
+                    {ev.registrationId != null && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTicket(ev)}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700 transition hover:bg-orange-100"
+                      >
+                        <Ticket size={15} />
+                        {ev.ticketEligible ? "Open QR ticket" : "View ticket status"}
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
           </>
         )}
       </div>
+      {selectedTicket && (
+        <TicketDetailModal ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />
+      )}
     </div>
   );
 }

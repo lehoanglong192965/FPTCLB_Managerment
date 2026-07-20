@@ -9,7 +9,8 @@ public enum VerificationMethod {
     STUDENT_CARD,
     FPT_ACCOUNT,
     PHONE_LAST4,
-    MANUAL_OVERRIDE;
+    MANUAL_OVERRIDE,
+    QR_TICKET;
 
     @JsonValue
     public String jsonValue() {

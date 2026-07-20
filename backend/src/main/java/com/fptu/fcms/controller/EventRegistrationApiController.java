@@ -7,6 +7,7 @@ import com.fptu.fcms.dto.request.RegistrationRejectRequest;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationResponse;
+import com.fptu.fcms.dto.response.MyRegistrationResponse;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EventRegistrationService;
 import com.fptu.fcms.service.GuestRegistrationService;
@@ -51,6 +52,15 @@ public class EventRegistrationApiController {
     @Operation(summary = "Lay danh sach su kien da dang ky cua toi")
     public ResponseEntity<List<Event>> getMyRegistrations(@AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.ok(eventRegistrationService.getEventsByUserRegistered(currentUser.getUserId()));
+    }
+
+    @GetMapping({"/api/registrations/me"})
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Get my registration ticket details")
+    public ResponseEntity<List<MyRegistrationResponse>> getMyRegistrationDetails(
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        return ResponseEntity.ok(eventRegistrationService.getMyRegistrationDetails(currentUser.getUserId()));
     }
 
     @PostMapping({"/api/events/{eventId}/registrations/guest"})
@@ -138,7 +148,7 @@ public class EventRegistrationApiController {
     }
 
     @PostMapping({"/api/events/{eventId}/registrations/{registrationId}/approve", "/api/v1/events/{eventId}/registrations/{registrationId}/approve"})
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     @Operation(summary = "Duyet dang ky")
     public ResponseEntity<Map<String, String>> approveRegistration(
             @PathVariable Integer eventId,
@@ -149,7 +159,7 @@ public class EventRegistrationApiController {
     }
 
     @PostMapping({"/api/events/{eventId}/registrations/{registrationId}/reject"})
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     @Operation(summary = "Tu choi dang ky")
     public ResponseEntity<Map<String, String>> rejectRegistration(
             @PathVariable Integer eventId,
@@ -171,7 +181,7 @@ public class EventRegistrationApiController {
     }
 
     @PostMapping({"/api/events/{eventId}/registrations/guest/{guestRegistrationId}/cancel"})
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     @Operation(summary = "Leader huy dang ky cua khach")
     public ResponseEntity<Map<String, String>> cancelGuestRegistration(
             @PathVariable Integer eventId,

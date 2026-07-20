@@ -104,17 +104,67 @@ const isDev = import.meta.env.DEV;
 
 function logReq(config) {
   if (!isDev) return;
+  if (
+    config.data &&
+    typeof config.data === "object" &&
+    ("verificationValue" in config.data || "ticketCode" in config.data)
+  ) {
+    const redactedBody = { ...config.data };
+    if ("verificationValue" in redactedBody) redactedBody.verificationValue = "[REDACTED]";
+    if ("ticketCode" in redactedBody) redactedBody.ticketCode = "[REDACTED]";
+
+    console.groupCollapsed("[API] Request body redacted");
+    if (config.params) console.log("Params:", config.params);
+    console.log("Body:", redactedBody);
+    console.groupEnd();
+    return;
+  }
+
   console.groupCollapsed(`[API] ➡️  ${config.method?.toUpperCase()} ${config.url} [${TokenService.getRole()}]`);
   if (config.params) console.log("Params:", config.params);
   if (config.data)   console.log("Body:",   config.data);
   console.groupEnd();
 }
 
+const SENSITIVE_LOG_FIELDS = new Set([
+  "ticketcode",
+  "verificationvalue",
+  "verificationmethod",
+  "accesstoken",
+  "refreshtoken",
+  "authorization",
+]);
+
+function redactLogData(value, seen = new WeakSet()) {
+  if (value === null || value === undefined) return value;
+  if (typeof value !== "object") return value;
+
+  if (typeof Blob !== "undefined" && value instanceof Blob) {
+    return "[Blob response omitted]";
+  }
+  if (seen.has(value)) return "[Circular]";
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.map((item) => redactLogData(item, seen));
+  }
+
+  const redacted = {};
+  Object.entries(value).forEach(([key, item]) => {
+    const normalizedKey = key.replace(/[^a-z0-9]/gi, "").toLowerCase();
+    if (SENSITIVE_LOG_FIELDS.has(normalizedKey)) {
+      redacted[key] = "[REDACTED]";
+    } else {
+      redacted[key] = redactLogData(item, seen);
+    }
+  });
+  return redacted;
+}
 function logRes(res) {
   if (!isDev) return;
   const ms = Date.now() - res.config._startTime;
   console.groupCollapsed(`[API] ✅ ${res.status} ${res.config.url} (${ms}ms)`);
-  console.log("Data:", res.data);
+  console.log("Data:", redactLogData(res.data));
   console.groupEnd();
 }
 
@@ -122,7 +172,7 @@ function logErr(err) {
   if (!isDev) return;
   const ms = Date.now() - (err.config?._startTime ?? Date.now());
   console.groupCollapsed(`[API] ❌ ${err.response?.status ?? "Network"} ${err.config?.url} (${ms}ms)`);
-  console.error(err.response?.data ?? err.message);
+  console.error(redactLogData(err.response?.data ?? err.message));
   console.groupEnd();
 }
 

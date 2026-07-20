@@ -4,6 +4,7 @@ import com.fptu.fcms.dto.request.EventGuestRegistrationRequest;
 import com.fptu.fcms.dto.request.EventWalkInRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
+import com.fptu.fcms.dto.response.MyRegistrationResponse;
 import com.fptu.fcms.security.UserPrincipal;
 
 import java.util.List;
@@ -15,6 +16,8 @@ public interface EventRegistrationService {
     void unregisterEvent(Integer eventID, Integer userID);
     boolean isUserRegistered(Integer eventId, Integer userId);
     List<com.fptu.fcms.entity.Event> getEventsByUserRegistered(Integer userId);
+
+    List<MyRegistrationResponse> getMyRegistrationDetails(Integer userId);
 
     RegistrationPageResponse getRegistrations(
             Integer eventId,

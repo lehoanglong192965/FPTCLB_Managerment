@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,13 +23,13 @@ public class AttendanceController {
 
     private final AttendanceService attendanceService;
 
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/{sessionId}/check-ins")
     public ResponseEntity<AttendanceCheckInResponse> checkIn(
             @PathVariable Integer sessionId,
             @Valid @RequestBody AttendanceCheckInRequest request,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
-        Integer actorId = principal == null ? null : principal.getUserId();
-        return ResponseEntity.status(HttpStatus.CREATED).body(attendanceService.checkIn(sessionId, request, actorId));
+        return ResponseEntity.ok(attendanceService.checkIn(sessionId, request, principal));
     }
 }

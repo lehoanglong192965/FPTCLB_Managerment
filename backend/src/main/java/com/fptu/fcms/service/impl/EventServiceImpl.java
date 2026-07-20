@@ -214,6 +214,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void submitEventProposal(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         assertCanModifyDraft(event, currentUser);
 
@@ -229,7 +230,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void addAssignment(Integer eventId, EventAssignmentRequest request) {
+    public void addAssignment(Integer eventId, EventAssignmentRequest request, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         getActiveEventOrThrow(eventId);
         EventAssignment assignment = new EventAssignment();
         assignment.setEventID(eventId);
@@ -242,7 +244,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void removeAssignment(Integer eventId, Integer userId) {
+    public void removeAssignment(Integer eventId, Integer userId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
                 .filter(a -> a.getUserID().equals(userId))
                 .forEach(a -> {
@@ -253,7 +256,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void assignCheckInStaff(Integer eventId, Integer userId) {
+    public void assignCheckInStaff(Integer eventId, Integer userId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         Integer checkInStaffRoleId = resolveEventRoleIdByName("CHECK_IN_STAFF");
 
@@ -269,7 +273,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void revokeCheckInStaff(Integer eventId, Integer userId) {
+    public void revokeCheckInStaff(Integer eventId, Integer userId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Integer checkInStaffRoleId = resolveEventRoleIdByName("CHECK_IN_STAFF");
         eventAssignmentRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
                 .filter(a -> checkInStaffRoleId.equals(a.getEventRoleID()))
@@ -281,16 +286,19 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<EventAssignment> getAssignments(Integer eventId) {
+    public List<EventAssignment> getAssignments(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         return eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId);
     }
 
     @Override
     @Transactional
-    public void cancelEvent(Integer clubID, Integer eventId, CancelEventRequest request) {
-        Event event = eventRepository.findById(eventId)
-                .filter(e -> e.getClubID().equals(clubID))
-                .orElseThrow(() -> new IllegalArgumentException("Event not found or not owned by club."));
+    public void cancelEvent(Integer clubID, Integer eventId, CancelEventRequest request, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        Event event = getActiveEventOrThrow(eventId);
+        if (!Objects.equals(event.getClubID(), clubID)) {
+            throw new BusinessRuleException("Event not found or not owned by club.", HttpStatus.NOT_FOUND);
+        }
         EventStatus oldStatus = event.getEventStatus();
 
         if (!STATUS_APPROVED.equals(event.getEventStatus()) && !STATUS_ONGOING.equals(event.getEventStatus())) {
@@ -302,6 +310,16 @@ public class EventServiceImpl implements EventService {
         publishLifecycleEvent(savedEvent, oldStatus, STATUS_CANCELLED, null, request.getReason());
 
         List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(eventId);
+        List<EventRegistration> activeTickets = registrations.stream()
+                .filter(registration -> StringUtils.hasText(registration.getTicketCode()))
+                .filter(registration -> registration.getTicketRevokedAt() == null)
+                .toList();
+        if (!activeTickets.isEmpty()) {
+            LocalDateTime ticketRevokedAt = LocalDateTime.now();
+            activeTickets.forEach(registration -> registration.setTicketRevokedAt(ticketRevokedAt));
+            registrationRepository.saveAll(activeTickets);
+        }
+
         if (!registrations.isEmpty()) {
             List<Integer> userIds = registrations.stream().map(EventRegistration::getUserID).collect(Collectors.toList());
             List<UserAccount> users = userRepository.findAllByUserIDIn(userIds);
@@ -463,58 +481,15 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public EventDetailResponse getManagedEventDetail(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         return toEventDetailResponse(event, currentUser, true);
     }
 
     @Override
     @Transactional
-    public String checkIn(Integer eventId, String studentId, UserPrincipal currentUser) {
-        Event event = getActiveEventOrThrow(eventId);
-        if (!STATUS_ONGOING.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Sự kiện chưa bắt đầu, không thể điểm danh.");
-        }
-
-        eventAssignmentAccessService.ensureCanManageCheckIn(eventId, currentUser);
-
-        UserAccount user = userRepository.findByStudentId(studentId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sinh viên với mã: " + studentId));
-
-        Integer userId = user.getUserID();
-        if (!registrationRepository.existsByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)) {
-            throw new IllegalArgumentException("Sinh viên chưa đăng ký sự kiện này.");
-        }
-
-        AttendanceSession session = attendanceSessionRepository.findByEventID(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phiên điểm danh cho sự kiện này."));
-
-        if (attendanceRecordRepository.findBySessionIDAndUserID(session.getSessionID(), userId).isPresent()) {
-            throw new IllegalArgumentException("Sinh viên đã được điểm danh rồi.");
-        }
-
-        AttendanceRecord record = new AttendanceRecord();
-        record.setSessionID(session.getSessionID());
-        record.setUserID(userId);
-        record.setRegistrationID(registrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
-                .map(EventRegistration::getRegistrationID)
-                .orElse(null));
-        record.setParticipantTypeSnapshotAt(registrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
-                .map(EventRegistration::getParticipantTypeSnapshotAt)
-                .orElse(null));
-
-        record.setCheckedInBy(userId);
-        record.setCheckedInAt(LocalDateTime.now());
-        record.setAttendanceStatus(AttendanceStatus.PRESENT);
-        record.setMarkedAt(LocalDateTime.now());
-        record.setIsVerifiedByAI(false);
-        record.setIsDeleted(false);
-        attendanceRecordRepository.save(record);
-        return user.getFullName() != null ? user.getFullName() : studentId;
-    }
-
-    @Override
-    @Transactional
-    public void startEvent(Integer eventId) {
+    public void startEvent(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         stateMachineService.ensureCanStart(event);
 
@@ -540,7 +515,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void finishEvent(Integer eventId) {
+    public void finishEvent(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         stateMachineService.ensureCanFinish(event);
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId)
@@ -558,7 +534,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void closeEvent(Integer eventId) {
+    public void closeEvent(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         stateMachineService.ensureCanClose(event);
         if (eventReportRepository.findByEventIDAndIsDeletedFalse(eventId)
@@ -605,7 +582,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getCheckedInAttendees(Integer eventId) {
+    public List<Map<String, Object>> getCheckedInAttendees(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageCheckIn(eventId, currentUser);
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElse(null);
         if (session == null) return List.of();
 
@@ -719,6 +697,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void openRegistration(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         EventStatus oldStatus = event.getEventStatus();
         stateMachineService.ensureCanOpenRegistration(event);
@@ -742,7 +721,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void updateEvent(Integer eventId, UpdateEventRequest request) {
+    public void updateEvent(Integer eventId, UpdateEventRequest request, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         EventStatus status = event.getEventStatus();
         boolean isDraft = STATUS_DRAFT.equals(status);
@@ -817,6 +797,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void deleteDraftEvent(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         assertCanModifyDraft(event, currentUser);
         if (!STATUS_DRAFT.equals(event.getEventStatus()) && !STATUS_REJECTED.equals(event.getEventStatus())) {
@@ -832,6 +813,17 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void closeRegistration(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        closeRegistrationInternal(eventId, currentUser.getUserId());
+    }
+
+    @Override
+    @Transactional
+    public void closeRegistrationAutomatically(Integer eventId) {
+        closeRegistrationInternal(eventId, null);
+    }
+
+    private void closeRegistrationInternal(Integer eventId, Integer actorUserId) {
         Event event = getActiveEventOrThrow(eventId);
         EventStatus oldStatus = event.getEventStatus();
         stateMachineService.ensureCanCloseRegistration(event);
@@ -841,7 +833,7 @@ public class EventServiceImpl implements EventService {
         }
         Event saved = eventRepository.save(event);
         auditLogService.record(
-                currentUser == null ? null : currentUser.getUserId(),
+                actorUserId,
                 "Event",
                 saved.getEventID(),
                 "REGISTRATION_CLOSED",
