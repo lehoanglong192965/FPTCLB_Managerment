@@ -1104,6 +1104,10 @@ public class EventServiceImpl implements EventService {
                 ? eventRegistrationPolicyService.getPolicies(event.getEventID(), currentUser)
                 : null;
 
+        // maxParticipants/currentParticipants không phải dữ liệu nhạy cảm — cần công khai
+        // để FE (kể cả trang public) hiển thị "x/y đã đăng ký".
+        attachCurrentParticipants(List.of(event));
+
         return new EventDetailResponse(
                 event.getEventID(),
                 event.getClubID(),
@@ -1126,8 +1130,9 @@ public class EventServiceImpl implements EventService {
                 isManager ? event.getRegistrationCloseAt() : null,
                 isManager ? event.getCheckInOpenAt() : null,
                 isManager ? event.getCheckInCloseAt() : null,
-                isManager ? event.getTotalCapacity() : null,
-                isManager ? event.getMaxParticipants() : null,
+                event.getTotalCapacity(),
+                event.getMaxParticipants(),
+                event.getCurrentParticipants(),
                 isManager ? event.getBudget() : null,
                 isManager ? event.getApprovedBy() : null,
                 isManager ? event.getApprovedAt() : null,

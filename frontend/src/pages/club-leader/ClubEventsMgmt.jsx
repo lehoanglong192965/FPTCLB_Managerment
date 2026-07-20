@@ -226,17 +226,9 @@ export default function ClubEventsMgmt() {
               </p>
             )}
             {!search && !!clubId && (
-              <>
-                <p style={{ fontSize: 13, color: "#9ca3af", margin: "0 0 18px" }}>
-                  Tạo đề xuất sự kiện để bắt đầu.
-                </p>
-                <button
-                  onClick={() => navigate("../../event-create", { relative: "path" })}
-                  style={{ padding: "9px 22px", borderRadius: 10, border: "none", background: "#E6430A", color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}
-                >
-                  + Tạo sự kiện ngay
-                </button>
-              </>
+              <p style={{ fontSize: 13, color: "#9ca3af", margin: 0 }}>
+                Tạo đề xuất sự kiện để bắt đầu.
+              </p>
             )}
           </div>
         ) : (

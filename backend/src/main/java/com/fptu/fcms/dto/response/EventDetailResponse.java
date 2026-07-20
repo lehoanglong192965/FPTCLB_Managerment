@@ -38,6 +38,7 @@ public class EventDetailResponse {
     private final LocalDateTime checkInCloseAt;
     private final Integer totalCapacity;
     private final Integer maxParticipants;
+    private final Long currentParticipants;
     private final BigDecimal budget;
     private final Integer approvedBy;
     private final LocalDateTime approvedAt;
