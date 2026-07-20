@@ -58,8 +58,6 @@ const IcpdpRecruitment = lazy(() => import("../pages/icpdp/IcpdpRecruitment"));
 const IcpdpReportReview = lazy(() => import("../pages/icpdp/IcpdpReportReview"));
 const IcpdpCompetitionList = lazy(() => import("../pages/icpdp/IcpdpCompetitionList"));
 const IcpdpCompetitionDetail = lazy(() => import("../pages/icpdp/IcpdpCompetitionDetail"));
-const IcpdpEmergencyOverridePage = lazy(() => import("../pages/icpdp/IcpdpEmergencyOverridePage"));
-const IcpdpEmergencyOverrideLookup = lazy(() => import("../pages/icpdp/IcpdpEmergencyOverrideLookup"));
 const IcpdpContributionPage = lazy(() => import("../pages/icpdp/IcpdpContributionPage"));
 
 // Admin pages
@@ -184,8 +182,6 @@ export default function AppRoutes() {
         <Route path="competition" element={<IcpdpCompetitionList />} />
         <Route path="competition/:competitionId" element={<IcpdpCompetitionDetail />} />
         <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
-        <Route path="emergency-override" element={<IcpdpEmergencyOverrideLookup />} />
-        <Route path="events/:eventId/emergency-override" element={<IcpdpEmergencyOverridePage />} />
         <Route path="events/:eventId/contributions" element={<IcpdpContributionPage />} />
         <Route path="notifications" element={<IcpdpNotifications />} />
         <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />

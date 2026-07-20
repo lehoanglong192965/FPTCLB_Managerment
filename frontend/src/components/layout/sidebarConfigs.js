@@ -53,7 +53,6 @@ export const SIDEBAR_CONFIGS = {
     { key: "discipline-log",     label: "Nhật Ký Kỷ Luật",     icon: ShieldAlert,    path: "/icpdp/discipline-log" },
     { key: "recruitment",        label: "Tuyển Dụng",          icon: UserPlus,       path: "/icpdp/recruitment" },
     { key: "competition",          label: "Cuộc Thi CLB",          icon: Trophy,         path: "/icpdp/competition" },
-    { key: "emergency-override",  label: "Ghi Đè Khẩn Cấp",       icon: ShieldAlert,    path: "/icpdp/emergency-override" },
     { key: "notifications",       label: "Thông Báo",             icon: Bell,           path: "/icpdp/notifications" },
     { key: "knowledge-archive", label: "Kho Tri Thức",          icon: Library,        path: "/icpdp/knowledge-archive" },
     { key: "profile",            label: "Thông Tin Tài Khoản", icon: UserCircle,     path: "/icpdp/profile" },
