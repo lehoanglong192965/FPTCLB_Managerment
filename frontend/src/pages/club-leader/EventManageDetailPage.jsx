@@ -659,8 +659,8 @@ export default function EventManageDetailPage() {
           {/* Ongoing — thống kê điểm danh hiện ngay tại đây; hành động chính: kết thúc sự kiện */}
           {status === "ONGOING" && (<>
             <AttendanceDashboardPage eventId={ev.eventID} embedded correctionBasePath={`${eventsListPath}/${ev.eventID}/attendance`} />
-            <button onClick={() => setFinishOpen(true)} style={btnStyle("#7c3aed")}>Kết thúc sự kiện</button>
             <button onClick={() => navigate(`${eventsListPath}/${ev.eventID}/checkin`)} style={secondaryBtnStyle("#0891b2")}>Điểm danh</button>
+            <button onClick={() => setFinishOpen(true)} style={btnStyle("#7c3aed")}>Kết thúc sự kiện</button>
           </>)}
 
           {/* Completed trở đi — 3 tab con: Báo cáo / Đánh giá / Đóng góp, mỗi tab là 1 trang riêng */}
@@ -689,9 +689,10 @@ export default function EventManageDetailPage() {
               <ReportSubmitPage eventId={ev.eventID} embedded onSubmitted={() => patchEvent({ eventStatus: "ReportUploaded" })} />
             )}
             {reportSubTab === "feedback" && <FeedbackSummaryPage eventId={ev.eventID} embedded />}
-            {reportSubTab === "contribution" && <ContributionManagementPage eventId={ev.eventID} embedded />}
-
-            <CloseEventButton eventId={ev.eventID} eventStatus={ev.eventStatus} onCloseSuccess={() => navigate(eventsListPath)} />
+            {reportSubTab === "contribution" && (<>
+              <ContributionManagementPage eventId={ev.eventID} embedded />
+              <CloseEventButton eventId={ev.eventID} eventStatus={ev.eventStatus} onCloseSuccess={() => navigate(eventsListPath)} />
+            </>)}
           </>)}
 
           {/* Trạng thái không có thao tác */}

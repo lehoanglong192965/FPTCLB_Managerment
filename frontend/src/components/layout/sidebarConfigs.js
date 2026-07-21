@@ -2,7 +2,6 @@ import {
   Building2,
   Calendar,
   CalendarCheck,
-  LayoutDashboard,
   BookOpen,
   Settings,
   Users,
@@ -42,8 +41,6 @@ export const SIDEBAR_CONFIGS = {
   ],
 
   ICPDP: [
-    { key: "club-dashboard",    label: "Dashboard CLB",       icon: LayoutDashboard, path: "/icpdp/club-dashboard" },
-    { key: "club-overview",      label: "Tổng Quan CLB",       icon: Building2,      path: "/icpdp/club-overview" },
     { key: "club-management",    label: "Quản Lý CLB",         icon: Layers,         path: "/icpdp/club-management" },
     { key: "event-management",   label: "Quản Lý Sự Kiện",     icon: CalendarCheck,  path: "/icpdp/event-management" },
     { key: "personnel-reassign", label: "Điều Động Nhân Sự",   icon: ArrowRightLeft, path: "/icpdp/personnel-reassign" },

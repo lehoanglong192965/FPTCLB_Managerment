@@ -4,12 +4,6 @@ import { ArrowLeft, Users, UserCheck, UserX, TrendingUp, CheckCircle2, XCircle, 
 import eventApi from '../../services/api/events/eventApi';
 import attendanceApi from '../../services/api/attendance/attendanceApi';
 
-const SESSION_STATUS_CFG = {
-  OPEN:   { label: 'Đang mở', color: '#065F46', bg: '#D1FAE5', dot: '#10B981' },
-  CLOSED: { label: 'Đã đóng', color: '#475569', bg: '#F1F5F9', dot: '#94A3B8' },
-};
-
-
 export default function AttendanceDashboardPage({ eventId: eventIdProp, embedded = false, correctionBasePath } = {}) {
   const { eventId: eventIdParam } = useParams();
   const eventId = eventIdProp ?? eventIdParam;
@@ -183,71 +177,8 @@ export default function AttendanceDashboardPage({ eventId: eventIdProp, embedded
               );
             })()}
 
-            {/* ── Sessions + Detail ── */}
-            <div className="grid gap-4 lg:grid-cols-[220px_1fr] items-start">
-
-              {/* Session list */}
-              <div
-                className="bg-white rounded-2xl overflow-hidden"
-                style={{ boxShadow: '0 1px 3px rgba(13,27,62,0.07)' }}
-              >
-                <div className="px-4 py-3 border-b border-slate-100">
-                  <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#64748B', letterSpacing: '0.1em' }}>
-                    Các phiên ({sessions.length})
-                  </p>
-                </div>
-                {sessions.length === 0 ? (
-                  <p className="text-center text-sm py-8" style={{ color: '#94A3B8' }}>Chưa có phiên nào.</p>
-                ) : (
-                  <div>
-                    {sessions.map((s) => {
-                      const sid = s.sessionId ?? s.id;
-                      const isSelected = (selectedSession?.sessionId ?? selectedSession?.id) === sid;
-                      const cfg = SESSION_STATUS_CFG[s.status] ?? SESSION_STATUS_CFG.CLOSED;
-                      return (
-                        <button
-                          key={sid}
-                          onClick={() => loadSessionSummary(s)}
-                          className="w-full text-left px-4 py-3.5 transition-colors border-l-4"
-                          style={{
-                            borderLeftColor: isSelected ? '#F37021' : 'transparent',
-                            background: isSelected ? '#FFF7F0' : 'transparent',
-                          }}
-                          onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = '#F8FAFC'; }}
-                          onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <span
-                              className="text-sm font-semibold truncate pr-1"
-                              style={{ color: isSelected ? '#F37021' : '#1E293B' }}
-                            >
-                              {s.sessionName}
-                            </span>
-                            <span
-                              className="text-xs font-semibold px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-1"
-                              style={{ color: cfg.color, background: cfg.bg }}
-                            >
-                              <span
-                                className="w-1.5 h-1.5 rounded-full inline-block"
-                                style={{
-                                  background: cfg.dot,
-                                  animation: s.status === 'OPEN' ? 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite' : 'none',
-                                }}
-                              />
-                              {cfg.label}
-                            </span>
-                          </div>
-                          {s.totalCheckedIn !== undefined && (
-                            <p className="text-xs" style={{ color: '#94A3B8', fontVariantNumeric: 'tabular-nums' }}>
-                              {s.totalCheckedIn} điểm danh
-                            </p>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+            {/* ── Detail ── */}
+            <div className="grid gap-4 items-start">
 
               {/* Session detail */}
               <div
@@ -257,7 +188,7 @@ export default function AttendanceDashboardPage({ eventId: eventIdProp, embedded
                 {!selectedSession ? (
                   <div className="py-20 text-center text-sm" style={{ color: '#94A3B8' }}>
                     <Users size={28} className="mx-auto mb-2 opacity-30" />
-                    Chọn một phiên để xem chi tiết
+                    Chưa có phiên điểm danh nào.
                   </div>
                 ) : sessionLoading ? (
                   <div className="py-20 text-center text-sm" style={{ color: '#94A3B8' }}>Đang tải...</div>

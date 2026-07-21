@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Activity, AlertCircle, BarChart3, ClipboardList, Loader2, ShieldAlert, Users } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Activity, AlertCircle, ArrowLeft, BarChart3, ClipboardList, Loader2, ShieldAlert, Users } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useClubDashboard } from "../../hooks/useClubDashboard";
@@ -35,6 +36,7 @@ function StatLine({ label, value, suffix }) {
 }
 
 export default function ClubDashboardPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
   const [saving, setSaving] = useState(false);
@@ -90,6 +92,13 @@ export default function ClubDashboardPage() {
 
   return (
     <div>
+      <button
+        onClick={() => navigate(-1)}
+        className="inline-flex items-center gap-1.5 mb-4 px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 text-sm font-semibold cursor-pointer hover:border-[#e6430a] hover:text-[#e6430a] transition-all"
+      >
+        <ArrowLeft size={15} /> Quay lại
+      </button>
+
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="m-0 text-2xl font-bold text-gray-950">{headerTitle}</h1>

@@ -53,7 +53,6 @@ const IcpdpEventManagement = lazy(() => import("../pages/icpdp/IcpdpEventManagem
 const IcpdpPersonnelReassign = lazy(() => import("../pages/icpdp/IcpdpPersonnelReassign"));
 const IcpdpDisciplineLog = lazy(() => import("../pages/icpdp/IcpdpDisciplineLog"));
 const IcpdpClubManagement = lazy(() => import("../pages/icpdp/IcpdpClubManagement"));
-const IcpdpClubQuality = lazy(() => import("../pages/icpdp/IcpdpClubQuality"));
 const IcpdpRecruitment = lazy(() => import("../pages/icpdp/IcpdpRecruitment"));
 const IcpdpReportReview = lazy(() => import("../pages/icpdp/IcpdpReportReview"));
 const IcpdpCompetitionList = lazy(() => import("../pages/icpdp/IcpdpCompetitionList"));
@@ -169,9 +168,8 @@ export default function AppRoutes() {
           </PrivateRoute>
         }
       >
-        <Route index element={<Navigate to="/icpdp/club-dashboard" replace />} />
+        <Route index element={<Navigate to="/icpdp/club-management" replace />} />
         <Route path="club-dashboard" element={<ClubDashboardPage />} />
-        <Route path="club-overview" element={<IcpdpClubQuality />} />
         <Route path="club-management" element={<IcpdpClubManagement />} />
         <Route path="clubs/create" element={<ClubRegistrationForm mode="icpdp" />} />
         <Route path="event-approval" element={<IcpdpEventApproval />} />

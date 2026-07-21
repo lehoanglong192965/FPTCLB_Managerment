@@ -7,7 +7,7 @@ import { useConfirm } from "../../contexts/ConfirmContext";
 
 const EMPTY_FORM = { title: "", startDate: new Date().toISOString().slice(0, 10) };
 
-export default function RecruitmentCycleMgmtPage() {
+export default function RecruitmentCycleMgmtPage({ embedded = false } = {}) {
   const toast = useToast();
   const confirm = useConfirm();
   const clubId = TokenService.getClubId();
@@ -77,10 +77,12 @@ export default function RecruitmentCycleMgmtPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Mở / Đóng Tuyển Thành Viên</h1>
-        <p className="page-subtitle">Quản lý thời gian nhận đơn ứng tuyển của câu lạc bộ</p>
-      </div>
+      {!embedded && (
+        <div className="page-header">
+          <h1 className="page-title">Mở / Đóng Tuyển Thành Viên</h1>
+          <p className="page-subtitle">Quản lý thời gian nhận đơn ứng tuyển của câu lạc bộ</p>
+        </div>
+      )}
 
       <div className="content-card mb-5">
         <h2 className="m-0 mb-4 text-base font-bold text-gray-900">Mở đợt tuyển mới</h2>
