@@ -1,26 +1,37 @@
 package com.fptu.fcms.service.impl;
 
+import com.fptu.fcms.config.CloudinaryFolders;
 import com.fptu.fcms.dto.request.CreateEventReportRequest;
 import com.fptu.fcms.dto.response.CloudinaryUploadResult;
-import com.fptu.fcms.config.CloudinaryFolders;
+import com.fptu.fcms.dto.response.CsvExportResult;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventReport;
 import com.fptu.fcms.enums.EventReportStatus;
 import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.repository.EventReportRepository;
 import com.fptu.fcms.repository.EventRepository;
-import com.fptu.fcms.service.ReportUploadService;
+import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.DocumentStorageService;
+import com.fptu.fcms.service.EventAssignmentAccessService;
+import com.fptu.fcms.service.EventExportService;
+import com.fptu.fcms.service.ReportUploadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -30,42 +41,54 @@ public class ReportUploadServiceImpl implements ReportUploadService {
 
     private static final long MAX_PDF_SIZE_BYTES = 10L * 1024 * 1024;
     private static final byte[] PDF_MAGIC = new byte[] {'%', 'P', 'D', 'F', '-'};
-
     private static final EventStatus STATUS_REPORT_UPLOADED = EventStatus.REPORT_UPLOADED;
 
     private final EventRepository eventRepository;
     private final EventReportRepository eventReportRepository;
     private final ClamAvScanService clamAvScanService;
     private final DocumentStorageService documentStorageService;
+    private final EventExportService eventExportService;
+    private final EventAssignmentAccessService eventAssignmentAccessService;
 
     @Override
-    public EventReport getReportByEventId(Integer eventId) {
+    public EventReport getReportByEventId(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         return eventReportRepository.findByEventIDAndIsDeletedFalse(eventId)
                 .orElseThrow(() -> new IllegalArgumentException("Report not found for event " + eventId));
     }
 
     @Override
     @Transactional
-    public Map<String, String> uploadEventReport(CreateEventReportRequest request, Integer uploadedBy) {
+    public Map<String, String> uploadEventReport(CreateEventReportRequest request, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(request.getEventID(), currentUser);
+        Integer uploadedBy = currentUser.getUserId();
         Event event = eventRepository.findByEventIDAndIsDeletedFalse(request.getEventID())
                 .orElseThrow(() -> new IllegalArgumentException("Event not found."));
 
         if (!EventStatus.COMPLETED.equals(event.getEventStatus())
-                && !EventStatus.ONGOING.equals(event.getEventStatus())
                 && !EventStatus.REPORT_REJECTED.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Only Completed, Ongoing, or ReportRejected events can have reports uploaded.");
+            throw new IllegalArgumentException(
+                    "Chỉ được nộp báo cáo khi sự kiện đã kết thúc (Completed) hoặc báo cáo trước đó bị từ chối (Report Rejected).");
         }
 
         MultipartFile file = request.getFile();
         validatePdf(file);
         clamAvScanService.scan(file);
 
-        CloudinaryUploadResult uploaded = documentStorageService.uploadPdf(file, CloudinaryFolders.EVENT_REPORTS);
-        String previousPublicId = null;
+        List<String> newPublicIds = new ArrayList<>();
+        List<String> previousPublicIds = new ArrayList<>();
+        boolean compensationRegistered = false;
         try {
+            CloudinaryUploadResult uploaded =
+                    documentStorageService.uploadPdf(file, CloudinaryFolders.EVENT_REPORTS);
+            addPublicId(newPublicIds, uploaded.getPublicId());
+
             EventReport report = eventReportRepository.findByEventIDAndIsDeletedFalse(event.getEventID())
                     .orElseGet(EventReport::new);
-            previousPublicId = report.getCloudinaryPublicId();
+            addPublicId(previousPublicIds, report.getCloudinaryPublicId());
+            addPublicId(previousPublicIds, report.getRegistrationEvidencePublicId());
+            addPublicId(previousPublicIds, report.getAttendanceEvidencePublicId());
+
             report.setEventID(event.getEventID());
             report.setReportUrl(uploaded.getSecureUrl());
             report.setCloudinaryPublicId(uploaded.getPublicId());
@@ -82,12 +105,15 @@ public class ReportUploadServiceImpl implements ReportUploadService {
             report.setRejectedAt(null);
             report.setRejectionReason(null);
             report.setIsDeleted(false);
-            eventReportRepository.saveAndFlush(report);
 
+            generateAndAttachEvidence(report, event.getEventID(), currentUser, newPublicIds);
+
+            eventReportRepository.saveAndFlush(report);
             event.setEventStatus(STATUS_REPORT_UPLOADED);
             eventRepository.saveAndFlush(event);
 
-            deletePreviousCloudinaryFile(previousPublicId, uploaded.getPublicId());
+            registerStorageCompensation(newPublicIds, previousPublicIds);
+            compensationRegistered = true;
 
             return Map.of(
                     "reportID", String.valueOf(report.getReportID()),
@@ -96,28 +122,122 @@ public class ReportUploadServiceImpl implements ReportUploadService {
                     "url", report.getReportUrl()
             );
         } catch (RuntimeException ex) {
-            rollbackUpload(uploaded.getPublicId());
+            if (!compensationRegistered) {
+                deleteBestEffort(newPublicIds, "new report upload rollback");
+            }
             throw ex;
         }
     }
 
-    private void deletePreviousCloudinaryFile(String previousPublicId, String currentPublicId) {
-        if (!StringUtils.hasText(previousPublicId) || previousPublicId.equals(currentPublicId)) {
-            return;
+    private void generateAndAttachEvidence(
+            EventReport report,            Integer eventId,
+            UserPrincipal currentUser,
+            List<String> newPublicIds
+    ) {
+        CsvExportResult registrationExport =
+                eventExportService.exportRegistrations(eventId, currentUser);
+        CsvExportResult attendanceExport =
+                eventExportService.exportAttendance(eventId, currentUser);
+
+        CloudinaryUploadResult registrationUpload = documentStorageService.uploadPdf(
+                toMultipartFile(
+                        registrationExport.content(),
+                        "registrations_evidence_" + eventId + ".csv"
+                ),
+                CloudinaryFolders.EVENT_REPORTS
+        );
+        addPublicId(newPublicIds, registrationUpload.getPublicId());
+
+        CloudinaryUploadResult attendanceUpload = documentStorageService.uploadPdf(
+                toMultipartFile(
+                        attendanceExport.content(),
+                        "attendance_evidence_" + eventId + ".csv"
+                ),
+                CloudinaryFolders.EVENT_REPORTS
+        );
+        addPublicId(newPublicIds, attendanceUpload.getPublicId());
+
+        report.setRegistrationEvidenceUrl(registrationUpload.getSecureUrl());
+        report.setRegistrationEvidencePublicId(registrationUpload.getPublicId());
+        report.setRegistrationEvidenceHash(sha256(registrationExport.content()));
+        report.setAttendanceEvidenceUrl(attendanceUpload.getSecureUrl());
+        report.setAttendanceEvidencePublicId(attendanceUpload.getPublicId());
+        report.setAttendanceEvidenceHash(sha256(attendanceExport.content()));
+        report.setEvidenceGeneratedAt(LocalDateTime.now());
+        report.setEvidenceRegistrationRowCount(registrationExport.dataRowCount());
+        report.setEvidenceAttendanceRowCount(attendanceExport.dataRowCount());
+
+        log.info(
+                "Evidence snapshots generated for event {}. Registration rows: {}, Attendance rows: {}",
+                eventId,
+                registrationExport.dataRowCount(),
+                attendanceExport.dataRowCount()
+        );
+    }
+
+    private void registerStorageCompensation(
+            List<String> newPublicIds,
+            List<String> previousPublicIds
+    ) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            throw new IllegalStateException("Transaction synchronization is required for report upload.");
         }
-        try {
-            documentStorageService.deleteDocument(previousPublicId);
-        } catch (RuntimeException ex) {
-            log.warn("New report was saved but the previous Cloudinary file could not be removed. publicId={}",
-                    previousPublicId, ex);
+
+        List<String> newIdsSnapshot = List.copyOf(newPublicIds);
+        List<String> previousIdsSnapshot = List.copyOf(previousPublicIds);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                deleteBestEffort(previousIdsSnapshot, "previous report cleanup");
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    deleteBestEffort(newIdsSnapshot, "new report rollback");
+                }
+            }
+        });
+    }
+
+    private void addPublicId(List<String> publicIds, String publicId) {
+        if (StringUtils.hasText(publicId) && !publicIds.contains(publicId)) {
+            publicIds.add(publicId);
         }
     }
 
-    private void rollbackUpload(String publicId) {
+    private void deleteBestEffort(List<String> publicIds, String reason) {
+        for (String publicId : publicIds) {
+            try {
+                documentStorageService.deleteDocument(publicId);
+            } catch (RuntimeException cleanupError) {
+                log.warn("Cloudinary cleanup failed. reason={}, publicId={}", reason, publicId, cleanupError);
+            }
+        }
+    }
+
+    private MultipartFile toMultipartFile(byte[] content, String filename) {
+        return new MultipartFile() {
+            @Override public String getName() { return "evidence"; }
+            @Override public String getOriginalFilename() { return filename; }
+            @Override public String getContentType() { return "text/csv"; }
+            @Override public boolean isEmpty() { return content.length == 0; }
+            @Override public long getSize() { return content.length; }
+            @Override public byte[] getBytes() { return content; }
+            @Override public InputStream getInputStream() { return new java.io.ByteArrayInputStream(content); }
+            @Override public void transferTo(java.io.File dest) throws IOException {
+                java.nio.file.Files.write(dest.toPath(), content);
+            }
+        };
+    }
+
+    private String sha256(byte[] data) {
         try {
-            documentStorageService.deleteDocument(publicId);
-        } catch (RuntimeException cleanupError) {
-            log.warn("Could not rollback Cloudinary report upload. publicId={}", publicId, cleanupError);
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(data);
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
         }
     }
 

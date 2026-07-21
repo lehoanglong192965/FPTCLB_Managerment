@@ -1,7 +1,10 @@
 package com.fptu.fcms.repository;
 
 import com.fptu.fcms.entity.UserAccount;
+import com.fptu.fcms.repository.projection.HistoricalUserView;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -33,4 +36,12 @@ public interface UserRepository extends JpaRepository<UserAccount, Integer> {
         nativeQuery = true
     )
     Optional<UserAccount> findAnyByEmailIgnoreCase(@org.springframework.data.repository.query.Param("email") String email);
+
+    @Query(value = """
+            SELECT userID AS userId, studentId AS studentId,
+                   fullName AS fullName, email AS email
+            FROM UserAccount
+            WHERE userID IN (:userIds)
+            """, nativeQuery = true)
+    List<HistoricalUserView> findHistoricalUsersByIds(@Param("userIds") Collection<Integer> userIds);
 }

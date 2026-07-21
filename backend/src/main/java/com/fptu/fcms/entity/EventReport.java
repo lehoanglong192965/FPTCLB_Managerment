@@ -67,6 +67,35 @@ public class EventReport {
     @Column(name = "rejectionReason", columnDefinition = "NVARCHAR(MAX)")
     private String rejectionReason;
 
+    // --- Evidence snapshot fields ---
+
+    @Column(name = "registrationEvidenceUrl", length = 1000)
+    private String registrationEvidenceUrl;
+
+    @Column(name = "registrationEvidencePublicId", length = 500)
+    private String registrationEvidencePublicId;
+
+    @Column(name = "registrationEvidenceHash", length = 64)
+    private String registrationEvidenceHash;
+
+    @Column(name = "attendanceEvidenceUrl", length = 1000)
+    private String attendanceEvidenceUrl;
+
+    @Column(name = "attendanceEvidencePublicId", length = 500)
+    private String attendanceEvidencePublicId;
+
+    @Column(name = "attendanceEvidenceHash", length = 64)
+    private String attendanceEvidenceHash;
+
+    @Column(name = "evidenceGeneratedAt")
+    private LocalDateTime evidenceGeneratedAt;
+
+    @Column(name = "evidenceRegistrationRowCount")
+    private Integer evidenceRegistrationRowCount;
+
+    @Column(name = "evidenceAttendanceRowCount")
+    private Integer evidenceAttendanceRowCount;
+
     @Column(name = "isDeleted")
     private Boolean isDeleted = false;
 }
