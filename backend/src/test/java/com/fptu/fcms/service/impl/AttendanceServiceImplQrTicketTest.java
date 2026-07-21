@@ -6,11 +6,14 @@ import com.fptu.fcms.entity.AttendanceRecord;
 import com.fptu.fcms.entity.AttendanceSession;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.enums.AttendanceSessionStatus;
 import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.CheckInMethod;
 import com.fptu.fcms.enums.EventStatus;
+import com.fptu.fcms.enums.ParticipantType;
+import com.fptu.fcms.enums.PaymentStatus;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.enums.VerificationMethod;
 import com.fptu.fcms.exception.ApiErrorCode;
@@ -38,6 +41,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -73,16 +77,18 @@ class AttendanceServiceImplQrTicketTest {
         AttendanceSession session = openSession(101, 201);
         Event event = ongoingEvent(201);
         EventRegistration registration = confirmedRegistration(301, 201, 401, "ticket-201-301");
+        registration.setPaymentStatus(PaymentStatus.PAID);
         UserAccount user = new UserAccount();
         user.setUserID(401);
         user.setFullName("Nguyen Van An");
         user.setStudentId("SE123456");
         UserPrincipal staff = staffPrincipal();
 
-        when(attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(101)).thenReturn(Optional.of(session));
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
         when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
         when(eventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(201, "ticket-201-301"))
                 .thenReturn(Optional.of(registration));
+        when(userRepository.findByUserIDAndIsDeletedFalse(401)).thenReturn(Optional.of(user));
         when(attendanceRecordRepository.findBySessionIDAndRegistrationID(101, 301)).thenReturn(Optional.empty());
         when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -90,6 +96,9 @@ class AttendanceServiceImplQrTicketTest {
 
         assertEquals(AttendanceStatus.PRESENT, response.getStatus());
         assertEquals(301, response.getRegistrationId());
+        assertEquals("Nguyen Van An", response.getFullName());
+        assertEquals("SE123456", response.getStudentId());
+        assertEquals("PARTICIPANT", response.getParticipantType());
         ArgumentCaptor<AttendanceRecord> recordCaptor = ArgumentCaptor.forClass(AttendanceRecord.class);
         verify(attendanceRecordRepository).saveAndFlush(recordCaptor.capture());
         assertEquals(VerificationMethod.QR_TICKET.name(), recordCaptor.getValue().getVerificationMethod());
@@ -99,11 +108,112 @@ class AttendanceServiceImplQrTicketTest {
     }
 
     @Test
+    void unpaidMemberQrTicketIsRejected() {
+        AttendanceSession session = openSession(101, 201);
+        Event event = ongoingEvent(201);
+        EventRegistration registration = confirmedRegistration(301, 201, 401, "member-unpaid");
+        registration.setPaymentStatus(PaymentStatus.PENDING);
+        UserPrincipal staff = staffPrincipal();
+
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
+        when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
+        when(eventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(201, "member-unpaid"))
+                .thenReturn(Optional.of(registration));
+
+        BusinessRuleException error = assertThrows(
+                BusinessRuleException.class,
+                () -> service.checkIn(101, qrRequest("member-unpaid"), staff)
+        );
+
+        assertEquals("TICKET_INVALID", error.getErrorCode());
+        verify(attendanceRecordRepository, never())
+                .findBySessionIDAndRegistrationID(any(), any());
+    }
+
+    @Test
+    void paidGuestQrTicketChecksInAndReturnsGuestIdentity() {
+        AttendanceSession session = openSession(101, 201);
+        Event event = ongoingEvent(201);
+        GuestEventRegistration guest = confirmedGuestRegistration(601, 201, "guest-paid", PaymentStatus.PAID);
+        UserPrincipal staff = staffPrincipal();
+
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
+        when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
+        when(guestEventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(201, "guest-paid"))
+                .thenReturn(Optional.of(guest));
+        when(guestEventRegistrationRepository.findByGuestRegistrationIDAndIsDeletedFalse(601))
+                .thenReturn(Optional.of(guest));
+        when(attendanceRecordRepository.findBySessionIDAndGuestRegistrationID(101, 601))
+                .thenReturn(Optional.empty());
+        when(attendanceRecordRepository.save(any(AttendanceRecord.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AttendanceCheckInResponse response = service.checkIn(101, qrRequest("guest-paid"), staff);
+
+        assertEquals(AttendanceStatus.PRESENT, response.getStatus());
+        assertEquals(601, response.getRegistrationId());
+        assertEquals("Guest User", response.getFullName());
+        assertNull(response.getStudentId());
+        assertEquals("GUEST", response.getParticipantType());
+    }
+
+    @Test
+    void repeatGuestQrForPresentRecordReturnsConflict() {
+        AttendanceSession session = openSession(101, 201);
+        Event event = ongoingEvent(201);
+        GuestEventRegistration guest = confirmedGuestRegistration(601, 201, "guest-paid", PaymentStatus.PAID);
+        AttendanceRecord presentRecord = new AttendanceRecord();
+        presentRecord.setAttendanceStatus(AttendanceStatus.PRESENT);
+        UserPrincipal staff = staffPrincipal();
+
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
+        when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
+        when(guestEventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(201, "guest-paid"))
+                .thenReturn(Optional.of(guest));
+        when(guestEventRegistrationRepository.findByGuestRegistrationIDAndIsDeletedFalse(601))
+                .thenReturn(Optional.of(guest));
+        when(attendanceRecordRepository.findBySessionIDAndGuestRegistrationID(101, 601))
+                .thenReturn(Optional.of(presentRecord));
+
+        BusinessRuleException error = assertThrows(
+                BusinessRuleException.class,
+                () -> service.checkIn(101, qrRequest("guest-paid"), staff)
+        );
+
+        assertEquals(ApiErrorCode.ALREADY_CHECKED_IN.name(), error.getErrorCode());
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        verify(attendanceRecordRepository, never()).save(any(AttendanceRecord.class));
+        verify(attendanceRecordRepository, never()).saveAndFlush(any(AttendanceRecord.class));
+    }
+
+    @Test
+    void unpaidGuestQrTicketIsRejected() {
+        AttendanceSession session = openSession(101, 201);
+        Event event = ongoingEvent(201);
+        GuestEventRegistration guest =
+                confirmedGuestRegistration(601, 201, "guest-unpaid", PaymentStatus.PENDING);
+        UserPrincipal staff = staffPrincipal();
+
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
+        when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
+        when(guestEventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(201, "guest-unpaid"))
+                .thenReturn(Optional.of(guest));
+
+        BusinessRuleException error = assertThrows(
+                BusinessRuleException.class,
+                () -> service.checkIn(101, qrRequest("guest-unpaid"), staff)
+        );
+
+        assertEquals("TICKET_INVALID", error.getErrorCode());
+        verify(attendanceRecordRepository, never())
+                .findBySessionIDAndGuestRegistrationID(any(), any());
+    }
+    @Test
     void qrTicketFromAnotherEventReturnsGenericInvalidTicketError() {
         AttendanceSession session = openSession(101, 201);
         Event event = ongoingEvent(201);
         UserPrincipal staff = staffPrincipal();
-        when(attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(101)).thenReturn(Optional.of(session));
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
         when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
         when(eventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(201, "ticket-from-event-202"))
                 .thenReturn(Optional.empty());
@@ -125,7 +235,7 @@ class AttendanceServiceImplQrTicketTest {
         registration.setTicketRevokedAt(LocalDateTime.now());
         UserPrincipal staff = staffPrincipal();
 
-        when(attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(101)).thenReturn(Optional.of(session));
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
         when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
         when(eventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(201, "revoked-ticket"))
                 .thenReturn(Optional.of(registration));
@@ -149,7 +259,7 @@ class AttendanceServiceImplQrTicketTest {
         absentRecord.setAttendanceStatus(AttendanceStatus.ABSENT);
         UserPrincipal staff = staffPrincipal();
 
-        when(attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(101)).thenReturn(Optional.of(session));
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
         when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
         when(eventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(201, "ticket-201-301"))
                 .thenReturn(Optional.of(registration));
@@ -184,7 +294,7 @@ class AttendanceServiceImplQrTicketTest {
         absentRecord.setAttendanceStatus(AttendanceStatus.ABSENT);
         UserPrincipal staff = staffPrincipal();
 
-        when(attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(101)).thenReturn(Optional.of(session));
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
         when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
         when(eventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(201, "ticket-201-301"))
                 .thenReturn(Optional.of(registration));
@@ -214,7 +324,7 @@ class AttendanceServiceImplQrTicketTest {
         presentRecord.setAttendanceStatus(AttendanceStatus.PRESENT);
         UserPrincipal staff = staffPrincipal();
 
-        when(attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(101)).thenReturn(Optional.of(session));
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
         when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
         when(eventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(201, "ticket-201-301"))
                 .thenReturn(Optional.of(registration));
@@ -260,10 +370,27 @@ class AttendanceServiceImplQrTicketTest {
         registration.setEventID(eventId);
         registration.setUserID(userId);
         registration.setRegistrationStatus(RegistrationStatus.CONFIRMED);
+        registration.setParticipantType(ParticipantType.PARTICIPANT);
         registration.setTicketCode(ticketCode);
         return registration;
     }
 
+    private GuestEventRegistration confirmedGuestRegistration(
+            Integer registrationId,
+            Integer eventId,
+            String ticketCode,
+            PaymentStatus paymentStatus
+    ) {
+        GuestEventRegistration guest = new GuestEventRegistration();
+        guest.setGuestRegistrationID(registrationId);
+        guest.setEventID(eventId);
+        guest.setGuestFullName("Guest User");
+        guest.setParticipantType(ParticipantType.GUEST);
+        guest.setRegistrationStatus(RegistrationStatus.CONFIRMED);
+        guest.setTicketCode(ticketCode);
+        guest.setPaymentStatus(paymentStatus);
+        return guest;
+    }
     private UserPrincipal staffPrincipal() {
         return new UserPrincipal(
                 901,

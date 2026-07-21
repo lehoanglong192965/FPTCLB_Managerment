@@ -23,6 +23,7 @@ import com.fptu.fcms.service.AttendanceSessionService;
 import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.AuditLogService;
 import com.fptu.fcms.service.event.RegistrationLifecycle;
+import com.fptu.fcms.service.statemachine.AttendanceSessionStateMachineService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
     private final EventAssignmentAccessService eventAssignmentAccessService;
+    private final AttendanceSessionStateMachineService stateMachineService;
 
     @Override
     @Transactional
@@ -109,15 +111,38 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     @Override
     @Transactional
     public AttendanceSessionResponse close(Integer sessionId, UserPrincipal currentUser) {
-        AttendanceSession session = findSession(sessionId);
+        AttendanceSession session = attendanceSessionRepository.findBySessionIDForUpdate(sessionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ATTENDANCE_SESSION_NOT_FOUND"));
         eventAssignmentAccessService.ensureCanManageEvent(session.getEventID(), currentUser);
+        return doFinalizeSession(session, currentUser.getUserId());
+    }
+
+    @Override
+    @Transactional
+    public AttendanceSessionResponse finalizeAttendanceForEvent(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        AttendanceSession session = attendanceSessionRepository.findByEventIDForUpdate(eventId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ATTENDANCE_SESSION_NOT_FOUND"));
+        return doFinalizeSession(session, currentUser.getUserId());
+    }
+
+    /**
+     * Shared finalization implementation. Receives an already-locked session entity.
+     *
+     * <ul>
+     *   <li>CLOSED → idempotent, returns unchanged.</li>
+     *   <li>DRAFT / OPEN → validates transition via state machine, materializes ABSENT records
+     *       for eligible registrations, sets CLOSED.</li>
+     * </ul>
+     */
+    private AttendanceSessionResponse doFinalizeSession(AttendanceSession session, Integer actorId) {
         if (session.getStatus() == AttendanceSessionStatus.CLOSED) {
             return toSessionResponse(session);
         }
-        if (session.getStatus() != AttendanceSessionStatus.OPEN) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "ATTENDANCE_SESSION_NOT_OPEN");
-        }
 
+        stateMachineService.validateTransition(session.getStatus(), AttendanceSessionStatus.CLOSED);
+
+        Integer sessionId = session.getSessionID();
         List<AttendanceRecord> existingRecords = attendanceRecordRepository.findBySessionID(sessionId);
         Set<Integer> existingRegistrationIds = existingRecords.stream()
                 .map(AttendanceRecord::getRegistrationID)
@@ -166,10 +191,25 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         attendanceRecordRepository.saveAll(absentRows);
 
         session.setStatus(AttendanceSessionStatus.CLOSED);
-        session.setClosedBy(currentUser.getUserId());
+        session.setClosedBy(actorId);
         session.setClosesAt(now);
         session.setUpdatedAt(now);
-        return toSessionResponse(attendanceSessionRepository.save(session));
+        AttendanceSession saved = attendanceSessionRepository.save(session);
+
+        auditLogService.recordWithRefs(
+                actorId,
+                "AttendanceSession",
+                session.getSessionID(),
+                "ATTENDANCE_SESSION_FINALIZED",
+                null,
+                "absentRowsCreated=" + absentRows.size(),
+                session.getEventID(),
+                null,
+                null,
+                null
+        );
+
+        return toSessionResponse(saved);
     }
 
     @Override
@@ -427,4 +467,3 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         return "******" + phone.substring(phone.length() - 4);
     }
 }
-
