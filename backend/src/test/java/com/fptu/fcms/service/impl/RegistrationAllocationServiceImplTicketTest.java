@@ -37,7 +37,7 @@ class RegistrationAllocationServiceImplTicketTest {
         waitlisted.setRegistrationStatus(RegistrationStatus.WAITLISTED);
         waitlisted.setStatus(RegistrationStatus.WAITLISTED.name());
 
-        when(registrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
+        when(registrationRepository.countByEventIDAndRegistrationStatusInAndCapacityExemptFalseAndIsDeletedFalse(
                 12,
                 RegistrationLifecycle.CONFIRMED_STATUSES
         )).thenReturn(0L);

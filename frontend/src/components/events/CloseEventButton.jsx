@@ -8,8 +8,20 @@ const CloseEventButton = ({ eventId, eventStatus, onCloseSuccess }) => {
     const confirm = useConfirm();
     const [isLoading, setIsLoading] = useState(false);
 
-    const normalizedStatus = (eventStatus || "").toUpperCase();
-    if (!["COMPLETED", "REPORTUPLOADED", "REPORTED"].includes(normalizedStatus)) {
+    const normalizedStatus = (eventStatus || "").toUpperCase().replace(/_/g, "");
+    const allowed = [
+        "COMPLETED",
+        "REPORTUPLOADED",
+        "REPORTPENDINGAPPROVAL",
+        "REPORTAPPROVED",
+        "REPORTREJECTED",
+        "CONTRIBUTIONDRAFT",
+        "CONTRIBUTIONSCORING",
+        "CONTRIBUTIONPENDINGAPPROVAL",
+        "CONTRIBUTIONAPPROVED",
+        "CONTRIBUTIONFINALIZED"
+    ];
+    if (!allowed.includes(normalizedStatus)) {
         return null;
     }
 
@@ -24,7 +36,16 @@ const CloseEventButton = ({ eventId, eventStatus, onCloseSuccess }) => {
             toast.success('Đóng sự kiện thành công. Đã giải ngân điểm cho thành viên!');
             if (onCloseSuccess) onCloseSuccess();
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Lỗi khi đóng sự kiện.');
+            const backendError = error.response?.data?.message;
+            let friendlyMessage = 'Lỗi khi đóng sự kiện.';
+            if (backendError === 'CONTRIBUTION_BATCH_NOT_FINALIZED') {
+                friendlyMessage = 'Vui lòng chốt danh sách điểm đóng góp thành viên tại tab "Đóng góp" trước khi đóng sự kiện.';
+            } else if (backendError === 'EVENT_REPORT_NOT_APPROVED') {
+                friendlyMessage = 'Báo cáo sự kiện chưa được cán bộ ICPDP phê duyệt.';
+            } else if (backendError) {
+                friendlyMessage = backendError;
+            }
+            toast.error(friendlyMessage);
         } finally {
             setIsLoading(false);
         }

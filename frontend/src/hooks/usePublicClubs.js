@@ -7,6 +7,7 @@ export { CATEGORY_LABEL, displayCategory } from "../constants/clubCategories";
 
 //Hàm chuyển đổi dữ liệu từ backend sang format frontend dùng được.
 export function normalizeClub(raw) {
+  if (!raw) return {};
   return {
     id:           raw.clubID      ?? raw.id,
     abbr:         raw.abbr        ?? raw.clubCode     ?? String(raw.clubID ?? raw.id ?? ""),
