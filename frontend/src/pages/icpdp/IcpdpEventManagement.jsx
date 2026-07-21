@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Calendar, Search, PlayCircle, XCircle, CheckCircle2, Clock, X,
-  ChevronRight, Loader2, Users, MapPin, Building2, ClipboardCheck, FileText,
+  Calendar, Search, PlayCircle, XCircle, CheckCircle2, Clock,
+  ChevronRight, Loader2, Users, ClipboardCheck, FileText,
 } from "lucide-react";
 import eventApi from "../../services/api/events/eventApi";
 import clubApi from "../../services/api/clubs/clubApi";
 import semesterApi from "../../services/api/admin/semesterApi";
-import { getServerOrigin } from "../../services/api/axiosClient";
 import IcpdpEventApproval from "./IcpdpEventApproval";
 import IcpdpReportReview from "./IcpdpReportReview";
 
@@ -15,12 +15,6 @@ const PAGE_TABS = [
   { key: "approval", label: "Phê duyệt",          Icon: ClipboardCheck },
   { key: "report",   label: "Báo cáo",             Icon: FileText },
 ];
-
-const getImageUrl = (url) => {
-  if (!url) return "";
-  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
-  return getServerOrigin() + url;
-};
 
 // Gom mọi eventStatus thực tế của backend về 5 nhóm mà trang tổng quan này cần theo dõi.
 // Các trạng thái hậu kỳ (báo cáo/đóng góp/đã đóng...) đều gộp vào "Đã kết thúc" vì phần
@@ -74,72 +68,8 @@ function StatusBadge({ group }) {
   );
 }
 
-function DetailModal({ event, onClose }) {
-  const dateStr = event.startDate
-    ? new Date(event.startDate).toLocaleDateString("vi-VN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
-    : "Chưa xác định";
-  const timeStr = event.startDate
-    ? new Date(event.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
-    : "";
-  const endTimeStr = event.endDate
-    ? new Date(event.endDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
-    : "";
-
-  return (
-    <div
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
-      style={{ background: "rgba(13,27,62,0.5)" }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="bg-white rounded-2xl w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl">
-        {event.bannerUrl && (
-          <div
-            className="w-full h-[160px] rounded-t-2xl"
-            style={{ backgroundImage: `url(${getImageUrl(event.bannerUrl)})`, backgroundSize: "cover", backgroundPosition: "center" }}
-          />
-        )}
-        <div className="px-6 pt-5 pb-6">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div>
-              <h3 className="text-[16px] font-bold text-gray-900 m-0 mb-1.5">{event.eventName}</h3>
-              <StatusBadge group={event.statusGroup} />
-            </div>
-            <button onClick={onClose} className="bg-none border-none cursor-pointer text-gray-400 hover:text-gray-600 p-1 shrink-0">
-              <X size={20} />
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-2.5 text-[13px] text-gray-600 mt-4">
-            <span className="flex items-center gap-2">
-              <Building2 size={14} className="text-gray-400" /> {event.clubName}
-            </span>
-            <span className="flex items-center gap-2">
-              <Calendar size={14} className="text-gray-400" /> {dateStr}{timeStr ? ` · ${timeStr}${endTimeStr ? `–${endTimeStr}` : ""}` : ""}
-            </span>
-            <span className="flex items-center gap-2">
-              <MapPin size={14} className="text-gray-400" /> {event.location || event.venueName || "Chưa xếp phòng"}
-            </span>
-            {Number.isFinite(event.maxParticipants) && event.maxParticipants > 0 && (
-              <span className="flex items-center gap-2">
-                <Users size={14} className="text-gray-400" />
-                {event.currentParticipants ?? 0}/{event.maxParticipants} người đã đăng ký
-              </span>
-            )}
-          </div>
-
-          {event.description && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-[12.5px] font-semibold text-gray-700 mb-1.5">Mô tả</p>
-              <p className="text-[13px] text-gray-500 whitespace-pre-line m-0">{event.description}</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function IcpdpEventManagement() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState("list");
   const [events, setEvents] = useState([]);
   const [clubs, setClubs] = useState([]);
@@ -149,9 +79,11 @@ export default function IcpdpEventManagement() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selected, setSelected] = useState(null);
 
+  // Tải lại mỗi khi quay về tab "Danh sách sự kiện" — tránh hiện dữ liệu cũ sau khi
+  // vừa phê duyệt/từ chối sự kiện ở tab "Phê duyệt" (2 tab có state tách biệt).
   useEffect(() => {
+    if (tab !== "list") return;
     let cancelled = false;
     async function load() {
       setLoading(true);
@@ -172,7 +104,9 @@ export default function IcpdpEventManagement() {
         })).filter((item) => item.id);
         const preferredSemester = normalizedSemesters.find((item) => item.isActive) ?? normalizedSemesters[0];
         setSemesters(normalizedSemesters);
-        setSemester(String(preferredSemester?.id ?? ""));
+        // Chỉ đặt học kỳ mặc định ở lần tải đầu — tránh reset lựa chọn học kỳ của người
+        // dùng mỗi khi họ quay lại tab này.
+        setSemester((prev) => prev || String(preferredSemester?.id ?? ""));
 
         const rawClubs = Array.isArray(clubRows) ? clubRows : (clubRows?.data ?? clubRows?.content ?? []);
         setClubs(rawClubs);
@@ -187,7 +121,7 @@ export default function IcpdpEventManagement() {
     }
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [tab]);
 
   const rows = useMemo(() => {
     return events
@@ -348,7 +282,7 @@ export default function IcpdpEventManagement() {
             {filtered.map((e, idx) => (
               <tr
                 key={e.eventID}
-                onClick={() => setSelected(e)}
+                onClick={() => navigate(`/icpdp/events/${e.eventID}/manage`)}
                 className="border-b border-gray-50 last:border-0 cursor-pointer hover:bg-orange-50/40 transition-colors"
               >
                 <td className="px-4 py-3.5 text-gray-400 font-semibold">{idx + 1}</td>
@@ -379,7 +313,6 @@ export default function IcpdpEventManagement() {
         </table>
       </div>
 
-      {selected && <DetailModal event={selected} onClose={() => setSelected(null)} />}
       </>)}
     </div>
   );
