@@ -50,6 +50,7 @@ const ClubDashboardPage = lazy(() => import("../pages/dashboard/ClubDashboardPag
 // ICPDP pages
 const IcpdpEventApproval = lazy(() => import("../pages/icpdp/IcpdpEventApproval"));
 const IcpdpEventManagement = lazy(() => import("../pages/icpdp/IcpdpEventManagement"));
+const IcpdpEventDetailPage = lazy(() => import("../pages/icpdp/IcpdpEventDetailPage"));
 const IcpdpPersonnelReassign = lazy(() => import("../pages/icpdp/IcpdpPersonnelReassign"));
 const IcpdpDisciplineLog = lazy(() => import("../pages/icpdp/IcpdpDisciplineLog"));
 const IcpdpClubManagement = lazy(() => import("../pages/icpdp/IcpdpClubManagement"));
@@ -180,6 +181,9 @@ export default function AppRoutes() {
         <Route path="recruitment" element={<IcpdpRecruitment />} />
         <Route path="competition" element={<IcpdpCompetitionList />} />
         <Route path="competition/:competitionId" element={<IcpdpCompetitionDetail />} />
+        <Route path="events/:eventId/manage" element={<IcpdpEventDetailPage />} />
+        <Route path="events/:eventId/checkin" element={<CheckInPage />} />
+        <Route path="events/:eventId/attendance/:sessionId/correct" element={<AttendanceCorrectionPage />} />
         <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
         <Route path="events/:eventId/contributions" element={<IcpdpContributionPage />} />
         <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />

@@ -130,7 +130,7 @@ public class EventController {
     }
 
     @PutMapping("/{eventId}")
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
     public ResponseEntity<Map<String, String>> updateEvent(
             @PathVariable Integer eventId,
             @RequestBody @Valid com.fptu.fcms.dto.request.UpdateEventRequest request,
@@ -183,7 +183,7 @@ public class EventController {
     }
 
     @PatchMapping("/{eventId}/start")
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
     public ResponseEntity<Map<String, String>> startEvent(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
@@ -192,7 +192,7 @@ public class EventController {
     }
 
     @PatchMapping({"/{eventId}/finish", "/{eventId}/end"})
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
     public ResponseEntity<Map<String, String>> finishEvent(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
@@ -219,7 +219,7 @@ public class EventController {
     }
 
     @PatchMapping("/{clubId}/{eventId}/cancel")
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
     public ResponseEntity<Map<String, String>> cancelEvent(
             @PathVariable Integer clubId,
             @PathVariable Integer eventId,

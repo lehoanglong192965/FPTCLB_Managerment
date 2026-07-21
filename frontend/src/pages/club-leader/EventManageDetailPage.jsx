@@ -81,6 +81,60 @@ function SectionHeader({ children }) {
   );
 }
 
+function FieldError({ msg }) {
+  if (!msg) return null;
+  return (
+    <p style={{
+      fontSize: 12, color: "#D0453A", marginTop: 4, marginBottom: 0,
+      padding: "6px 10px", background: "#FDF2F2", borderRadius: 5,
+      borderLeft: "3px solid #D0453A", lineHeight: 1.4,
+    }}>
+      {msg}
+    </p>
+  );
+}
+
+// Ngày sớm nhất được phép chọn khi sửa sự kiện Bản nháp — trùng quy tắc bên trang Tạo Sự Kiện
+// (đề xuất phải gửi trước ít nhất 14 ngày so với ngày tổ chức).
+function minEventDateStr() {
+  const d = new Date();
+  d.setDate(d.getDate() + 14);
+  return d.toISOString().slice(0, 10);
+}
+
+// Kiểm tra ngày/giờ tổ chức khi sửa sự kiện Bản nháp — cùng logic với validateDateTime()
+// bên CreateEventPage.jsx, chỉ khác tên field (time thay vì startTime).
+function validateEditDateTime(form) {
+  const e = {};
+  const now     = new Date();
+  const today   = new Date(); today.setHours(0, 0, 0, 0);
+  const minDate = new Date(today); minDate.setDate(minDate.getDate() + 14);
+
+  if (!form.date) {
+    e.date = "Vui lòng chọn ngày tổ chức.";
+  } else {
+    const evDate = new Date(form.date);
+    if (evDate <= today) e.date = "Ngày tổ chức phải là ngày trong tương lai.";
+    else if (evDate < minDate) e.date = "Sự kiện phải được tổ chức sau ít nhất 14 ngày kể từ hôm nay.";
+  }
+
+  if (!form.time) {
+    e.time = "Vui lòng chọn giờ bắt đầu.";
+  } else if (form.date && new Date(`${form.date}T${form.time}:00`) <= now) {
+    e.time = "Giờ bắt đầu phải ở thời điểm trong tương lai.";
+  }
+
+  if (!form.endTime) {
+    e.endTime = "Vui lòng chọn giờ kết thúc.";
+  } else if (form.time && form.endTime <= form.time) {
+    e.endTime = "Giờ kết thúc phải sau giờ bắt đầu.";
+  } else if (form.date && new Date(`${form.date}T${form.endTime}:00`) <= now) {
+    e.endTime = "Giờ kết thúc phải ở thời điểm trong tương lai.";
+  }
+
+  return e;
+}
+
 /* Các mốc chính trong vòng đời sự kiện — dùng để vẽ thanh tiến trình ở tab Quản lý. */
 const REPORT_PHASE_STATUSES = ["COMPLETED", "REPORTUPLOADED", "REPORTPENDINGAPPROVAL", "REPORTAPPROVED", "REPORTREJECTED", "CONTRIBUTIONDRAFT", "CONTRIBUTIONSCORING", "CONTRIBUTIONPENDINGAPPROVAL", "CONTRIBUTIONAPPROVED", "CONTRIBUTIONFINALIZED", "CLOSED"];
 
@@ -238,6 +292,7 @@ export default function EventManageDetailPage() {
   const [reportSubTab, setReportSubTab] = useState("report");
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
+  const [editErrors, setEditErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -294,19 +349,44 @@ export default function EventManageDetailPage() {
       budget: ev.budget ?? "",
       bannerFile: null,
     });
+    setEditErrors({});
     setIsEditing(true);
   };
 
+  const DATETIME_EDIT_FIELDS = ["date", "time", "endTime"];
+
+  // Báo lỗi ngay khi chọn ngày/giờ (không đợi tới lúc bấm "Lưu thay đổi"), bắt được
+  // ngay trường hợp chọn giờ trong quá khứ. Không báo lỗi "bắt buộc" sớm cho các
+  // trường chưa động tới.
+  const handleEditDateTimeChange = (field, value) => {
+    const nextForm = { ...editForm, [field]: value };
+    setEditForm(nextForm);
+    if (!isFullEdit) return;
+    const dtErrors = validateEditDateTime(nextForm);
+    setEditErrors((prev) => {
+      const n = { ...prev };
+      DATETIME_EDIT_FIELDS.forEach((k) => {
+        const err = dtErrors[k];
+        const shouldShow = err && (nextForm[k] || k === field);
+        if (shouldShow) n[k] = err; else delete n[k];
+      });
+      return n;
+    });
+  };
+
   const handleSaveEdit = async () => {
+    if (isFullEdit) {
+      const dtErrors = validateEditDateTime(editForm);
+      if (Object.keys(dtErrors).length > 0) {
+        setEditErrors(dtErrors);
+        toast.error(Object.values(dtErrors)[0]);
+        return;
+      }
+    }
     setSaving(true);
     try {
       const startDate = editForm.date && editForm.time ? `${editForm.date}T${editForm.time}:00` : null;
       const endDate = editForm.date && editForm.endTime ? `${editForm.date}T${editForm.endTime}:00` : null;
-      if (startDate && endDate && endDate <= startDate) {
-        toast.error("Giờ kết thúc phải sau giờ bắt đầu.");
-        setSaving(false);
-        return;
-      }
       // Sau khi ICPDP đã duyệt (Approved/RegistrationOpen/RegistrationClosed), chỉ được
       // đổi số người tham gia tối đa — các trường khác giữ nguyên, không gửi lên nữa.
       const payload = isFullEdit ? {
@@ -535,20 +615,35 @@ export default function EventManageDetailPage() {
               <div>
                 <label style={labelStyle}>Ngày tổ chức</label>
                 {isEditing && isFullEdit ? (
-                  <input type="date" value={editForm.date} onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))} style={accentInputStyle} />
+                  <>
+                    <input type="date" min={minEventDateStr()} value={editForm.date}
+                      onChange={(e) => handleEditDateTimeChange("date", e.target.value)}
+                      style={editErrors.date ? { ...accentInputStyle, border: "1.5px solid #f87171", borderLeft: "3px solid #f87171" } : accentInputStyle} />
+                    <FieldError msg={editErrors.date} />
+                  </>
                 ) : <ReadBox value={dateStr} />}
               </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>Giờ bắt đầu</label>
                   {isEditing && isFullEdit ? (
-                    <input type="time" value={editForm.time} onChange={(e) => setEditForm((f) => ({ ...f, time: e.target.value }))} style={accentInputStyle} />
+                    <>
+                      <input type="time" value={editForm.time}
+                        onChange={(e) => handleEditDateTimeChange("time", e.target.value)}
+                        style={editErrors.time ? { ...accentInputStyle, border: "1.5px solid #f87171", borderLeft: "3px solid #f87171" } : accentInputStyle} />
+                      <FieldError msg={editErrors.time} />
+                    </>
                   ) : <ReadBox value={timeStr || null} />}
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>Giờ kết thúc</label>
                   {isEditing && isFullEdit ? (
-                    <input type="time" value={editForm.endTime} onChange={(e) => setEditForm((f) => ({ ...f, endTime: e.target.value }))} style={accentInputStyle} />
+                    <>
+                      <input type="time" value={editForm.endTime}
+                        onChange={(e) => handleEditDateTimeChange("endTime", e.target.value)}
+                        style={editErrors.endTime ? { ...accentInputStyle, border: "1.5px solid #f87171", borderLeft: "3px solid #f87171" } : accentInputStyle} />
+                      <FieldError msg={editErrors.endTime} />
+                    </>
                   ) : <ReadBox value={endTimeStr || null} />}
                 </div>
               </div>

@@ -462,6 +462,40 @@ function Step3({ form }) {
 
 /* ─── Validation ─────────────────────────────────────────────── */
 
+// Kiểm tra ngày/giờ tổ chức — dùng chung cho validate khi bấm "Bước tiếp theo"
+// VÀ validate ngay khi người dùng chọn ngày/giờ (live), tránh trường hợp chọn
+// giờ trong quá khứ mà không báo lỗi cho tới lúc bấm nút.
+function validateDateTime(form) {
+  const e = {};
+  const now     = new Date();
+  const today   = new Date(); today.setHours(0, 0, 0, 0);
+  const minDate = new Date(today); minDate.setDate(minDate.getDate() + 14);
+
+  if (!form.date) {
+    e.date = "Vui lòng chọn ngày tổ chức.";
+  } else {
+    const evDate = new Date(form.date);
+    if (evDate <= today) e.date = "Ngày tổ chức phải là ngày trong tương lai.";
+    else if (evDate < minDate) e.date = "Đề xuất phải được gửi trước ít nhất 14 ngày so với ngày tổ chức.";
+  }
+
+  if (!form.startTime) {
+    e.startTime = "Vui lòng chọn giờ bắt đầu.";
+  } else if (form.date && new Date(`${form.date}T${form.startTime}:00`) <= now) {
+    e.startTime = "Giờ bắt đầu phải ở thời điểm trong tương lai.";
+  }
+
+  if (!form.endTime) {
+    e.endTime = "Vui lòng chọn giờ kết thúc.";
+  } else if (form.startTime && form.endTime <= form.startTime) {
+    e.endTime = "Giờ kết thúc phải sau giờ bắt đầu.";
+  } else if (form.date && new Date(`${form.date}T${form.endTime}:00`) <= now) {
+    e.endTime = "Giờ kết thúc phải ở thời điểm trong tương lai.";
+  }
+
+  return e;
+}
+
 function validate(step, form) {
   const e = {};
   if (step === 1) {
@@ -488,19 +522,7 @@ function validate(step, form) {
       e.maxParticipants = "Vui lòng nhập số người tham gia tối đa (ít nhất 1 người).";
   }
   if (step === 2) {
-    if (!form.date) {
-      e.date = "Vui lòng chọn ngày tổ chức.";
-    } else {
-      const today   = new Date(); today.setHours(0, 0, 0, 0);
-      const minDate = new Date(today); minDate.setDate(minDate.getDate() + 14);
-      const evDate  = new Date(form.date);
-      if (evDate <= today)   e.date = "Ngày tổ chức phải là ngày trong tương lai.";
-      else if (evDate < minDate) e.date = "Đề xuất phải được gửi trước ít nhất 14 ngày so với ngày tổ chức.";
-    }
-    if (!form.startTime) e.startTime = "Vui lòng chọn giờ bắt đầu.";
-    if (!form.endTime)   e.endTime   = "Vui lòng chọn giờ kết thúc.";
-    if (form.startTime && form.endTime && form.endTime <= form.startTime)
-      e.endTime = "Giờ kết thúc phải sau giờ bắt đầu.";
+    Object.assign(e, validateDateTime(form));
     if (!form.location.trim())
       e.location = "Vui lòng nhập địa điểm tổ chức.";
   }
@@ -536,9 +558,35 @@ export default function CreateEventPage() {
       .catch(() => {});
   }, []);
 
+  const DATETIME_FIELDS = ["date", "startTime", "endTime"];
+
+  // LocationPicker gọi onChange nhiều lần liên tiếp trong cùng 1 lượt (địa chỉ, lat, lng),
+  // nên phải dùng ref để nối tiếp đúng giá trị mới nhất — dùng `form` từ closure sẽ bị
+  // các lần gọi sau ghi đè mất thay đổi của lần gọi trước (mỗi lần đều spread từ `form` cũ).
+  const formRef = useRef(form);
+  useEffect(() => { formRef.current = form; }, [form]);
+
   const onChange = (field, value) => {
-    setForm((f) => ({ ...f, [field]: value }));
-    if (errors[field]) setErrors((e) => { const n = { ...e }; delete n[field]; return n; });
+    const nextForm = { ...formRef.current, [field]: value };
+    formRef.current = nextForm;
+    setForm(nextForm);
+    if (DATETIME_FIELDS.includes(field)) {
+      // Báo lỗi ngay khi chọn ngày/giờ thay vì đợi tới lúc bấm "Bước tiếp theo",
+      // để bắt được ngay trường hợp chọn giờ trong quá khứ. Không báo lỗi "bắt buộc"
+      // sớm cho các trường chưa động tới (chỉ báo khi đã có giá trị hoặc là trường vừa sửa).
+      const dtErrors = validateDateTime(nextForm);
+      setErrors((e) => {
+        const n = { ...e };
+        DATETIME_FIELDS.forEach((k) => {
+          const err = dtErrors[k];
+          const shouldShow = err && (nextForm[k] || k === field);
+          if (shouldShow) n[k] = err; else delete n[k];
+        });
+        return n;
+      });
+    } else if (errors[field]) {
+      setErrors((e) => { const n = { ...e }; delete n[field]; return n; });
+    }
   };
 
   const goNext = () => {

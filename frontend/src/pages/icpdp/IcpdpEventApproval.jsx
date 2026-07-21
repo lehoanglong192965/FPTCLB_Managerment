@@ -182,7 +182,7 @@ function EventDetailView({ event, onBack, onApprove, onReject }) {
   const endTimeStr = formatTime(event.endDateRaw);
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto" }}>
+    <div>
       <button
         onClick={onBack}
         className="inline-flex items-center gap-1.5 mb-4 px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 text-sm font-semibold cursor-pointer hover:border-[#e6430a] hover:text-[#e6430a] transition-all"
