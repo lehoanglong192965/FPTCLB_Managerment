@@ -7,6 +7,9 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
+import com.fptu.fcms.enums.PaymentMethod;
+import com.fptu.fcms.enums.PaymentStatus;
 
 @Getter
 @AllArgsConstructor
@@ -26,4 +29,12 @@ public class MyRegistrationResponse {
     private LocalDateTime ticketIssuedAt;
     private boolean ticketEligible;
     private LocalDateTime registeredAt;
+    private PaymentStatus paymentStatus;
+    private BigDecimal amountDue;
+    private BigDecimal amountPaid;
+    private String paymentCurrency;
+    private String paymentReference;
+    private PaymentMethod paymentMethod;
+    private LocalDateTime paidAt;
+    private LocalDateTime paymentExpiresAt;
 }

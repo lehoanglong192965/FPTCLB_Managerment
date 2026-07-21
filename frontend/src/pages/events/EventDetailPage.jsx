@@ -119,6 +119,9 @@ export default function EventDetailPage() {
                 <EventRegistrationBtn
                   eventId={event.eventID}
                   eventStatus={event.eventStatus}
+                  isPaidEvent={event.isPaidEvent === true}
+                  ticketPrice={event.ticketPrice}
+                  ticketCurrency={event.ticketCurrency || "VND"}
                   onRegisterSuccess={() => window.location.reload()}
                 />
               </div>
@@ -138,6 +141,11 @@ export default function EventDetailPage() {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <MapPin size={15} className="text-[#F37021]" /> {event.location || event.venueName || "Chưa xếp phòng"}
+                </span>
+                <span className="flex items-center gap-1.5 font-semibold text-[#F37021]">
+                  {event.isPaidEvent
+                    ? `Giá vé: ${Number(event.ticketPrice || 0).toLocaleString("vi-VN")} ${event.ticketCurrency || "VND"} / vé`
+                    : "Vé tham dự miễn phí"}
                 </span>
               </div>
             </div>

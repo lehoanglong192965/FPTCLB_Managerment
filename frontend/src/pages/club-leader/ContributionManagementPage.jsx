@@ -70,6 +70,7 @@ function FinalizeModal({ count, onConfirm, onClose }) {
 }
 
 function InstantFinalizeModal({ count, onConfirm, onClose }) {
+  const isEmpty = count === 0;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
@@ -84,10 +85,16 @@ function InstantFinalizeModal({ count, onConfirm, onClose }) {
           <h3 className="font-bold text-gray-900">Chốt đóng góp ngay</h3>
         </div>
         <p className="text-sm text-gray-600 mb-2">
-          Điểm của <strong>{count}</strong> thành viên sẽ được chốt vào BXH ngay lập tức.
+          {isEmpty ? (
+            <>Sự kiện không có thành viên trong danh sách đóng góp. Xác nhận chốt bảng rỗng?</>
+          ) : (
+            <>Điểm của <strong>{count}</strong> thành viên sẽ được chốt vào BXH ngay lập tức.</>
+          )}
         </p>
         <p className="text-xs text-blue-700 bg-blue-50 rounded-lg px-3 py-2 mb-5">
-          Thao tác này bỏ qua thời gian khiếu nại 24 giờ. Sau khi chốt, bảng điểm không thể chỉnh từ màn này.
+          {isEmpty
+            ? 'Sau khi chốt, sự kiện sẽ hoàn tất phần đóng góp và không phát sinh điểm thành viên.'
+            : 'Thao tác này bỏ qua thời gian khiếu nại 24 giờ. Sau khi chốt, bảng điểm không thể chỉnh từ màn này.'}
         </p>
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Hủy</button>
@@ -336,7 +343,6 @@ export default function ContributionManagementPage({ eventId: eventIdProp, embed
       || searchParams.get('instant') !== '1'
       || batchStatus === 'FINALIZED'
       || batchStatus === 'CLOSED'
-      || contributions.length === 0
     ) {
       return;
     }
@@ -376,7 +382,7 @@ export default function ContributionManagementPage({ eventId: eventIdProp, embed
     setShowInstantFinalizeModal(false);
     setFinalizing(true);
     try {
-      if (!isFinalized) {
+      if (!isFinalized && contributions.length > 0) {
         await contributionApi.update(eventId, buildContributionPayload());
       }
       const res = await contributionApi.finalize(eventId);
@@ -385,7 +391,9 @@ export default function ContributionManagementPage({ eventId: eventIdProp, embed
       if (batch?.status) setBatchStatus(batch.status);
       setAppealClosesAt(batch?.appealClosesAt ?? null);
       setAppeals([]);
-      toast.success('Đã chốt đóng góp ngay. Điểm đã được cập nhật vào BXH thành viên.');
+      toast.success(contributions.length === 0
+        ? 'Đã chốt sự kiện không có người tham gia.'
+        : 'Đã chốt đóng góp ngay. Điểm đã được cập nhật vào BXH thành viên.');
       fetchData();
     } catch (err) {
       const code = err?.response?.data?.code;
@@ -470,7 +478,7 @@ export default function ContributionManagementPage({ eventId: eventIdProp, embed
             {canResolveOrFinalize && (
               <button
                 onClick={() => setShowInstantFinalizeModal(true)}
-                disabled={finalizing || saving || contributions.length === 0}
+                disabled={finalizing || saving}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
               >
                 <CheckCircle2 size={15} /> Chốt ngay
@@ -496,7 +504,7 @@ export default function ContributionManagementPage({ eventId: eventIdProp, embed
           {canResolveOrFinalize && (
             <button
               onClick={() => setShowInstantFinalizeModal(true)}
-              disabled={finalizing || contributions.length === 0 || appeals.length > 0}
+              disabled={finalizing || appeals.length > 0}
               className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
               title={appeals.length > 0 ? 'Cần xử lý khiếu nại trước khi chốt ngay' : undefined}
             >

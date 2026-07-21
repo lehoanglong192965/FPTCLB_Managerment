@@ -162,6 +162,9 @@ function normalizeEvent(ev) {
     description: ev.description ?? "",
     maxParticipants: ev.maxParticipants ?? null,
     budget: ev.budget ?? null,
+    isPaidEvent: ev.isPaidEvent === true,
+    ticketPrice: ev.ticketPrice ?? null,
+    ticketCurrency: ev.ticketCurrency || "VND",
     bannerUrl: ev.bannerUrl ?? null,
     bannerPublicId: ev.bannerPublicId ?? null,
     rejectionReason: ev.rejectionReason ?? null,
@@ -292,6 +295,9 @@ export default function EventManageDetailPage() {
       description: ev.description || "",
       maxParticipants: ev.maxParticipants ?? "",
       budget: ev.budget ?? "",
+      isPaidEvent: ev.isPaidEvent === true,
+      ticketPrice: ev.ticketPrice ?? "",
+      ticketCurrency: ev.ticketCurrency || "VND",
       bannerFile: null,
     });
     setIsEditing(true);
@@ -304,6 +310,11 @@ export default function EventManageDetailPage() {
       const endDate = editForm.date && editForm.endTime ? `${editForm.date}T${editForm.endTime}:00` : null;
       if (startDate && endDate && endDate <= startDate) {
         toast.error("Giờ kết thúc phải sau giờ bắt đầu.");
+        setSaving(false);
+        return;
+      }
+      if (isFullEdit && editForm.isPaidEvent && Number(editForm.ticketPrice) <= 0) {
+        toast.error("Sự kiện bán vé phải có giá vé lớn hơn 0.");
         setSaving(false);
         return;
       }
@@ -321,6 +332,9 @@ export default function EventManageDetailPage() {
         endDate: endDate || undefined,
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : undefined,
         budget: editForm.budget ? Number(editForm.budget) : undefined,
+        isPaidEvent: editForm.isPaidEvent === true,
+        ticketPrice: editForm.isPaidEvent ? Number(editForm.ticketPrice) : null,
+        ticketCurrency: editForm.ticketCurrency || "VND",
       } : {
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : undefined,
       };
@@ -349,6 +363,9 @@ export default function EventManageDetailPage() {
         endDate: endDate || ev.endDate,
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : ev.maxParticipants,
         budget: editForm.budget ? Number(editForm.budget) : ev.budget,
+        isPaidEvent: editForm.isPaidEvent === true,
+        ticketPrice: editForm.isPaidEvent ? Number(editForm.ticketPrice) : null,
+        ticketCurrency: editForm.ticketCurrency || "VND",
         bannerUrl: newBannerUrl,
         bannerPublicId: newBannerPublicId,
       } : {
@@ -529,6 +546,27 @@ export default function EventManageDetailPage() {
                     <input type="number" min={0} step={1000} value={editForm.budget} onChange={(e) => setEditForm((f) => ({ ...f, budget: e.target.value }))} placeholder="0" style={accentInputStyle} />
                   ) : <ReadBox value={fmtBudget(ev.budget)} />}
                 </div>
+              </div>
+              <div style={{ padding: 14, borderRadius: 10, border: `1.5px solid ${ev.isPaidEvent ? "#fed7aa" : "#e5e7eb"}`, background: ev.isPaidEvent ? "#fff7ed" : "#f9fafb" }}>
+                <label style={{ ...labelStyle, color: "#9a3412" }}>Thông tin bán vé</label>
+                {isEditing && isFullEdit ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 700, color: "#374151", cursor: "pointer" }}>
+                      <input type="checkbox" checked={editForm.isPaidEvent} onChange={(e) => setEditForm((f) => ({ ...f, isPaidEvent: e.target.checked, ticketPrice: e.target.checked ? f.ticketPrice : "" }))} />
+                      Sự kiện có bán vé
+                    </label>
+                    {editForm.isPaidEvent && (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 86px", gap: 8 }}>
+                        <input type="number" min={1000} step={1000} value={editForm.ticketPrice} onChange={(e) => setEditForm((f) => ({ ...f, ticketPrice: e.target.value }))} placeholder="Giá một vé" style={accentInputStyle} />
+                        <select value={editForm.ticketCurrency} onChange={(e) => setEditForm((f) => ({ ...f, ticketCurrency: e.target.value }))} style={accentInputStyle}>
+                          <option value="VND">VND</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <ReadBox value={ev.isPaidEvent ? `${Number(ev.ticketPrice || 0).toLocaleString("vi-VN")} ${ev.ticketCurrency || "VND"} / vé` : "Miễn phí"} />
+                )}
               </div>
 
               <SectionHeader>Thời gian</SectionHeader>

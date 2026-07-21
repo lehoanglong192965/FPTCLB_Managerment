@@ -3,20 +3,30 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationsContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import eventApi from '../../services/api/events/eventApi';
 import AlertModal from '../ui/AlertModal';
+import TicketDetailModal from './TicketDetailModal';
 
-const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
+const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticketPrice = 0, ticketCurrency = 'VND', onRegisterSuccess }) => {
     const { user } = useAuth();
     const { addNotification } = useNotifications();
     const toast = useToast();
+    const confirm = useConfirm();
     const navigate = useNavigate();
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
     const location = useLocation();
     const [isLoading, setIsLoading]     = useState(false);
     const [isRegistered, setIsRegistered] = useState(false);
     const [isAssigned, setIsAssigned]   = useState(false);
+    const [paymentExempt, setPaymentExempt] = useState(false);
     const [statusLoading, setStatusLoading] = useState(true);
+    const [registrationResult, setRegistrationResult] = useState(null);
+    const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
+    const [paying, setPaying] = useState(false);
+    const [selectedTicket, setSelectedTicket] = useState(null);
+    const [ticketLoading, setTicketLoading] = useState(false);
+    const [cancelling, setCancelling] = useState(false);
 
     const isExcludedRole = user?.role === 'Leader' || user?.role === 'ICPDP' || user?.role === 'Admin';
 
@@ -30,6 +40,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
                 const data = res.data || res;
                 setIsRegistered(!!data.registered);
                 setIsAssigned(!!data.assigned);
+                setPaymentExempt(!!data.paymentExempt);
             })
             .catch(err => {
                 if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
@@ -117,7 +128,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
         );
     }
 
-    if (isAssigned) {
+    if (isAssigned && !isRegistered) {
         return (
             <button
                 className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 bg-blue-100 text-blue-700 cursor-default border-none"
@@ -128,8 +139,65 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
         );
     }
 
-    if (isRegistered) {
+    const openCurrentTicket = async () => {
+        setTicketLoading(true);
+        try {
+            const response = await eventApi.getMyRegistrationDetails();
+            const registrations = Array.isArray(response) ? response : (response?.data ?? []);
+            const ticket = registrations.find((item) => Number(item.eventId) === Number(eventId));
+            if (!ticket) {
+                toast.error('Không tìm thấy thông tin vé của sự kiện này.');
+                return;
+            }
+            setSelectedTicket(ticket);
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Không thể tải thông tin vé.');
+        } finally {
+            setTicketLoading(false);
+        }
+    };
+
+    const handleCancelTicket = async () => {
+        const accepted = await confirm(
+            isPaidEvent
+                ? 'Bạn có chắc muốn hủy vé? Mã QR sẽ bị thu hồi và hệ thống không tự động hoàn tiền cho vé đã thanh toán.'
+                : 'Bạn có chắc muốn hủy đăng ký? Mã QR sẽ bị thu hồi và chỗ trống sẽ được chuyển cho người trong danh sách chờ.',
+            { danger: true, confirmLabel: 'Hủy vé' }
+        );
+        if (!accepted) return;
+
+        setCancelling(true);
+        try {
+            let registrationId = registrationResult?.registrationId;
+            if (!registrationId) {
+                const response = await eventApi.getMyRegistrationDetails();
+                const registrations = Array.isArray(response) ? response : (response?.data ?? []);
+                const activeRegistration = registrations
+                    .filter((item) => Number(item.eventId) === Number(eventId) && item.registrationStatus !== 'CANCELLED')
+                    .sort((a, b) => Number(b.registrationId ?? 0) - Number(a.registrationId ?? 0))[0];
+                registrationId = activeRegistration?.registrationId;
+            }
+            if (!registrationId) {
+                toast.error('Không tìm thấy đăng ký đang hoạt động để hủy.');
+                return;
+            }
+
+            await eventApi.cancelRegistration(registrationId);
+            setIsRegistered(false);
+            setRegistrationResult(null);
+            setSelectedTicket(null);
+            toast.success('Đã hủy vé và thu hồi mã QR.');
+            if (onRegisterSuccess) onRegisterSuccess();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Không thể hủy vé.');
+        } finally {
+            setCancelling(false);
+        }
+    };
+
+    if (isRegistered && registrationResult?.paymentStatus !== 'PENDING') {
         return (
+            <>
             <div className="flex flex-col gap-2">
                 <button
                     className="w-full px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 bg-green-100 text-green-700 cursor-default border-none"
@@ -138,28 +206,83 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
                     <i className="fas fa-check-circle"></i> Đã Đăng Ký
                 </button>
                 <button
-                    onClick={() => navigate('/member/tickets')}
+                    onClick={openCurrentTicket}
+                    disabled={ticketLoading || cancelling}
                     className="w-full px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 cursor-pointer border border-green-300 bg-white text-green-700 hover:bg-green-50 transition-colors"
                 >
-                    <i className="fas fa-ticket-alt"></i> Xem vé của tôi
+                    <i className={`fas ${ticketLoading ? 'fa-spinner fa-spin' : 'fa-ticket-alt'}`}></i> {ticketLoading ? 'Đang tải vé...' : 'Xem vé của tôi'}
+                </button>
+                <button
+                    onClick={handleCancelTicket}
+                    disabled={cancelling || ticketLoading}
+                    className="w-full px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 cursor-pointer border border-red-300 bg-white text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                >
+                    <i className={`fas ${cancelling ? 'fa-spinner fa-spin' : 'fa-times-circle'}`}></i> {cancelling ? 'Đang hủy vé...' : 'Hủy vé'}
                 </button>
             </div>
+            {selectedTicket && <TicketDetailModal ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />}
+            </>
         );
     }
 
     const handleRegister = async () => {
         setIsLoading(true);
         try {
-            await eventApi.register(eventId);
+            const response = await eventApi.register(eventId);
+            const result = response?.data ?? response;
+            setRegistrationResult(result);
             setIsRegistered(true);
             addNotification({ title: 'Đăng ký thành công', content: 'Đã đăng ký tham gia sự kiện thành công!' });
-            if (onRegisterSuccess) onRegisterSuccess();
+            if ((!isPaidEvent || paymentExempt) && onRegisterSuccess) onRegisterSuccess();
         } catch (error) {
             toast.error(error.response?.data?.message || 'Lỗi khi đăng ký sự kiện.');
         } finally {
             setIsLoading(false);
         }
     };
+
+    const handlePayment = async () => {
+        if (!registrationResult?.registrationId) return;
+        setPaying(true);
+        try {
+            await eventApi.confirmPayment(registrationResult.registrationId, {
+                paymentMethod,
+                transactionReference: registrationResult.paymentReference,
+            });
+            addNotification({ title: 'Thanh toán thành công', content: 'Vé QR của bạn đã được phát hành.' });
+            navigate('/member/tickets');
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Không thể xác nhận thanh toán.');
+        } finally {
+            setPaying(false);
+        }
+    };
+
+    if (registrationResult?.paymentStatus === 'PENDING') {
+        return (
+            <div className="space-y-2 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm">
+                <p className="m-0 font-bold text-orange-800">Thanh toán vé</p>
+                <p className="m-0 text-orange-700">{Number(registrationResult.amountDue ?? ticketPrice).toLocaleString('vi-VN')} {registrationResult.currency ?? ticketCurrency}</p>
+                <p className="m-0 break-all text-xs text-gray-600">Mã đối chiếu: {registrationResult.paymentReference}</p>
+                <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="w-full rounded-lg border border-orange-200 bg-white p-2">
+                    <option value="BANK_TRANSFER">Chuyển khoản ngân hàng</option>
+                    <option value="VNPAY">VNPay</option>
+                    <option value="MOMO">MoMo</option>
+                </select>
+                <button type="button" onClick={handlePayment} disabled={paying} className="w-full rounded-lg border-0 bg-[#F37021] px-3 py-2 font-bold text-white disabled:opacity-50">
+                    {paying ? 'Đang xác nhận...' : 'Xác nhận thanh toán'}
+                </button>
+                <button
+                    type="button"
+                    onClick={handleCancelTicket}
+                    disabled={cancelling || paying}
+                    className="w-full rounded-lg border border-red-300 bg-white px-3 py-2 font-bold text-red-600 disabled:opacity-50"
+                >
+                    {cancelling ? 'Đang hủy vé...' : 'Hủy vé'}
+                </button>
+            </div>
+        );
+    }
 
     return (
         <button
@@ -173,7 +296,13 @@ const EventRegistrationBtn = ({ eventId, eventStatus, onRegisterSuccess }) => {
             {isLoading ? (
                 <><i className="fas fa-spinner fa-spin"></i> Đang xử lý...</>
             ) : (
-                <><i className="fas fa-ticket-alt"></i> Đăng Ký Tham Gia</>
+                <><i className="fas fa-ticket-alt"></i> {
+                    isPaidEvent && !paymentExempt
+                        ? `Mua vé · ${Number(ticketPrice || 0).toLocaleString('vi-VN')} ${ticketCurrency}`
+                        : paymentExempt
+                            ? 'Đăng ký miễn phí · Trưởng/Phó CLB tổ chức'
+                            : 'Đăng Ký Tham Gia'
+                }</>
             )}
         </button>
     );

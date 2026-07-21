@@ -25,6 +25,9 @@ public class UpdateEventRequest {
     private LocalDateTime checkInOpenAt;
     private LocalDateTime checkInCloseAt;
     private BigDecimal budget;
+    private Boolean isPaidEvent;
+    private BigDecimal ticketPrice;
+    private String ticketCurrency;
     private String bannerUrl;
     private String bannerPublicId;
     @Valid

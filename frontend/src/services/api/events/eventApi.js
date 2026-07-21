@@ -65,6 +65,8 @@ const eventApi = {
 
   // MEMBER
   register: (eventId) => axiosClient.post(`/events/${eventId}/registrations/me`),
+  confirmPayment: (registrationId, payload) =>
+    axiosClient.post(`/registrations/${registrationId}/payment/confirm`, payload),
   registerGuest: (eventId, payload) => axiosClient.post(`/events/${eventId}/registrations/guest`, payload),
   registerWalkIn: (eventId, payload) => axiosClient.post(`/events/${eventId}/registrations/walk-in`, payload),
   // Member ticket details, including the static ticket eligibility flag.

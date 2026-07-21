@@ -19,11 +19,14 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     boolean existsByEventIDAndGuestEmailAndIsDeletedFalse(Integer eventID, String guestEmail);
     long countByEventIDAndIsDeletedFalse(Integer eventID);
     long countByEventIDAndRegistrationStatusInAndIsDeletedFalse(Integer eventID, Collection<RegistrationStatus> statuses);
+    long countByEventIDAndRegistrationStatusInAndCapacityExemptFalseAndIsDeletedFalse(
+            Integer eventID, Collection<RegistrationStatus> statuses);
     @Query("""
     SELECT er.eventID, COUNT(er)
     FROM EventRegistration er
     WHERE er.eventID IN :eventIDs
       AND er.registrationStatus IN :statuses
+      AND er.capacityExempt = false
       AND er.isDeleted = false
     GROUP BY er.eventID
 """)
@@ -68,6 +71,7 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     );
 
     Optional<EventRegistration> findByRegistrationIDAndIsDeletedFalse(Integer registrationId);
+    Optional<EventRegistration> findByRegistrationIDAndUserIDAndIsDeletedFalse(Integer registrationId, Integer userId);
 
     Collection<EventRegistration> findByEventIDInAndUserIDInAndStatusInAndIsDeletedFalse(Collection<Integer> eventID, Collection<Integer> userID, Collection<String> status);
 

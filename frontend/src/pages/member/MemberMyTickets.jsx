@@ -65,6 +65,14 @@ export default function MemberMyTickets() {
             ticketIssuedAt: e.ticketIssuedAt,
             ticketEligible: e.ticketEligible === true,
             registeredAt: e.registeredAt,
+            paymentStatus: e.paymentStatus,
+            amountDue: e.amountDue,
+            amountPaid: e.amountPaid,
+            paymentCurrency: e.paymentCurrency,
+            paymentReference: e.paymentReference,
+            paymentMethod: e.paymentMethod,
+            paidAt: e.paidAt,
+            paymentExpiresAt: e.paymentExpiresAt,
           };
         });
 

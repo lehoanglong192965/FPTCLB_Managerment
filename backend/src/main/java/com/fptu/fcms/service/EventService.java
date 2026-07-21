@@ -49,6 +49,7 @@ public interface EventService {
     void updateEvent(Integer eventId, com.fptu.fcms.dto.request.UpdateEventRequest request, UserPrincipal currentUser);
     void deleteDraftEvent(Integer eventId, UserPrincipal currentUser);
     boolean isUserAssigned(Integer eventId, Integer userId);
+    boolean isHostClubLeaderOrVice(Integer eventId, Integer userId);
     List<Event> getEventsByUserAssigned(Integer userId);
     List<Event> getReportUploadedEvents();
     List<Event> getReportReviewedEvents();

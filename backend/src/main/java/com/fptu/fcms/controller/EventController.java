@@ -102,7 +102,13 @@ public class EventController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         boolean registered = eventRegistrationService.isUserRegistered(eventId, currentUser.getUserId());
         boolean assigned = eventService.isUserAssigned(eventId, currentUser.getUserId());
-        return ResponseEntity.ok(Map.of("registered", registered, "assigned", assigned));
+        boolean paymentExempt = assigned
+                || eventService.isHostClubLeaderOrVice(eventId, currentUser.getUserId());
+        return ResponseEntity.ok(Map.of(
+                "registered", registered,
+                "assigned", assigned,
+                "paymentExempt", paymentExempt
+        ));
     }
 
     @GetMapping("/{eventId}/registration-policy")

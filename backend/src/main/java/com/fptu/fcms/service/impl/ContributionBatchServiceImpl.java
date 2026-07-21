@@ -455,9 +455,6 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         }
 
         List<EventContribution> contributions = contributionRepository.findByBatchIDAndIsDeletedFalse(batch.getBatchID());
-        if (contributions.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CONTRIBUTION_SCORES_REQUIRED");
-        }
         if (draftFinalization && actorId != null
                 && contributionRepository.existsByBatchIDAndUserIDAndIsDeletedFalse(batch.getBatchID(), actorId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "SELF_FINALIZATION_NOT_ALLOWED");
@@ -502,7 +499,10 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
         ContributionBatch saved = contributionBatchRepository.save(batch);
         event.setEventStatus(STATUS_CONTRIBUTION_FINALIZED);
         eventRepository.save(event);
-        auditLogService.recordWithRefs(actorId, "ContributionBatch", saved.getBatchID(), "CONTRIBUTION_BATCH_FINALIZED", null, saved.getStatus(), eventId, null, null, "Finalized contributions into MemberPerformance");
+        String auditDescription = contributions.isEmpty()
+                ? "Finalized empty contribution batch because the event had no participants"
+                : "Finalized contributions into MemberPerformance";
+        auditLogService.recordWithRefs(actorId, "ContributionBatch", saved.getBatchID(), "CONTRIBUTION_BATCH_FINALIZED", null, saved.getStatus(), eventId, null, null, auditDescription);
         return toBatchResponse(saved);
     }
 

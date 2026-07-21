@@ -6,6 +6,7 @@ import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.service.event.RegistrationAllocationResult;
 import com.fptu.fcms.service.event.RegistrationAllocationService;
 import com.fptu.fcms.service.event.RegistrationLifecycle;
+import com.fptu.fcms.enums.PaymentStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,11 +66,20 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
             }
             registration.setStatus(RegistrationLifecycle.STATUS_CONFIRMED.name());
             registration.setRegistrationStatus(RegistrationLifecycle.STATUS_CONFIRMED);
-            if (registration.getTicketCode() == null || registration.getTicketCode().isBlank()) {
-                registration.setTicketCode(UUID.randomUUID().toString());
+            if (PaymentStatus.AWAITING_ELIGIBILITY.equals(registration.getPaymentStatus())) {
+                registration.setPaymentStatus(PaymentStatus.PENDING);
+                registration.setPaymentExpiresAt(LocalDateTime.now().plusMinutes(30));
             }
-            if (registration.getTicketIssuedAt() == null) {
-                registration.setTicketIssuedAt(LocalDateTime.now());
+            boolean paymentAllowsTicket = registration.getPaymentStatus() == null
+                    || PaymentStatus.NOT_REQUIRED.equals(registration.getPaymentStatus())
+                    || PaymentStatus.PAID.equals(registration.getPaymentStatus());
+            if (paymentAllowsTicket) {
+                if (registration.getTicketCode() == null || registration.getTicketCode().isBlank()) {
+                    registration.setTicketCode(UUID.randomUUID().toString());
+                }
+                if (registration.getTicketIssuedAt() == null) {
+                    registration.setTicketIssuedAt(LocalDateTime.now());
+                }
             }
             registrationRepository.save(registration);
             confirmedCount++;
@@ -87,7 +97,7 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
     }
 
     private long countConfirmedRegistrations(Integer eventId) {
-        return registrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
+        return registrationRepository.countByEventIDAndRegistrationStatusInAndCapacityExemptFalseAndIsDeletedFalse(
                 eventId,
                 RegistrationLifecycle.CONFIRMED_STATUSES
         ) + guestRegistrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(

@@ -182,7 +182,8 @@ public class AttendanceServiceImpl implements AttendanceService {
                 AttendanceRecord before = snapshot(existing);
                 LocalDateTime now = LocalDateTime.now();
                 existing.setAttendanceStatus(AttendanceStatus.PRESENT);
-                existing.setCheckInMethod(CheckInMethod.STAFF_LOOKUP);
+                existing.setCheckInMethod("QR_TICKET".equalsIgnoreCase(request.getVerificationMethod())
+                        ? CheckInMethod.QR_CODE : CheckInMethod.STAFF_LOOKUP);
                 existing.setVerificationMethod(parseVerificationMethod(request.getVerificationMethod()).name());
                 existing.setCheckedInBy(actorId);
                 existing.setCheckedInAt(now);
@@ -201,7 +202,9 @@ public class AttendanceServiceImpl implements AttendanceService {
         }
 
         VerificationMethod verificationMethod = parseVerificationMethod(request.getVerificationMethod());
-        verifyGuestParticipant(registration, verificationMethod, request);
+        if (verificationMethod != VerificationMethod.QR_TICKET) {
+            verifyGuestParticipant(registration, verificationMethod, request);
+        }
 
         LocalDateTime now = LocalDateTime.now();
         AttendanceRecord record = new AttendanceRecord();
@@ -209,7 +212,8 @@ public class AttendanceServiceImpl implements AttendanceService {
         record.setGuestRegistrationID(registration.getGuestRegistrationID());
         record.setParticipantTypeSnapshotAt(registration.getParticipantTypeSnapshotAt());
         record.setAttendanceStatus(AttendanceStatus.PRESENT);
-        record.setCheckInMethod(CheckInMethod.STAFF_LOOKUP);
+        record.setCheckInMethod(verificationMethod == VerificationMethod.QR_TICKET
+                ? CheckInMethod.QR_CODE : CheckInMethod.STAFF_LOOKUP);
         record.setParticipantTypeSnapshot("GUEST");
         record.setVerificationMethod(verificationMethod.name());
         record.setCheckedInBy(actorId);
@@ -371,7 +375,22 @@ public class AttendanceServiceImpl implements AttendanceService {
             AttendanceCheckInRequest request,
             Integer actorId
     ) {
-        EventRegistration registration = resolveQrTicket(event.getEventID(), request.getVerificationValue());
+        String ticketCode = request.getVerificationValue();
+        var guestTicket = StringUtils.hasText(ticketCode)
+                ? guestEventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(event.getEventID(), ticketCode.trim())
+                : java.util.Optional.<GuestEventRegistration>empty();
+        if (guestTicket.isPresent()) {
+            GuestEventRegistration guest = guestTicket.get();
+            if (guest.getTicketRevokedAt() != null || !isConfirmedForCheckIn(guest)
+                    || !(guest.getPaymentStatus() == null
+                    || com.fptu.fcms.enums.PaymentStatus.NOT_REQUIRED.equals(guest.getPaymentStatus())
+                    || com.fptu.fcms.enums.PaymentStatus.PAID.equals(guest.getPaymentStatus()))) {
+                throw invalidQrTicket();
+            }
+            request.setGuestRegistrationId(guest.getGuestRegistrationID());
+            return checkInGuest(session.getSessionID(), event, request, actorId);
+        }
+        EventRegistration registration = resolveQrTicket(event.getEventID(), ticketCode);
         Integer sessionId = session.getSessionID();
 
         var existingRecord = attendanceRecordRepository.findBySessionIDAndRegistrationID(
@@ -487,6 +506,14 @@ public class AttendanceServiceImpl implements AttendanceService {
     }
 
     private boolean isConfirmedForCheckIn(EventRegistration registration) {
+        RegistrationStatus registrationStatus = registration.getRegistrationStatus();
+        if (registrationStatus == null && registration.getStatus() != null) {
+            registrationStatus = RegistrationStatus.fromValue(registration.getStatus());
+        }
+        return RegistrationLifecycle.CONFIRMED_STATUSES.contains(registrationStatus);
+    }
+
+    private boolean isConfirmedForCheckIn(GuestEventRegistration registration) {
         RegistrationStatus registrationStatus = registration.getRegistrationStatus();
         if (registrationStatus == null && registration.getStatus() != null) {
             registrationStatus = RegistrationStatus.fromValue(registration.getStatus());

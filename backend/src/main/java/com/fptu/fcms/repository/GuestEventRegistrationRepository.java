@@ -38,6 +38,7 @@ public interface GuestEventRegistrationRepository extends JpaRepository<GuestEve
     Optional<GuestEventRegistration> findByGuestRegistrationIDAndIsDeletedFalse(Integer guestRegistrationID);
 
     Optional<GuestEventRegistration> findByGuestReferenceHashAndIsDeletedFalse(String hash);
+    Optional<GuestEventRegistration> findByEventIDAndTicketCodeAndIsDeletedFalse(Integer eventID, String ticketCode);
 
     boolean existsByRegistrationCodeAndIsDeletedFalse(String code);
 

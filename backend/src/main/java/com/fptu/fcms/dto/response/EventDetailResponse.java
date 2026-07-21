@@ -40,6 +40,9 @@ public class EventDetailResponse {
     private final Integer maxParticipants;
     private final Long currentParticipants;
     private final BigDecimal budget;
+    private final Boolean isPaidEvent;
+    private final BigDecimal ticketPrice;
+    private final String ticketCurrency;
     private final Integer approvedBy;
     private final LocalDateTime approvedAt;
     private final String pdpFeedback;

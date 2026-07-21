@@ -3,6 +3,27 @@ import { Camera, CameraOff, Keyboard, QrCode, RefreshCcw } from "lucide-react";
 
 const DUPLICATE_WINDOW_MS = 5000;
 
+function cameraErrorMessage(error) {
+  const name = error?.name ?? "";
+  const message = String(error?.message ?? error ?? "").toLowerCase();
+  if (!window.isSecureContext) {
+    return "Trình duyệt chỉ cho phép mở camera trên HTTPS hoặc localhost.";
+  }
+  if (name === "NotAllowedError" || message.includes("permission") || message.includes("notallowed")) {
+    return "Quyền camera đang bị chặn. Hãy bấm biểu tượng ổ khóa cạnh địa chỉ trang, cho phép Camera rồi tải lại trang.";
+  }
+  if (name === "NotFoundError" || message.includes("no camera") || message.includes("notfound")) {
+    return "Không tìm thấy camera trên thiết bị này. Bạn vẫn có thể nhập mã vé thủ công.";
+  }
+  if (name === "NotReadableError" || message.includes("could not start") || message.includes("trackstart") || message.includes("in use")) {
+    return "Camera đang được ứng dụng hoặc tab khác sử dụng. Hãy đóng ứng dụng camera/Zoom/Meet rồi thử lại.";
+  }
+  if (name === "OverconstrainedError" || message.includes("constraint")) {
+    return "Camera không hỗ trợ cấu hình được yêu cầu. Hãy chọn camera khác hoặc thử lại.";
+  }
+  return `Không thể mở camera${error?.message ? `: ${error.message}` : "."}`;
+}
+
 export default function QrCheckInPanel({ onTicketRead }) {
   const readerIdRef = useRef(null);
   const scannerRef = useRef(null);
@@ -16,6 +37,8 @@ export default function QrCheckInPanel({ onTicketRead }) {
   const [notice, setNotice] = useState("");
   const [manualCode, setManualCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [availableCameras, setAvailableCameras] = useState([]);
+  const [selectedCameraId, setSelectedCameraId] = useState("");
 
   if (!readerIdRef.current) {
     readerIdRef.current = "qr-ticket-reader-" + Math.random().toString(36).slice(2, 10);
@@ -95,6 +118,23 @@ export default function QrCheckInPanel({ onTicketRead }) {
         const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
         if (disposed) return;
 
+        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+          throw new Error("Camera API requires HTTPS or localhost");
+        }
+
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras?.length) {
+          const notFoundError = new Error("No camera found");
+          notFoundError.name = "NotFoundError";
+          throw notFoundError;
+        }
+        setAvailableCameras(cameras);
+        const preferredCamera = cameras.find((camera) => /back|rear|environment/i.test(camera.label)) ?? cameras[0];
+        const cameraId = selectedCameraId && cameras.some((camera) => camera.id === selectedCameraId)
+          ? selectedCameraId
+          : preferredCamera.id;
+        setSelectedCameraId(cameraId);
+
         await enqueueScannerTask(async () => {
           if (disposed) return;
           if (scannerRef.current) await disposeScanner(scannerRef.current);
@@ -110,7 +150,7 @@ export default function QrCheckInPanel({ onTicketRead }) {
           }
 
           await scanner.start(
-            { facingMode: { ideal: "environment" } },
+            cameraId,
             config,
             (decodedText) => { void submitTicket(decodedText, true); },
             () => {}
@@ -118,12 +158,13 @@ export default function QrCheckInPanel({ onTicketRead }) {
 
           if (disposed) await disposeScanner(scanner);
         });
-      } catch {
+      } catch (error) {
+        console.warn("[QrCheckInPanel] Camera start failed:", error);
         if (localScanner) {
           await enqueueScannerTask(() => disposeScanner(localScanner));
         }
         if (disposed) return;
-        setCameraError("Unable to open the camera. Grant permission or enter the ticket code manually.");
+        setCameraError(cameraErrorMessage(error));
         setCameraEnabled(false);
       }
     };
@@ -133,7 +174,7 @@ export default function QrCheckInPanel({ onTicketRead }) {
       disposed = true;
       void enqueueScannerTask(() => disposeScanner(localScanner));
     };
-  }, [cameraEnabled, disposeScanner, enqueueScannerTask, scannerGeneration, submitTicket]);
+  }, [cameraEnabled, disposeScanner, enqueueScannerTask, scannerGeneration, selectedCameraId, submitTicket]);
 
   const submitManualCode = async (event) => {
     event.preventDefault();
@@ -162,6 +203,18 @@ export default function QrCheckInPanel({ onTicketRead }) {
             </button>
           )}
         </div>
+        {availableCameras.length > 1 && (
+          <label className="mt-3 block text-sm font-medium text-slate-700">
+            Chọn camera
+            <select
+              value={selectedCameraId}
+              onChange={(event) => { setSelectedCameraId(event.target.value); setCameraError(""); setScannerGeneration((generation) => generation + 1); }}
+              className="mt-1 w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
+            >
+              {availableCameras.map((camera, index) => <option key={camera.id} value={camera.id}>{camera.label || `Camera ${index + 1}`}</option>)}
+            </select>
+          </label>
+        )}
       </div>
 
       {cameraEnabled && <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950 p-2"><div id={readerIdRef.current} className="min-h-64 overflow-hidden rounded-lg bg-black" /></div>}

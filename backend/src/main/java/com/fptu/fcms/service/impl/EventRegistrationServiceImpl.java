@@ -3,6 +3,8 @@ package com.fptu.fcms.service.impl;
 import com.fptu.fcms.dto.request.EventGuestRegistrationRequest;
 import com.fptu.fcms.dto.request.EventWalkInRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
+import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
+import com.fptu.fcms.dto.response.EventRegistrationResultResponse;
 import com.fptu.fcms.dto.response.RegistrationListItemResponse;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
 import com.fptu.fcms.dto.response.MyRegistrationResponse;
@@ -18,6 +20,7 @@ import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.ParticipantType;
 import com.fptu.fcms.enums.RegistrationChannel;
 import com.fptu.fcms.enums.RegistrationStatus;
+import com.fptu.fcms.enums.PaymentStatus;
 import com.fptu.fcms.exception.ApiErrorCode;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.AuditLogRepository;
@@ -37,6 +40,7 @@ import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.AuditLogService;
 import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.EventRegistrationService;
+import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.event.EventPermissionService;
 import com.fptu.fcms.service.event.EventStateMachineService;
 import com.fptu.fcms.service.event.RegistrationAllocationResult;
@@ -48,6 +52,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -66,6 +72,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     private static final String ACCOUNT_STATUS_ACTIVE = "Active";
     private static final String DISCIPLINE_STATUS_ACTIVE = "Active";
     private static final String DEFAULT_SORT_BY = "registeredAt";
+    private static final java.util.Set<String> HOST_BOARD_ROLES = java.util.Set.of("Leader", "ViceLeader");
 
     private final EventRegistrationRepository registrationRepo;
     private final GuestEventRegistrationRepository guestRegistrationRepository;
@@ -85,11 +92,12 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     private final AuditLogService auditLogService;
     private final NotificationRepository notificationRepository;
     private final NotificationRecipientRepository notificationRecipientRepository;
+    private final EmailService emailService;
 
     @Override
     @Transactional
     @CacheEvict(value = "memberRanking", allEntries = true)
-    public void registerEvent(Integer eventID, Integer userID) {
+    public EventRegistrationResultResponse registerEvent(Integer eventID, Integer userID) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalseForUpdate(eventID)
                 .orElseThrow(() -> new IllegalArgumentException("Su kien khong ton tai."));
         ensureRegistrationWindowOpen(event);
@@ -98,15 +106,16 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         ensureUserAllowedForEvent(event, user);
 
         ParticipantType participantType = classifyParticipantType(eventID, userID);
-        ensureParticipantTypeEnabled(eventID, participantType);
+        boolean paymentExempt = isOrganizer(event, userID);
+        if (!paymentExempt) {
+            ensureParticipantTypeEnabled(eventID, participantType);
+        }
         ensureNoDuplicateActiveRegistration(eventID, userID, null);
         boolean requiresApproval = isApprovalRequired(eventID, participantType);
 
-        RegistrationAllocationResult allocation = allocationService.allocateInitial(
-                eventID,
-                event.getMaxParticipants(),
-                requiresApproval
-        );
+        RegistrationAllocationResult allocation = paymentExempt
+                ? new RegistrationAllocationResult(RegistrationStatus.CONFIRMED, false)
+                : allocationService.allocateInitial(eventID, event.getMaxParticipants(), requiresApproval);
 
         EventRegistration registration = new EventRegistration();
         registration.setEventID(eventID);
@@ -124,12 +133,106 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setCreatedBy(userID);
         registration.setUpdatedAt(registration.getRegisteredAt());
         registration.setUpdatedBy(userID);
-        if (allocation.consumesSeat()) {
+        boolean paidEvent = Boolean.TRUE.equals(event.getIsPaidEvent());
+        registration.setCapacityExempt(paymentExempt);
+        boolean requiresPayment = paidEvent && !paymentExempt;
+        if (requiresPayment) {
+            registration.setPaymentStatus(allocation.consumesSeat() ? PaymentStatus.PENDING : PaymentStatus.AWAITING_ELIGIBILITY);
+            registration.setAmountDue(event.getTicketPrice());
+            registration.setAmountPaid(java.math.BigDecimal.ZERO);
+            registration.setPaymentCurrency(event.getTicketCurrency());
+            registration.setPaymentReference("EVT-" + eventID + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT));
+            registration.setPaymentExpiresAt(allocation.consumesSeat() ? LocalDateTime.now().plusMinutes(30) : null);
+        } else {
+            registration.setPaymentStatus(PaymentStatus.NOT_REQUIRED);
+            if (paidEvent) {
+                registration.setAmountDue(java.math.BigDecimal.ZERO);
+                registration.setAmountPaid(java.math.BigDecimal.ZERO);
+                registration.setPaymentCurrency(event.getTicketCurrency());
+            }
+        }
+        if ((allocation.consumesSeat() || paymentExempt) && !requiresPayment) {
             registration.setTicketCode(UUID.randomUUID().toString());
             registration.setTicketIssuedAt(LocalDateTime.now());
         }
         registration.setIsDeleted(false);
-        registrationRepo.save(registration);
+        EventRegistration saved = registrationRepo.save(registration);
+        return new EventRegistrationResultResponse(
+                saved.getRegistrationID(), saved.getRegistrationStatus(), saved.getPaymentStatus(),
+                saved.getAmountDue(), saved.getPaymentCurrency(), saved.getPaymentReference(),
+                StringUtils.hasText(saved.getTicketCode()),
+                requiresPayment
+                        ? (allocation.consumesSeat()
+                            ? "Registration reserved. Complete payment to receive the ticket."
+                            : "Registration recorded. Payment opens after approval or seat allocation.")
+                        : (paymentExempt
+                            ? "Registration completed. Event organizer ticket is free."
+                            : "Registration completed.")
+        );
+    }
+
+    private boolean isHostClubLeaderOrVice(Event event, Integer userId) {
+        return event != null
+                && event.getClubID() != null
+                && event.getSemesterID() != null
+                && userId != null
+                && membershipRepo.existsActiveMembershipByClubUserSemesterAndRoleNames(
+                        event.getClubID(), userId, event.getSemesterID(), HOST_BOARD_ROLES);
+    }
+
+    private boolean isOrganizer(Event event, Integer userId) {
+        return isHostClubLeaderOrVice(event, userId)
+                || (event != null && userId != null && eventAssignmentRepository
+                .findByEventIDAndUserIDAndIsDeletedFalse(event.getEventID(), userId).isPresent());
+    }
+
+    @Override
+    @Transactional
+    public MyRegistrationResponse confirmPayment(Integer registrationId, Integer userId, ConfirmEventPaymentRequest request) {
+        EventRegistration registration = registrationRepo
+                .findByRegistrationIDAndUserIDAndIsDeletedFalse(registrationId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("Registration does not exist."));
+        Event event = eventRepository.findByEventIDAndIsDeletedFalse(registration.getEventID())
+                .orElseThrow(() -> new IllegalArgumentException("Event does not exist."));
+        if (!Boolean.TRUE.equals(event.getIsPaidEvent())) {
+            throw new IllegalArgumentException("This event does not require payment.");
+        }
+        if (PaymentStatus.PAID.equals(registration.getPaymentStatus())) {
+            return toMyRegistrationResponse(registration, event);
+        }
+        if (!PaymentStatus.PENDING.equals(registration.getPaymentStatus())) {
+            throw new IllegalArgumentException("Payment is not pending.");
+        }
+        if (registration.getPaymentExpiresAt() != null && registration.getPaymentExpiresAt().isBefore(LocalDateTime.now())) {
+            registration.setPaymentStatus(PaymentStatus.EXPIRED);
+            registrationRepo.save(registration);
+            throw new IllegalArgumentException("Payment reservation has expired.");
+        }
+        registration.setPaymentStatus(PaymentStatus.PAID);
+        registration.setAmountPaid(registration.getAmountDue());
+        registration.setPaymentMethod(request.getPaymentMethod());
+        if (StringUtils.hasText(request.getTransactionReference())) {
+            registration.setPaymentReference(request.getTransactionReference().trim());
+        }
+        registration.setPaidAt(LocalDateTime.now());
+        if (RegistrationLifecycle.CONFIRMED_STATUSES.contains(registration.getRegistrationStatus())) {
+            if (!StringUtils.hasText(registration.getTicketCode())) registration.setTicketCode(UUID.randomUUID().toString());
+            if (registration.getTicketIssuedAt() == null) registration.setTicketIssuedAt(LocalDateTime.now());
+        }
+        EventRegistration saved = registrationRepo.save(registration);
+        UserAccount ticketOwner = loadActiveUser(userId);
+        sendAfterCommit(() -> emailService.sendEventTicketConfirmationEmail(
+                ticketOwner.getEmail(),
+                ticketOwner.getFullName(),
+                event.getEventName(),
+                event.getStartDate(),
+                event.getEndDate(),
+                event.getLocation(),
+                saved.getTicketCode(),
+                saved.getAmountPaid(),
+                saved.getPaymentCurrency()
+        ));
+        return toMyRegistrationResponse(saved, event);
     }
 
     @Override
@@ -218,7 +321,15 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 ticketEligible ? registration.getTicketCode() : null,
                 ticketEligible ? registration.getTicketIssuedAt() : null,
                 ticketEligible,
-                registration.getRegisteredAt()
+                registration.getRegisteredAt(),
+                registration.getPaymentStatus(),
+                registration.getAmountDue(),
+                registration.getAmountPaid(),
+                registration.getPaymentCurrency(),
+                registration.getPaymentReference(),
+                registration.getPaymentMethod(),
+                registration.getPaidAt(),
+                registration.getPaymentExpiresAt()
         );
     }
 
@@ -284,7 +395,11 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setRegistrationStatus(allocation.status());
         registration.setUpdatedAt(LocalDateTime.now());
         registration.setUpdatedBy(currentUser.getUserId());
-        if (allocation.consumesSeat()) {
+        if (allocation.consumesSeat() && PaymentStatus.AWAITING_ELIGIBILITY.equals(registration.getPaymentStatus())) {
+            registration.setPaymentStatus(PaymentStatus.PENDING);
+            registration.setPaymentExpiresAt(LocalDateTime.now().plusMinutes(30));
+        }
+        if (allocation.consumesSeat() && paymentAllowsTicket(registration)) {
             if (!StringUtils.hasText(registration.getTicketCode())) {
                 registration.setTicketCode(UUID.randomUUID().toString());
             }
@@ -302,6 +417,12 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 "Đăng ký sự kiện được duyệt",
                 "Đăng ký tham gia sự kiện \"" + event.getEventName() + "\" của bạn đã được duyệt."
         );
+    }
+
+    private boolean paymentAllowsTicket(EventRegistration registration) {
+        return registration.getPaymentStatus() == null
+                || PaymentStatus.NOT_REQUIRED.equals(registration.getPaymentStatus())
+                || PaymentStatus.PAID.equals(registration.getPaymentStatus());
     }
 
     @Override
@@ -425,6 +546,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             );
         }
         RegistrationStatus oldStatus = currentStatus;
+        String revokedTicketCode = registration.getTicketCode();
         registration.setStatus(String.valueOf(RegistrationLifecycle.STATUS_CANCELLED));
         registration.setRegistrationStatus(RegistrationLifecycle.STATUS_CANCELLED);
         registration.setUpdatedAt(LocalDateTime.now());
@@ -442,6 +564,28 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         if (promoted > 0) {
             // no-op: promotion is handled atomically by allocation service
         }
+        userRepository.findByUserIDAndIsDeletedFalse(registration.getUserID()).ifPresent(ticketOwner ->
+                sendAfterCommit(() -> emailService.sendEventTicketCancellationEmail(
+                        ticketOwner.getEmail(),
+                        ticketOwner.getFullName(),
+                        event.getEventName(),
+                        event.getStartDate(),
+                        revokedTicketCode
+                ))
+        );
+    }
+
+    private void sendAfterCommit(Runnable emailAction) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            emailAction.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                emailAction.run();
+            }
+        });
     }
 
     private boolean isSelfCancellationWindowClosed(Event event) {
@@ -531,11 +675,9 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         if (assignment == null || assignment.getEventRoleID() == null) {
             return RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT;
         }
-        return switch (assignment.getEventRoleID()) {
-            case 1 -> RegistrationLifecycle.PARTICIPANT_TYPE_CORE_TEAM;
-            case 2 -> RegistrationLifecycle.PARTICIPANT_TYPE_SUPPORT_ORGANIZER;
-            default -> RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT;
-        };
+        return assignment.getEventRoleID() == 1
+                ? RegistrationLifecycle.PARTICIPANT_TYPE_CORE_TEAM
+                : RegistrationLifecycle.PARTICIPANT_TYPE_SUPPORT_ORGANIZER;
     }
 
     private void ensureParticipantTypeEnabled(Integer eventId, ParticipantType participantType) {
@@ -633,7 +775,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 user == null ? null : user.getEmail(),
                 registration.getGuestFullName(),
                 canViewGuestContact ? registration.getGuestEmail() : null,
-                canViewGuestContact ? registration.getGuestPhone() : null
+                canViewGuestContact ? registration.getGuestPhone() : null,
+                Boolean.TRUE.equals(registration.getCapacityExempt())
         );
     }
 
@@ -652,7 +795,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 null,
                 registration.getGuestFullName(),
                 canViewGuestContact ? registration.getGuestEmail() : null,
-                canViewGuestContact ? registration.getGuestPhone() : null
+                canViewGuestContact ? registration.getGuestPhone() : null,
+                false
         );
     }
     private boolean matchesParticipantType(RegistrationListItemResponse view, String participantType) {

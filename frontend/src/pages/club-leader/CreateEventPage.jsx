@@ -21,13 +21,18 @@ const STEPS = [
 
 const EMPTY_FORM = {
   name: "", desc: "", budget: "", banner: null, bannerPublicId: "",
-  isInternal: false, maxParticipants: "",
+  isInternal: false, maxParticipants: "", isPaidEvent: false, ticketPrice: "", ticketCurrency: "VND",
   date: "", startTime: "", endTime: "",
   venueName: "", location: "", locationDetail: "",
   latitude: null, longitude: null,
 };
 
 const BUDGET_LIMIT = 5_000_000;
+const DESCRIPTION_WORD_LIMIT = 1000;
+const countWords = (value) => {
+  const normalized = String(value ?? "").trim();
+  return normalized ? normalized.split(/\s+/u).length : 0;
+};
 const fmtVND = (val) => {
   const n = Number(String(val).replace(/\D/g, ""));
   return isNaN(n) ? "" : n.toLocaleString("vi-VN");
@@ -265,6 +270,13 @@ function Step1({ form, onChange, errors }) {
           value={form.desc}
           onChange={(e) => onChange("desc", e.target.value)}
         />
+        <div style={{
+          marginTop: 5, textAlign: "right", fontSize: 12,
+          color: countWords(form.desc) > DESCRIPTION_WORD_LIMIT ? "#dc2626" : "#6b7280",
+          fontWeight: countWords(form.desc) > DESCRIPTION_WORD_LIMIT ? 600 : 400,
+        }}>
+          {countWords(form.desc).toLocaleString("vi-VN")}/{DESCRIPTION_WORD_LIMIT.toLocaleString("vi-VN")} từ
+        </div>
         <FieldError msg={errors.desc} />
       </div>
 
@@ -305,6 +317,23 @@ function Step1({ form, onChange, errors }) {
           onChange={(e) => onChange("maxParticipants", e.target.value)}
         />
         <FieldError msg={errors.maxParticipants} />
+      </div>
+
+      <div style={{ padding: 16, border: "1.5px solid #fed7aa", borderRadius: 12, background: "#fff7ed" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontWeight: 700, color: "#9a3412" }}>
+          <input type="checkbox" checked={form.isPaidEvent} onChange={(e) => onChange("isPaidEvent", e.target.checked)} />
+          Sự kiện có bán vé
+        </label>
+        {form.isPaidEvent && (
+          <div style={{ marginTop: 12 }}>
+            <Label required>Giá một vé</Label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 90px", gap: 8 }}>
+              <input style={inputStyle(errors.ticketPrice)} type="number" min="1000" step="1000" value={form.ticketPrice} onChange={(e) => onChange("ticketPrice", e.target.value)} placeholder="VD: 50000" />
+              <select style={inputStyle()} value={form.ticketCurrency} onChange={(e) => onChange("ticketCurrency", e.target.value)}><option value="VND">VND</option></select>
+            </div>
+            <FieldError msg={errors.ticketPrice} />
+          </div>
+        )}
       </div>
 
       <InternalToggle value={form.isInternal} onChange={onChange} />
@@ -438,6 +467,21 @@ function Step3({ form }) {
         <SummaryRow label="Mô tả"       value={form.desc} />
         <SummaryRow label="Phạm vi"     value={form.isInternal ? "Nội bộ CLB" : "Công khai"} />
         <SummaryRow label="Số người tối đa" value={form.maxParticipants ? `${form.maxParticipants} người` : "Không giới hạn"} />
+        <SummaryRow label="Hình thức tham gia" value={form.isPaidEvent ? "Sự kiện bán vé" : "Sự kiện miễn phí"} />
+        {form.isPaidEvent && (
+          <>
+            <SummaryRow
+              label="Giá một vé"
+              value={`${fmtVND(form.ticketPrice)} ${form.ticketCurrency || "VND"} / vé`}
+            />
+            <SummaryRow
+              label="Doanh thu vé tối đa"
+              value={form.maxParticipants
+                ? `${fmtVND(Number(form.ticketPrice || 0) * Number(form.maxParticipants || 0))} ${form.ticketCurrency || "VND"}`
+                : "Chưa xác định"}
+            />
+          </>
+        )}
         <div style={{ display: "flex", gap: 12, padding: "8px 0", alignItems: "center" }}>
           <span style={{ fontSize: 12.5, color: "#6b7280", minWidth: 140, flexShrink: 0 }}>Ngân sách</span>
           <span style={{ fontSize: 13, color: Number(form.budget) > BUDGET_LIMIT ? "#dc2626" : "#111827", fontWeight: 600 }}>
@@ -452,9 +496,15 @@ function Step3({ form }) {
       <SummaryCard icon={<CalendarDays size={15} color="#E6430A" />} title="Thời gian & Địa điểm">
         <SummaryRow label="Ngày"      value={form.date} />
         <SummaryRow label="Thời gian" value={`${form.startTime} – ${form.endTime}`} />
-        {form.venueName && <SummaryRow label="Địa điểm" value={form.venueName} />}
+        <SummaryRow label="Tên địa điểm / Tòa nhà" value={form.venueName || "Chưa cung cấp"} />
         <SummaryRow label="Địa chỉ" value={form.location || "—"} />
-        {form.locationDetail && <SummaryRow label="Chi tiết" value={form.locationDetail} />}
+        <SummaryRow label="Chi tiết cụ thể" value={form.locationDetail || "Chưa cung cấp"} />
+        <SummaryRow
+          label="Tọa độ bản đồ"
+          value={typeof form.latitude === "number" && typeof form.longitude === "number"
+            ? `${form.latitude.toFixed(6)}, ${form.longitude.toFixed(6)}`
+            : "Chưa ghim vị trí"}
+        />
       </SummaryCard>
     </div>
   );
@@ -480,12 +530,14 @@ function validate(step, form) {
     }
     if (!form.desc.trim() || form.desc.trim().length < 30)
       e.desc = "Nội dung của bạn quá ngắn (< 30 ký tự), vui lòng kiểm tra và nhập đầy đủ hơn.";
-    else if (form.desc.trim().length > 1000)
-      e.desc = "Nội dung quá dài (> 1000 ký tự), vui lòng kiểm tra và rút gọn nội dung của bạn.";
+    else if (countWords(form.desc) > DESCRIPTION_WORD_LIMIT)
+      e.desc = "Nội dung quá dài (> 1000 từ), vui lòng kiểm tra và rút gọn nội dung của bạn.";
     if (!form.budget || Number(form.budget) < 0)
       e.budget = "Vui lòng nhập ngân sách dự kiến (nhập 0 nếu không có).";
     if (!form.maxParticipants || Number(form.maxParticipants) < 1)
       e.maxParticipants = "Vui lòng nhập số người tham gia tối đa (ít nhất 1 người).";
+    if (form.isPaidEvent && (!form.ticketPrice || Number(form.ticketPrice) <= 0))
+      e.ticketPrice = "Sự kiện bán vé phải có giá vé lớn hơn 0.";
   }
   if (step === 2) {
     if (!form.date) {
@@ -566,6 +618,9 @@ export default function CreateEventPage() {
         latitude:      typeof form.latitude === "number" ? form.latitude : null,
         longitude:     typeof form.longitude === "number" ? form.longitude : null,
         budget:        Number(form.budget) || 0,
+        isPaidEvent:   form.isPaidEvent,
+        ticketPrice:   form.isPaidEvent ? Number(form.ticketPrice) : null,
+        ticketCurrency: form.ticketCurrency || "VND",
         startDate:     `${form.date}T${form.startTime}:00`,
         endDate:       `${form.date}T${form.endTime}:00`,
         maxParticipants: form.maxParticipants ? parseInt(form.maxParticipants) : null,

@@ -20,7 +20,7 @@ public class EventCapacityServiceImpl implements EventCapacityService {
             return true;
         }
 
-        long currentRegistrations = registrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
+        long currentRegistrations = registrationRepository.countByEventIDAndRegistrationStatusInAndCapacityExemptFalseAndIsDeletedFalse(
                 eventId,
                 RegistrationLifecycle.CONFIRMED_STATUSES
         ) + guestRegistrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(

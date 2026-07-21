@@ -5,12 +5,15 @@ import com.fptu.fcms.dto.request.EventWalkInRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
 import com.fptu.fcms.dto.response.MyRegistrationResponse;
+import com.fptu.fcms.dto.response.EventRegistrationResultResponse;
+import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
 import com.fptu.fcms.security.UserPrincipal;
 
 import java.util.List;
 
 public interface EventRegistrationService {
-    void registerEvent(Integer eventID, Integer userID);
+    EventRegistrationResultResponse registerEvent(Integer eventID, Integer userID);
+    MyRegistrationResponse confirmPayment(Integer registrationId, Integer userId, ConfirmEventPaymentRequest request);
     void registerGuestEvent(Integer eventID, EventGuestRegistrationRequest request);
     void registerWalkInEvent(Integer eventID, EventWalkInRegistrationRequest request, UserPrincipal currentUser);
     void unregisterEvent(Integer eventID, Integer userID);

@@ -202,7 +202,8 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
   const counts = {
     '': registrations.length,
     PENDING_APPROVAL: registrations.filter((r) => isPendingApproval(r.status)).length,
-    CONFIRMED: registrations.filter((r) => r.status === 'CONFIRMED').length,
+    // Vé Ban tổ chức là vé miễn phí và không chiếm quota người tham gia.
+    CONFIRMED: registrations.filter((r) => r.status === 'CONFIRMED' && !r.capacityExempt).length,
     REJECTED:  registrations.filter((r) => r.status === 'REJECTED').length,
   };
 

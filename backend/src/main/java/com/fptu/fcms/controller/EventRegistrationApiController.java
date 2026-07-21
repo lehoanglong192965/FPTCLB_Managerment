@@ -4,10 +4,12 @@ import com.fptu.fcms.dto.request.EventWalkInRegistrationRequest;
 import com.fptu.fcms.dto.request.EventGuestRegistrationRequest;
 import com.fptu.fcms.dto.request.GuestRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
+import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationResponse;
 import com.fptu.fcms.dto.response.MyRegistrationResponse;
+import com.fptu.fcms.dto.response.EventRegistrationResultResponse;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EventRegistrationService;
 import com.fptu.fcms.service.GuestRegistrationService;
@@ -40,11 +42,21 @@ public class EventRegistrationApiController {
     @PostMapping({"/api/events/{eventId}/registrations/me"})
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Dang ky su kien cho tai khoan hien tai")
-    public ResponseEntity<Map<String, String>> registerMe(
+    public ResponseEntity<EventRegistrationResultResponse> registerMe(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventRegistrationService.registerEvent(eventId, currentUser.getUserId());
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Registration submitted."));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(eventRegistrationService.registerEvent(eventId, currentUser.getUserId()));
+    }
+
+    @PostMapping("/api/registrations/{registrationId}/payment/confirm")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Confirm payment for the current user's paid event registration")
+    public ResponseEntity<MyRegistrationResponse> confirmPayment(
+            @PathVariable Integer registrationId,
+            @Valid @RequestBody ConfirmEventPaymentRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(eventRegistrationService.confirmPayment(registrationId, currentUser.getUserId(), request));
     }
 
     @GetMapping({"/api/registrations/me/events"})

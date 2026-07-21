@@ -255,6 +255,11 @@ function EventDetailView({ event, onBack, onApprove, onReject }) {
                 </div>
               </div>
 
+              <div>
+                <label style={labelStyle}>Thông tin bán vé</label>
+                <ReadBox value={event.isPaidEvent ? `${Number(event.ticketPrice || 0).toLocaleString("vi-VN")} ${event.ticketCurrency || "VND"} / vé` : "Miễn phí"} />
+              </div>
+
               <SectionHeader>Thời gian</SectionHeader>
               <div>
                 <label style={labelStyle}>Ngày tổ chức</label>
@@ -372,6 +377,9 @@ export default function IcpdpEventApproval({ embedded = false }) {
           longitude:       e.longitude,
           startDateRaw:    e.startDate,
           endDateRaw:      e.endDate,
+          isPaidEvent:     e.isPaidEvent === true,
+          ticketPrice:     e.ticketPrice ?? null,
+          ticketCurrency:  e.ticketCurrency || "VND",
         });
 
         const fromPending = pendingList.map((e) => ({

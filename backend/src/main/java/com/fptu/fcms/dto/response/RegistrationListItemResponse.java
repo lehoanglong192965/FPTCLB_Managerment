@@ -23,4 +23,5 @@ public class RegistrationListItemResponse {
     private String guestFullName;
     private String guestEmail;
     private String guestPhone;
+    private Boolean capacityExempt;
 }

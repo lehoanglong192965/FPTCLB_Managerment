@@ -29,6 +29,9 @@ public class CreateEventProposalRequest {
     private Double longitude;
     @NotNull
     private BigDecimal budget;
+    private Boolean isPaidEvent;
+    private BigDecimal ticketPrice;
+    private String ticketCurrency;
     private Integer maxParticipants;
     private Integer totalCapacity;
     private Boolean allowWalkIn;

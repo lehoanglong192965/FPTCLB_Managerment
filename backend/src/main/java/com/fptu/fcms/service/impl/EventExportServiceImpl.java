@@ -73,6 +73,14 @@ public class EventExportServiceImpl implements EventExportService {
                     enumName(registration.getRegistrationStatus()),
                     registration.getRegisteredAt(),
                     enumName(registration.getRegistrationChannel()),
+                    enumName(registration.getPaymentStatus()),
+                    decimal(registration.getAmountDue()),
+                    decimal(registration.getAmountPaid()),
+                    value(registration.getPaymentCurrency()),
+                    enumName(registration.getPaymentMethod()),
+                    value(registration.getPaymentReference()),
+                    registration.getPaidAt(),
+                    value(registration.getTicketCode()),
                     sortIndex++
             ));
         }
@@ -85,6 +93,14 @@ public class EventExportServiceImpl implements EventExportService {
                     enumName(registration.getRegistrationStatus()),
                     registration.getRegisteredAt(),
                     enumName(registration.getRegistrationChannel()),
+                    enumName(registration.getPaymentStatus()),
+                    decimal(registration.getAmountDue()),
+                    decimal(registration.getAmountPaid()),
+                    value(registration.getPaymentCurrency()),
+                    enumName(registration.getPaymentMethod()),
+                    value(registration.getPaymentReference()),
+                    registration.getPaidAt(),
+                    value(registration.getTicketCode()),
                     sortIndex++
             ));
         }
@@ -102,7 +118,15 @@ public class EventExportServiceImpl implements EventExportService {
                 "Lo\u1ea1i ng\u01b0\u1eddi tham gia",
                 "Tr\u1ea1ng th\u00e1i",
                 "Th\u1eddi \u0111i\u1ec3m \u0111\u0103ng k\u00fd",
-                "K\u00eanh"
+                "K\u00eanh",
+                "Tr\u1ea1ng th\u00e1i thanh to\u00e1n",
+                "S\u1ed1 ti\u1ec1n ph\u1ea3i tr\u1ea3",
+                "S\u1ed1 ti\u1ec1n \u0111\u00e3 tr\u1ea3",
+                "Ti\u1ec1n t\u1ec7",
+                "Ph\u01b0\u01a1ng th\u1ee9c thanh to\u00e1n",
+                "M\u00e3 \u0111\u1ed1i chi\u1ebfu giao d\u1ecbch",
+                "Th\u1eddi \u0111i\u1ec3m thanh to\u00e1n",
+                "M\u00e3 v\u00e9"
         ));
         for (RegistrationExportRow row : rows) {
             csvRows.add(List.of(
@@ -112,7 +136,15 @@ public class EventExportServiceImpl implements EventExportService {
                     row.participantType(),
                     row.status(),
                     formatDateTime(row.registeredAt()),
-                    row.registrationChannel()
+                    row.registrationChannel(),
+                    row.paymentStatus(),
+                    row.amountDue(),
+                    row.amountPaid(),
+                    row.paymentCurrency(),
+                    row.paymentMethod(),
+                    row.paymentReference(),
+                    formatDateTime(row.paidAt()),
+                    row.ticketCode()
             ));
         }
 
@@ -389,6 +421,10 @@ public class EventExportServiceImpl implements EventExportService {
         return value == null ? "" : value;
     }
 
+    private String decimal(java.math.BigDecimal value) {
+        return value == null ? "" : value.toPlainString();
+    }
+
     private record RegistrationExportRow(
             String studentId,
             String fullName,
@@ -397,6 +433,14 @@ public class EventExportServiceImpl implements EventExportService {
             String status,
             LocalDateTime registeredAt,
             String registrationChannel,
+            String paymentStatus,
+            String amountDue,
+            String amountPaid,
+            String paymentCurrency,
+            String paymentMethod,
+            String paymentReference,
+            LocalDateTime paidAt,
+            String ticketCode,
             int sortIndex
     ) {
     }
