@@ -7,7 +7,9 @@ import com.fptu.fcms.entity.EventRole;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
 import com.fptu.fcms.repository.EventAssignmentRepository;
 import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRoleRepository;
+import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EventAssignmentAccessService;
 import org.junit.jupiter.api.Test;
@@ -43,6 +45,10 @@ class EventServiceImplAssignmentAuthorizationTest {
     private EventRepository eventRepository;
     @Mock
     private EventRoleRepository eventRoleRepository;
+    @Mock
+    private EventRegistrationRepository registrationRepository;
+    @Mock
+    private UserRepository userRepository;
 
     @InjectMocks
     private EventServiceImpl service;
@@ -61,6 +67,10 @@ class EventServiceImplAssignmentAuthorizationTest {
 
         when(eventRepository.findByEventIDAndIsDeletedFalse(EVENT_ID)).thenReturn(Optional.of(event));
         when(eventRoleRepository.findByEventRoleIDAndIsDeletedFalse(5)).thenReturn(Optional.of(eventRole));
+        when(registrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(EVENT_ID, USER_ID))
+                .thenReturn(Optional.empty());
+        when(registrationRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userRepository.findByUserIDAndIsDeletedFalse(USER_ID)).thenReturn(Optional.empty());
 
         service.addAssignment(EVENT_ID, request, currentUser);
 

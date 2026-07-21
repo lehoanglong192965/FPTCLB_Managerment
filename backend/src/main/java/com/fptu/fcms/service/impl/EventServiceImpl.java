@@ -36,6 +36,7 @@ import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.EventRegistrationPolicyService;
 import com.fptu.fcms.service.EventService;
 import com.fptu.fcms.service.ImageCleanupService;
+import com.fptu.fcms.service.AttendanceSessionService;
 import com.fptu.fcms.service.event.EventPermissionService;
 import com.fptu.fcms.service.event.EventStateMachineService;
 import com.fptu.fcms.service.event.RegistrationLifecycle;
@@ -136,6 +137,7 @@ public class EventServiceImpl implements EventService {
     private final EventReportRepository eventReportRepository;
     private final ContributionBatchRepository contributionBatchRepository;
     private final ImageCleanupService imageCleanupService;
+    private final AttendanceSessionService attendanceSessionService;
 
     @Override
     public boolean isUserAssigned(Integer eventId, Integer userId) {
@@ -360,7 +362,10 @@ public class EventServiceImpl implements EventService {
                     registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
                     registration.setStatus(RegistrationStatus.CANCELLED.name());
                     registration.setCancelledAt(cancelledAt);
-                    registration.setTicketRevokedAt(cancelledAt);
+                    if (StringUtils.hasText(registration.getTicketCode())
+                            && registration.getTicketRevokedAt() == null) {
+                        registration.setTicketRevokedAt(cancelledAt);
+                    }
                     registration.setUpdatedAt(cancelledAt);
                     registration.setUpdatedBy(currentUser == null ? null : currentUser.getUserId());
                 });
@@ -616,17 +621,14 @@ public class EventServiceImpl implements EventService {
         eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         stateMachineService.ensureCanFinish(event);
-        AttendanceSession session = attendanceSessionRepository.findByEventID(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Attendance session not opened."));
-        if (session.getCheckInTime() == null) {
-            throw new IllegalArgumentException("Attendance session has not started yet.");
-        }
+        
+        attendanceSessionService.finalizeAttendanceForEvent(eventId, currentUser);
+        
         event.setEventStatus(STATUS_COMPLETED);
         if (event.getCheckInCloseAt() == null) {
             event.setCheckInCloseAt(LocalDateTime.now());
         }
         eventRepository.save(event);
-        markMissingAttendanceAsAbsent(event);
     }
 
     @Override
@@ -1069,37 +1071,7 @@ public class EventServiceImpl implements EventService {
         publishLifecycleEvent(savedEvent, oldStatus, STATUS_REJECTED, null, reason);
     }
 
-    private void markMissingAttendanceAsAbsent(Event event) {
-        AttendanceSession session = attendanceSessionRepository.findByEventID(event.getEventID()).orElse(null);
-        if (session == null) {
-            return;
-        }
 
-        List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(event.getEventID());
-        for (EventRegistration registration : registrations) {
-            Integer userId = registration.getUserID();
-            if (userId == null || registration.getRegistrationStatus() != RegistrationStatus.REGISTERED) {
-                continue;
-            }
-
-            attendanceRecordRepository
-                    .findBySessionIDAndUserID(session.getSessionID(), userId)
-                    .orElseGet(() -> {
-            AttendanceRecord absenceRecord = new AttendanceRecord();
-                        absenceRecord.setSessionID(session.getSessionID());
-                        absenceRecord.setUserID(userId);
-                        absenceRecord.setRegistrationID(registration.getRegistrationID());
-                        absenceRecord.setParticipantTypeSnapshotAt(registration.getParticipantTypeSnapshotAt());
-                        absenceRecord.setAttendanceStatus(AttendanceStatus.ABSENT);
-                        absenceRecord.setCheckInMethod(CheckInMethod.AUTO);
-                        absenceRecord.setCheckedInAt(LocalDateTime.now());
-                        absenceRecord.setMarkedAt(LocalDateTime.now());
-                        absenceRecord.setIsVerifiedByAI(false);
-                        absenceRecord.setIsDeleted(false);
-                        return attendanceRecordRepository.save(absenceRecord);
-                    });
-        }
-    }
 
     private String normalizeLeaderEvaluation(String leaderEvaluation) {
         if (!StringUtils.hasText(leaderEvaluation)) {

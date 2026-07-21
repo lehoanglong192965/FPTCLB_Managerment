@@ -6,6 +6,7 @@ import com.fptu.fcms.entity.EventRegistration;
 import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EmailService;
@@ -40,6 +41,8 @@ class EventServiceImplTicketLifecycleTest {
     @Mock
     private EventRegistrationRepository registrationRepository;
     @Mock
+    private GuestEventRegistrationRepository guestRegistrationRepository;
+    @Mock
     private UserRepository userRepository;
     @Mock
     private EmailService emailService;
@@ -69,6 +72,7 @@ class EventServiceImplTicketLifecycleTest {
         when(registrationRepository.findByEventIDAndIsDeletedFalse(EVENT_ID))
                 .thenReturn(List.of(activeTicket, withoutTicket, alreadyRevoked));
         when(userRepository.findAllByUserIDIn(any())).thenReturn(List.of());
+        when(guestRegistrationRepository.findByEventIDAndIsDeletedFalse(EVENT_ID)).thenReturn(List.of());
 
         CancelEventRequest request = new CancelEventRequest();
         request.setReason("Venue unavailable");
@@ -83,7 +87,7 @@ class EventServiceImplTicketLifecycleTest {
         verify(registrationRepository).saveAll(savedTickets.capture());
         List<EventRegistration> persisted = new java.util.ArrayList<>();
         savedTickets.getValue().forEach(persisted::add);
-        assertEquals(List.of(activeTicket), persisted);
+        assertEquals(List.of(activeTicket, withoutTicket, alreadyRevoked), persisted);
         verify(applicationEventPublisher).publishEvent(any(Object.class));
     }
 
