@@ -150,7 +150,7 @@ public class WalkInServiceImpl implements WalkInService {
         record.setIsDeleted(false);
         AttendanceRecord savedRecord = attendanceRecordRepository.save(record);
         auditLogService.record(actorId, "AttendanceRecord", savedRecord.getRecordID(), "ATTENDANCE_EMERGENCY_OVERRIDE", null, savedRecord, request.getReason());
-        return new AttendanceCheckInResponse(event.getEventID(), saved.getGuestRegistrationID(), null, AttendanceStatus.PRESENT, "Emergency walk-in check-in successful.");
+        return new AttendanceCheckInResponse(event.getEventID(), saved.getGuestRegistrationID(), null, saved.getGuestFullName(), null, "GUEST", AttendanceStatus.PRESENT, "Emergency walk-in check-in successful.");
     }
 
     private EventRegistration createFptuWalkInRegistration(Event event, UserAccount user) {
@@ -173,8 +173,12 @@ public class WalkInServiceImpl implements WalkInService {
     }
 
     private AttendanceSession findWalkInSession(Integer sessionId) {
-        return attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(sessionId)
+        AttendanceSession session = attendanceSessionRepository.findBySessionIDForUpdate(sessionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ATTENDANCE_SESSION_NOT_FOUND"));
+        if (session.getStatus() == AttendanceSessionStatus.CLOSED) {
+            throw new IllegalArgumentException("Attendance session is closed.");
+        }
+        return session;
     }
 
     private Event requireWalkInEvent(Integer eventId) {

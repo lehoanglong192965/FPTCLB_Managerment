@@ -27,4 +27,6 @@ public interface AttendanceSessionService {
     AttendanceSummaryResponse summary(Integer eventId, UserPrincipal currentUser);
 
     AttendanceRegistrationSearchResponse correct(Integer recordId, AttendanceCorrectionRequest request, UserPrincipal currentUser);
+
+    AttendanceSessionResponse finalizeAttendanceForEvent(Integer eventId, UserPrincipal currentUser);
 }

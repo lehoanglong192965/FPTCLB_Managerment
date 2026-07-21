@@ -41,6 +41,9 @@ class AttendanceControllerTest {
                 201,
                 301,
                 401,
+                "John Doe",
+                "SE12345",
+                "PARTICIPANT",
                 AttendanceStatus.PRESENT,
                 "Checked in."
         );

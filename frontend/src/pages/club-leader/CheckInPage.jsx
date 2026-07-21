@@ -8,6 +8,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
 
 const SESSION_STATUS_CFG = {
+  DRAFT:  { label: 'Chưa mở',  dotColor: '#F59E0B', textColor: '#92400E', bgColor: '#FEF3C7', borderColor: '#F59E0B' },
   OPEN:   { label: 'Đang mở',  dotColor: '#10B981', textColor: '#065F46', bgColor: '#D1FAE5', borderColor: '#10B981' },
   CLOSED: { label: 'Đã đóng', dotColor: '#94A3B8', textColor: '#475569', bgColor: '#F1F5F9', borderColor: '#CBD5E1' },
 };

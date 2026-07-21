@@ -12,6 +12,7 @@ import com.fptu.fcms.enums.AttendanceSessionStatus;
 import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.CheckInMethod;
 import com.fptu.fcms.enums.EventStatus;
+import com.fptu.fcms.enums.PaymentStatus;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.enums.VerificationMethod;
 import com.fptu.fcms.exception.ApiErrorCode;
@@ -57,8 +58,11 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (VerificationMethod.QR_TICKET.name().equals(normalize(request.getVerificationMethod()))) {
             throw invalidQrTicket();
         }
-        AttendanceSession session = attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(sessionId)
+        AttendanceSession session = attendanceSessionRepository.findBySessionIDForUpdate(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Attendance session not found."));
+        if (session.getStatus() == AttendanceSessionStatus.CLOSED) {
+            throw new IllegalArgumentException("Attendance session is closed.");
+        }
         if (session.getStatus() != AttendanceSessionStatus.OPEN) {
             throw new IllegalArgumentException("Attendance session is not open.");
         }
@@ -89,6 +93,10 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (!RegistrationLifecycle.CONFIRMED_STATUSES.contains(registrationStatus)) {
             throw new IllegalArgumentException("Registration is not confirmed for check-in.");
         }
+        UserAccount user = registration.getUserID() == null
+                ? null
+                : userRepository.findByUserIDAndIsDeletedFalse(registration.getUserID()).orElse(null);
+
         var existingRecord = attendanceRecordRepository.findBySessionIDAndRegistrationID(sessionId, registration.getRegistrationID());
         if (existingRecord.isPresent()) {
             AttendanceRecord existing = existingRecord.get();
@@ -109,14 +117,13 @@ public class AttendanceServiceImpl implements AttendanceService {
                     event.getEventID(),
                     registration.getRegistrationID(),
                     registration.getUserID(),
+                    user != null ? user.getFullName() : null,
+                    user != null ? user.getStudentId() : null,
+                    registration.getParticipantType() != null ? registration.getParticipantType().name() : null,
                     AttendanceStatus.PRESENT,
                     "Participant already checked in."
             );
         }
-
-        UserAccount user = registration.getUserID() == null
-                ? null
-                : userRepository.findByUserIDAndIsDeletedFalse(registration.getUserID()).orElse(null);
         VerificationMethod verificationMethod = parseVerificationMethod(request.getVerificationMethod());
         verifyParticipant(registration, user, verificationMethod, request);
 
@@ -150,6 +157,9 @@ public class AttendanceServiceImpl implements AttendanceService {
                 event.getEventID(),
                 registration.getRegistrationID(),
                 registration.getUserID(),
+                user != null ? user.getFullName() : null,
+                user != null ? user.getStudentId() : null,
+                registration.getParticipantType() != null ? registration.getParticipantType().name() : null,
                 AttendanceStatus.PRESENT,
                 "Check-in successful."
         );
@@ -175,16 +185,21 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new IllegalArgumentException("Registration is not confirmed for check-in.");
         }
 
+        VerificationMethod verificationMethod = parseVerificationMethod(request.getVerificationMethod());
         var existingRecord = attendanceRecordRepository.findBySessionIDAndGuestRegistrationID(sessionId, registration.getGuestRegistrationID());
         if (existingRecord.isPresent()) {
             AttendanceRecord existing = existingRecord.get();
+            if (existing.getAttendanceStatus() == AttendanceStatus.PRESENT
+                    && verificationMethod == VerificationMethod.QR_TICKET) {
+                throw alreadyCheckedIn();
+            }
             if (existing.getAttendanceStatus() != AttendanceStatus.PRESENT) {
                 AttendanceRecord before = snapshot(existing);
                 LocalDateTime now = LocalDateTime.now();
                 existing.setAttendanceStatus(AttendanceStatus.PRESENT);
-                existing.setCheckInMethod("QR_TICKET".equalsIgnoreCase(request.getVerificationMethod())
+                existing.setCheckInMethod(verificationMethod == VerificationMethod.QR_TICKET
                         ? CheckInMethod.QR_CODE : CheckInMethod.STAFF_LOOKUP);
-                existing.setVerificationMethod(parseVerificationMethod(request.getVerificationMethod()).name());
+                existing.setVerificationMethod(verificationMethod.name());
                 existing.setCheckedInBy(actorId);
                 existing.setCheckedInAt(now);
                 existing.setMarkedAt(now);
@@ -196,12 +211,14 @@ public class AttendanceServiceImpl implements AttendanceService {
                     event.getEventID(),
                     registration.getGuestRegistrationID(),
                     null,
+                    registration.getGuestFullName(),
+                    null,
+                    "GUEST",
                     AttendanceStatus.PRESENT,
                     "Participant already checked in."
             );
         }
 
-        VerificationMethod verificationMethod = parseVerificationMethod(request.getVerificationMethod());
         if (verificationMethod != VerificationMethod.QR_TICKET) {
             verifyGuestParticipant(registration, verificationMethod, request);
         }
@@ -229,6 +246,9 @@ public class AttendanceServiceImpl implements AttendanceService {
             AttendanceRecord savedRecord = attendanceRecordRepository.save(record);
             auditLogService.record(actorId, "AttendanceRecord", savedRecord.getRecordID(), "ATTENDANCE_CHECK_IN", null, savedRecord, request.getNote());
         } catch (DataIntegrityViolationException ex) {
+            if (verificationMethod == VerificationMethod.QR_TICKET) {
+                throw alreadyCheckedIn();
+            }
             throw new IllegalArgumentException("Participant already checked in.");
         }
 
@@ -236,6 +256,9 @@ public class AttendanceServiceImpl implements AttendanceService {
                 event.getEventID(),
                 registration.getGuestRegistrationID(),
                 null,
+                registration.getGuestFullName(),
+                null,
+                "GUEST",
                 AttendanceStatus.PRESENT,
                 "Check-in successful."
         );
@@ -345,9 +368,12 @@ public class AttendanceServiceImpl implements AttendanceService {
             AttendanceCheckInRequest request,
             UserPrincipal currentUser
     ) {
-        AttendanceSession session = attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(sessionId)
+        AttendanceSession session = attendanceSessionRepository.findBySessionIDForUpdate(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Attendance session not found."));
         eventAssignmentAccessService.ensureCanManageCheckIn(session.getEventID(), currentUser);
+        if (session.getStatus() == AttendanceSessionStatus.CLOSED) {
+            throw new IllegalArgumentException("Attendance session is closed.");
+        }
         if (session.getStatus() != AttendanceSessionStatus.OPEN) {
             throw new IllegalArgumentException("Attendance session is not open.");
         }
@@ -381,10 +407,9 @@ public class AttendanceServiceImpl implements AttendanceService {
                 : java.util.Optional.<GuestEventRegistration>empty();
         if (guestTicket.isPresent()) {
             GuestEventRegistration guest = guestTicket.get();
-            if (guest.getTicketRevokedAt() != null || !isConfirmedForCheckIn(guest)
-                    || !(guest.getPaymentStatus() == null
-                    || com.fptu.fcms.enums.PaymentStatus.NOT_REQUIRED.equals(guest.getPaymentStatus())
-                    || com.fptu.fcms.enums.PaymentStatus.PAID.equals(guest.getPaymentStatus()))) {
+            if (guest.getTicketRevokedAt() != null
+                    || !isConfirmedForCheckIn(guest)
+                    || !isPaymentEligibleForCheckIn(guest.getPaymentStatus())) {
                 throw invalidQrTicket();
             }
             request.setGuestRegistrationId(guest.getGuestRegistrationID());
@@ -392,6 +417,10 @@ public class AttendanceServiceImpl implements AttendanceService {
         }
         EventRegistration registration = resolveQrTicket(event.getEventID(), ticketCode);
         Integer sessionId = session.getSessionID();
+
+        UserAccount user = registration.getUserID() == null
+                ? null
+                : userRepository.findByUserIDAndIsDeletedFalse(registration.getUserID()).orElse(null);
 
         var existingRecord = attendanceRecordRepository.findBySessionIDAndRegistrationID(
                 sessionId,
@@ -439,6 +468,9 @@ public class AttendanceServiceImpl implements AttendanceService {
                     event.getEventID(),
                     registration.getRegistrationID(),
                     registration.getUserID(),
+                    user != null ? user.getFullName() : null,
+                    user != null ? user.getStudentId() : null,
+                    registration.getParticipantType() != null ? registration.getParticipantType().name() : null,
                     AttendanceStatus.PRESENT,
                     "Check-in successful."
             );
@@ -486,11 +518,19 @@ public class AttendanceServiceImpl implements AttendanceService {
                 event.getEventID(),
                 registration.getRegistrationID(),
                 registration.getUserID(),
+                user != null ? user.getFullName() : null,
+                user != null ? user.getStudentId() : null,
+                registration.getParticipantType() != null ? registration.getParticipantType().name() : null,
                 AttendanceStatus.PRESENT,
                 "Check-in successful."
         );
     }
 
+    private boolean isPaymentEligibleForCheckIn(PaymentStatus paymentStatus) {
+        return paymentStatus == null
+                || PaymentStatus.NOT_REQUIRED.equals(paymentStatus)
+                || PaymentStatus.PAID.equals(paymentStatus);
+    }
     private EventRegistration resolveQrTicket(Integer eventId, String ticketCode) {
         if (!StringUtils.hasText(ticketCode)) {
             throw invalidQrTicket();
@@ -499,7 +539,9 @@ public class AttendanceServiceImpl implements AttendanceService {
         EventRegistration registration = eventRegistrationRepository
                 .findByEventIDAndTicketCodeAndIsDeletedFalse(eventId, ticketCode.trim())
                 .orElseThrow(this::invalidQrTicket);
-        if (registration.getTicketRevokedAt() != null || !isConfirmedForCheckIn(registration)) {
+        if (registration.getTicketRevokedAt() != null
+                || !isConfirmedForCheckIn(registration)
+                || !isPaymentEligibleForCheckIn(registration.getPaymentStatus())) {
             throw invalidQrTicket();
         }
         return registration;
@@ -524,7 +566,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     private BusinessRuleException alreadyCheckedIn() {
         return new BusinessRuleException(
                 ApiErrorCode.ALREADY_CHECKED_IN.name(),
-                "Participant is already checked in.",
+                "Người tham gia này đã được điểm danh.",
                 HttpStatus.CONFLICT
         );
     }
@@ -532,7 +574,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     private BusinessRuleException invalidQrTicket() {
         return new BusinessRuleException(
                 "TICKET_INVALID",
-                "The QR ticket is invalid or no longer eligible for check-in.",
+                "Vé QR không hợp lệ hoặc không còn đủ điều kiện để điểm danh.",
                 HttpStatus.UNPROCESSABLE_ENTITY
         );
     }
