@@ -1,5 +1,6 @@
 package com.fptu.fcms.service.impl;
 
+import com.fptu.fcms.dto.response.CsvExportResult;
 import com.fptu.fcms.entity.AttendanceRecord;
 import com.fptu.fcms.entity.AttendanceSession;
 import com.fptu.fcms.entity.EventRegistration;
@@ -10,6 +11,7 @@ import com.fptu.fcms.repository.AttendanceSessionRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.repository.projection.HistoricalUserView;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.AuditLogService;
 import com.fptu.fcms.service.EventAssignmentAccessService;
@@ -47,7 +49,7 @@ public class EventExportServiceImpl implements EventExportService {
 
     @Override
     @Transactional
-    public byte[] exportRegistrations(Integer eventId, UserPrincipal currentUser) {
+    public CsvExportResult exportRegistrations(Integer eventId, UserPrincipal currentUser) {
         eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         boolean canViewGuestContact = eventAssignmentAccessService.canViewGuestContact(eventId, currentUser);
 
@@ -55,12 +57,12 @@ public class EventExportServiceImpl implements EventExportService {
                 eventRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId);
         List<GuestEventRegistration> guestRegistrations =
                 guestEventRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId);
-        Map<Integer, UserAccount> usersById = activeUsersById(collectUserIds(registrations));
+        Map<Integer, HistoricalUserView> usersById = historicalUsersById(collectUserIds(registrations));
 
         List<RegistrationExportRow> rows = new ArrayList<>();
         int sortIndex = 0;
         for (EventRegistration registration : registrations) {
-            UserAccount user = usersById.get(registration.getUserID());
+            HistoricalUserView user = usersById.get(registration.getUserID());
             boolean isLegacyGuestRegistration = registration.getUserID() == null;
             rows.add(new RegistrationExportRow(
                     isLegacyGuestRegistration ? "" : value(user == null ? null : user.getStudentId()),
@@ -85,6 +87,11 @@ public class EventExportServiceImpl implements EventExportService {
                     registration.getPurchaserUserID() == null ? "" : userRepository
                             .findByUserIDAndIsDeletedFalse(registration.getPurchaserUserID())
                             .map(UserAccount::getEmail).orElse(""),
+                    registration.getTicketIssuedAt(),
+                    registration.getTicketRevokedAt(),
+                    value(registration.getSchoolOrOrganization()),
+                    value(registration.getDiscoverySource()),
+                    registration.getCancelledAt(),
                     sortIndex++
             ));
         }
@@ -107,6 +114,11 @@ public class EventExportServiceImpl implements EventExportService {
                     value(registration.getTicketCode()),
                     "",
                     "",
+                    registration.getTicketIssuedAt(),
+                    registration.getTicketRevokedAt(),
+                    value(registration.getSchoolOrOrganization()),
+                    value(registration.getDiscoverySource()),
+                    registration.getCancelledAt(),
                     sortIndex++
             ));
         }
@@ -134,7 +146,12 @@ public class EventExportServiceImpl implements EventExportService {
                 "Th\u1eddi \u0111i\u1ec3m thanh to\u00e1n",
                 "M\u00e3 v\u00e9",
                 "M\u00e3 \u0111\u01a1n v\u00e9",
-                "Email ng\u01b0\u1eddi mua"
+                "Email ng\u01b0\u1eddi mua",
+                "Th\u1eddi \u0111i\u1ec3m c\u1ea5p v\u00e9",
+                "Th\u1eddi \u0111i\u1ec3m thu h\u1ed3i v\u00e9",
+                "Tr\u01b0\u1eddng/T\u1ed5 ch\u1ee9c",
+                "Ngu\u1ed3n bi\u1ebft \u0111\u1ebfn",
+                "Th\u1eddi \u0111i\u1ec3m h\u1ee7y \u0111\u0103ng k\u00fd"
         ));
         for (RegistrationExportRow row : rows) {
             csvRows.add(List.of(
@@ -154,24 +171,29 @@ public class EventExportServiceImpl implements EventExportService {
                     formatDateTime(row.paidAt()),
                     row.ticketCode(),
                     row.ticketOrderCode(),
-                    row.purchaserEmail()
+                    row.purchaserEmail(),
+                    formatDateTime(row.ticketIssuedAt()),
+                    formatDateTime(row.ticketRevokedAt()),
+                    row.schoolOrOrganization(),
+                    row.discoverySource(),
+                    formatDateTime(row.cancelledAt())
             ));
         }
 
         auditExport(currentUser, eventId, "EVENT_REGISTRATIONS_EXPORTED", rows.size());
-        return toCsv(csvRows);
+        return new CsvExportResult(toCsv(csvRows), rows.size());
     }
 
     @Override
     @Transactional
-    public byte[] exportAttendance(Integer eventId, UserPrincipal currentUser) {
+    public CsvExportResult exportAttendance(Integer eventId, UserPrincipal currentUser) {
         eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
 
         List<AttendanceSession> sessions =
                 attendanceSessionRepository.findByEventIDAndIsDeletedFalseOrderByCheckInTimeAsc(eventId);
         if (sessions.isEmpty()) {
             auditExport(currentUser, eventId, "EVENT_ATTENDANCE_EXPORTED", 0);
-            return toCsv(List.of(List.of(
+            return new CsvExportResult(toCsv(List.of(List.of(
                     "Phi\u00ean \u0111i\u1ec3m danh",
                     "MSSV",
                     "H\u1ecd t\u00ean",
@@ -181,7 +203,7 @@ public class EventExportServiceImpl implements EventExportService {
                     "H\u00ecnh th\u1ee9c \u0111i\u1ec3m danh",
                     "Ph\u01b0\u01a1ng th\u1ee9c x\u00e1c minh",
                     "Ng\u01b0\u1eddi \u0111i\u1ec3m danh"
-            )));
+            ))), 0);
         }
 
         Map<Integer, AttendanceSession> sessionsById = sessions.stream()
@@ -193,7 +215,7 @@ public class EventExportServiceImpl implements EventExportService {
                 ));
         List<AttendanceRecord> records = attendanceRecordRepository
                 .findBySessionIDInAndIsDeletedFalse(new ArrayList<>(sessionsById.keySet()));
-        Map<Integer, UserAccount> usersById = activeUsersById(collectAttendanceUserIds(records));
+        Map<Integer, HistoricalUserView> usersById = historicalUsersById(collectAttendanceUserIds(records));
         Map<Integer, EventRegistration> registrationsById = eventRegistrationRepository
                 .findByEventIDAndIsDeletedFalse(eventId)
                 .stream()
@@ -227,7 +249,7 @@ public class EventExportServiceImpl implements EventExportService {
                             registrationsById,
                             guestRegistrationsById
                     );
-            UserAccount checkedInBy = record.getCheckedInBy() == null ? null : usersById.get(record.getCheckedInBy());
+            HistoricalUserView checkedInBy = record.getCheckedInBy() == null ? null : usersById.get(record.getCheckedInBy());
             rows.add(new AttendanceExportRow(
                     value(session.getSessionName()),
                     participant.studentId(),
@@ -276,7 +298,7 @@ public class EventExportServiceImpl implements EventExportService {
         }
 
         auditExport(currentUser, eventId, "EVENT_ATTENDANCE_EXPORTED", rows.size());
-        return toCsv(csvRows);
+        return new CsvExportResult(toCsv(csvRows), rows.size());
     }
 
     private Set<Integer> collectUserIds(List<EventRegistration> registrations) {
@@ -302,14 +324,14 @@ public class EventExportServiceImpl implements EventExportService {
         return userIds;
     }
 
-    private Map<Integer, UserAccount> activeUsersById(Set<Integer> userIds) {
+    private Map<Integer, HistoricalUserView> historicalUsersById(Set<Integer> userIds) {
         if (userIds.isEmpty()) {
             return Map.of();
         }
-        return userRepository.findAllByUserIDInAndIsDeletedFalse(userIds).stream()
-                .filter(user -> user.getUserID() != null)
+        return userRepository.findHistoricalUsersByIds(userIds).stream()
+                .filter(user -> user.getUserId() != null)
                 .collect(Collectors.toMap(
-                        UserAccount::getUserID,
+                        HistoricalUserView::getUserId,
                         Function.identity(),
                         (first, ignored) -> first
                 ));
@@ -317,13 +339,13 @@ public class EventExportServiceImpl implements EventExportService {
 
     private AttendanceParticipant resolveAttendanceParticipant(
             AttendanceRecord record,
-            Map<Integer, UserAccount> usersById,
+            Map<Integer, HistoricalUserView> usersById,
             Map<Integer, EventRegistration> registrationsById,
             Map<Integer, GuestEventRegistration> guestRegistrationsById
     ) {
         String snapshotParticipantType = value(record.getParticipantTypeSnapshot());
         if (record.getUserID() != null) {
-            UserAccount user = usersById.get(record.getUserID());
+            HistoricalUserView user = usersById.get(record.getUserID());
             return new AttendanceParticipant(
                     value(user == null ? null : user.getStudentId()),
                     value(user == null ? null : user.getFullName()),
@@ -453,6 +475,11 @@ public class EventExportServiceImpl implements EventExportService {
             String ticketCode,
             String ticketOrderCode,
             String purchaserEmail,
+            LocalDateTime ticketIssuedAt,
+            LocalDateTime ticketRevokedAt,
+            String schoolOrOrganization,
+            String discoverySource,
+            LocalDateTime cancelledAt,
             int sortIndex
     ) {
     }

@@ -20,6 +20,7 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [exportingAttendance, setExportingAttendance] = useState(false);
+  const [exportingRegistrations, setExportingRegistrations] = useState(false);
 
   useEffect(() => {
     if (!eventId) return;
@@ -97,6 +98,24 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
     }
   };
 
+  const handleExportRegistrations = async () => {
+    if (!eventId || exportingRegistrations) return;
+
+    setExportingRegistrations(true);
+    try {
+      const csvData = await eventApi.exportRegistrations(eventId);
+      downloadCsvFile(csvData, buildEventCsvFileName(eventId, 'registrations'));
+      toast.success('Đã tải CSV đăng ký.');
+    } catch (err) {
+      toast.error(await getDownloadErrorMessage(
+        err,
+        'Không thể xuất CSV đăng ký.',
+      ));
+    } finally {
+      setExportingRegistrations(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-6 text-center text-sm text-gray-400">Đang tải...</div>;
   }
@@ -122,6 +141,8 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
   }
 
   const isResubmit = existing?.status === 'REJECTED';
+  const isCompleted = event?.status === 'COMPLETED' || event?.eventStatus === 'COMPLETED';
+  const canSubmit = isCompleted || isResubmit;
 
   return (
     <div className={embedded ? "" : "p-6 max-w-2xl"}>
@@ -172,11 +193,20 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
         </div>
       )}
 
+      {event && !canSubmit && (
+        <div className="flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 mb-5 text-sm">
+          <AlertCircle size={16} className="text-yellow-600 shrink-0 mt-0.5" />
+          <p className="text-yellow-800">
+            Chỉ được nộp báo cáo khi sự kiện đã kết thúc (Completed) hoặc báo cáo trước đó bị từ chối (Report Rejected).
+          </p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-100 p-6 space-y-5">
         {/* File upload */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            File báo cáo (PDF/DOCX) *
+            File báo cáo (PDF) *
           </label>
           <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-colors">
             {file ? (
@@ -189,10 +219,10 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
               <div className="text-center">
                 <Upload size={32} className="text-gray-400 mx-auto mb-2" />
                 <p className="text-sm text-gray-500">Click để chọn file hoặc kéo thả vào đây</p>
-                <p className="text-xs text-gray-400 mt-1">PDF, DOCX — tối đa 10MB</p>
+                <p className="text-xs text-gray-400 mt-1">PDF — tối đa 10MB</p>
               </div>
             )}
-            <input type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
+            <input type="file" className="hidden" accept=".pdf,application/pdf" onChange={handleFileChange} />
           </label>
         </div>
 
@@ -211,6 +241,17 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
         <div className="flex gap-3 pt-2">
           <button
             type="button"
+            onClick={handleExportRegistrations}
+            disabled={!eventId || exportingRegistrations}
+            className="px-5 py-2.5 border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+          >
+            <Download size={15} />
+            {exportingRegistrations
+              ? 'Đang xuất...'
+              : 'Xuất CSV đăng ký'}
+          </button>
+          <button
+            type="button"
             onClick={handleExportAttendance}
             disabled={!eventId || exportingAttendance}
             className="px-5 py-2.5 border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
@@ -222,7 +263,7 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
           </button>
           <button
             type="submit"
-            disabled={!file || uploading}
+            disabled={!file || uploading || !canSubmit}
             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2"
           >
             {uploading ? (

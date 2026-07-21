@@ -1,5 +1,6 @@
 package com.fptu.fcms.service.impl;
 
+import com.fptu.fcms.dto.response.CsvExportResult;
 import com.fptu.fcms.entity.AttendanceRecord;
 import com.fptu.fcms.entity.AttendanceSession;
 import com.fptu.fcms.entity.EventRegistration;
@@ -12,9 +13,11 @@ import com.fptu.fcms.enums.RegistrationChannel;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
 import com.fptu.fcms.repository.AttendanceSessionRepository;
+
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.repository.projection.HistoricalUserView;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.AuditLogService;
 import com.fptu.fcms.service.EventAssignmentAccessService;
@@ -23,12 +26,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.InOrder;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -72,11 +77,11 @@ class EventExportServiceImplTest {
         memberRegistration.setRegistrationChannel(RegistrationChannel.FPTU);
         memberRegistration.setRegisteredAt(LocalDateTime.of(2026, 7, 20, 9, 0));
 
-        UserAccount member = new UserAccount();
-        member.setUserID(10);
-        member.setStudentId("=A1");
-        member.setFullName("+Member");
-        member.setEmail("member@example.edu");
+        HistoricalUserView member = Mockito.mock(HistoricalUserView.class);
+        when(member.getUserId()).thenReturn(10);
+        when(member.getStudentId()).thenReturn("=A1");
+        when(member.getFullName()).thenReturn("+Member");
+        when(member.getEmail()).thenReturn("member@example.edu");
 
         GuestEventRegistration guestRegistration = new GuestEventRegistration();
         guestRegistration.setGuestRegistrationID(20);
@@ -93,10 +98,11 @@ class EventExportServiceImplTest {
                 .thenReturn(List.of(memberRegistration));
         when(guestEventRegistrationRepository.findByEventIDAndIsDeletedFalse(EVENT_ID))
                 .thenReturn(List.of(guestRegistration));
-        when(userRepository.findAllByUserIDInAndIsDeletedFalse(anyCollection()))
+        when(userRepository.findHistoricalUsersByIds(anyCollection()))
                 .thenReturn(List.of(member));
 
-        String csv = csv(service.exportRegistrations(EVENT_ID, principal));
+        CsvExportResult export = service.exportRegistrations(EVENT_ID, principal);
+        String csv = csv(export);
 
         assertTrue(csv.startsWith("\uFEFF\"MSSV\",\"H\u1ecd t\u00ean\""));
         assertTrue(csv.contains("\"'=A1\""));
@@ -104,6 +110,7 @@ class EventExportServiceImplTest {
         assertTrue(csv.contains("\"'-Guest\""));
         assertFalse(csv.contains("private-guest@example.edu"));
         assertFalse(csv.contains("secret-phone"));
+        assertEquals(2, export.dataRowCount());
 
         InOrder callOrder = inOrder(eventAssignmentAccessService, eventRegistrationRepository);
         callOrder.verify(eventAssignmentAccessService).ensureCanManageEvent(EVENT_ID, principal);
@@ -190,7 +197,8 @@ class EventExportServiceImplTest {
         verifyAudit(principal, "EVENT_ATTENDANCE_EXPORTED", 1);
     }
 
-    private String csv(byte[] content) {
+    private String csv(CsvExportResult export) {
+        byte[] content = export.content();
         return new String(content, StandardCharsets.UTF_8);
     }
 

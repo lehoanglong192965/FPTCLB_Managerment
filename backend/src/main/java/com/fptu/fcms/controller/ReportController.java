@@ -34,12 +34,14 @@ public class ReportController {
             @Valid @ModelAttribute CreateEventReportRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(reportUploadService.uploadEventReport(request, currentUser.getUserId()));
+                .body(reportUploadService.uploadEventReport(request, currentUser));
     }
 
     @GetMapping("/event/{eventId}")
-    @PreAuthorize("hasRole('ICPDP')")
-    public ResponseEntity<EventReport> getReportByEventId(@PathVariable Integer eventId) {
-        return ResponseEntity.ok(reportUploadService.getReportByEventId(eventId));
+    @PreAuthorize("hasAnyRole('ICPDP', 'Leader', 'ViceLeader')")
+    public ResponseEntity<EventReport> getReportByEventId(
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(reportUploadService.getReportByEventId(eventId, currentUser));
     }
 }

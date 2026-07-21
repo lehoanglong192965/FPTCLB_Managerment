@@ -32,7 +32,7 @@ public class EventExportController {
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         return csvAttachment(
-                eventExportService.exportRegistrations(eventId, principal),
+                eventExportService.exportRegistrations(eventId, principal).content(),
                 eventId,
                 "registrations"
         );
@@ -44,7 +44,7 @@ public class EventExportController {
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         return csvAttachment(
-                eventExportService.exportAttendance(eventId, principal),
+                eventExportService.exportAttendance(eventId, principal).content(),
                 eventId,
                 "attendance"
         );

@@ -26,7 +26,12 @@ public class CloudinaryDocumentStorageService implements DocumentStorageService 
     @Override
     public CloudinaryUploadResult uploadPdf(MultipartFile file, String folder) {
         validateConfiguration();
-        String publicId = UUID.randomUUID() + ".pdf";
+        String originalFilename = file.getOriginalFilename();
+        String extension = "pdf";
+        if (originalFilename != null && originalFilename.contains(".")) {
+            extension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
+        }
+        String publicId = UUID.randomUUID() + "." + extension;
 
         try {
             Map<?, ?> uploaded = cloudinary.uploader().upload(
