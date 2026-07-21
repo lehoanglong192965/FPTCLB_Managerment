@@ -92,12 +92,14 @@ public class EventController {
 
     @GetMapping("/{eventId}/my-status")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Map<String, Boolean>> getMyStatus(
+    public ResponseEntity<Map<String, Object>> getMyStatus(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        boolean registered = eventRegistrationService.isUserRegistered(eventId, currentUser.getUserId());
+        Map<String, Object> status = new java.util.HashMap<>(
+                eventRegistrationService.getRegistrationStatus(eventId, currentUser.getUserId()));
         boolean assigned = eventService.isUserAssigned(eventId, currentUser.getUserId());
-        return ResponseEntity.ok(Map.of("registered", registered, "assigned", assigned));
+        status.put("assigned", assigned);
+        return ResponseEntity.ok(status);
     }
 
     @GetMapping("/{eventId}/registration-policy")

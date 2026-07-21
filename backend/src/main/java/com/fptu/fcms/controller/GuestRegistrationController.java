@@ -2,6 +2,7 @@ package com.fptu.fcms.controller;
 
 import com.fptu.fcms.dto.request.GuestOtpVerifyRequest;
 import com.fptu.fcms.dto.request.GuestRegistrationRequest;
+import com.fptu.fcms.dto.request.RegistrationCancelRequest;
 import com.fptu.fcms.dto.response.GuestOtpVerifyResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationStatusResponse;
@@ -51,7 +52,9 @@ public class GuestRegistrationController {
     }
 
     @PostMapping("/guest-registrations/{guestReference}/cancel")
-    public ResponseEntity<GuestRegistrationStatusResponse> cancel(@PathVariable String guestReference) {
-        return ResponseEntity.ok(guestRegistrationService.cancel(guestReference));
+    public ResponseEntity<GuestRegistrationStatusResponse> cancel(
+            @PathVariable String guestReference,
+            @Valid @RequestBody(required = false) RegistrationCancelRequest request) {
+        return ResponseEntity.ok(guestRegistrationService.cancel(guestReference, request == null ? null : request.getReason()));
     }
 }

@@ -4,6 +4,7 @@ import com.fptu.fcms.dto.request.EventWalkInRegistrationRequest;
 import com.fptu.fcms.dto.request.EventGuestRegistrationRequest;
 import com.fptu.fcms.dto.request.GuestRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
+import com.fptu.fcms.dto.request.RegistrationCancelRequest;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationResponse;
@@ -165,8 +166,9 @@ public class EventRegistrationApiController {
     @Operation(summary = "Huy dang ky cua chinh minh")
     public ResponseEntity<Map<String, String>> cancelRegistration(
             @PathVariable Integer registrationId,
+            @Valid @RequestBody(required = false) RegistrationCancelRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventRegistrationService.cancelRegistration(registrationId, currentUser);
+        eventRegistrationService.cancelRegistration(registrationId, request, currentUser);
         return ResponseEntity.ok(Map.of("message", "Registration cancelled."));
     }
 

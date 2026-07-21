@@ -3,10 +3,12 @@ package com.fptu.fcms.service;
 import com.fptu.fcms.dto.request.EventGuestRegistrationRequest;
 import com.fptu.fcms.dto.request.EventWalkInRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
+import com.fptu.fcms.dto.request.RegistrationCancelRequest;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
 import com.fptu.fcms.security.UserPrincipal;
 
 import java.util.List;
+import java.util.Map;
 
 public interface EventRegistrationService {
     void registerEvent(Integer eventID, Integer userID);
@@ -14,6 +16,8 @@ public interface EventRegistrationService {
     void registerWalkInEvent(Integer eventID, EventWalkInRegistrationRequest request, UserPrincipal currentUser);
     void unregisterEvent(Integer eventID, Integer userID);
     boolean isUserRegistered(Integer eventId, Integer userId);
+    Integer getActiveRegistrationId(Integer eventId, Integer userId);
+    Map<String, Object> getRegistrationStatus(Integer eventId, Integer userId);
     List<com.fptu.fcms.entity.Event> getEventsByUserRegistered(Integer userId);
 
     RegistrationPageResponse getRegistrations(
@@ -32,7 +36,7 @@ public interface EventRegistrationService {
 
     void rejectRegistration(Integer eventId, Integer registrationId, RegistrationRejectRequest request, UserPrincipal currentUser);
 
-    void cancelRegistration(Integer registrationId, UserPrincipal currentUser);
+    void cancelRegistration(Integer registrationId, RegistrationCancelRequest request, UserPrincipal currentUser);
 
     void cancelGuestRegistration(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser);
 }

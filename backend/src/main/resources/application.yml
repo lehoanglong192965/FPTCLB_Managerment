@@ -116,4 +116,3 @@ clamav:
 fcms:
   feedback:
     public-base-url: ${FEEDBACK_PUBLIC_BASE_URL:http://localhost:5173/feedback/guest}
-

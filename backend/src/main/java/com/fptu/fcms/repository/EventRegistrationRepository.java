@@ -33,6 +33,9 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     List<EventRegistration> findByEventIDAndIsDeletedFalse(Integer eventID);
     List<EventRegistration> findByEventIDAndRegistrationStatusAndIsDeletedFalseOrderByRegisteredAtAsc(Integer eventID, RegistrationStatus status);
     List<EventRegistration> findByUserIDAndIsDeletedFalse(Integer userID);
+    long countByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
+    Optional<EventRegistration> findTopByEventIDAndUserIDAndRegistrationStatusAndIsDeletedFalseOrderByCancelledAtDesc(
+            Integer eventID, Integer userID, RegistrationStatus registrationStatus);
     Optional<EventRegistration> findTopByEventIDAndUserIDAndIsDeletedFalseAndRegistrationStatusInOrderByRegisteredAtDesc(
             Integer eventID,
             Integer userID,

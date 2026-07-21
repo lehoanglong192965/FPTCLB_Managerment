@@ -114,11 +114,17 @@ public class EventRegistration {
     @Column(name = "waitlistPosition")
     private Integer waitlistPosition;
 
-    @Column(name = "verifiedAt")
-    private LocalDateTime verifiedAt;
-
     @Column(name = "cancelledAt")
     private LocalDateTime cancelledAt;
+
+    @Column(name = "cancellationReason", length = 500)
+    private String cancellationReason;
+
+    @Column(name = "cancellationSource", length = 30)
+    private String cancellationSource;
+
+    @Column(name = "verifiedAt")
+    private LocalDateTime verifiedAt;
 
     @Column(name = "createdAt")
     private LocalDateTime createdAt;

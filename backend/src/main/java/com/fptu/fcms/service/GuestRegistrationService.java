@@ -15,5 +15,5 @@ public interface GuestRegistrationService {
 
     GuestRegistrationStatusResponse getStatus(String guestReference);
 
-    GuestRegistrationStatusResponse cancel(String guestReference);
+    GuestRegistrationStatusResponse cancel(String guestReference, String reason);
 }

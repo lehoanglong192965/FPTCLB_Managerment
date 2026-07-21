@@ -281,15 +281,18 @@ public class EventServiceImpl implements EventService {
                 .orElseThrow(() -> new IllegalArgumentException("Event not found or not owned by club."));
         EventStatus oldStatus = event.getEventStatus();
 
-        if (!STATUS_APPROVED.equals(event.getEventStatus()) && !STATUS_ONGOING.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Only Approved or Ongoing events can be cancelled.");
+        if (!List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_REGISTRATION_CLOSED, STATUS_ONGOING)
+                .contains(event.getEventStatus())) {
+            throw new IllegalArgumentException("Only approved, registration-open/closed, or ongoing events can be cancelled.");
         }
 
         event.setEventStatus(STATUS_CANCELLED);
         Event savedEvent = eventRepository.save(event);
         publishLifecycleEvent(savedEvent, oldStatus, STATUS_CANCELLED, null, request.getReason());
 
-        List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(eventId);
+        List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
+                .filter(r -> RegistrationLifecycle.ACTIVE_STATUSES.contains(r.getRegistrationStatus()))
+                .toList();
         if (!registrations.isEmpty()) {
             List<Integer> userIds = registrations.stream().map(EventRegistration::getUserID).collect(Collectors.toList());
             List<UserAccount> users = userRepository.findAllByUserIDIn(userIds);
@@ -299,6 +302,12 @@ public class EventServiceImpl implements EventService {
                 emailService.sendSimpleEmail(user.getEmail(), subject, content);
             }
         }
+        guestRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
+                .filter(r -> RegistrationLifecycle.ACTIVE_STATUSES.contains(r.getRegistrationStatus()))
+                .forEach(guest -> emailService.sendSimpleEmail(
+                        guest.getGuestEmail(),
+                        "Event cancelled: " + event.getEventName(),
+                        "Event " + event.getEventName() + " was cancelled. Reason:\n" + request.getReason()));
     }
 
     @Override

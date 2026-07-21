@@ -12,6 +12,8 @@ import com.fptu.fcms.repository.NotificationRecipientRepository;
 import com.fptu.fcms.repository.NotificationRepository;
 import com.fptu.fcms.repository.SystemRoleRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.repository.EventRegistrationRepository;
+import com.fptu.fcms.service.event.RegistrationLifecycle;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,7 @@ public class EventNotificationListener {
     private final UserRepository userRepository;
     private final SystemRoleRepository systemRoleRepository;
     private final ClubRepository clubRepository;
+    private final EventRegistrationRepository eventRegistrationRepository;
 
     @EventListener
     @Transactional
@@ -51,6 +54,16 @@ public class EventNotificationListener {
         }
         recipients.addAll(resolveSystemRecipients(SYSTEM_ROLE_ADMIN));
         recipients.addAll(resolveSystemRecipients(SYSTEM_ROLE_ICPDP));
+        if (EventStatus.CANCELLED.equals(event.newStatus())) {
+            List<Integer> participantIds = eventRegistrationRepository.findByEventIDAndIsDeletedFalse(event.eventId()).stream()
+                    .filter(r -> RegistrationLifecycle.ACTIVE_STATUSES.contains(r.getRegistrationStatus()))
+                    .map(r -> r.getUserID())
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+            if (!participantIds.isEmpty()) {
+                recipients.addAll(userRepository.findAllByUserIDIn(participantIds));
+            }
+        }
         recipients = new ArrayList<>(new LinkedHashSet<>(recipients));
 
         if (recipients.isEmpty()) {
