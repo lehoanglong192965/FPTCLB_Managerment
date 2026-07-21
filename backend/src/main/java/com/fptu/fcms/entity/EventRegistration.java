@@ -146,6 +146,12 @@ public class EventRegistration {
     @Column(name = "capacityExempt", nullable = false)
     private Boolean capacityExempt = false;
 
+    @Column(name = "purchaserUserID")
+    private Integer purchaserUserID;
+
+    @Column(name = "ticketOrderCode", length = 64)
+    private String ticketOrderCode;
+
     @Column(name = "verifiedAt")
     private LocalDateTime verifiedAt;
 

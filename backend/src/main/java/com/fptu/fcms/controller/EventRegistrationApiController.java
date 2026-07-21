@@ -5,6 +5,7 @@ import com.fptu.fcms.dto.request.EventGuestRegistrationRequest;
 import com.fptu.fcms.dto.request.GuestRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
 import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
+import com.fptu.fcms.dto.request.GroupTicketPurchaseRequest;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationResponse;
@@ -47,6 +48,17 @@ public class EventRegistrationApiController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(eventRegistrationService.registerEvent(eventId, currentUser.getUserId()));
+    }
+
+    @PostMapping("/api/events/{eventId}/ticket-orders")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Dat 1 den 4 ve cho su kien ban ve")
+    public ResponseEntity<EventRegistrationResultResponse> registerGroupTickets(
+            @PathVariable Integer eventId,
+            @Valid @RequestBody GroupTicketPurchaseRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(eventRegistrationService.registerGroupTickets(eventId, currentUser.getUserId(), request));
     }
 
     @PostMapping("/api/registrations/{registrationId}/payment/confirm")
@@ -190,6 +202,16 @@ public class EventRegistrationApiController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         eventRegistrationService.cancelRegistration(registrationId, currentUser);
         return ResponseEntity.ok(Map.of("message", "Registration cancelled."));
+    }
+
+    @PostMapping("/api/ticket-orders/{ticketOrderCode}/cancel")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Huy toan bo don ve cua tai khoan hien tai")
+    public ResponseEntity<Map<String, String>> cancelTicketOrder(
+            @PathVariable String ticketOrderCode,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventRegistrationService.cancelTicketOrder(ticketOrderCode, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Ticket order cancelled."));
     }
 
     @PostMapping({"/api/events/{eventId}/registrations/guest/{guestRegistrationId}/cancel"})

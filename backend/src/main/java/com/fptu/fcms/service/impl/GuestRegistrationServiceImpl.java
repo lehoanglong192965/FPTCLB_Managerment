@@ -16,6 +16,7 @@ import com.fptu.fcms.enums.RegistrationChannel;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.enums.PaymentStatus;
 import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.GuestVerificationOtpRepository;
 import com.fptu.fcms.service.EmailService;
@@ -51,6 +52,7 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
     private static final Set<RegistrationStatus> INACTIVE_GUEST_STATUSES = Set.of(RegistrationStatus.CANCELLED, RegistrationStatus.REJECTED);
 
     private final EventRepository eventRepository;
+    private final EventRegistrationRepository eventRegistrationRepository;
     private final GuestEventRegistrationRepository guestEventRegistrationRepository;
     private final GuestVerificationOtpRepository guestVerificationOtpRepository;
     private final RegistrationAllocationPort registrationAllocationPort;
@@ -286,6 +288,14 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         }
         if (guestEventRegistrationRepository.existsActiveGuestPhone(eventId, phone, INACTIVE_GUEST_STATUSES)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "GUEST_DUPLICATE_PHONE");
+        }
+        boolean duplicateInAccountOrders = eventRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
+                .filter(registration -> registration.getRegistrationStatus() != null
+                        && !INACTIVE_GUEST_STATUSES.contains(registration.getRegistrationStatus()))
+                .anyMatch(registration -> email.equalsIgnoreCase(normalizeEmail(registration.getGuestEmail()))
+                        || phone.equals(normalizePhone(registration.getGuestPhone())));
+        if (duplicateInAccountOrders) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "GUEST_DUPLICATE_EMAIL_OR_PHONE");
         }
     }
 

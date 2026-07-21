@@ -97,17 +97,19 @@ public class EventController {
 
     @GetMapping("/{eventId}/my-status")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Map<String, Boolean>> getMyStatus(
+    public ResponseEntity<Map<String, Object>> getMyStatus(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         boolean registered = eventRegistrationService.isUserRegistered(eventId, currentUser.getUserId());
         boolean assigned = eventService.isUserAssigned(eventId, currentUser.getUserId());
         boolean paymentExempt = assigned
                 || eventService.isHostClubLeaderOrVice(eventId, currentUser.getUserId());
+        long purchasedTicketCount = eventRegistrationService.countActiveTicketsPurchased(eventId, currentUser.getUserId());
         return ResponseEntity.ok(Map.of(
                 "registered", registered,
                 "assigned", assigned,
-                "paymentExempt", paymentExempt
+                "paymentExempt", paymentExempt,
+                "purchasedTicketCount", purchasedTicketCount
         ));
     }
 

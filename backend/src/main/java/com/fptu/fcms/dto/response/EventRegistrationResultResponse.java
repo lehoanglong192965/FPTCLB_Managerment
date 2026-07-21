@@ -12,6 +12,8 @@ public record EventRegistrationResultResponse(
         String currency,
         String paymentReference,
         boolean ticketEligible,
-        String message
+        String message,
+        String ticketOrderCode,
+        Integer ticketCount
 ) {
 }

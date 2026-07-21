@@ -37,6 +37,11 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     List<EventRegistration> findByEventIDAndIsDeletedFalse(Integer eventID);
     List<EventRegistration> findByEventIDAndRegistrationStatusAndIsDeletedFalseOrderByRegisteredAtAsc(Integer eventID, RegistrationStatus status);
     List<EventRegistration> findByUserIDAndIsDeletedFalse(Integer userID);
+    List<EventRegistration> findByPurchaserUserIDAndIsDeletedFalse(Integer purchaserUserID);
+    List<EventRegistration> findByTicketOrderCodeAndPurchaserUserIDAndIsDeletedFalse(String ticketOrderCode, Integer purchaserUserID);
+    List<EventRegistration> findByPaymentStatusAndPaymentExpiresAtBeforeAndIsDeletedFalse(
+            com.fptu.fcms.enums.PaymentStatus paymentStatus,
+            java.time.LocalDateTime paymentExpiresAt);
     Optional<EventRegistration> findTopByEventIDAndUserIDAndIsDeletedFalseAndRegistrationStatusInOrderByRegisteredAtDesc(
             Integer eventID,
             Integer userID,

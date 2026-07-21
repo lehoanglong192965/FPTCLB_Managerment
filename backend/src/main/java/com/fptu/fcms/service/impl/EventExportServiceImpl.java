@@ -81,6 +81,10 @@ public class EventExportServiceImpl implements EventExportService {
                     value(registration.getPaymentReference()),
                     registration.getPaidAt(),
                     value(registration.getTicketCode()),
+                    value(registration.getTicketOrderCode()),
+                    registration.getPurchaserUserID() == null ? "" : userRepository
+                            .findByUserIDAndIsDeletedFalse(registration.getPurchaserUserID())
+                            .map(UserAccount::getEmail).orElse(""),
                     sortIndex++
             ));
         }
@@ -101,6 +105,8 @@ public class EventExportServiceImpl implements EventExportService {
                     value(registration.getPaymentReference()),
                     registration.getPaidAt(),
                     value(registration.getTicketCode()),
+                    "",
+                    "",
                     sortIndex++
             ));
         }
@@ -126,7 +132,9 @@ public class EventExportServiceImpl implements EventExportService {
                 "Ph\u01b0\u01a1ng th\u1ee9c thanh to\u00e1n",
                 "M\u00e3 \u0111\u1ed1i chi\u1ebfu giao d\u1ecbch",
                 "Th\u1eddi \u0111i\u1ec3m thanh to\u00e1n",
-                "M\u00e3 v\u00e9"
+                "M\u00e3 v\u00e9",
+                "M\u00e3 \u0111\u01a1n v\u00e9",
+                "Email ng\u01b0\u1eddi mua"
         ));
         for (RegistrationExportRow row : rows) {
             csvRows.add(List.of(
@@ -144,7 +152,9 @@ public class EventExportServiceImpl implements EventExportService {
                     row.paymentMethod(),
                     row.paymentReference(),
                     formatDateTime(row.paidAt()),
-                    row.ticketCode()
+                    row.ticketCode(),
+                    row.ticketOrderCode(),
+                    row.purchaserEmail()
             ));
         }
 
@@ -441,6 +451,8 @@ public class EventExportServiceImpl implements EventExportService {
             String paymentReference,
             LocalDateTime paidAt,
             String ticketCode,
+            String ticketOrderCode,
+            String purchaserEmail,
             int sortIndex
     ) {
     }

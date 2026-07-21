@@ -38,6 +38,12 @@ export default function MemberMyTickets() {
         const assigns = Array.isArray(assignRes) ? assignRes : (assignRes.data || []);
         const clubList = Array.isArray(clubRes)  ? clubRes   : (clubRes.data   || []);
 
+        const orderTotals = regs.reduce((totals, registration) => {
+          if (registration.ticketOrderCode) {
+            totals[registration.ticketOrderCode] = (totals[registration.ticketOrderCode] || 0) + Number(registration.amountDue || 0);
+          }
+          return totals;
+        }, {});
         const mappedRegs = regs.map((registration) => {
           const e = { ...registration, eventID: registration.eventId, clubID: registration.clubId };
           const clubObj = clubList.find((c) => c.clubID === e.clubID);
@@ -66,13 +72,18 @@ export default function MemberMyTickets() {
             ticketEligible: e.ticketEligible === true,
             registeredAt: e.registeredAt,
             paymentStatus: e.paymentStatus,
-            amountDue: e.amountDue,
+            amountDue: e.ticketOrderCode ? orderTotals[e.ticketOrderCode] : e.amountDue,
             amountPaid: e.amountPaid,
             paymentCurrency: e.paymentCurrency,
             paymentReference: e.paymentReference,
             paymentMethod: e.paymentMethod,
             paidAt: e.paidAt,
             paymentExpiresAt: e.paymentExpiresAt,
+            purchaserUserId: e.purchaserUserId,
+            ticketOrderCode: e.ticketOrderCode,
+            ticketHolderName: e.ticketHolderName,
+            ticketHolderEmail: e.ticketHolderEmail,
+            ticketHolderPhone: e.ticketHolderPhone,
           };
         });
 
@@ -93,17 +104,9 @@ export default function MemberMyTickets() {
         });
 
         // Gộp, ưu tiên vai trò BTC nếu trùng event
-        const combined = [...mappedAssigns];
-        mappedRegs.forEach((r) => {
-          if (!combined.some((t) => t.id === r.id)) {
-            combined.push(r);
-          }
-        });
-        mappedRegs.forEach((registration) => {
-          const assignedTicket = combined.find((ticket) => ticket.id === registration.id);
-          if (assignedTicket && assignedTicket !== registration) {
-            Object.assign(assignedTicket, registration, { ticketStatus: assignedTicket.ticketStatus });
-          }
+        const combined = [...mappedRegs];
+        mappedAssigns.forEach((assignment) => {
+          if (!combined.some((ticket) => ticket.id === assignment.id)) combined.push(assignment);
         });
 
 

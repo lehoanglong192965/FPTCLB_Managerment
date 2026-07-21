@@ -27,6 +27,14 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [ticketLoading, setTicketLoading] = useState(false);
     const [cancelling, setCancelling] = useState(false);
+    const [purchasedTicketCount, setPurchasedTicketCount] = useState(0);
+    const [showTicketOrder, setShowTicketOrder] = useState(false);
+    const [participants, setParticipants] = useState([{
+        fullName: user?.fullName || '',
+        email: user?.email || '',
+        phone: user?.phoneNumber || user?.phone || '',
+        studentId: user?.studentId || '',
+    }]);
 
     const isExcludedRole = user?.role === 'Leader' || user?.role === 'ICPDP' || user?.role === 'Admin';
 
@@ -41,6 +49,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
                 setIsRegistered(!!data.registered);
                 setIsAssigned(!!data.assigned);
                 setPaymentExempt(!!data.paymentExempt);
+                setPurchasedTicketCount(Number(data.purchasedTicketCount || 0));
             })
             .catch(err => {
                 if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
@@ -182,7 +191,11 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
                 return;
             }
 
-            await eventApi.cancelRegistration(registrationId);
+            if (registrationResult?.ticketOrderCode) {
+                await eventApi.cancelTicketOrder(registrationResult.ticketOrderCode);
+            } else {
+                await eventApi.cancelRegistration(registrationId);
+            }
             setIsRegistered(false);
             setRegistrationResult(null);
             setSelectedTicket(null);
@@ -195,7 +208,8 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
         }
     };
 
-    if (isRegistered && registrationResult?.paymentStatus !== 'PENDING') {
+    if (isRegistered && registrationResult?.paymentStatus !== 'PENDING'
+        && !(isPaidEvent && !paymentExempt && purchasedTicketCount < 4)) {
         return (
             <>
             <div className="flex flex-col gap-2">
@@ -258,6 +272,38 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
         }
     };
 
+    const updateTicketQuantity = (quantity) => {
+        const safeQuantity = Math.max(1, Math.min(Number(quantity) || 1, Math.max(1, 4 - purchasedTicketCount)));
+        setParticipants((current) => Array.from({ length: safeQuantity }, (_, index) => current[index] || {
+            fullName: '', email: '', phone: '', studentId: '',
+        }));
+    };
+
+    const updateParticipant = (index, field, value) => {
+        setParticipants((current) => current.map((participant, participantIndex) =>
+            participantIndex === index ? { ...participant, [field]: value } : participant));
+    };
+
+    const handleCreateTicketOrder = async () => {
+        setIsLoading(true);
+        try {
+            const response = await eventApi.createTicketOrder(eventId, participants);
+            const result = response?.data ?? response;
+            setRegistrationResult(result);
+            setIsRegistered(true);
+            setPurchasedTicketCount((count) => count + Number(result.ticketCount || participants.length));
+            setShowTicketOrder(false);
+            addNotification({
+                title: 'Đã giữ chỗ cho đơn vé',
+                content: `Vui lòng thanh toán ${Number(result.amountDue || 0).toLocaleString('vi-VN')} ${result.currency || ticketCurrency}.`,
+            });
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Không thể tạo đơn vé.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     if (registrationResult?.paymentStatus === 'PENDING') {
         return (
             <div className="space-y-2 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm">
@@ -280,6 +326,57 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
                 >
                     {cancelling ? 'Đang hủy vé...' : 'Hủy vé'}
                 </button>
+            </div>
+        );
+    }
+
+    if (isPaidEvent && !paymentExempt) {
+        const remainingTickets = Math.max(0, 4 - purchasedTicketCount);
+        if (!showTicketOrder) {
+            return (
+                <div className="flex w-full flex-col gap-2">
+                    {isRegistered && (
+                        <button type="button" onClick={() => navigate('/member/tickets')} className="w-full rounded-lg border border-green-300 bg-white px-6 py-2.5 font-medium text-green-700 hover:bg-green-50">
+                            Xem {purchasedTicketCount} vé đã đặt
+                        </button>
+                    )}
+                    {remainingTickets > 0 && (
+                        <button type="button" onClick={() => setShowTicketOrder(true)} className="w-full rounded-lg border-0 bg-[#F37021] px-6 py-2.5 font-medium text-white">
+                            Mua vé · còn tối đa {remainingTickets} vé/tài khoản
+                        </button>
+                    )}
+                </div>
+            );
+        }
+        return (
+            <div className="w-full space-y-3 rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                    <p className="m-0 font-bold text-orange-900">Đặt vé theo nhóm</p>
+                    <select value={participants.length} onChange={(event) => updateTicketQuantity(event.target.value)} className="rounded-lg border border-orange-200 bg-white px-3 py-2">
+                        {Array.from({ length: remainingTickets }, (_, index) => index + 1).map((quantity) => (
+                            <option key={quantity} value={quantity}>{quantity} vé</option>
+                        ))}
+                    </select>
+                </div>
+                {participants.map((participant, index) => (
+                    <div key={index} className="space-y-2 rounded-lg border border-orange-100 bg-white p-3">
+                        <p className="m-0 font-semibold text-gray-800">Người tham gia {index + 1}</p>
+                        <input value={participant.fullName} onChange={(event) => updateParticipant(index, 'fullName', event.target.value)} placeholder="Họ và tên" className="w-full rounded-lg border border-gray-200 p-2" />
+                        <input type="email" value={participant.email} onChange={(event) => updateParticipant(index, 'email', event.target.value)} placeholder="Email" className="w-full rounded-lg border border-gray-200 p-2" />
+                        <input value={participant.phone} onChange={(event) => updateParticipant(index, 'phone', event.target.value)} placeholder="Số điện thoại" className="w-full rounded-lg border border-gray-200 p-2" />
+                        <input value={participant.studentId} onChange={(event) => updateParticipant(index, 'studentId', event.target.value)} placeholder="MSSV (nếu là sinh viên FPTU)" className="w-full rounded-lg border border-gray-200 p-2" />
+                    </div>
+                ))}
+                <div className="flex items-center justify-between font-semibold text-orange-900">
+                    <span>Tổng thanh toán</span>
+                    <span>{(Number(ticketPrice || 0) * participants.length).toLocaleString('vi-VN')} {ticketCurrency}</span>
+                </div>
+                <div className="flex gap-2">
+                    <button type="button" onClick={() => setShowTicketOrder(false)} className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-700">Quay lại</button>
+                    <button type="button" onClick={handleCreateTicketOrder} disabled={isLoading} className="flex-1 rounded-lg border-0 bg-[#F37021] px-3 py-2 font-bold text-white disabled:opacity-50">
+                        {isLoading ? 'Đang giữ chỗ...' : 'Tạo đơn vé'}
+                    </button>
+                </div>
             </div>
         );
     }

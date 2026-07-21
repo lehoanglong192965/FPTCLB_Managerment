@@ -19,7 +19,7 @@ function fallbackCopy(text) {
   input.style.opacity = "0";
   document.body.appendChild(input);
   input.select();
-  let copied = false;
+  let copied;
   try {
     copied = document.execCommand("copy");
   } finally {
@@ -34,6 +34,7 @@ export default function TicketDetailModal({ ticket, onClose }) {
   const [paymentError, setPaymentError] = useState("");
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState("");
+  const [cancelling, setCancelling] = useState(false);
   const ticketEligible = ticket?.ticketEligible === true && Boolean(ticket?.ticketCode);
 
   useEffect(() => {
@@ -71,6 +72,20 @@ export default function TicketDetailModal({ ticket, onClose }) {
       setPaymentError(error?.response?.data?.message || "Không thể xác nhận thanh toán.");
     } finally {
       setPaying(false);
+    }
+  };
+
+  const cancelTicket = async () => {
+    if (!window.confirm(`Hủy vé của ${ticket.ticketHolderName || 'người tham gia này'}? Mã QR sẽ bị thu hồi.`)) return;
+    setCancelling(true);
+    setPaymentError("");
+    try {
+      await eventApi.cancelRegistration(ticket.registrationId);
+      window.location.reload();
+    } catch (error) {
+      setPaymentError(error?.response?.data?.message || "Không thể hủy vé.");
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -115,6 +130,14 @@ export default function TicketDetailModal({ ticket, onClose }) {
             <dd className="font-medium text-slate-800">{ticket.location ?? "Not available"}</dd>
             <dt className="text-slate-500">Status</dt>
             <dd className="font-medium text-slate-800">{ticket.registrationStatus ?? "Registered"}</dd>
+            {ticket.ticketHolderName && <>
+              <dt className="text-slate-500">Chủ vé</dt>
+              <dd className="font-medium text-slate-800">{ticket.ticketHolderName}</dd>
+            </>}
+            {ticket.ticketHolderEmail && <>
+              <dt className="text-slate-500">Email</dt>
+              <dd className="break-all font-medium text-slate-800">{ticket.ticketHolderEmail}</dd>
+            </>}
           </dl>
 
           {ticket.paymentStatus === "PENDING" && (
@@ -157,6 +180,12 @@ export default function TicketDetailModal({ ticket, onClose }) {
               The QR code is available only after your registration is confirmed and the ticket remains active.
             </div>
           )}
+          {ticket.registrationStatus !== "CANCELLED" && (
+            <button type="button" onClick={cancelTicket} disabled={cancelling || paying} className="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">
+              {cancelling ? 'Đang hủy vé...' : 'Hủy vé này'}
+            </button>
+          )}
+          {paymentError && ticket.paymentStatus !== "PENDING" && <p className="text-xs text-red-600">{paymentError}</p>}
         </div>
       </section>
     </div>

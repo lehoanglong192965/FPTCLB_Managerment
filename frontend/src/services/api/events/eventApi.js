@@ -65,6 +65,8 @@ const eventApi = {
 
   // MEMBER
   register: (eventId) => axiosClient.post(`/events/${eventId}/registrations/me`),
+  createTicketOrder: (eventId, participants) =>
+    axiosClient.post(`/events/${eventId}/ticket-orders`, { participants }),
   confirmPayment: (registrationId, payload) =>
     axiosClient.post(`/registrations/${registrationId}/payment/confirm`, payload),
   registerGuest: (eventId, payload) => axiosClient.post(`/events/${eventId}/registrations/guest`, payload),
@@ -90,6 +92,8 @@ const eventApi = {
     axiosClient.post(`/events/${eventId}/registrations/${registrationId}/reject`, { reason }),
   cancelRegistration: (registrationId) =>
     axiosClient.post(`/registrations/${registrationId}/cancel`),
+  cancelTicketOrder: (ticketOrderCode) =>
+    axiosClient.post(`/ticket-orders/${ticketOrderCode}/cancel`),
   cancelGuestRegistration: (eventId, guestRegistrationId) =>
     axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/cancel`),
 };

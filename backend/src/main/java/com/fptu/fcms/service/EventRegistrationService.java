@@ -7,17 +7,20 @@ import com.fptu.fcms.dto.response.RegistrationPageResponse;
 import com.fptu.fcms.dto.response.MyRegistrationResponse;
 import com.fptu.fcms.dto.response.EventRegistrationResultResponse;
 import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
+import com.fptu.fcms.dto.request.GroupTicketPurchaseRequest;
 import com.fptu.fcms.security.UserPrincipal;
 
 import java.util.List;
 
 public interface EventRegistrationService {
     EventRegistrationResultResponse registerEvent(Integer eventID, Integer userID);
+    EventRegistrationResultResponse registerGroupTickets(Integer eventID, Integer userID, GroupTicketPurchaseRequest request);
     MyRegistrationResponse confirmPayment(Integer registrationId, Integer userId, ConfirmEventPaymentRequest request);
     void registerGuestEvent(Integer eventID, EventGuestRegistrationRequest request);
     void registerWalkInEvent(Integer eventID, EventWalkInRegistrationRequest request, UserPrincipal currentUser);
     void unregisterEvent(Integer eventID, Integer userID);
     boolean isUserRegistered(Integer eventId, Integer userId);
+    long countActiveTicketsPurchased(Integer eventId, Integer userId);
     List<com.fptu.fcms.entity.Event> getEventsByUserRegistered(Integer userId);
 
     List<MyRegistrationResponse> getMyRegistrationDetails(Integer userId);
@@ -39,6 +42,7 @@ public interface EventRegistrationService {
     void rejectRegistration(Integer eventId, Integer registrationId, RegistrationRejectRequest request, UserPrincipal currentUser);
 
     void cancelRegistration(Integer registrationId, UserPrincipal currentUser);
+    void cancelTicketOrder(String ticketOrderCode, UserPrincipal currentUser);
 
     void cancelGuestRegistration(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser);
 }

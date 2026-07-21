@@ -37,4 +37,9 @@ public class MyRegistrationResponse {
     private PaymentMethod paymentMethod;
     private LocalDateTime paidAt;
     private LocalDateTime paymentExpiresAt;
+    private Integer purchaserUserId;
+    private String ticketOrderCode;
+    private String ticketHolderName;
+    private String ticketHolderEmail;
+    private String ticketHolderPhone;
 }
