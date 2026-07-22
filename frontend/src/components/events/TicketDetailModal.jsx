@@ -106,7 +106,7 @@ export default function TicketDetailModal({ ticket, onClose }) {
         <div className="flex items-start justify-between bg-[#0D1B3E] px-5 py-4 text-white">
           <div className="min-w-0 pr-4">
             <p className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-orange-200">
-              <Ticket size={15} /> Event ticket
+              <Ticket size={15} /> Vé sự kiện
             </p>
             <h2 id="ticket-detail-title" className="line-clamp-2 text-base font-bold">
               {ticket.eventName ?? ticket.title}
@@ -124,12 +124,12 @@ export default function TicketDetailModal({ ticket, onClose }) {
 
         <div className="space-y-4 p-5">
           <dl className="grid grid-cols-[100px_1fr] gap-x-3 gap-y-2 text-sm">
-            <dt className="text-slate-500">Time</dt>
+            <dt className="text-slate-500">Thời gian</dt>
             <dd className="font-medium text-slate-800">{formatDateTime(ticket.startDate ?? ticket.date)}</dd>
-            <dt className="text-slate-500">Location</dt>
-            <dd className="font-medium text-slate-800">{ticket.location ?? "Not available"}</dd>
-            <dt className="text-slate-500">Status</dt>
-            <dd className="font-medium text-slate-800">{ticket.registrationStatus ?? "Registered"}</dd>
+            <dt className="text-slate-500">Địa điểm</dt>
+            <dd className="font-medium text-slate-800">{ticket.location ?? "Chưa xác định"}</dd>
+            <dt className="text-slate-500">Trạng thái</dt>
+            <dd className="font-medium text-slate-800">{ticket.registrationStatus ?? "Đã đăng ký"}</dd>
             {ticket.ticketHolderName && <>
               <dt className="text-slate-500">Chủ vé</dt>
               <dd className="font-medium text-slate-800">{ticket.ticketHolderName}</dd>
@@ -160,7 +160,7 @@ export default function TicketDetailModal({ ticket, onClose }) {
           {ticketEligible ? (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
               <p className="mb-3 text-center text-sm font-semibold text-emerald-800">
-                Show this QR ticket to event staff at check-in.
+                Hãy xuất trình mã QR này cho ban tổ chức tại bàn điểm danh.
               </p>
               <div className="mx-auto w-fit rounded-xl bg-white p-3 shadow-sm">
                 <QRCode value={ticket.ticketCode} size={216} level="M" bgColor="#FFFFFF" fgColor="#0D1B3E" />
@@ -171,13 +171,13 @@ export default function TicketDetailModal({ ticket, onClose }) {
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100"
               >
                 {copied ? <Check size={16} /> : <Copy size={16} />}
-                {copied ? "Ticket code copied" : "Copy ticket code"}
+                {copied ? "Đã sao chép mã vé" : "Sao chép mã vé"}
               </button>
               {copyError && <p className="mt-2 text-center text-xs text-red-600" role="alert">{copyError}</p>}
             </div>
           ) : (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              The QR code is available only after your registration is confirmed and the ticket remains active.
+              Mã QR chỉ hiển thị sau khi đăng ký được xác nhận và vé đang hoạt động.
             </div>
           )}
           {ticket.registrationStatus !== "CANCELLED" && (

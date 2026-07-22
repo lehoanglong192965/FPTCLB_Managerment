@@ -10,6 +10,7 @@ import com.fptu.fcms.entity.AttendanceSession;
 import com.fptu.fcms.entity.EventRegistration;
 import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.entity.UserAccount;
+import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.enums.AttendanceSessionStatus;
 import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.RegistrationStatus;
@@ -23,7 +24,9 @@ import com.fptu.fcms.service.AttendanceSessionService;
 import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.AuditLogService;
 import com.fptu.fcms.service.event.RegistrationLifecycle;
+import com.fptu.fcms.service.statemachine.AttendanceSessionStateMachineService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +45,10 @@ import java.util.stream.Stream;
 @Service
 @RequiredArgsConstructor
 public class AttendanceSessionServiceImpl implements AttendanceSessionService {
+    private static final String SESSION_ALREADY_EXISTS_CODE = "ATTENDANCE_SESSION_ALREADY_EXISTS";
+    private static final String SESSION_ALREADY_EXISTS_MESSAGE = "Event already has an attendance session.";
+    private static final String SESSION_UNIQUE_INDEX = "UX_AttendanceSession_Event_Active";
+
 
     private final AttendanceSessionRepository attendanceSessionRepository;
     private final AttendanceRecordRepository attendanceRecordRepository;
@@ -50,11 +57,15 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
     private final EventAssignmentAccessService eventAssignmentAccessService;
+    private final AttendanceSessionStateMachineService stateMachineService;
 
     @Override
     @Transactional
     public AttendanceSessionResponse create(Integer eventId, AttendanceSessionRequest request, UserPrincipal currentUser) {
         eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        if (attendanceSessionRepository.existsByEventIDAndIsDeletedFalse(eventId)) {
+            throw attendanceSessionAlreadyExists();
+        }
         AttendanceSession session = new AttendanceSession();
         session.setEventID(eventId);
         session.setSessionName(request.getName());
@@ -64,7 +75,14 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         session.setCreatedBy(currentUser.getUserId());
         session.setCreatedAt(LocalDateTime.now());
         session.setIsDeleted(false);
-        return toSessionResponse(attendanceSessionRepository.save(session));
+        try {
+            return toSessionResponse(attendanceSessionRepository.saveAndFlush(session));
+        } catch (DataIntegrityViolationException ex) {
+            if (!isAttendanceSessionUniqueViolation(ex)) {
+                throw ex;
+            }
+            throw attendanceSessionAlreadyExists();
+        }
     }
 
     @Override
@@ -109,15 +127,38 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     @Override
     @Transactional
     public AttendanceSessionResponse close(Integer sessionId, UserPrincipal currentUser) {
-        AttendanceSession session = findSession(sessionId);
+        AttendanceSession session = attendanceSessionRepository.findBySessionIDForUpdate(sessionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ATTENDANCE_SESSION_NOT_FOUND"));
         eventAssignmentAccessService.ensureCanManageEvent(session.getEventID(), currentUser);
+        return doFinalizeSession(session, currentUser.getUserId());
+    }
+
+    @Override
+    @Transactional
+    public AttendanceSessionResponse finalizeAttendanceForEvent(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        AttendanceSession session = attendanceSessionRepository.findByEventIDForUpdate(eventId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ATTENDANCE_SESSION_NOT_FOUND"));
+        return doFinalizeSession(session, currentUser.getUserId());
+    }
+
+    /**
+     * Shared finalization implementation. Receives an already-locked session entity.
+     *
+     * <ul>
+     *   <li>CLOSED → idempotent, returns unchanged.</li>
+     *   <li>DRAFT / OPEN → validates transition via state machine, materializes ABSENT records
+     *       for eligible registrations, sets CLOSED.</li>
+     * </ul>
+     */
+    private AttendanceSessionResponse doFinalizeSession(AttendanceSession session, Integer actorId) {
         if (session.getStatus() == AttendanceSessionStatus.CLOSED) {
             return toSessionResponse(session);
         }
-        if (session.getStatus() != AttendanceSessionStatus.OPEN) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "ATTENDANCE_SESSION_NOT_OPEN");
-        }
 
+        stateMachineService.validateTransition(session.getStatus(), AttendanceSessionStatus.CLOSED);
+
+        Integer sessionId = session.getSessionID();
         List<AttendanceRecord> existingRecords = attendanceRecordRepository.findBySessionID(sessionId);
         Set<Integer> existingRegistrationIds = existingRecords.stream()
                 .map(AttendanceRecord::getRegistrationID)
@@ -138,7 +179,10 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                                     record.setSessionID(sessionId);
                                     record.setRegistrationID(reg.getRegistrationID());
                                     record.setUserID(reg.getUserID());
-                                    record.setParticipantTypeSnapshot(reg.getUserID() == null ? "GUEST" : reg.getParticipantType().name());
+                                    String participantType = reg.getParticipantType() == null
+                                            ? (reg.getUserID() == null ? "GUEST" : "PARTICIPANT")
+                                            : reg.getParticipantType().name();
+                                    record.setParticipantTypeSnapshot(participantType);
                                     record.setParticipantTypeSnapshotAt(reg.getParticipantTypeSnapshotAt());
                                     record.setAttendanceStatus(AttendanceStatus.ABSENT);
                                     record.setCreatedAt(now);
@@ -166,10 +210,25 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         attendanceRecordRepository.saveAll(absentRows);
 
         session.setStatus(AttendanceSessionStatus.CLOSED);
-        session.setClosedBy(currentUser.getUserId());
+        session.setClosedBy(actorId);
         session.setClosesAt(now);
         session.setUpdatedAt(now);
-        return toSessionResponse(attendanceSessionRepository.save(session));
+        AttendanceSession saved = attendanceSessionRepository.save(session);
+
+        auditLogService.recordWithRefs(
+                actorId,
+                "AttendanceSession",
+                session.getSessionID(),
+                "ATTENDANCE_SESSION_FINALIZED",
+                null,
+                "absentRowsCreated=" + absentRows.size(),
+                session.getEventID(),
+                null,
+                null,
+                null
+        );
+
+        return toSessionResponse(saved);
     }
 
     @Override
@@ -270,6 +329,26 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     private AttendanceSession findSession(Integer sessionId) {
         return attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(sessionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ATTENDANCE_SESSION_NOT_FOUND"));
+    }
+
+    private BusinessRuleException attendanceSessionAlreadyExists() {
+        return new BusinessRuleException(
+                SESSION_ALREADY_EXISTS_CODE,
+                SESSION_ALREADY_EXISTS_MESSAGE,
+                HttpStatus.CONFLICT
+        );
+    }
+
+    private boolean isAttendanceSessionUniqueViolation(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && message.contains(SESSION_UNIQUE_INDEX)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private AttendanceSessionResponse toSessionResponse(AttendanceSession session) {
@@ -427,4 +506,3 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         return "******" + phone.substring(phone.length() - 4);
     }
 }
-

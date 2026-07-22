@@ -10,6 +10,9 @@ public class AttendanceCheckInResponse {
     private Integer eventId;
     private Integer registrationId;
     private Integer userId;
+    private String fullName;
+    private String studentId;
+    private String participantType;
     private AttendanceStatus status;
     private String message;
 }

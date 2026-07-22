@@ -5,6 +5,10 @@ import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.service.event.RegistrationLifecycle;
+import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.NotificationRepository;
+import com.fptu.fcms.repository.NotificationRecipientRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -25,6 +29,14 @@ class RegistrationAllocationServiceImplTicketTest {
     private EventRegistrationRepository registrationRepository;
     @Mock
     private GuestEventRegistrationRepository guestRegistrationRepository;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private EventRepository eventRepository;
+    @Mock
+    private NotificationRepository notificationRepository;
+    @Mock
+    private NotificationRecipientRepository notificationRecipientRepository;
 
     @InjectMocks
     private RegistrationAllocationServiceImpl service;
@@ -37,7 +49,7 @@ class RegistrationAllocationServiceImplTicketTest {
         waitlisted.setRegistrationStatus(RegistrationStatus.WAITLISTED);
         waitlisted.setStatus(RegistrationStatus.WAITLISTED.name());
 
-        when(registrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
+        when(registrationRepository.countByEventIDAndRegistrationStatusInAndCapacityExemptFalseAndIsDeletedFalse(
                 12,
                 RegistrationLifecycle.CONFIRMED_STATUSES
         )).thenReturn(0L);

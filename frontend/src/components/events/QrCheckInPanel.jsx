@@ -31,6 +31,8 @@ export default function QrCheckInPanel({ onTicketRead }) {
   const onTicketReadRef = useRef(onTicketRead);
   const lastScanRef = useRef({ value: "", at: 0 });
   const submittingRef = useRef(false);
+  const scanLockedRef = useRef(false);
+  const cooldownTimerRef = useRef(null);
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [scannerGeneration, setScannerGeneration] = useState(0);
   const [cameraError, setCameraError] = useState("");
@@ -69,7 +71,8 @@ export default function QrCheckInPanel({ onTicketRead }) {
     }
   }, []);
 
-  const submitTicket = useCallback(async (rawTicketCode, stopCameraAfterSuccess = false) => {
+  const submitTicket = useCallback(async (rawTicketCode) => {
+    if (scanLockedRef.current) return false;
     const ticketCode = rawTicketCode?.trim();
     if (!ticketCode) {
       setNotice("Scan or enter a ticket code first.");
@@ -78,34 +81,31 @@ export default function QrCheckInPanel({ onTicketRead }) {
     const now = Date.now();
     const previous = lastScanRef.current;
     if (submittingRef.current) {
-      setNotice("The previous ticket is still being processed.");
       return false;
     }
     if (previous.value === ticketCode && now - previous.at < DUPLICATE_WINDOW_MS) {
-      setNotice("This ticket was scanned recently. Please wait before scanning it again.");
       return false;
     }
 
     lastScanRef.current = { value: ticketCode, at: now };
+    scanLockedRef.current = true;
     submittingRef.current = true;
     setSubmitting(true);
     setNotice("");
     try {
       await onTicketReadRef.current(ticketCode);
-      if (stopCameraAfterSuccess) {
-        const scannerToStop = scannerRef.current;
-        setNotice("Check-in completed. Start the camera again for the next ticket.");
-        setCameraEnabled(false);
-        void enqueueScannerTask(() => disposeScanner(scannerToStop));
-      }
       return true;
     } catch {
       return false;
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+      cooldownTimerRef.current = window.setTimeout(() => {
+        scanLockedRef.current = false;
+      }, 1500);
     }
-  }, [disposeScanner, enqueueScannerTask]);
+  }, []);
 
   useEffect(() => {
     if (!cameraEnabled) return undefined;
@@ -152,7 +152,7 @@ export default function QrCheckInPanel({ onTicketRead }) {
           await scanner.start(
             cameraId,
             config,
-            (decodedText) => { void submitTicket(decodedText, true); },
+            (decodedText) => { void submitTicket(decodedText); },
             () => {}
           );
 
@@ -172,6 +172,8 @@ export default function QrCheckInPanel({ onTicketRead }) {
     void startScanner();
     return () => {
       disposed = true;
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+      scanLockedRef.current = false;
       void enqueueScannerTask(() => disposeScanner(localScanner));
     };
   }, [cameraEnabled, disposeScanner, enqueueScannerTask, scannerGeneration, selectedCameraId, submitTicket]);
@@ -188,18 +190,18 @@ export default function QrCheckInPanel({ onTicketRead }) {
         <div className="flex items-start gap-3">
           <div className="rounded-lg bg-blue-600 p-2 text-white"><QrCode size={19} /></div>
           <div>
-            <h3 className="font-semibold text-slate-900">QR ticket check-in</h3>
-            <p className="mt-1 text-sm text-slate-600">The ticket is verified for this event and recorded only once.</p>
+            <h3 className="font-semibold text-slate-900">Điểm danh bằng QR vé</h3>
+            <p className="mt-1 text-sm text-slate-600">Vé được xác thực cho sự kiện này và chỉ ghi nhận một lần duy nhất.</p>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <button type="button" onClick={() => { setCameraError(""); setNotice(""); setCameraEnabled((enabled) => !enabled); }} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
             {cameraEnabled ? <CameraOff size={16} /> : <Camera size={16} />}
-            {cameraEnabled ? "Stop camera" : "Use camera"}
+            {cameraEnabled ? "Dừng Camera" : "Bật Camera"}
           </button>
           {cameraEnabled && (
             <button type="button" onClick={() => { setCameraError(""); setNotice(""); setScannerGeneration((generation) => generation + 1); }} className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100">
-              <RefreshCcw size={16} /> Restart
+              <RefreshCcw size={16} /> Khởi động lại
             </button>
           )}
         </div>
@@ -221,10 +223,10 @@ export default function QrCheckInPanel({ onTicketRead }) {
       {cameraError && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{cameraError}</p>}
 
       <form onSubmit={submitManualCode} className="rounded-xl border border-slate-200 bg-white p-4">
-        <label htmlFor="manual-ticket-code" className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800"><Keyboard size={16} /> Enter ticket code without a camera</label>
+        <label htmlFor="manual-ticket-code" className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-800"><Keyboard size={16} /> Nhập mã vé thủ công (không dùng camera)</label>
         <div className="flex gap-2">
-          <input id="manual-ticket-code" value={manualCode} onChange={(event) => { setManualCode(event.target.value); setNotice(""); }} placeholder="Paste or enter a ticket code" autoComplete="off" className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
-          <button type="submit" disabled={submitting || !manualCode.trim()} className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-950 disabled:cursor-not-allowed disabled:opacity-50">{submitting ? "Processing" : "Check in"}</button>
+          <input id="manual-ticket-code" value={manualCode} onChange={(event) => { setManualCode(event.target.value); setNotice(""); }} placeholder="Dán hoặc nhập mã vé tại đây" autoComplete="off" className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+          <button type="submit" disabled={submitting || !manualCode.trim()} className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-950 disabled:cursor-not-allowed disabled:opacity-50">{submitting ? "Đang xử lý..." : "Điểm danh"}</button>
         </div>
       </form>
       {notice && <p className="text-sm text-slate-600" role="status">{notice}</p>}
