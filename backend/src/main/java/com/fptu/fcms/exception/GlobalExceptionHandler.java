@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -14,6 +15,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -33,6 +36,7 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final Pattern PARTICIPANT_FIELD = Pattern.compile("participants\\[(\\d+)]\\.(\\w+)");
 
     // =====================================================================
     // XỬ LÝ LỖI NGHIỆP VỤ (BusinessRuleException)
@@ -104,9 +108,27 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
         // Gộp tất cả lỗi field thành chuỗi, ví dụ: "clubID: không được để trống; userID: phải lớn hơn 0"
         String message = ex.getBindingResult().getFieldErrors().stream()
-                .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
+                .map(this::formatValidationError)
                 .collect(Collectors.joining("; "));
         return buildErrorResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.VALIDATION_ERROR.name(), message);
+    }
+
+    private String formatValidationError(FieldError error) {
+        Matcher participantField = PARTICIPANT_FIELD.matcher(error.getField());
+        if (!participantField.matches()) {
+            return error.getField() + ": " + error.getDefaultMessage();
+        }
+
+        int participantNumber = Integer.parseInt(participantField.group(1)) + 1;
+        String field = participantField.group(2);
+        String detail = switch (field) {
+            case "email" -> "Email không đúng định dạng. Ví dụ hợp lệ: ten@example.com.";
+            case "fullName" -> "Vui lòng nhập họ và tên.";
+            case "phone" -> "Vui lòng nhập số điện thoại hợp lệ.";
+            case "studentId" -> "MSSV không được vượt quá 20 ký tự.";
+            default -> error.getDefaultMessage();
+        };
+        return "Người tham gia " + participantNumber + ": " + detail;
     }
 
     // =====================================================================

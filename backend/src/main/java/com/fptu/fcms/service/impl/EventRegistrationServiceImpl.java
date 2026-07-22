@@ -211,7 +211,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         long alreadyPurchased = currentEventRegistrations.stream()
                 .filter(registration -> Objects.equals(registration.getPurchaserUserID(), purchaserUserID)
                         || (registration.getPurchaserUserID() == null && Objects.equals(registration.getUserID(), purchaserUserID)))
-                .filter(registration -> RegistrationLifecycle.ACTIVE_STATUSES.contains(currentRegistrationStatus(registration)))
+                .filter(this::isActiveTicketReservation)
                 .count();
         if (alreadyPurchased + requested.size() > 4) {
             throw new IllegalArgumentException("Tài khoản chỉ được sở hữu tối đa 4 vé cho một sự kiện bán vé.");
@@ -232,7 +232,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 throw new IllegalArgumentException("Email hoặc số điện thoại bị trùng trong danh sách đặt vé.");
             }
 
-            UserAccount attendee = resolveTicketHolderAccount(participant, email);
+            UserAccount attendee = resolveTicketHolderAccount(event, participant, email);
             if (attendee != null) {
                 ensureUserAllowedForEvent(event, attendee);
                 if (!inputUserIds.add(attendee.getUserID())) {
@@ -243,11 +243,13 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             holders.add(new ResolvedTicketHolder(attendee, fullName, email, phone));
         }
 
-        long confirmed = registrationRepo
-                .countByEventIDAndRegistrationStatusInAndCapacityExemptFalseAndIsDeletedFalse(
-                        eventID, RegistrationLifecycle.CONFIRMED_STATUSES)
-                + guestRegistrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
-                        eventID, RegistrationLifecycle.CONFIRMED_STATUSES);
+        long confirmed = currentEventRegistrations.stream()
+                .filter(registration -> !Boolean.TRUE.equals(registration.getCapacityExempt()))
+                .filter(this::isActiveTicketReservation)
+                .count()
+                + guestRegistrationRepository.findByEventIDAndIsDeletedFalse(eventID).stream()
+                .filter(this::isActiveGuestTicketReservation)
+                .count();
         long seatsNeeded = holders.stream()
                 .filter(holder -> holder.account() == null || !isOrganizer(event, holder.account().getUserID()))
                 .count();
@@ -318,11 +320,22 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         );
     }
 
-    private UserAccount resolveTicketHolderAccount(GroupTicketPurchaseRequest.Participant participant, String email) {
+    private UserAccount resolveTicketHolderAccount(
+            Event event,
+            GroupTicketPurchaseRequest.Participant participant,
+            String email
+    ) {
+        UserAccount byEmail = userRepository.findByEmailIgnoreCaseAndIsDeletedFalse(email).orElse(null);
+
+        // Public ticket sales also serve guests. An optional student ID must not turn
+        // an arbitrary valid email into a required FPTU account lookup.
+        if (!Boolean.TRUE.equals(event.getIsInternal())) {
+            return byEmail;
+        }
+
         UserAccount byStudentId = StringUtils.hasText(participant.getStudentId())
                 ? userRepository.findByStudentIdAndIsDeletedFalse(participant.getStudentId().trim()).orElse(null)
                 : null;
-        UserAccount byEmail = userRepository.findByEmailIgnoreCaseAndIsDeletedFalse(email).orElse(null);
         if (byStudentId != null && byEmail != null && !Objects.equals(byStudentId.getUserID(), byEmail.getUserID())) {
             throw new IllegalArgumentException("MSSV và email không thuộc cùng một tài khoản FPTU.");
         }
@@ -339,18 +352,50 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             Integer eventID, UserAccount attendee, String email, String phone,
             List<EventRegistration> currentRegistrations
     ) {
-        boolean duplicate = currentRegistrations.stream()
-                .filter(registration -> RegistrationLifecycle.ACTIVE_STATUSES.contains(currentRegistrationStatus(registration)))
-                .anyMatch(registration -> (attendee != null && Objects.equals(registration.getUserID(), attendee.getUserID()))
+        EventRegistration duplicate = currentRegistrations.stream()
+                .filter(this::isActiveTicketReservation)
+                .filter(registration -> (attendee != null && Objects.equals(registration.getUserID(), attendee.getUserID()))
                         || email.equalsIgnoreCase(normalizeTicketEmail(registration.getGuestEmail()))
-                        || phone.equals(normalizeTicketPhone(registration.getGuestPhone())));
-        if (!duplicate) {
-            duplicate = guestRegistrationRepository.findByEventIDAndIsDeletedFalse(eventID).stream()
-                    .filter(registration -> RegistrationLifecycle.ACTIVE_STATUSES.contains(registration.getRegistrationStatus()))
-                    .anyMatch(registration -> email.equalsIgnoreCase(normalizeTicketEmail(registration.getGuestEmail()))
-                            || phone.equals(normalizeTicketPhone(registration.getGuestPhone())));
+                        || phone.equals(normalizeTicketPhone(registration.getGuestPhone())))
+                .findFirst()
+                .orElse(null);
+        if (duplicate != null) {
+            String identifier = email.equalsIgnoreCase(normalizeTicketEmail(duplicate.getGuestEmail())) ? "Email" : "Số điện thoại";
+            if (PaymentStatus.PENDING.equals(duplicate.getPaymentStatus())) {
+                throw new IllegalArgumentException(identifier + " này đang nằm trong một đơn vé chờ thanh toán. Vui lòng thanh toán hoặc hủy đơn cũ trước.");
+            }
+            throw new IllegalArgumentException(identifier + " này đã có vé cho sự kiện.");
         }
-        if (duplicate) throw new IllegalArgumentException("Một người trong danh sách đã có vé cho sự kiện này.");
+
+        GuestEventRegistration duplicateGuest = guestRegistrationRepository.findByEventIDAndIsDeletedFalse(eventID).stream()
+                .filter(this::isActiveGuestTicketReservation)
+                .filter(registration -> email.equalsIgnoreCase(normalizeTicketEmail(registration.getGuestEmail()))
+                        || phone.equals(normalizeTicketPhone(registration.getGuestPhone())))
+                .findFirst()
+                .orElse(null);
+        if (duplicateGuest != null) {
+            String identifier = email.equalsIgnoreCase(normalizeTicketEmail(duplicateGuest.getGuestEmail())) ? "Email" : "Số điện thoại";
+            if (PaymentStatus.PENDING.equals(duplicateGuest.getPaymentStatus())) {
+                throw new IllegalArgumentException(identifier + " này đang nằm trong một đăng ký chờ thanh toán.");
+            }
+            throw new IllegalArgumentException(identifier + " này đã có vé cho sự kiện.");
+        }
+    }
+
+    private boolean isActiveTicketReservation(EventRegistration registration) {
+        return RegistrationLifecycle.ACTIVE_STATUSES.contains(currentRegistrationStatus(registration))
+                && !PaymentStatus.EXPIRED.equals(registration.getPaymentStatus())
+                && !(PaymentStatus.PENDING.equals(registration.getPaymentStatus())
+                    && registration.getPaymentExpiresAt() != null
+                    && registration.getPaymentExpiresAt().isBefore(LocalDateTime.now()));
+    }
+
+    private boolean isActiveGuestTicketReservation(GuestEventRegistration registration) {
+        return RegistrationLifecycle.ACTIVE_STATUSES.contains(registration.getRegistrationStatus())
+                && !PaymentStatus.EXPIRED.equals(registration.getPaymentStatus())
+                && !(PaymentStatus.PENDING.equals(registration.getPaymentStatus())
+                    && registration.getPaymentExpiresAt() != null
+                    && registration.getPaymentExpiresAt().isBefore(LocalDateTime.now()));
     }
 
     private String normalizeTicketEmail(String value) {
@@ -556,7 +601,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         return registrationRepo.findByEventIDAndIsDeletedFalse(eventId).stream()
                 .filter(registration -> Objects.equals(registration.getPurchaserUserID(), userId)
                         || (registration.getPurchaserUserID() == null && Objects.equals(registration.getUserID(), userId)))
-                .filter(registration -> RegistrationLifecycle.ACTIVE_STATUSES.contains(currentRegistrationStatus(registration)))
+                .filter(this::isActiveTicketReservation)
                 .count();
     }
 

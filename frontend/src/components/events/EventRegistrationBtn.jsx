@@ -7,6 +7,56 @@ import eventApi from '../../services/api/events/eventApi';
 import AlertModal from '../ui/AlertModal';
 import TicketDetailModal from './TicketDetailModal';
 
+const PAYMENT_BANK = {
+    id: import.meta.env.VITE_PAYMENT_BANK_ID || 'VCB',
+    name: import.meta.env.VITE_PAYMENT_BANK_NAME || 'Vietcombank',
+    accountNumber: import.meta.env.VITE_PAYMENT_ACCOUNT_NUMBER || '1039830831',
+    accountName: import.meta.env.VITE_PAYMENT_ACCOUNT_NAME || 'LE HOANG LONG',
+    branch: import.meta.env.VITE_PAYMENT_BANK_BRANCH || 'PGD Long Bình Tân',
+};
+
+const buildVietQrUrl = ({ amount, paymentReference }) => {
+    const params = new URLSearchParams({
+        amount: String(Math.max(0, Math.round(Number(amount) || 0))),
+        addInfo: String(paymentReference || '').slice(0, 25),
+        accountName: PAYMENT_BANK.accountName,
+    });
+    return `https://img.vietqr.io/image/${PAYMENT_BANK.id}-${PAYMENT_BANK.accountNumber}-compact2.png?${params.toString()}`;
+};
+
+const getApiErrorMessage = (error, fallback) => {
+    const data = error?.response?.data;
+    if (typeof data === 'string' && data.trim()) return data.trim();
+
+    const directMessage = data?.message || data?.detail || data?.error;
+    if (typeof directMessage === 'string' && directMessage.trim()) {
+        const participantValidation = directMessage.match(/participants\[(\d+)]\.(email|fullName|phone|studentId)/);
+        if (participantValidation) {
+            const participantNumber = Number(participantValidation[1]) + 1;
+            const validationMessages = {
+                email: 'Email không đúng định dạng. Ví dụ hợp lệ: ten@example.com.',
+                fullName: 'Vui lòng nhập họ và tên.',
+                phone: 'Vui lòng nhập số điện thoại hợp lệ.',
+                studentId: 'MSSV không hợp lệ.',
+            };
+            return `Người tham gia ${participantNumber}: ${validationMessages[participantValidation[2]]}`;
+        }
+        return directMessage.trim();
+    }
+
+    if (data?.errors && typeof data.errors === 'object') {
+        const validationMessage = Object.values(data.errors)
+            .flat()
+            .find((message) => typeof message === 'string' && message.trim());
+        if (validationMessage) return validationMessage.trim();
+    }
+
+    if (!error?.response && error?.message) {
+        return 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối và thử lại.';
+    }
+    return fallback;
+};
+
 const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticketPrice = 0, ticketCurrency = 'VND', onRegisterSuccess }) => {
     const { user } = useAuth();
     const { addNotification } = useNotifications();
@@ -38,6 +88,11 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
         phone: user?.phoneNumber || user?.phone || '',
         studentId: user?.studentId || '',
     }]);
+
+    const myTicketsPath = {
+        CLUB_LEADER: '/club-leader/tickets',
+        VICE_LEADER: '/vice-leader/tickets',
+    }[user?.role] || '/member/tickets';
 
     const isExcludedRole = user?.role === 'Leader' || user?.role === 'ICPDP' || user?.role === 'Admin';
 
@@ -291,9 +346,13 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
             setRegistrationResult(result);
             setIsRegistered(true);
             addNotification({ title: 'Đăng ký thành công', content: 'Đã đăng ký tham gia sự kiện thành công!' });
-            if ((!isPaidEvent || paymentExempt) && onRegisterSuccess) onRegisterSuccess();
+            if (!isPaidEvent || paymentExempt) {
+                toast.success('Đăng ký tham gia sự kiện thành công!');
+                if (onRegisterSuccess) onRegisterSuccess();
+                navigate(myTicketsPath, { replace: true });
+            }
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Lỗi khi đăng ký sự kiện.');
+            toast.error(getApiErrorMessage(error, 'Đăng ký sự kiện thất bại. Vui lòng thử lại.'));
         } finally {
             setIsLoading(false);
         }
@@ -308,9 +367,11 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
                 transactionReference: registrationResult.paymentReference,
             });
             addNotification({ title: 'Thanh toán thành công', content: 'Vé QR của bạn đã được phát hành.' });
-            navigate('/member/tickets');
+            toast.success('Thanh toán thành công. Vé QR của bạn đã được phát hành.');
+            if (onRegisterSuccess) onRegisterSuccess();
+            navigate(myTicketsPath, { replace: true });
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Không thể xác nhận thanh toán.');
+            toast.error(getApiErrorMessage(error, 'Không thể xác nhận thanh toán. Vui lòng thử lại.'));
         } finally {
             setPaying(false);
         }
@@ -329,6 +390,16 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
     };
 
     const handleCreateTicketOrder = async () => {
+        const invalidParticipantIndex = participants.findIndex((participant) =>
+            !participant.fullName.trim()
+            || !/^\S+@\S+\.\S+$/.test(participant.email.trim())
+            || participant.phone.replace(/\D/g, '').length < 8
+        );
+        if (invalidParticipantIndex !== -1) {
+            toast.error(`Vui lòng nhập đầy đủ họ tên, email hợp lệ và số điện thoại cho Người tham gia ${invalidParticipantIndex + 1}.`);
+            return;
+        }
+
         setIsLoading(true);
         try {
             const response = await eventApi.createTicketOrder(eventId, participants);
@@ -342,23 +413,45 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
                 content: `Vui lòng thanh toán ${Number(result.amountDue || 0).toLocaleString('vi-VN')} ${result.currency || ticketCurrency}.`,
             });
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Không thể tạo đơn vé.');
+            toast.error(getApiErrorMessage(error, 'Không thể tạo đơn vé. Vui lòng kiểm tra thông tin và thử lại.'));
         } finally {
             setIsLoading(false);
         }
     };
 
     if (registrationResult?.paymentStatus === 'PENDING') {
+        const amountDue = registrationResult.amountDue ?? ticketPrice;
+        const vietQrUrl = buildVietQrUrl({
+            amount: amountDue,
+            paymentReference: registrationResult.paymentReference,
+        });
         return (
             <div className="space-y-2 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm">
                 <p className="m-0 font-bold text-orange-800">Thanh toán vé</p>
-                <p className="m-0 text-orange-700">{Number(registrationResult.amountDue ?? ticketPrice).toLocaleString('vi-VN')} {registrationResult.currency ?? ticketCurrency}</p>
+                <p className="m-0 text-orange-700">{Number(amountDue).toLocaleString('vi-VN')} {registrationResult.currency ?? ticketCurrency}</p>
                 <p className="m-0 break-all text-xs text-gray-600">Mã đối chiếu: {registrationResult.paymentReference}</p>
                 <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="w-full rounded-lg border border-orange-200 bg-white p-2">
                     <option value="BANK_TRANSFER">Chuyển khoản ngân hàng</option>
                     <option value="VNPAY">VNPay</option>
                     <option value="MOMO">MoMo</option>
                 </select>
+                {paymentMethod === 'BANK_TRANSFER' && (
+                    <div className="space-y-2 rounded-lg border border-orange-200 bg-white p-3 text-center">
+                        <img
+                            src={vietQrUrl}
+                            alt={`Mã VietQR chuyển khoản đến ${PAYMENT_BANK.accountNumber}`}
+                            className="mx-auto w-full max-w-[260px] rounded-lg"
+                            loading="lazy"
+                        />
+                        <div className="text-left text-xs text-gray-700">
+                            <p className="m-0"><span className="font-semibold">Ngân hàng:</span> {PAYMENT_BANK.name}</p>
+                            <p className="m-0"><span className="font-semibold">Số tài khoản:</span> {PAYMENT_BANK.accountNumber}</p>
+                            <p className="m-0"><span className="font-semibold">Chủ tài khoản:</span> {PAYMENT_BANK.accountName}</p>
+                            <p className="m-0"><span className="font-semibold">Chi nhánh:</span> {PAYMENT_BANK.branch}</p>
+                            <p className="m-0 break-all"><span className="font-semibold">Nội dung:</span> {registrationResult.paymentReference}</p>
+                        </div>
+                    </div>
+                )}
                 <button type="button" onClick={handlePayment} disabled={paying} className="w-full rounded-lg border-0 bg-[#F37021] px-3 py-2 font-bold text-white disabled:opacity-50">
                     {paying ? 'Đang xác nhận...' : 'Xác nhận thanh toán'}
                 </button>
@@ -380,7 +473,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
             return (
                 <div className="flex w-full flex-col gap-2">
                     {isRegistered && (
-                        <button type="button" onClick={() => navigate('/member/tickets')} className="w-full rounded-lg border border-green-300 bg-white px-6 py-2.5 font-medium text-green-700 hover:bg-green-50">
+                        <button type="button" onClick={() => navigate(myTicketsPath)} className="w-full rounded-lg border border-green-300 bg-white px-6 py-2.5 font-medium text-green-700 hover:bg-green-50">
                             Xem {purchasedTicketCount} vé đã đặt
                         </button>
                     )}
