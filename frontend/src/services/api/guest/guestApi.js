@@ -25,8 +25,8 @@ const guestApi = {
     axiosClient.get(`/guest-registrations/${guestReference}`),
 
   // POST /api/guest-registrations/{guestReference}/cancel  (not DELETE)
-  cancel: (guestReference) =>
-    axiosClient.post(`/guest-registrations/${guestReference}/cancel`),
+  cancel: (guestReference, reason) =>
+    axiosClient.post(`/guest-registrations/${guestReference}/cancel`, { reason }),
 
   confirmPayment: (guestReference, payload) =>
     axiosClient.post(`/guest-registrations/${guestReference}/confirm-payment`, payload),

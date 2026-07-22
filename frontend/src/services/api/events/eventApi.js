@@ -90,10 +90,10 @@ const eventApi = {
     axiosClient.post(`/events/${eventId}/registrations/${registrationId}/approve`),
   rejectRegistration: (eventId, registrationId, reason) =>
     axiosClient.post(`/events/${eventId}/registrations/${registrationId}/reject`, { reason }),
-  cancelRegistration: (registrationId) =>
-    axiosClient.post(`/registrations/${registrationId}/cancel`),
-  cancelTicketOrder: (ticketOrderCode) =>
-    axiosClient.post(`/ticket-orders/${ticketOrderCode}/cancel`),
+  cancelRegistration: (registrationId, reason) =>
+    axiosClient.post(`/registrations/${registrationId}/cancel`, { reason }),
+  cancelTicketOrder: (ticketOrderCode, reason) =>
+    axiosClient.post(`/ticket-orders/${ticketOrderCode}/cancel`, { reason }),
   cancelGuestRegistration: (eventId, guestRegistrationId) =>
     axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/cancel`),
 };

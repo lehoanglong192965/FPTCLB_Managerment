@@ -6,6 +6,7 @@ import com.fptu.fcms.dto.request.RegistrationRejectRequest;
 import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
 import com.fptu.fcms.dto.request.GroupTicketPurchaseRequest;
 import com.fptu.fcms.dto.response.EventRegistrationResultResponse;
+import com.fptu.fcms.dto.request.RegistrationCancelRequest;
 import com.fptu.fcms.dto.response.RegistrationListItemResponse;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
 import com.fptu.fcms.dto.response.MyRegistrationResponse;
@@ -26,6 +27,7 @@ import com.fptu.fcms.exception.ApiErrorCode;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.AuditLogRepository;
 import com.fptu.fcms.repository.AttendanceRecordRepository;
+import com.fptu.fcms.repository.AttendanceSessionRepository;
 import com.fptu.fcms.repository.ClubBlacklistRepository;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.DisciplineLogRepository;
@@ -76,6 +78,9 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     private static final String DISCIPLINE_STATUS_ACTIVE = "Active";
     private static final String DEFAULT_SORT_BY = "registeredAt";
     private static final java.util.Set<String> HOST_BOARD_ROLES = java.util.Set.of("Leader", "ViceLeader");
+    private static final int MAX_REGISTRATION_ATTEMPTS = 2;
+    private static final long REREGISTRATION_COOLDOWN_MINUTES = 30;
+    private static final long REREGISTRATION_DEADLINE_HOURS = 24;
 
     private final EventRegistrationRepository registrationRepo;
     private final GuestEventRegistrationRepository guestRegistrationRepository;
@@ -96,6 +101,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     private final NotificationRepository notificationRepository;
     private final NotificationRecipientRepository notificationRecipientRepository;
     private final EmailService emailService;
+    private final AttendanceSessionRepository attendanceSessionRepository;
 
     @Override
     @Transactional
@@ -114,6 +120,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             ensureParticipantTypeEnabled(eventID, participantType);
         }
         ensureNoDuplicateActiveRegistration(eventID, userID, null);
+        validateReRegistration(event, userID);
         boolean requiresApproval = isApprovalRequired(eventID, participantType);
 
         RegistrationAllocationResult allocation = paymentExempt
@@ -467,7 +474,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                         RegistrationLifecycle.ACTIVE_STATUSES
                 )
                 .orElseThrow(() -> new IllegalArgumentException("Ban chua dang ky su kien nay."));
-        cancelRegistrationInternal(registration, userID, true, false);
+        cancelRegistrationInternal(registration, userID, null, true, false);
     }
 
     @Override
@@ -716,7 +723,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     @Override
     @Transactional
     @CacheEvict(value = "memberRanking", allEntries = true)
-    public void cancelRegistration(Integer registrationId, UserPrincipal currentUser) {
+    public void cancelRegistration(Integer registrationId, RegistrationCancelRequest request, UserPrincipal currentUser) {
         if (currentUser == null || currentUser.getUserId() == null) {
             throw new BusinessRuleException(ApiErrorCode.UNAUTHORIZED.name(), "You are not authenticated.", org.springframework.http.HttpStatus.UNAUTHORIZED);
         }
@@ -733,13 +740,14 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 throw exception;
             }
         }
-        cancelRegistrationInternal(registration, currentUser.getUserId(), false, privilegedActor);
+        cancelRegistrationInternal(registration, currentUser.getUserId(),
+                request == null ? null : request.getReason(), false, privilegedActor);
     }
 
     @Override
     @Transactional
     @CacheEvict(value = "memberRanking", allEntries = true)
-    public void cancelTicketOrder(String ticketOrderCode, UserPrincipal currentUser) {
+    public void cancelTicketOrder(String ticketOrderCode, RegistrationCancelRequest request, UserPrincipal currentUser) {
         if (currentUser == null || currentUser.getUserId() == null || !StringUtils.hasText(ticketOrderCode)) {
             throw new BusinessRuleException(ApiErrorCode.UNAUTHORIZED.name(), "You are not authenticated.", org.springframework.http.HttpStatus.UNAUTHORIZED);
         }
@@ -747,7 +755,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 .findByTicketOrderCodeAndPurchaserUserIDAndIsDeletedFalse(ticketOrderCode, currentUser.getUserId());
         if (registrations.isEmpty()) throw new IllegalArgumentException("Không tìm thấy đơn vé.");
         for (EventRegistration registration : registrations) {
-            cancelRegistrationInternal(registration, currentUser.getUserId(), false, false);
+            cancelRegistrationInternal(registration, currentUser.getUserId(),
+                    request == null ? null : request.getReason(), false, false);
         }
     }
 
@@ -786,6 +795,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     private void cancelRegistrationInternal(
             EventRegistration registration,
             Integer actorUserId,
+            String reason,
             boolean triggeredByLegacyEndpoint,
             boolean privilegedActor
     ) {
@@ -814,6 +824,13 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                     org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY
             );
         }
+        if (!privilegedActor && event.getStartDate() != null
+                && !LocalDateTime.now().isBefore(event.getStartDate().minusHours(24))
+                && !StringUtils.hasText(reason)) {
+            throw new BusinessRuleException("CANCELLATION_REASON_REQUIRED",
+                    "Hủy trong vòng 24 giờ trước sự kiện phải nhập lý do.",
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
+        }
         RegistrationStatus oldStatus = currentStatus;
         String revokedTicketCode = registration.getTicketCode();
         registration.setStatus(String.valueOf(RegistrationLifecycle.STATUS_CANCELLED));
@@ -821,15 +838,23 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setUpdatedAt(LocalDateTime.now());
         registration.setUpdatedBy(actorUserId);
         registration.setTicketRevokedAt(LocalDateTime.now());
+        registration.setCancelledAt(LocalDateTime.now());
+        registration.setCancellationReason(normalizeReason(reason));
+        registration.setCancellationSource(privilegedActor ? "ORGANIZER" : "PARTICIPANT");
         registration.setIsDeleted(false);
         registrationRepo.save(registration);
 
         boolean freedSeat = RegistrationLifecycle.CONFIRMED_STATUSES.contains(oldStatus);
         int promoted = freedSeat ? allocationService.promoteWaitlisted(event.getEventID(), event.getMaxParticipants()) : 0;
         saveAudit(actorUserId, registration, "REGISTRATION_CANCELLED", oldStatus == null ? null : oldStatus.name(), RegistrationLifecycle.STATUS_CANCELLED.name(),
-                privilegedActor
+                normalizeReason(reason) != null
+                        ? normalizeReason(reason)
+                        : privilegedActor
                         ? (hasPresentAttendance ? "Cancelled by manager after check-in" : cancellationWindowClosed ? "Cancelled by manager after event start" : "Cancelled by manager")
                         : (triggeredByLegacyEndpoint ? "Cancelled from legacy unregister endpoint" : "Cancelled by user"));
+        notifyRegistrant(registration, actorUserId, "REGISTRATION_CANCELLED",
+                "Đã hủy đăng ký sự kiện",
+                "Bạn đã hủy đăng ký tham gia sự kiện \"" + event.getEventName() + "\" thành công.");
         if (promoted > 0) {
             // no-op: promotion is handled atomically by allocation service
         }
@@ -868,6 +893,94 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 || "CLOSED".equals(status)
                 || status.startsWith("REPORT_")
                 || status.startsWith("CONTRIBUTION_");
+    }
+
+    @Override
+    public Integer getActiveRegistrationId(Integer eventId, Integer userId) {
+        return registrationRepo
+                .findTopByEventIDAndUserIDAndIsDeletedFalseAndRegistrationStatusInOrderByRegisteredAtDesc(
+                        eventId, userId, RegistrationLifecycle.ACTIVE_STATUSES)
+                .map(EventRegistration::getRegistrationID)
+                .orElse(null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Object> getRegistrationStatus(Integer eventId, Integer userId) {
+        Map<String, Object> result = new java.util.HashMap<>();
+        Integer activeId = getActiveRegistrationId(eventId, userId);
+        long attempts = registrationRepo.countByEventIDAndUserIDAndIsDeletedFalse(eventId, userId);
+        result.put("registered", activeId != null);
+        result.put("registrationId", activeId);
+        result.put("registrationAttempts", attempts);
+        result.put("canReregister", activeId == null && attempts < MAX_REGISTRATION_ATTEMPTS);
+
+        registrationRepo.findTopByEventIDAndUserIDAndRegistrationStatusAndIsDeletedFalseOrderByCancelledAtDesc(
+                eventId, userId, RegistrationStatus.CANCELLED).ifPresent(cancelled -> {
+            LocalDateTime cancelledAt = cancelled.getCancelledAt() != null ? cancelled.getCancelledAt() : cancelled.getUpdatedAt();
+            if (cancelledAt != null) {
+                result.put("lastCancelledAt", cancelledAt);
+                result.put("canReregisterAt", cancelledAt.plusMinutes(REREGISTRATION_COOLDOWN_MINUTES));
+            }
+        });
+        if (attempts >= MAX_REGISTRATION_ATTEMPTS) {
+            result.put("reregistrationBlockReason", "REREGISTRATION_LIMIT_REACHED");
+        }
+        eventRepository.findByEventIDAndIsDeletedFalse(eventId).ifPresent(event -> {
+            if (attempts > 0 && event.getStartDate() != null
+                    && !LocalDateTime.now().isBefore(event.getStartDate().minusHours(REREGISTRATION_DEADLINE_HOURS))) {
+                result.put("canReregister", false);
+                result.put("reregistrationBlockReason", "REREGISTRATION_DEADLINE_PASSED");
+            }
+        });
+        Object canAt = result.get("canReregisterAt");
+        if (canAt instanceof LocalDateTime time && LocalDateTime.now().isBefore(time)) {
+            result.put("canReregister", false);
+            result.put("reregistrationBlockReason", "REREGISTRATION_COOLDOWN");
+        }
+        return result;
+    }
+
+    private void validateReRegistration(Event event, Integer userId) {
+        long attempts = registrationRepo.countByEventIDAndUserIDAndIsDeletedFalse(event.getEventID(), userId);
+        if (attempts == 0) return;
+        if (attempts >= MAX_REGISTRATION_ATTEMPTS) {
+            throw new BusinessRuleException("REREGISTRATION_LIMIT_REACHED",
+                    "Bạn đã sử dụng hết lượt đăng ký lại cho sự kiện này.", org.springframework.http.HttpStatus.CONFLICT);
+        }
+        if (event.getStartDate() != null
+                && !LocalDateTime.now().isBefore(event.getStartDate().minusHours(REREGISTRATION_DEADLINE_HOURS))) {
+            throw new BusinessRuleException("REREGISTRATION_DEADLINE_PASSED",
+                    "Không thể đăng ký lại trong vòng 24 giờ trước sự kiện.", org.springframework.http.HttpStatus.CONFLICT);
+        }
+        registrationRepo.findTopByEventIDAndUserIDAndRegistrationStatusAndIsDeletedFalseOrderByCancelledAtDesc(
+                event.getEventID(), userId, RegistrationStatus.CANCELLED).ifPresent(cancelled -> {
+            LocalDateTime cancelledAt = cancelled.getCancelledAt() != null ? cancelled.getCancelledAt() : cancelled.getUpdatedAt();
+            LocalDateTime canRegisterAt = cancelledAt == null ? null : cancelledAt.plusMinutes(REREGISTRATION_COOLDOWN_MINUTES);
+            if (canRegisterAt != null && LocalDateTime.now().isBefore(canRegisterAt)) {
+                throw new BusinessRuleException("REREGISTRATION_COOLDOWN",
+                        "Bạn chỉ có thể đăng ký lại sau " + canRegisterAt + ".", org.springframework.http.HttpStatus.TOO_MANY_REQUESTS);
+            }
+        });
+    }
+
+    private void validateParticipantCancellation(Event event, Integer registrationId, String reason) {
+        LocalDateTime now = LocalDateTime.now();
+        if (event.getStartDate() == null || !now.isBefore(event.getStartDate())) {
+            throw new BusinessRuleException("CANCEL_DEADLINE_PASSED", "Sự kiện đã bắt đầu, không thể hủy đăng ký.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        attendanceSessionRepository.findByEventID(event.getEventID()).ifPresent(session -> {
+            if (attendanceRecordRepository.existsBySessionIDAndRegistrationIDAndIsDeletedFalse(session.getSessionID(), registrationId)) {
+                throw new BusinessRuleException("ALREADY_CHECKED_IN", "Người tham gia đã check-in, không thể hủy đăng ký.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+            }
+        });
+        if (!now.isBefore(event.getStartDate().minusHours(24)) && !StringUtils.hasText(reason)) {
+            throw new BusinessRuleException("CANCELLATION_REASON_REQUIRED", "Hủy trong vòng 24 giờ trước sự kiện phải nhập lý do.", org.springframework.http.HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private String normalizeReason(String reason) {
+        return StringUtils.hasText(reason) ? reason.trim() : null;
     }
 
     private Event loadEventForUpdate(Integer eventId) {
@@ -1142,4 +1255,13 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         return eventAssignmentAccessService.canViewGuestContact(eventId, currentUser);
     }
 
+    private boolean hasPrivilegedAuthority(UserPrincipal currentUser) {
+        return permissionService.canManageRegistrations(currentUser);
+    }
+
+    private void ensureCanManageRegistrations(UserPrincipal currentUser) {
+        if (!permissionService.canManageRegistrations(currentUser)) {
+            throw new IllegalArgumentException("You do not have permission to manage registrations.");
+        }
+    }
 }

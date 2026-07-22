@@ -360,6 +360,8 @@ public class EventServiceImpl implements EventService {
                     registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
                     registration.setStatus(RegistrationStatus.CANCELLED.name());
                     registration.setCancelledAt(cancelledAt);
+                    registration.setCancellationReason(request.getReason());
+                    registration.setCancellationSource("ORGANIZER");
                     registration.setTicketRevokedAt(cancelledAt);
                     registration.setUpdatedAt(cancelledAt);
                     registration.setUpdatedBy(currentUser == null ? null : currentUser.getUserId());
@@ -374,11 +376,12 @@ public class EventServiceImpl implements EventService {
                     registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
                     registration.setStatus(RegistrationStatus.CANCELLED.name());
                     registration.setCancelledAt(cancelledAt);
+                    registration.setCancellationReason(request.getReason());
+                    registration.setCancellationSource("ORGANIZER");
                     registration.setUpdatedAt(cancelledAt);
                     registration.setUpdatedBy(currentUser == null ? null : currentUser.getUserId());
                 });
         if (!guestRegistrations.isEmpty()) guestRegistrationRepository.saveAll(guestRegistrations);
-
         if (!registrations.isEmpty()) {
             List<Integer> userIds = registrations.stream().map(EventRegistration::getUserID).collect(Collectors.toList());
             List<UserAccount> users = userRepository.findAllByUserIDIn(userIds);

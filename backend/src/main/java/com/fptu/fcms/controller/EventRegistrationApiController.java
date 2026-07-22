@@ -6,6 +6,7 @@ import com.fptu.fcms.dto.request.GuestRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
 import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
 import com.fptu.fcms.dto.request.GroupTicketPurchaseRequest;
+import com.fptu.fcms.dto.request.RegistrationCancelRequest;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationResponse;
@@ -199,8 +200,9 @@ public class EventRegistrationApiController {
     @Operation(summary = "Huy dang ky cua chinh minh")
     public ResponseEntity<Map<String, String>> cancelRegistration(
             @PathVariable Integer registrationId,
+            @Valid @RequestBody(required = false) RegistrationCancelRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventRegistrationService.cancelRegistration(registrationId, currentUser);
+        eventRegistrationService.cancelRegistration(registrationId, request, currentUser);
         return ResponseEntity.ok(Map.of("message", "Registration cancelled."));
     }
 
@@ -209,8 +211,9 @@ public class EventRegistrationApiController {
     @Operation(summary = "Huy toan bo don ve cua tai khoan hien tai")
     public ResponseEntity<Map<String, String>> cancelTicketOrder(
             @PathVariable String ticketOrderCode,
+            @Valid @RequestBody(required = false) RegistrationCancelRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventRegistrationService.cancelTicketOrder(ticketOrderCode, currentUser);
+        eventRegistrationService.cancelTicketOrder(ticketOrderCode, request, currentUser);
         return ResponseEntity.ok(Map.of("message", "Ticket order cancelled."));
     }
 

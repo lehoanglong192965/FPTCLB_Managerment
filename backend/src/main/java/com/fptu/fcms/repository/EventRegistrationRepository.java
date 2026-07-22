@@ -42,6 +42,9 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     List<EventRegistration> findByPaymentStatusAndPaymentExpiresAtBeforeAndIsDeletedFalse(
             com.fptu.fcms.enums.PaymentStatus paymentStatus,
             java.time.LocalDateTime paymentExpiresAt);
+    long countByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
+    Optional<EventRegistration> findTopByEventIDAndUserIDAndRegistrationStatusAndIsDeletedFalseOrderByCancelledAtDesc(
+            Integer eventID, Integer userID, RegistrationStatus registrationStatus);
     Optional<EventRegistration> findTopByEventIDAndUserIDAndIsDeletedFalseAndRegistrationStatusInOrderByRegisteredAtDesc(
             Integer eventID,
             Integer userID,

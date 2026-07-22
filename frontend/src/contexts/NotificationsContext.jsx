@@ -20,6 +20,7 @@ function mapNotification(n) {
     actionLabel: n.actionLabel ?? null,
     createdAt:   n.createdAt ?? new Date().toISOString(),
     isRead:      n.isRead ?? n.read ?? false,
+    source:      "server",
   };
 }
 
@@ -53,9 +54,23 @@ export function NotificationsProvider({ children }) {
     return () => { cancelled = true; };
   }, [user]);
 
+  useEffect(() => {
+    if (!user || user.role === "ADMIN") return undefined;
+    const timer = window.setInterval(() => {
+      notificationUserApi.getAll()
+        .then((data) => {
+          const list = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
+          setApiNotifications(list.map(mapNotification));
+        })
+        .catch(() => {});
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, [user]);
+
   const notifications = useMemo(() => {
     const visiblePushed = pushed.map((n) => ({
       ...n,
+      source:      "local",
       isRead:      n.isRead ?? false,
       type:        n.type ?? "general",
       clubName:    n.clubName ?? "CLB",
@@ -68,16 +83,18 @@ export function NotificationsProvider({ children }) {
   }, [pushed, apiNotifications]);
 
   const markRead = useCallback((id) => {
+    const isServerNotification = apiNotifications.some((n) => n.id === id);
     setApiNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
     setPushed((prev) => {
       const updated = prev.map((n) => n.id === id ? { ...n, isRead: true } : n);
       if (lsKey) localStorage.setItem(lsKey, JSON.stringify(updated));
       return updated;
     });
+    if (!isServerNotification) return;
     notificationUserApi.markRead(id).catch((err) => {
       toast.error(err?.response?.data?.message ?? "Không thể đánh dấu đã đọc. Vui lòng thử lại.");
     });
-  }, [lsKey, toast]);
+  }, [apiNotifications, lsKey, toast]);
 
   const markAllRead = useCallback(() => {
     const unread = apiNotifications.filter((n) => !n.isRead);
@@ -105,7 +122,7 @@ export function NotificationsProvider({ children }) {
 
   const addNotification = useCallback(({ title, content, clubId, clubName }) => {
     const item = {
-      id:          Date.now(),
+      id:          `local-${crypto.randomUUID()}`,
       title,
       content,
       clubId:      clubId ?? null,
@@ -115,6 +132,7 @@ export function NotificationsProvider({ children }) {
       actionLabel: null,
       createdAt:   new Date().toISOString(),
       isRead:      false,
+      source:      "local",
     };
     setPushed((prev) => {
       const next = [item, ...prev];

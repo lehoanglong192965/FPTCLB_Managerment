@@ -100,17 +100,16 @@ public class EventController {
     public ResponseEntity<Map<String, Object>> getMyStatus(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        boolean registered = eventRegistrationService.isUserRegistered(eventId, currentUser.getUserId());
+        Map<String, Object> status = new java.util.HashMap<>(
+                eventRegistrationService.getRegistrationStatus(eventId, currentUser.getUserId()));
         boolean assigned = eventService.isUserAssigned(eventId, currentUser.getUserId());
         boolean paymentExempt = assigned
                 || eventService.isHostClubLeaderOrVice(eventId, currentUser.getUserId());
         long purchasedTicketCount = eventRegistrationService.countActiveTicketsPurchased(eventId, currentUser.getUserId());
-        return ResponseEntity.ok(Map.of(
-                "registered", registered,
-                "assigned", assigned,
-                "paymentExempt", paymentExempt,
-                "purchasedTicketCount", purchasedTicketCount
-        ));
+        status.put("assigned", assigned);
+        status.put("paymentExempt", paymentExempt);
+        status.put("purchasedTicketCount", purchasedTicketCount);
+        return ResponseEntity.ok(status);
     }
 
     @GetMapping("/{eventId}/registration-policy")
