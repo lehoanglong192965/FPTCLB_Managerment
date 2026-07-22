@@ -10,7 +10,11 @@ import jakarta.validation.Valid;
 public class UpdateEventRequest {
     private String eventName;
     private String description;
+    private String venueName;
     private String location;
+    private String locationDetail;
+    private Double latitude;
+    private Double longitude;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private Integer maxParticipants;
@@ -21,6 +25,9 @@ public class UpdateEventRequest {
     private LocalDateTime checkInOpenAt;
     private LocalDateTime checkInCloseAt;
     private BigDecimal budget;
+    private Boolean isPaidEvent;
+    private BigDecimal ticketPrice;
+    private String ticketCurrency;
     private String bannerUrl;
     private String bannerPublicId;
     @Valid

@@ -15,13 +15,6 @@ const walkInApi = {
     axiosClient.post(`/v1/attendance-sessions/${sessionId}/walk-ins/guest`, {
       fullName, email, phone, schoolOrOrganization, discoverySource, consent,
     }),
-
-  // POST /api/v1/attendance-sessions/{sessionId}/walk-ins/guest/emergency-override
-  // WalkInGuestEmergencyOverrideRequest extends GuestRegistrationRequest + reason (@NotBlank) + note
-  emergencyOverride: (sessionId, { fullName, email, phone, schoolOrOrganization, discoverySource = 'WALK_IN', consent = true, reason, note }) =>
-    axiosClient.post(`/v1/attendance-sessions/${sessionId}/walk-ins/guest/emergency-override`, {
-      fullName, email, phone, schoolOrOrganization, discoverySource, consent, reason, note,
-    }),
 };
 
 export default walkInApi;

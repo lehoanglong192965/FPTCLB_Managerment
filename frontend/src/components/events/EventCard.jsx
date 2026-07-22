@@ -10,11 +10,14 @@ const getImageUrl = (url) => {
   return getServerOrigin() + url;
 };
 
+// Màu đồng bộ với STATUS_BADGE ở EventDetailPage.jsx (cùng ý nghĩa trạng thái = cùng màu)
 const BADGE = {
-  open:    { bg: "#DCFCE7", color: "#16A34A", border: "#BBF7D0", label: "Đăng ký mở" },
+  open:    { bg: "#FFF3EC", color: "#F37021", border: "#FED7AA", label: "Đăng ký mở" },
   upcoming: { bg: "#DBEAFE", color: "#2563EB", border: "#BFDBFE", label: "Sắp diễn ra" },
+  ongoing: { bg: "#DCFCE7", color: "#16A34A", border: "#BBF7D0", label: "Đang diễn ra" },
   full:    { bg: "#FEE2E2", color: "#DC2626", border: "#FECACA", label: "Hết chỗ" },
   closed:  { bg: "#F3F4F6", color: "#6B7280", border: "#E5E7EB", label: "Đóng đăng ký" },
+  completed: { bg: "#F3F4F6", color: "#6B7280", border: "#E5E7EB", label: "Đã kết thúc" },
 };
 
 const TICKET_STATUS = {
@@ -60,21 +63,18 @@ export default function EventCard({ event }) {
             : { background: `linear-gradient(135deg, ${event.color || "#E6430A"}, ${(event.color || "#E6430A")}99)` }
         }
       >
-        <div
-          className="absolute inset-0"
-          style={event.bannerUrl ? { background: "rgba(0,0,0,0.38)" } : { backgroundImage: "radial-gradient(rgba(255,255,255,0.7) 1px, transparent 1.5px)", backgroundSize: "16px 16px", opacity: 0.25 }}
-        />
+        {!event.bannerUrl && (
+          <div
+            className="absolute inset-0"
+            style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.7) 1px, transparent 1.5px)", backgroundSize: "16px 16px", opacity: 0.25 }}
+          />
+        )}
         <div
           className="absolute top-3 right-3 z-[1] text-[11px] font-bold px-2.5 py-1 rounded-full border"
           style={isTicketMode ? { background: ticket.bg, color: ticket.color, borderColor: ticket.bg } : { background: badge.bg, color: badge.color, borderColor: badge.border }}
         >
           {isTicketMode ? ticket.label : badge.label}
         </div>
-
-        <span className="relative text-[16px] font-extrabold text-white uppercase tracking-[-0.2px] leading-tight mb-2">
-          {event.club}
-        </span>
-        <span className="relative text-[40px] opacity-90 select-none leading-none">{event.emoji || "🏛️"}</span>
       </div>
 
       <div className="px-4 pt-3.5 pb-4">
@@ -113,29 +113,14 @@ export default function EventCard({ event }) {
               )}
             </>
           ) : hasCapacityInfo ? (
-            <>
-              <div className="flex flex-col leading-tight">
-                <span className="text-[11px]" style={{ color: "#9CA3AF" }}>
-                  {(event.currentParticipants ?? 0).toLocaleString()}/{(event.maxParticipants ?? 0).toLocaleString()} đã đăng ký
-                </span>
-                <span className="text-[13px] font-bold" style={{ color: slotsLeft > 0 ? (event.color || "#E6430A") : "#9CA3AF" }}>
-                  {slotsLeft > 0 ? `Còn ${slotsLeft.toLocaleString()} chỗ` : "Đã đủ chỗ"}
-                </span>
-              </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); toDetail(); }}
-                className="w-9 h-9 flex items-center justify-center rounded-lg border-[1.5px] transition-colors duration-150 cursor-pointer shrink-0"
-                style={{ borderColor: event.color || "#E6430A", color: event.color || "#E6430A", background: "transparent" }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = event.color || "#E6430A"; e.currentTarget.style.color = "#fff"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = event.color || "#E6430A"; }}
-                aria-label="Xem chi tiết"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                  <polyline points="12 5 19 12 12 19" />
-                </svg>
-              </button>
-            </>
+            <div className="flex flex-col leading-tight">
+              <span className="text-[12.5px] font-bold" style={{ color: "#111827" }}>
+                {(event.currentParticipants ?? 0).toLocaleString()}/{(event.maxParticipants ?? 0).toLocaleString()} đã đăng ký
+              </span>
+              <span className="text-[13px] font-bold" style={{ color: slotsLeft > 0 ? "#2563EB" : "#9CA3AF" }}>
+                {slotsLeft > 0 ? `Còn ${slotsLeft.toLocaleString()} chỗ` : "Đã đủ chỗ"}
+              </span>
+            </div>
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); toDetail(); }}

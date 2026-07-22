@@ -8,9 +8,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.web.util.HtmlUtils;
+import jakarta.mail.internet.MimeMessage;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.qrcode.QRCodeWriter;
 
+import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -20,6 +29,8 @@ import java.time.format.DateTimeFormatter;
 public class EmailServiceImpl implements EmailService {
 
     private static final DateTimeFormatter INTERVIEW_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final DateTimeFormatter EVENT_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private final JavaMailSender mailSender;
@@ -187,6 +198,84 @@ public class EmailServiceImpl implements EmailService {
         } finally {
             logEmailPreview(message, emailType, null);
         }
+    }
+
+    @Override
+    @Async
+    public void sendEventTicketConfirmationEmail(
+            String email, String fullName, String eventName,
+            LocalDateTime startDate, LocalDateTime endDate, String location,
+            String ticketCode, BigDecimal amountPaid, String currency
+    ) {
+        if (email == null || email.isBlank() || ticketCode == null || ticketCode.isBlank()) return;
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom("FPTU Club <" + senderEmail + ">");
+            helper.setTo(email);
+            helper.setSubject("Đăng ký và thanh toán vé thành công - " + eventName);
+            String paidText = amountPaid == null ? "—" : amountPaid.toPlainString() + " " + (currency == null ? "VND" : currency);
+            String html = """
+                    <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#172033">
+                      <h2 style="color:#e65318">Đăng ký vé thành công</h2>
+                      <p>Xin chào <strong>%s</strong>,</p>
+                      <p>Thanh toán của bạn đã được xác nhận. Vui lòng xuất trình QR bên dưới khi check-in.</p>
+                      <table style="width:100%%;border-collapse:collapse">
+                        <tr><td style="padding:6px;color:#667085">Sự kiện</td><td style="padding:6px"><strong>%s</strong></td></tr>
+                        <tr><td style="padding:6px;color:#667085">Bắt đầu</td><td style="padding:6px">%s</td></tr>
+                        <tr><td style="padding:6px;color:#667085">Kết thúc</td><td style="padding:6px">%s</td></tr>
+                        <tr><td style="padding:6px;color:#667085">Địa điểm</td><td style="padding:6px">%s</td></tr>
+                        <tr><td style="padding:6px;color:#667085">Đã thanh toán</td><td style="padding:6px">%s</td></tr>
+                      </table>
+                      <div style="text-align:center;margin:22px 0"><img src="cid:eventTicketQr" width="240" height="240" alt="QR vé sự kiện"/></div>
+                      <p style="font-size:12px;color:#667085;word-break:break-all">Mã vé: %s</p>
+                      <p>Trân trọng,<br/>FPTU Club Management System</p>
+                    </div>
+                    """.formatted(
+                    escape(fullName), escape(eventName), formatTime(startDate), formatTime(endDate),
+                    escape(location), escape(paidText), escape(ticketCode));
+            helper.setText(html, true);
+            helper.addInline("eventTicketQr", new ByteArrayResource(generateQrPng(ticketCode)), "image/png");
+            mailSender.send(message);
+            log.info("Event ticket confirmation email sent to: {}", EmailMaskingUtil.maskEmail(email));
+        } catch (Exception e) {
+            log.error("Error sending event ticket confirmation email to: {}", EmailMaskingUtil.maskEmail(email), e);
+        }
+    }
+
+    @Override
+    @Async
+    public void sendEventTicketCancellationEmail(
+            String email, String fullName, String eventName,
+            LocalDateTime startDate, String ticketCode
+    ) {
+        String content = "Xin chào " + safe(fullName) + ",\n\n"
+                + "Vé của bạn cho sự kiện \"" + safe(eventName) + "\" đã được hủy.\n"
+                + "Thời gian: " + formatTime(startDate) + "\n"
+                + "Mã vé đã thu hồi: " + safe(ticketCode) + "\n\n"
+                + "Mã QR cũ không còn hiệu lực để check-in. Nếu vé đã thanh toán, vui lòng liên hệ ban tổ chức về chính sách hoàn tiền.\n\n"
+                + "Trân trọng,\nFPTU Club Management System";
+        sendPlainTextEmail(email, "Thông báo hủy vé - " + safe(eventName), content, "event ticket cancellation");
+    }
+
+    private byte[] generateQrPng(String value) throws Exception {
+        var matrix = new QRCodeWriter().encode(value, BarcodeFormat.QR_CODE, 320, 320);
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            MatrixToImageWriter.writeToStream(matrix, "PNG", output);
+            return output.toByteArray();
+        }
+    }
+
+    private String formatTime(LocalDateTime value) {
+        return value == null ? "—" : value.format(EVENT_TIME_FORMATTER);
+    }
+
+    private String escape(String value) {
+        return HtmlUtils.htmlEscape(safe(value));
+    }
+
+    private String safe(String value) {
+        return value == null || value.isBlank() ? "—" : value;
     }
 
     private void logEmailPreview(SimpleMailMessage message, String emailType, String secretToRedact) {

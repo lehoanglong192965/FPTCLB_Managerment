@@ -21,10 +21,17 @@ public class CreateEventProposalRequest {
     @Size(min = 5, max = 150)
     private String eventName;
     private String description;
+    private String venueName;
     @NotBlank
     private String location;
+    private String locationDetail;
+    private Double latitude;
+    private Double longitude;
     @NotNull
     private BigDecimal budget;
+    private Boolean isPaidEvent;
+    private BigDecimal ticketPrice;
+    private String ticketCurrency;
     private Integer maxParticipants;
     private Integer totalCapacity;
     private Boolean allowWalkIn;

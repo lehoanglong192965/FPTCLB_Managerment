@@ -22,6 +22,9 @@ import com.fptu.fcms.enums.ContributionBatchStatus;
 import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.enums.EventReportStatus;
 import com.fptu.fcms.enums.RegistrationStatus;
+import com.fptu.fcms.enums.RegistrationChannel;
+import com.fptu.fcms.enums.ParticipantType;
+import com.fptu.fcms.enums.PaymentStatus;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.*;
 import com.fptu.fcms.entity.ClubRole;
@@ -37,10 +40,13 @@ import com.fptu.fcms.service.event.EventPermissionService;
 import com.fptu.fcms.service.event.EventStateMachineService;
 import com.fptu.fcms.service.event.RegistrationLifecycle;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
@@ -55,6 +61,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EventServiceImpl implements EventService {
 
     private static final EventStatus STATUS_DRAFT = EventStatus.DRAFT;
@@ -84,6 +91,14 @@ public class EventServiceImpl implements EventService {
                     EventStatus.PENDING_APPROVAL,
                     EventStatus.REJECTED,
                     EventStatus.CANCELLED
+            ))
+    );
+    private static final List<EventStatus> ICPDP_ALL_LIFECYCLE_STATUSES = List.copyOf(
+            java.util.EnumSet.complementOf(java.util.EnumSet.of(
+                    EventStatus.DRAFT,
+                    EventStatus.PENDING,
+                    EventStatus.PENDING_APPROVAL,
+                    EventStatus.REJECTED
             ))
     );
     private static final List<String> DEFAULT_PARTICIPANT_TYPES = List.of(
@@ -128,6 +143,23 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public boolean isHostClubLeaderOrVice(Integer eventId, Integer userId) {
+        if (eventId == null || userId == null) {
+            return false;
+        }
+        return eventRepository.findByEventIDAndIsDeletedFalse(eventId)
+                .filter(event -> event.getClubID() != null && event.getSemesterID() != null)
+                .map(event -> clubMembershipRepository.existsActiveMembershipByClubUserSemesterAndRoleNames(
+                        event.getClubID(),
+                        userId,
+                        event.getSemesterID(),
+                        java.util.Set.of("Leader", "ViceLeader")
+                ))
+                .orElse(false);
+    }
+
+    @Override
     public List<Event> getEventsByUserAssigned(Integer userId) {
         return eventAssignmentRepository.findByUserIDAndIsDeletedFalse(userId).stream()
                 .map(a -> eventRepository.findById(a.getEventID()).orElse(null))
@@ -157,8 +189,15 @@ public class EventServiceImpl implements EventService {
         event.setEventCode(request.getEventCode());
         event.setEventName(request.getEventName().trim());
         event.setDescription(request.getDescription());
+        event.setVenueName(request.getVenueName());
         event.setLocation(request.getLocation());
+        event.setLocationDetail(request.getLocationDetail());
+        event.setLatitude(request.getLatitude());
+        event.setLongitude(request.getLongitude());
         event.setBudget(request.getBudget());
+        event.setIsPaidEvent(Boolean.TRUE.equals(request.getIsPaidEvent()));
+        event.setTicketPrice(Boolean.TRUE.equals(request.getIsPaidEvent()) ? request.getTicketPrice() : null);
+        event.setTicketCurrency(StringUtils.hasText(request.getTicketCurrency()) ? request.getTicketCurrency().trim().toUpperCase() : "VND");
         event.setMaxParticipants(request.getMaxParticipants() != null ? request.getMaxParticipants() : request.getTotalCapacity());
         event.setTotalCapacity(request.getTotalCapacity() != null ? request.getTotalCapacity() : request.getMaxParticipants());
         event.setAllowWalkIn(request.getAllowWalkIn() != null ? request.getAllowWalkIn() : Boolean.FALSE);
@@ -202,6 +241,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void submitEventProposal(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         assertCanModifyDraft(event, currentUser);
 
@@ -217,8 +257,9 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void addAssignment(Integer eventId, EventAssignmentRequest request) {
-        getActiveEventOrThrow(eventId);
+    public void addAssignment(Integer eventId, EventAssignmentRequest request, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        Event event = getActiveEventOrThrow(eventId);
         EventAssignment assignment = new EventAssignment();
         assignment.setEventID(eventId);
         assignment.setUserID(request.getUserID());
@@ -226,22 +267,37 @@ public class EventServiceImpl implements EventService {
         assignment.setAssignedAt(LocalDateTime.now());
         assignment.setIsDeleted(false);
         eventAssignmentRepository.save(assignment);
+        if (!STATUS_DRAFT.equals(event.getEventStatus())
+                && !STATUS_PENDING.equals(event.getEventStatus())
+                && !STATUS_PENDING_APPROVAL.equals(event.getEventStatus())
+                && !STATUS_REJECTED.equals(event.getEventStatus())
+                && !STATUS_CANCELLED.equals(event.getEventStatus())) {
+            issueOrganizerTicket(event, request.getUserID(), organizerParticipantType(assignment));
+        }
     }
 
     @Override
     @Transactional
-    public void removeAssignment(Integer eventId, Integer userId) {
+    public void removeAssignment(Integer eventId, Integer userId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        Event event = getActiveEventOrThrow(eventId);
         eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
                 .filter(a -> a.getUserID().equals(userId))
                 .forEach(a -> {
                     a.setIsDeleted(true);
                     eventAssignmentRepository.save(a);
                 });
+        if (!isHostClubLeaderOrVice(eventId, userId)) {
+            registrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
+                    .filter(registration -> Boolean.TRUE.equals(registration.getCapacityExempt()))
+                    .ifPresent(registration -> revokeOrganizerTicket(event, registration, currentUser));
+        }
     }
 
     @Override
     @Transactional
-    public void assignCheckInStaff(Integer eventId, Integer userId) {
+    public void assignCheckInStaff(Integer eventId, Integer userId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         Integer checkInStaffRoleId = resolveEventRoleIdByName("CHECK_IN_STAFF");
 
@@ -257,7 +313,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void revokeCheckInStaff(Integer eventId, Integer userId) {
+    public void revokeCheckInStaff(Integer eventId, Integer userId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Integer checkInStaffRoleId = resolveEventRoleIdByName("CHECK_IN_STAFF");
         eventAssignmentRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
                 .filter(a -> checkInStaffRoleId.equals(a.getEventRoleID()))
@@ -269,20 +326,26 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<EventAssignment> getAssignments(Integer eventId) {
+    public List<EventAssignment> getAssignments(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         return eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId);
     }
 
     @Override
     @Transactional
-    public void cancelEvent(Integer clubID, Integer eventId, CancelEventRequest request) {
-        Event event = eventRepository.findById(eventId)
-                .filter(e -> e.getClubID().equals(clubID))
-                .orElseThrow(() -> new IllegalArgumentException("Event not found or not owned by club."));
+    public void cancelEvent(Integer clubID, Integer eventId, CancelEventRequest request, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        Event event = getActiveEventOrThrow(eventId);
+        if (!Objects.equals(event.getClubID(), clubID)) {
+            throw new BusinessRuleException("Event not found or not owned by club.", HttpStatus.NOT_FOUND);
+        }
         EventStatus oldStatus = event.getEventStatus();
 
-        if (!STATUS_APPROVED.equals(event.getEventStatus()) && !STATUS_ONGOING.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Only Approved or Ongoing events can be cancelled.");
+        boolean cancellable = STATUS_APPROVED.equals(oldStatus)
+                || STATUS_REGISTRATION_OPEN.equals(oldStatus)
+                || STATUS_REGISTRATION_CLOSED.equals(oldStatus);
+        if (!cancellable) {
+            throw new IllegalArgumentException("Chỉ có thể hủy sự kiện trước khi bắt đầu diễn ra.");
         }
 
         event.setEventStatus(STATUS_CANCELLED);
@@ -290,15 +353,82 @@ public class EventServiceImpl implements EventService {
         publishLifecycleEvent(savedEvent, oldStatus, STATUS_CANCELLED, null, request.getReason());
 
         List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(eventId);
+        LocalDateTime cancelledAt = LocalDateTime.now();
+        registrations.stream()
+                .filter(registration -> !RegistrationStatus.CANCELLED.equals(registration.getRegistrationStatus()))
+                .forEach(registration -> {
+                    registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
+                    registration.setStatus(RegistrationStatus.CANCELLED.name());
+                    registration.setCancelledAt(cancelledAt);
+                    registration.setCancellationReason(request.getReason());
+                    registration.setCancellationSource("ORGANIZER");
+                    registration.setTicketRevokedAt(cancelledAt);
+                    registration.setUpdatedAt(cancelledAt);
+                    registration.setUpdatedBy(currentUser == null ? null : currentUser.getUserId());
+                });
+        if (!registrations.isEmpty()) registrationRepository.saveAll(registrations);
+
+        List<com.fptu.fcms.entity.GuestEventRegistration> guestRegistrations =
+                guestRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId);
+        guestRegistrations.stream()
+                .filter(registration -> !RegistrationStatus.CANCELLED.equals(registration.getRegistrationStatus()))
+                .forEach(registration -> {
+                    registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
+                    registration.setStatus(RegistrationStatus.CANCELLED.name());
+                    registration.setCancelledAt(cancelledAt);
+                    registration.setCancellationReason(request.getReason());
+                    registration.setCancellationSource("ORGANIZER");
+                    registration.setUpdatedAt(cancelledAt);
+                    registration.setUpdatedBy(currentUser == null ? null : currentUser.getUserId());
+                });
+        if (!guestRegistrations.isEmpty()) guestRegistrationRepository.saveAll(guestRegistrations);
         if (!registrations.isEmpty()) {
             List<Integer> userIds = registrations.stream().map(EventRegistration::getUserID).collect(Collectors.toList());
             List<UserAccount> users = userRepository.findAllByUserIDIn(userIds);
-            String subject = "Event cancelled: " + event.getEventName();
-            String content = "Event " + event.getEventName() + " was cancelled. Reason:\n" + request.getReason();
+            String subject = "Sự kiện đã bị hủy: " + event.getEventName();
+            String content = "Sự kiện \"" + event.getEventName() + "\" đã bị hủy.\n"
+                    + "Lý do: " + request.getReason() + "\n\n"
+                    + "Toàn bộ vé và mã QR đã bị thu hồi. Nếu bạn đã thanh toán, vui lòng liên hệ ban tổ chức về chính sách hoàn tiền.";
             for (UserAccount user : users) {
-                emailService.sendSimpleEmail(user.getEmail(), subject, content);
+                String recipientEmail = user.getEmail();
+                sendAfterCommit(() -> {
+                    log.info("Sending event cancellation email: eventId={}, recipient={}", eventId, maskEmail(recipientEmail));
+                    emailService.sendSimpleEmail(recipientEmail, subject, content);
+                });
             }
         }
+        for (com.fptu.fcms.entity.GuestEventRegistration guest : guestRegistrations) {
+            String recipientEmail = guest.getGuestEmail();
+            String guestSubject = "Sự kiện đã bị hủy: " + event.getEventName();
+            String guestContent = "Sự kiện \"" + event.getEventName() + "\" đã bị hủy.\nLý do: " + request.getReason();
+            sendAfterCommit(() -> {
+                log.info("Sending guest event cancellation email: eventId={}, recipient={}", eventId, maskEmail(recipientEmail));
+                emailService.sendSimpleEmail(recipientEmail, guestSubject, guestContent);
+            });
+        }
+        log.info(
+                "Event cancellation committed: eventId={}, oldStatus={}, memberRegistrations={}, guestRegistrations={}, reason={}",
+                eventId, oldStatus, registrations.size(), guestRegistrations.size(), request.getReason()
+        );
+    }
+
+    private void sendAfterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || !email.contains("@")) return "(unknown)";
+        int at = email.indexOf('@');
+        return email.substring(0, Math.min(2, at)) + "***" + email.substring(at);
     }
 
     @Override
@@ -358,6 +488,20 @@ public class EventServiceImpl implements EventService {
     }
 
     /**
+     * Dành cho trang danh sách sự kiện công khai (có tab "Đã kết thúc") — giống
+     * getApprovedEvents() nhưng gồm cả COMPLETED. Không dùng cho landing page teaser
+     * vì trang đó chỉ muốn hiện sự kiện sắp/đang diễn ra.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getPublicEventsIncludingCompleted() {
+        List<Event> events = eventRepository.findByEventStatusInAndIsDeletedFalse(
+                List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_REGISTRATION_CLOSED, STATUS_ONGOING, STATUS_COMPLETED));
+        attachCurrentParticipants(events);
+        return events;
+    }
+
+    /**
      * Gắn currentParticipants (member + guest theo CONFIRMED_STATUSES — cùng định nghĩa
      * với kiểm tra sức chứa lúc đăng ký) để FE hiển thị "x/y đã đăng ký".
      */
@@ -385,6 +529,20 @@ public class EventServiceImpl implements EventService {
     @Transactional(readOnly = true)
     public List<Event> getIcpdpApprovedEvents() {
         List<Event> events = eventRepository.findByEventStatusInAndIsDeletedFalse(ICPDP_APPROVED_LIFECYCLE_STATUSES);
+        attachCurrentParticipants(events);
+        return events;
+    }
+
+    /**
+     * Dành cho trang "Quản Lý Sự Kiện" tổng quan của ICPDP: toàn bộ vòng đời sự kiện
+     * kể cả CANCELLED (khác getIcpdpApprovedEvents() vốn loại CANCELLED ra khỏi lịch sử
+     * đã duyệt). Vẫn loại DRAFT/PENDING/PENDING_APPROVAL/REJECTED vì đó là các sự kiện
+     * chưa từng được ICPDP phê duyệt.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getIcpdpAllEvents() {
+        List<Event> events = eventRepository.findByEventStatusInAndIsDeletedFalse(ICPDP_ALL_LIFECYCLE_STATUSES);
         attachCurrentParticipants(events);
         return events;
     }
@@ -423,58 +581,15 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public EventDetailResponse getManagedEventDetail(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         return toEventDetailResponse(event, currentUser, true);
     }
 
     @Override
     @Transactional
-    public String checkIn(Integer eventId, String studentId, UserPrincipal currentUser) {
-        Event event = getActiveEventOrThrow(eventId);
-        if (!STATUS_ONGOING.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Sự kiện chưa bắt đầu, không thể điểm danh.");
-        }
-
-        eventAssignmentAccessService.ensureCanManageCheckIn(eventId, currentUser);
-
-        UserAccount user = userRepository.findByStudentId(studentId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sinh viên với mã: " + studentId));
-
-        Integer userId = user.getUserID();
-        if (!registrationRepository.existsByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)) {
-            throw new IllegalArgumentException("Sinh viên chưa đăng ký sự kiện này.");
-        }
-
-        AttendanceSession session = attendanceSessionRepository.findByEventID(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phiên điểm danh cho sự kiện này."));
-
-        if (attendanceRecordRepository.findBySessionIDAndUserID(session.getSessionID(), userId).isPresent()) {
-            throw new IllegalArgumentException("Sinh viên đã được điểm danh rồi.");
-        }
-
-        AttendanceRecord record = new AttendanceRecord();
-        record.setSessionID(session.getSessionID());
-        record.setUserID(userId);
-        record.setRegistrationID(registrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
-                .map(EventRegistration::getRegistrationID)
-                .orElse(null));
-        record.setParticipantTypeSnapshotAt(registrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
-                .map(EventRegistration::getParticipantTypeSnapshotAt)
-                .orElse(null));
-
-        record.setCheckedInBy(userId);
-        record.setCheckedInAt(LocalDateTime.now());
-        record.setAttendanceStatus(AttendanceStatus.PRESENT);
-        record.setMarkedAt(LocalDateTime.now());
-        record.setIsVerifiedByAI(false);
-        record.setIsDeleted(false);
-        attendanceRecordRepository.save(record);
-        return user.getFullName() != null ? user.getFullName() : studentId;
-    }
-
-    @Override
-    @Transactional
-    public void startEvent(Integer eventId) {
+    public void startEvent(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         stateMachineService.ensureCanStart(event);
 
@@ -500,7 +615,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void finishEvent(Integer eventId) {
+    public void finishEvent(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         stateMachineService.ensureCanFinish(event);
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId)
@@ -518,7 +634,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void closeEvent(Integer eventId) {
+    public void closeEvent(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         stateMachineService.ensureCanClose(event);
         if (eventReportRepository.findByEventIDAndIsDeletedFalse(eventId)
@@ -565,7 +682,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> getCheckedInAttendees(Integer eventId) {
+    public List<Map<String, Object>> getCheckedInAttendees(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageCheckIn(eventId, currentUser);
         AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElse(null);
         if (session == null) return List.of();
 
@@ -679,6 +797,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void openRegistration(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         EventStatus oldStatus = event.getEventStatus();
         stateMachineService.ensureCanOpenRegistration(event);
@@ -688,6 +807,7 @@ public class EventServiceImpl implements EventService {
             event.setRegistrationOpenAt(LocalDateTime.now());
         }
         Event saved = eventRepository.save(event);
+        issueOrganizerTickets(saved);
         auditLogService.record(
                 currentUser == null ? null : currentUser.getUserId(),
                 "Event",
@@ -700,18 +820,141 @@ public class EventServiceImpl implements EventService {
         publishLifecycleEvent(saved, oldStatus, saved.getEventStatus(), null, "Opened registration window");
     }
 
+    private void issueOrganizerTickets(Event event) {
+        if (event.getClubID() == null || event.getSemesterID() == null) return;
+        List<com.fptu.fcms.entity.ClubMembership> boardMemberships = clubMembershipRepository
+                .findByClubIDAndSemesterIDAndClubRoleIDInAndIsDeletedFalse(
+                        event.getClubID(), event.getSemesterID(), List.of(1, 2));
+        for (com.fptu.fcms.entity.ClubMembership membership : boardMemberships) {
+            issueOrganizerTicket(event, membership.getUserID(), ParticipantType.CORE_TEAM);
+        }
+        for (EventAssignment assignment : eventAssignmentRepository.findByEventIDAndIsDeletedFalse(event.getEventID())) {
+            issueOrganizerTicket(event, assignment.getUserID(), organizerParticipantType(assignment));
+        }
+    }
+
+    private ParticipantType organizerParticipantType(EventAssignment assignment) {
+        return assignment != null && Objects.equals(assignment.getEventRoleID(), 1)
+                ? ParticipantType.CORE_TEAM
+                : ParticipantType.SUPPORT_ORGANIZER;
+    }
+
+    private void issueOrganizerTicket(Event event, Integer userId, ParticipantType participantType) {
+        LocalDateTime now = LocalDateTime.now();
+        EventRegistration registration = registrationRepository
+                .findByEventIDAndUserIDAndIsDeletedFalse(event.getEventID(), userId)
+                .orElseGet(EventRegistration::new);
+        boolean newlyExempt = !Boolean.TRUE.equals(registration.getCapacityExempt());
+        boolean alreadyPaid = PaymentStatus.PAID.equals(registration.getPaymentStatus());
+        registration.setEventID(event.getEventID());
+        registration.setUserID(userId);
+        registration.setParticipantType(participantType);
+        registration.setParticipantTypeSnapshotAt(now);
+        registration.setRegistrationChannel(RegistrationChannel.FPTU);
+        registration.setRegistrationStatus(RegistrationStatus.CONFIRMED);
+        registration.setStatus(RegistrationStatus.CONFIRMED.name());
+        if (registration.getRegisteredAt() == null) registration.setRegisteredAt(now);
+        if (!alreadyPaid) {
+            registration.setPaymentStatus(PaymentStatus.NOT_REQUIRED);
+            registration.setAmountDue(BigDecimal.ZERO);
+            registration.setAmountPaid(BigDecimal.ZERO);
+            registration.setPaymentReference(null);
+            registration.setPaymentExpiresAt(null);
+        }
+        registration.setPaymentCurrency(StringUtils.hasText(event.getTicketCurrency()) ? event.getTicketCurrency() : "VND");
+        registration.setCapacityExempt(true);
+        if (!StringUtils.hasText(registration.getTicketCode())) registration.setTicketCode(java.util.UUID.randomUUID().toString());
+        if (registration.getTicketIssuedAt() == null) registration.setTicketIssuedAt(now);
+        registration.setTicketRevokedAt(null);
+        registration.setCancelledAt(null);
+        registration.setCreatedBy(registration.getCreatedBy() == null ? userId : registration.getCreatedBy());
+        registration.setUpdatedBy(userId);
+        registration.setIsDeleted(false);
+        EventRegistration saved = registrationRepository.save(registration);
+
+        if (newlyExempt) {
+            userRepository.findByUserIDAndIsDeletedFalse(userId).ifPresent(user -> sendAfterCommit(() -> {
+                log.info("Sending organizer ticket email: eventId={}, userId={}, recipient={}",
+                        event.getEventID(), userId, maskEmail(user.getEmail()));
+                emailService.sendEventTicketConfirmationEmail(
+                        user.getEmail(), user.getFullName(), event.getEventName(), event.getStartDate(), event.getEndDate(),
+                        event.getLocation(), saved.getTicketCode(), BigDecimal.ZERO, saved.getPaymentCurrency());
+            }));
+        }
+    }
+
+    private void revokeOrganizerTicket(Event event, EventRegistration registration, UserPrincipal currentUser) {
+        LocalDateTime now = LocalDateTime.now();
+        if (PaymentStatus.PAID.equals(registration.getPaymentStatus())) {
+            // A participant who paid before joining the organizing team keeps the original paid ticket.
+            registration.setCapacityExempt(false);
+            registration.setParticipantType(ParticipantType.PARTICIPANT);
+            registration.setUpdatedBy(currentUser == null ? null : currentUser.getUserId());
+            registrationRepository.save(registration);
+            return;
+        }
+        String revokedCode = registration.getTicketCode();
+        registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
+        registration.setStatus(RegistrationStatus.CANCELLED.name());
+        registration.setTicketRevokedAt(now);
+        registration.setCancelledAt(now);
+        registration.setUpdatedBy(currentUser == null ? null : currentUser.getUserId());
+        registrationRepository.save(registration);
+        userRepository.findByUserIDAndIsDeletedFalse(registration.getUserID()).ifPresent(user -> sendAfterCommit(() -> {
+            log.info("Sending organizer ticket revocation email: eventId={}, userId={}, recipient={}",
+                    event.getEventID(), registration.getUserID(), maskEmail(user.getEmail()));
+            emailService.sendEventTicketCancellationEmail(
+                    user.getEmail(), user.getFullName(), event.getEventName(), event.getStartDate(), revokedCode);
+        }));
+    }
+
     @Override
     @Transactional
-    public void updateEvent(Integer eventId, UpdateEventRequest request) {
+    public void updateEvent(Integer eventId, UpdateEventRequest request, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
-        if (!STATUS_DRAFT.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Chỉ có thể chỉnh sửa sự kiện ở trạng thái Nháp.");
+        EventStatus status = event.getEventStatus();
+        boolean isDraft = STATUS_DRAFT.equals(status);
+        // Sau khi ICPDP đã duyệt (Approved/RegistrationOpen/RegistrationClosed) nhưng
+        // sự kiện chưa diễn ra: vẫn cho sửa, nhưng chỉ được đổi số người tham gia tối đa.
+        boolean isPostApprovalEditable = STATUS_APPROVED.equals(status)
+                || STATUS_REGISTRATION_OPEN.equals(status)
+                || STATUS_REGISTRATION_CLOSED.equals(status);
+        if (!isDraft && !isPostApprovalEditable) {
+            throw new IllegalArgumentException("Chỉ có thể chỉnh sửa sự kiện trước khi diễn ra.");
+        }
+        if (!isDraft) {
+            boolean editsOtherFields = request.getEventName() != null
+                    || request.getDescription() != null
+                    || request.getVenueName() != null
+                    || request.getLocation() != null
+                    || request.getLocationDetail() != null
+                    || request.getLatitude() != null
+                    || request.getLongitude() != null
+                    || request.getStartDate() != null
+                    || request.getEndDate() != null
+                    || request.getAllowWalkIn() != null
+                    || request.getRegistrationOpenAt() != null
+                    || request.getRegistrationCloseAt() != null
+                    || request.getCheckInOpenAt() != null
+                    || request.getCheckInCloseAt() != null
+                    || request.getBudget() != null
+                    || request.getBannerUrl() != null
+                    || (request.getRegistrationPolicies() != null && !request.getRegistrationPolicies().isEmpty());
+            if (editsOtherFields) {
+                throw new IllegalArgumentException("Sau khi được ICPDP duyệt, chỉ có thể chỉnh sửa số người tham gia tối đa.");
+            }
         }
         String oldBannerPublicId = event.getBannerPublicId();
         boolean bannerTouched = request.getBannerUrl() != null;
+        validateDescriptionWordLimit(request.getDescription());
         if (request.getEventName() != null)     event.setEventName(request.getEventName());
         if (request.getDescription() != null)   event.setDescription(request.getDescription());
+        if (request.getVenueName() != null)     event.setVenueName(request.getVenueName());
         if (request.getLocation() != null)      event.setLocation(request.getLocation());
+        if (request.getLocationDetail() != null) event.setLocationDetail(request.getLocationDetail());
+        if (request.getLatitude() != null)      event.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null)     event.setLongitude(request.getLongitude());
         if (request.getStartDate() != null)     event.setStartDate(request.getStartDate());
         if (request.getEndDate() != null)       event.setEndDate(request.getEndDate());
         if (request.getMaxParticipants() != null) {
@@ -728,6 +971,9 @@ public class EventServiceImpl implements EventService {
         if (request.getCheckInOpenAt() != null) event.setCheckInOpenAt(request.getCheckInOpenAt());
         if (request.getCheckInCloseAt() != null) event.setCheckInCloseAt(request.getCheckInCloseAt());
         if (request.getBudget() != null)        event.setBudget(request.getBudget());
+        if (request.getIsPaidEvent() != null)   event.setIsPaidEvent(request.getIsPaidEvent());
+        if (request.getTicketPrice() != null || Boolean.FALSE.equals(request.getIsPaidEvent())) event.setTicketPrice(request.getTicketPrice());
+        if (StringUtils.hasText(request.getTicketCurrency())) event.setTicketCurrency(request.getTicketCurrency().trim().toUpperCase());
         if (request.getBannerUrl() != null) {
             event.setBannerUrl(request.getBannerUrl().isBlank() ? null : request.getBannerUrl());
             event.setBannerPublicId(normalizePublicId(request.getBannerPublicId()));
@@ -744,6 +990,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void deleteDraftEvent(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         assertCanModifyDraft(event, currentUser);
         if (!STATUS_DRAFT.equals(event.getEventStatus()) && !STATUS_REJECTED.equals(event.getEventStatus())) {
@@ -759,6 +1006,17 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public void closeRegistration(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        closeRegistrationInternal(eventId, currentUser.getUserId());
+    }
+
+    @Override
+    @Transactional
+    public void closeRegistrationAutomatically(Integer eventId) {
+        closeRegistrationInternal(eventId, null);
+    }
+
+    private void closeRegistrationInternal(Integer eventId, Integer actorUserId) {
         Event event = getActiveEventOrThrow(eventId);
         EventStatus oldStatus = event.getEventStatus();
         stateMachineService.ensureCanCloseRegistration(event);
@@ -768,7 +1026,7 @@ public class EventServiceImpl implements EventService {
         }
         Event saved = eventRepository.save(event);
         auditLogService.record(
-                currentUser == null ? null : currentUser.getUserId(),
+                actorUserId,
                 "Event",
                 saved.getEventID(),
                 "REGISTRATION_CLOSED",
@@ -885,6 +1143,17 @@ public class EventServiceImpl implements EventService {
         }
         if (!request.getStartDate().isAfter(LocalDateTime.now())) {
             throw new IllegalArgumentException("startDate must be in the future.");
+        }
+        validateDescriptionWordLimit(request.getDescription());
+    }
+
+    private void validateDescriptionWordLimit(String description) {
+        if (description == null || description.isBlank()) {
+            return;
+        }
+        int wordCount = description.trim().split("\\s+").length;
+        if (wordCount > 1000) {
+            throw new IllegalArgumentException("Mô tả sự kiện không được vượt quá 1000 từ.");
         }
     }
 
@@ -1067,6 +1336,10 @@ public class EventServiceImpl implements EventService {
                 ? eventRegistrationPolicyService.getPolicies(event.getEventID(), currentUser)
                 : null;
 
+        // maxParticipants/currentParticipants không phải dữ liệu nhạy cảm — cần công khai
+        // để FE (kể cả trang public) hiển thị "x/y đã đăng ký".
+        attachCurrentParticipants(List.of(event));
+
         return new EventDetailResponse(
                 event.getEventID(),
                 event.getClubID(),
@@ -1074,7 +1347,11 @@ public class EventServiceImpl implements EventService {
                 event.getEventCode(),
                 event.getEventName(),
                 event.getDescription(),
+                event.getVenueName(),
                 event.getLocation(),
+                event.getLocationDetail(),
+                event.getLatitude(),
+                event.getLongitude(),
                 event.getStartDate(),
                 event.getEndDate(),
                 event.getEventStatus(),
@@ -1085,9 +1362,13 @@ public class EventServiceImpl implements EventService {
                 isManager ? event.getRegistrationCloseAt() : null,
                 isManager ? event.getCheckInOpenAt() : null,
                 isManager ? event.getCheckInCloseAt() : null,
-                isManager ? event.getTotalCapacity() : null,
-                isManager ? event.getMaxParticipants() : null,
+                event.getTotalCapacity(),
+                event.getMaxParticipants(),
+                event.getCurrentParticipants(),
                 isManager ? event.getBudget() : null,
+                event.getIsPaidEvent(),
+                event.getTicketPrice(),
+                event.getTicketCurrency(),
                 isManager ? event.getApprovedBy() : null,
                 isManager ? event.getApprovedAt() : null,
                 isManager ? event.getPdpFeedback() : null,

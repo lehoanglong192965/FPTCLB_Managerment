@@ -1,6 +1,8 @@
 package com.fptu.fcms.exception;
 
 import com.fptu.fcms.dto.response.ApiErrorResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -29,6 +31,8 @@ import java.util.stream.Collectors;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     // =====================================================================
     // XỬ LÝ LỖI NGHIỆP VỤ (BusinessRuleException)
@@ -124,15 +128,15 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
-        String msg = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
-        return buildErrorResponse(HttpStatus.CONFLICT, ApiErrorCode.CONFLICT.name(), "Loi rang buoc du lieu: " + msg);
+        LOGGER.warn("Data integrity violation", ex);
+        return buildErrorResponse(HttpStatus.CONFLICT, ApiErrorCode.CONFLICT.name(), "Data conflicts with an existing record.");
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGenericException(Exception ex) {
-        // Log chi tiết để debug, trả về message thật trong development
-        String detail = ex.getClass().getSimpleName() + ": " + ex.getMessage();
-        return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, ApiErrorCode.INTERNAL_ERROR.name(), detail);
+        // Keep diagnostic detail in server logs; clients receive a stable generic message.
+        LOGGER.error("Unhandled application exception", ex);
+        return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, ApiErrorCode.INTERNAL_ERROR.name(), "An unexpected error occurred.");
     }
 
     // =====================================================================

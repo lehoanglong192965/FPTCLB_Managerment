@@ -1,10 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
-import { Calendar, FileText, CheckCircle, XCircle, Clock, Inbox, User, Mail, RefreshCw, MessageSquare, AlertTriangle } from "lucide-react";
+import { Calendar, FileText, CheckCircle, XCircle, Clock, Inbox, User, Mail, RefreshCw, MessageSquare, AlertTriangle, ClipboardList, UserPlus } from "lucide-react";
 import { useClubData } from "../../contexts/ClubDataContext";
 import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
 import applicationApi from "../../services/api/member/applicationApi";
 import { useToast } from "../../contexts/ToastContext";
 import { getInitials } from "../../utils/avatar";
+import RecruitmentCycleMgmtPage from "./RecruitmentCycleMgmtPage";
+
+const PAGE_TABS = [
+  { key: "applications", label: "Đơn ứng tuyển", Icon: ClipboardList },
+  { key: "recruitment",  label: "Mở / đóng tuyển", Icon: UserPlus },
+];
 
 const STATUS_MAP = {
   Submitted:  { label: "Chờ duyệt CV",   cls: "bg-amber-100 text-amber-700" },
@@ -68,6 +74,7 @@ export default function ClubApplicationsMgmt() {
   const { fetchMembers } = useClubData();
   const clubId = TokenService.getClubId();
 
+  const [tab, setTab]                 = useState("applications");
   const [apps, setApps]               = useState([]);
   const [loading, setLoading]         = useState(false);
   const [activeFilter, setActiveFilter] = useState("ALL");
@@ -192,10 +199,33 @@ export default function ClubApplicationsMgmt() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Đơn Ứng Tuyển</h1>
-        <p className="page-subtitle">Xét duyệt các đơn xin tham gia câu lạc bộ từ sinh viên</p>
+        <h1 className="page-title">Quản Lý Ứng Tuyển</h1>
+        <p className="page-subtitle">Xét duyệt đơn ứng tuyển và quản lý thời gian nhận đơn của câu lạc bộ</p>
       </div>
 
+      {/* Tab: Đơn ứng tuyển / Mở-đóng tuyển */}
+      <div className="flex items-center gap-1.5 mb-6 border-b border-slate-200">
+        {PAGE_TABS.map(({ key, label, Icon }) => {
+          const active = tab === key;
+          return (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-[13.5px] font-semibold border-0 border-b-2 bg-transparent cursor-pointer font-[inherit] transition-colors -mb-px ${
+                active
+                  ? "text-[#E6430A] border-[#E6430A]"
+                  : "text-slate-500 border-transparent hover:text-slate-700"
+              }`}
+            >
+              <Icon size={15} /> {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "recruitment" && <RecruitmentCycleMgmtPage embedded />}
+
+      {tab === "applications" && (
       <div className="content-card">
         <div className="flex justify-between items-center mb-4">
           <p style={{ fontSize: 14, color: "#6b7280", margin: 0 }}>
@@ -573,6 +603,7 @@ export default function ClubApplicationsMgmt() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -4,14 +4,9 @@ import { ArrowLeft, Users, UserCheck, UserX, TrendingUp, CheckCircle2, XCircle, 
 import eventApi from '../../services/api/events/eventApi';
 import attendanceApi from '../../services/api/attendance/attendanceApi';
 
-const SESSION_STATUS_CFG = {
-  OPEN:   { label: 'Đang mở', color: '#065F46', bg: '#D1FAE5', dot: '#10B981' },
-  CLOSED: { label: 'Đã đóng', color: '#475569', bg: '#F1F5F9', dot: '#94A3B8' },
-};
-
-
-export default function AttendanceDashboardPage() {
-  const { eventId } = useParams();
+export default function AttendanceDashboardPage({ eventId: eventIdProp, embedded = false, correctionBasePath } = {}) {
+  const { eventId: eventIdParam } = useParams();
+  const eventId = eventIdProp ?? eventIdParam;
   const navigate = useNavigate();
 
   const [event, setEvent] = useState(null);
@@ -73,37 +68,43 @@ export default function AttendanceDashboardPage() {
     : null;
 
   return (
-    <div className="min-h-screen" style={{ background: '#EEF3FA' }}>
+    <div className={embedded ? "" : "min-h-screen"} style={embedded ? undefined : { background: '#EEF3FA' }}>
 
       {/* ── Header ── */}
-      <div style={{ background: '#0D1B3E' }} className="px-6 pt-5 pb-7">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-sm mb-5 transition-colors"
-          style={{ color: '#94A3B8' }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = '#94A3B8'; }}
-        >
-          <ArrowLeft size={14} strokeWidth={2.5} /> Quay lại
-        </button>
+      {embedded ? (
+        <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 m-0 mb-3">
+          <Users size={16} className="text-blue-600" /> Thống kê điểm danh
+        </p>
+      ) : (
+        <div style={{ background: '#0D1B3E' }} className="px-6 pt-5 pb-7">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-1.5 text-sm mb-5 transition-colors"
+            style={{ color: '#94A3B8' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#94A3B8'; }}
+          >
+            <ArrowLeft size={14} strokeWidth={2.5} /> Quay lại
+          </button>
 
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p
-              className="text-xs font-bold uppercase mb-1.5"
-              style={{ color: '#F37021', letterSpacing: '0.12em' }}
-            >
-              Thống kê điểm danh
-            </p>
-            <h1 className="text-xl font-bold text-white leading-snug">
-              {event?.eventName ?? 'Đang tải...'}
-            </h1>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p
+                className="text-xs font-bold uppercase mb-1.5"
+                style={{ color: '#F37021', letterSpacing: '0.12em' }}
+              >
+                Thống kê điểm danh
+              </p>
+              <h1 className="text-xl font-bold text-white leading-snug">
+                {event?.eventName ?? 'Đang tải...'}
+              </h1>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ── Body ── */}
-      <div className="px-6 py-6 max-w-5xl mx-auto">
+      <div className={embedded ? "" : "px-6 py-6 max-w-5xl mx-auto"}>
         {loading ? (
           <div className="py-20 text-center text-sm" style={{ color: '#94A3B8' }}>Đang tải...</div>
         ) : (
@@ -176,71 +177,8 @@ export default function AttendanceDashboardPage() {
               );
             })()}
 
-            {/* ── Sessions + Detail ── */}
-            <div className="grid gap-4 lg:grid-cols-[220px_1fr] items-start">
-
-              {/* Session list */}
-              <div
-                className="bg-white rounded-2xl overflow-hidden"
-                style={{ boxShadow: '0 1px 3px rgba(13,27,62,0.07)' }}
-              >
-                <div className="px-4 py-3 border-b border-slate-100">
-                  <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#64748B', letterSpacing: '0.1em' }}>
-                    Các phiên ({sessions.length})
-                  </p>
-                </div>
-                {sessions.length === 0 ? (
-                  <p className="text-center text-sm py-8" style={{ color: '#94A3B8' }}>Chưa có phiên nào.</p>
-                ) : (
-                  <div>
-                    {sessions.map((s) => {
-                      const sid = s.sessionId ?? s.id;
-                      const isSelected = (selectedSession?.sessionId ?? selectedSession?.id) === sid;
-                      const cfg = SESSION_STATUS_CFG[s.status] ?? SESSION_STATUS_CFG.CLOSED;
-                      return (
-                        <button
-                          key={sid}
-                          onClick={() => loadSessionSummary(s)}
-                          className="w-full text-left px-4 py-3.5 transition-colors border-l-4"
-                          style={{
-                            borderLeftColor: isSelected ? '#F37021' : 'transparent',
-                            background: isSelected ? '#FFF7F0' : 'transparent',
-                          }}
-                          onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = '#F8FAFC'; }}
-                          onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <span
-                              className="text-sm font-semibold truncate pr-1"
-                              style={{ color: isSelected ? '#F37021' : '#1E293B' }}
-                            >
-                              {s.sessionName}
-                            </span>
-                            <span
-                              className="text-xs font-semibold px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-1"
-                              style={{ color: cfg.color, background: cfg.bg }}
-                            >
-                              <span
-                                className="w-1.5 h-1.5 rounded-full inline-block"
-                                style={{
-                                  background: cfg.dot,
-                                  animation: s.status === 'OPEN' ? 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite' : 'none',
-                                }}
-                              />
-                              {cfg.label}
-                            </span>
-                          </div>
-                          {s.totalCheckedIn !== undefined && (
-                            <p className="text-xs" style={{ color: '#94A3B8', fontVariantNumeric: 'tabular-nums' }}>
-                              {s.totalCheckedIn} điểm danh
-                            </p>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+            {/* ── Detail ── */}
+            <div className="grid gap-4 items-start">
 
               {/* Session detail */}
               <div
@@ -250,7 +188,7 @@ export default function AttendanceDashboardPage() {
                 {!selectedSession ? (
                   <div className="py-20 text-center text-sm" style={{ color: '#94A3B8' }}>
                     <Users size={28} className="mx-auto mb-2 opacity-30" />
-                    Chọn một phiên để xem chi tiết
+                    Chưa có phiên điểm danh nào.
                   </div>
                 ) : sessionLoading ? (
                   <div className="py-20 text-center text-sm" style={{ color: '#94A3B8' }}>Đang tải...</div>
@@ -269,7 +207,12 @@ export default function AttendanceDashboardPage() {
                         </h3>
                       </div>
                       <button
-                        onClick={() => navigate(`${selectedSession.sessionId ?? selectedSession.id}/correct`, { relative: "path" })}
+                        onClick={() => {
+                          const sid = selectedSession.sessionId ?? selectedSession.id;
+                          correctionBasePath
+                            ? navigate(`${correctionBasePath}/${sid}/correct`)
+                            : navigate(`${sid}/correct`, { relative: "path" });
+                        }}
                         className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
                         style={{ color: '#F37021', background: '#FFF7F0' }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = '#FEE9D6'; }}

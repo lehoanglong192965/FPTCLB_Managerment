@@ -25,7 +25,9 @@ import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.AttendanceService;
+import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.AuditLogService;
 import com.fptu.fcms.service.GuestRegistrationService;
 import com.fptu.fcms.service.RegistrationAllocationPort;
@@ -55,12 +57,15 @@ public class WalkInServiceImpl implements WalkInService {
     private final AttendanceService attendanceService;
     private final GuestRegistrationService guestRegistrationService;
     private final AuditLogService auditLogService;
+    private final EventAssignmentAccessService eventAssignmentAccessService;
 
     @Override
     @Transactional
-    public AttendanceCheckInResponse walkInFptu(Integer sessionId, WalkInFptuRequest request, Integer actorId) {
-        AttendanceSession session = requireWalkInOpenSession(sessionId);
+    public AttendanceCheckInResponse walkInFptu(Integer sessionId, WalkInFptuRequest request, UserPrincipal currentUser) {
+        AttendanceSession session = findWalkInSession(sessionId);
         Event event = requireWalkInEvent(session.getEventID());
+        eventAssignmentAccessService.ensureCanManageEvent(event.getEventID(), currentUser);
+        ensureWalkInAvailable(session, event);
         UserAccount user = userRepository.findByStudentIdAndIsDeletedFalse(request.getStudentIdOrEmail())
                 .or(() -> userRepository.findByEmailAndIsDeletedFalse(request.getStudentIdOrEmail().trim().toLowerCase(Locale.ROOT)))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
@@ -78,22 +83,27 @@ public class WalkInServiceImpl implements WalkInService {
         AttendanceCheckInRequest checkIn = new AttendanceCheckInRequest();
         checkIn.setRegistrationId(registration.getRegistrationID());
         checkIn.setVerificationMethod(VerificationMethod.STUDENT_CARD.name());
-        return attendanceService.checkIn(sessionId, checkIn, actorId);
+        return attendanceService.checkIn(sessionId, checkIn, currentUser);
     }
 
     @Override
     @Transactional
-    public GuestRegistrationResponse walkInGuest(Integer sessionId, GuestRegistrationRequest request) {
-        AttendanceSession session = requireWalkInOpenSession(sessionId);
-        requireWalkInEvent(session.getEventID());
+    public GuestRegistrationResponse walkInGuest(Integer sessionId, GuestRegistrationRequest request, UserPrincipal currentUser) {
+        AttendanceSession session = findWalkInSession(sessionId);
+        Event event = requireWalkInEvent(session.getEventID());
+        eventAssignmentAccessService.ensureCanManageEvent(event.getEventID(), currentUser);
+        ensureWalkInAvailable(session, event);
         return guestRegistrationService.createGuestRegistration(session.getEventID(), request);
     }
 
     @Override
     @Transactional
-    public AttendanceCheckInResponse emergencyGuestOverride(Integer sessionId, WalkInGuestEmergencyOverrideRequest request, Integer actorId) {
-        AttendanceSession session = requireWalkInOpenSession(sessionId);
+    public AttendanceCheckInResponse emergencyGuestOverride(Integer sessionId, WalkInGuestEmergencyOverrideRequest request, UserPrincipal currentUser) {
+        AttendanceSession session = findWalkInSession(sessionId);
         Event event = requireWalkInEvent(session.getEventID());
+        eventAssignmentAccessService.ensureCanManageEvent(event.getEventID(), currentUser);
+        ensureWalkInAvailable(session, event);
+        Integer actorId = currentUser.getUserId();
         LocalDateTime now = LocalDateTime.now();
 
         GuestEventRegistration registration = new GuestEventRegistration();
@@ -162,21 +172,22 @@ public class WalkInServiceImpl implements WalkInService {
         return eventRegistrationRepository.save(saved);
     }
 
-    private AttendanceSession requireWalkInOpenSession(Integer sessionId) {
-        AttendanceSession session = attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(sessionId)
+    private AttendanceSession findWalkInSession(Integer sessionId) {
+        return attendanceSessionRepository.findBySessionIDAndIsDeletedFalse(sessionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ATTENDANCE_SESSION_NOT_FOUND"));
-        if (session.getStatus() != AttendanceSessionStatus.OPEN) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "ATTENDANCE_SESSION_NOT_OPEN");
-        }
-        return session;
     }
 
     private Event requireWalkInEvent(Integer eventId) {
-        Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
+        return eventRepository.findByEventIDAndIsDeletedFalse(eventId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
+    }
+
+    private void ensureWalkInAvailable(AttendanceSession session, Event event) {
+        if (session.getStatus() != AttendanceSessionStatus.OPEN) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "ATTENDANCE_SESSION_NOT_OPEN");
+        }
         if (!Boolean.TRUE.equals(event.getAllowWalkIn())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "WALK_IN_NOT_ALLOWED");
         }
-        return event;
     }
 }

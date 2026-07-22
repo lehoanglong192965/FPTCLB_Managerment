@@ -21,7 +21,11 @@ public class EventDetailResponse {
     private final String eventCode;
     private final String eventName;
     private final String description;
+    private final String venueName;
     private final String location;
+    private final String locationDetail;
+    private final Double latitude;
+    private final Double longitude;
     private final LocalDateTime startDate;
     private final LocalDateTime endDate;
     private final EventStatus eventStatus;
@@ -34,7 +38,11 @@ public class EventDetailResponse {
     private final LocalDateTime checkInCloseAt;
     private final Integer totalCapacity;
     private final Integer maxParticipants;
+    private final Long currentParticipants;
     private final BigDecimal budget;
+    private final Boolean isPaidEvent;
+    private final BigDecimal ticketPrice;
+    private final String ticketCurrency;
     private final Integer approvedBy;
     private final LocalDateTime approvedAt;
     private final String pdpFeedback;

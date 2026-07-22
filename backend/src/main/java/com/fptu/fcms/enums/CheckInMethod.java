@@ -9,6 +9,7 @@ import java.util.Locale;
 @Schema(description = "Check-in method")
 public enum CheckInMethod {
     STAFF_LOOKUP,
+    QR_CODE,
     MANUAL,
     AUTO,
     WALK_IN,

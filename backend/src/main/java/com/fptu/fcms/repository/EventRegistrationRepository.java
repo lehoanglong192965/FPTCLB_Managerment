@@ -15,14 +15,18 @@ import java.util.Set;
 public interface EventRegistrationRepository extends JpaRepository<EventRegistration, Integer> {
     boolean existsByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
     Optional<EventRegistration> findByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
+    Optional<EventRegistration> findByEventIDAndTicketCodeAndIsDeletedFalse(Integer eventID, String ticketCode);
     boolean existsByEventIDAndGuestEmailAndIsDeletedFalse(Integer eventID, String guestEmail);
     long countByEventIDAndIsDeletedFalse(Integer eventID);
     long countByEventIDAndRegistrationStatusInAndIsDeletedFalse(Integer eventID, Collection<RegistrationStatus> statuses);
+    long countByEventIDAndRegistrationStatusInAndCapacityExemptFalseAndIsDeletedFalse(
+            Integer eventID, Collection<RegistrationStatus> statuses);
     @Query("""
     SELECT er.eventID, COUNT(er)
     FROM EventRegistration er
     WHERE er.eventID IN :eventIDs
       AND er.registrationStatus IN :statuses
+      AND er.capacityExempt = false
       AND er.isDeleted = false
     GROUP BY er.eventID
 """)
@@ -33,6 +37,14 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     List<EventRegistration> findByEventIDAndIsDeletedFalse(Integer eventID);
     List<EventRegistration> findByEventIDAndRegistrationStatusAndIsDeletedFalseOrderByRegisteredAtAsc(Integer eventID, RegistrationStatus status);
     List<EventRegistration> findByUserIDAndIsDeletedFalse(Integer userID);
+    List<EventRegistration> findByPurchaserUserIDAndIsDeletedFalse(Integer purchaserUserID);
+    List<EventRegistration> findByTicketOrderCodeAndPurchaserUserIDAndIsDeletedFalse(String ticketOrderCode, Integer purchaserUserID);
+    List<EventRegistration> findByPaymentStatusAndPaymentExpiresAtBeforeAndIsDeletedFalse(
+            com.fptu.fcms.enums.PaymentStatus paymentStatus,
+            java.time.LocalDateTime paymentExpiresAt);
+    long countByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
+    Optional<EventRegistration> findTopByEventIDAndUserIDAndRegistrationStatusAndIsDeletedFalseOrderByCancelledAtDesc(
+            Integer eventID, Integer userID, RegistrationStatus registrationStatus);
     Optional<EventRegistration> findTopByEventIDAndUserIDAndIsDeletedFalseAndRegistrationStatusInOrderByRegisteredAtDesc(
             Integer eventID,
             Integer userID,
@@ -67,6 +79,7 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     );
 
     Optional<EventRegistration> findByRegistrationIDAndIsDeletedFalse(Integer registrationId);
+    Optional<EventRegistration> findByRegistrationIDAndUserIDAndIsDeletedFalse(Integer registrationId, Integer userId);
 
     Collection<EventRegistration> findByEventIDInAndUserIDInAndStatusInAndIsDeletedFalse(Collection<Integer> eventID, Collection<Integer> userID, Collection<String> status);
 

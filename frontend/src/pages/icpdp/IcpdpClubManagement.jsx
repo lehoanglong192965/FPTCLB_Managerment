@@ -1,30 +1,30 @@
 import { useState, useEffect, useMemo } from "react";
-import { Search, Loader2, CheckCircle, Ban, RefreshCw, Layers, Gauge } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, Loader2, CheckCircle, Ban, Plus, PauseCircle } from "lucide-react";
 import clubApi from "../../services/api/clubs/clubApi";
 import { useToast } from "../../contexts/ToastContext";
-import IcpdpClubQuality from "./IcpdpClubQuality";
-
-const PAGE_TABS = [
-  { key: "list",    label: "Danh sách CLB",  Icon: Layers },
-  { key: "quality", label: "Tổng quan CLB", Icon: Gauge },
-];
 
 const STATUS_MAP = {
-  Active:    { label: "Hoạt động",   cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  Suspended: { label: "Tạm ngừng",   cls: "bg-amber-50 text-amber-700 border-amber-200" },
-  Dissolved: { label: "Đã giải thể", cls: "bg-slate-50 text-slate-600 border-slate-200" },
+  Active:    { label: "Hoạt động",       cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  Inactive:  { label: "Ngừng hoạt động", cls: "bg-gray-100 text-gray-600 border-gray-200" },
+  Suspended: { label: "Tạm ngừng",       cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  Dissolved: { label: "Đã giải thể",     cls: "bg-slate-50 text-slate-600 border-slate-200" },
 };
 
+// ICPDP thấy tất cả CLB (không lọc theo status ở backend) nên bộ lọc phải bao gồm mọi
+// clubStatus có thể tồn tại: Active, Inactive (tự động khi CLB có <5 thành viên hoạt động
+// trong kỳ — xem ClubRepository.updateStatusToInactive), Suspended, Dissolved (ICPDP tự set).
 const FILTER_OPTIONS = [
   { value: "all",       label: "Tất cả" },
   { value: "Active",    label: "Hoạt động" },
+  { value: "Inactive",  label: "Ngừng hoạt động" },
   { value: "Suspended", label: "Tạm ngừng" },
   { value: "Dissolved", label: "Đã giải thể" },
 ];
 
 export default function IcpdpClubManagement() {
+  const navigate = useNavigate();
   const toast = useToast();
-  const [tab, setTab] = useState("list");
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -70,48 +70,88 @@ export default function IcpdpClubManagement() {
     );
   }, [clubs, filter, search]);
 
+  const stats = useMemo(() => ({
+    active: clubs.filter((c) => c.clubStatus === "Active").length,
+    inactive: clubs.filter((c) => c.clubStatus === "Inactive").length,
+    suspended: clubs.filter((c) => c.clubStatus === "Suspended").length,
+  }), [clubs]);
+
+  const STAT_TILES = [
+    { key: "active", label: "Hoạt động", value: stats.active, color: "#059669", bg: "#ECFDF5", Icon: CheckCircle },
+    { key: "inactive", label: "Ngừng hoạt động", value: stats.inactive, color: "#6B7280", bg: "#F3F4F6", Icon: PauseCircle },
+    { key: "suspended", label: "Tạm ngừng", value: stats.suspended, color: "#D97706", bg: "#FFFBEB", Icon: Ban },
+  ];
+
   return (
-    <div className="p-8 bg-slate-50 min-h-screen">
-      <div className="flex justify-between items-center mb-5">
-        <h1 className="text-3xl font-bold text-slate-800">Quản Lý Câu Lạc Bộ</h1>
-        {tab === "list" && (
-          <button onClick={fetchClubs} className="flex items-center gap-2 text-slate-500 hover:text-slate-800">
-              <RefreshCw size={18} /> Làm mới
-          </button>
-        )}
+    <div>
+      <div className="page-header">
+        <h1 className="page-title">Quản Lý Câu Lạc Bộ</h1>
+        <p className="page-subtitle">Theo dõi toàn bộ câu lạc bộ đang hoạt động trong hệ thống</p>
       </div>
 
-      {/* Tab: Danh sách CLB / Chất lượng CLB */}
-      <div className="flex items-center gap-1.5 mb-6 border-b border-slate-200">
-        {PAGE_TABS.map(({ key, label, Icon }) => {
-          const active = tab === key;
-          return (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-[13.5px] font-semibold border-0 border-b-2 bg-transparent cursor-pointer font-[inherit] transition-colors -mb-px ${
-                active
-                  ? "text-[#E6430A] border-[#E6430A]"
-                  : "text-slate-500 border-transparent hover:text-slate-700"
-              }`}
-            >
-              <Icon size={15} /> {label}
-            </button>
-          );
-        })}
-      </div>
-
-      {tab === "quality" && <IcpdpClubQuality embedded />}
-
-      {tab === "list" && (<>
-      <div className="flex gap-4 mb-6 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-        <div className="relative flex-grow max-w-md">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
-            <input className="border border-slate-200 p-2.5 pl-10 rounded-lg w-full focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Tìm tên CLB..." value={search} onChange={e => setSearch(e.target.value)} />
+      {/* Stat tiles — 1 card gộp 3 mục, ngăn cách bằng đường kẻ dọc */}
+      <div className="bg-white rounded-2xl border border-[#f0f0f0] px-6 py-5 mb-5">
+        <p className="text-[13.5px] font-bold text-gray-700 m-0 mb-4">Tổng Quan CLB</p>
+        <div className="grid grid-cols-3 divide-x divide-gray-100 max-[720px]:grid-cols-1 max-[720px]:divide-x-0 max-[720px]:divide-y">
+          {STAT_TILES.map((t) => (
+            <div key={t.key} className="flex items-center gap-3 px-5 first:pl-0 last:pr-0 max-[720px]:py-3 max-[720px]:first:pt-0 max-[720px]:last:pb-0">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: t.bg }}>
+                <t.Icon size={20} color={t.color} />
+              </div>
+              <div>
+                <p className="text-[1.4rem] font-extrabold text-gray-900 m-0 leading-tight">{t.value}</p>
+                <p className="text-[12px] text-gray-400 m-0 mt-0.5">{t.label}</p>
+              </div>
+            </div>
+          ))}
         </div>
-        <select className="border border-slate-200 p-2.5 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" value={filter} onChange={e => setFilter(e.target.value)}>
-          {FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+      </div>
+
+      <div className="mb-6">
+        <div className="grid mb-4" style={{ gridTemplateColumns: "minmax(0,384px) auto", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#94A3B8' }} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm tên CLB..."
+              className="w-full h-11 pl-9 pr-4 text-sm rounded-xl outline-none transition-colors bg-white box-border block"
+              style={{ border: '1px solid #E2E8F0', color: '#1E293B' }}
+              onFocus={(e) => { e.target.style.borderColor = '#e6430a'; }}
+              onBlur={(e) => { e.target.style.borderColor = '#E2E8F0'; }}
+            />
+          </div>
+          <button
+            onClick={() => navigate("/icpdp/clubs/create")}
+            className="flex items-center justify-center gap-1.5 h-11 bg-[#e6430a] hover:bg-[#c93900] text-white text-sm font-semibold px-4 rounded-lg transition-colors whitespace-nowrap box-border"
+          >
+            <Plus size={16} /> Tạo câu lạc bộ
+          </button>
+        </div>
+
+        <div className="flex gap-0 border-b-2 border-gray-200">
+          {FILTER_OPTIONS.map(({ value, label }) => {
+            const active = filter === value;
+            const count  = value === "all" ? clubs.length : clubs.filter((c) => c.clubStatus === value).length;
+            return (
+              <button
+                key={value}
+                onClick={() => setFilter(value)}
+                className={`flex items-center gap-1.5 px-[18px] py-2.5 text-sm font-medium border-b-2 -mb-0.5 cursor-pointer transition-colors duration-150 font-[inherit] bg-transparent ${
+                  active ? "text-[#e6430a] border-[#e6430a] font-semibold" : "text-gray-500 border-transparent hover:text-[#e6430a]"
+                }`}
+              >
+                {label}
+                {count > 0 && (
+                  <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold text-white ${active ? "bg-[#e6430a]" : "bg-gray-500"}`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {loading ? (
@@ -130,14 +170,18 @@ export default function IcpdpClubManagement() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtered.map(c => (
-                <tr key={c.clubID} className="hover:bg-slate-50/50 transition-colors">
+                <tr
+                  key={c.clubID}
+                  onClick={() => navigate(`/icpdp/club-dashboard?clubId=${c.clubID}`)}
+                  className="hover:bg-slate-50/50 transition-colors cursor-pointer"
+                >
                   <td className="p-5 font-medium text-slate-800">{c.name || "N/A"}</td>
                   <td className="p-5">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium border ${STATUS_MAP[c.clubStatus]?.cls || 'bg-slate-100 text-slate-600'}`}>
                       {STATUS_MAP[c.clubStatus]?.label || c.clubStatus || "Unknown"}
                     </span>
                   </td>
-                  <td className="p-5 flex gap-3">
+                  <td className="p-5 flex gap-3" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => handleUpdateStatus(c, 'Active')} className="flex items-center gap-1.5 text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1.5 rounded-lg transition-colors font-medium">
                         <CheckCircle size={14} /> Active
                     </button>
@@ -154,7 +198,6 @@ export default function IcpdpClubManagement() {
           )}
         </div>
       )}
-      </>)}
     </div>
   );
 }

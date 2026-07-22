@@ -185,7 +185,7 @@ function DetailModal({ ev, report, onApprove, onReject, onClose, approving, onVi
 }
 
 /* ── Main page ── */
-export default function IcpdpReportReview() {
+export default function IcpdpReportReview({ embedded = false }) {
   const confirm = useConfirm();
   const toast = useToast();
   const navigate = useNavigate();
@@ -277,10 +277,12 @@ export default function IcpdpReportReview() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Duyệt Báo Cáo Sự Kiện</h1>
-        <p className="page-subtitle">Xem xét báo cáo đã nộp và xác nhận điểm cho các sự kiện đã hoàn thành</p>
-      </div>
+      {!embedded && (
+        <div className="page-header">
+          <h1 className="page-title">Duyệt Báo Cáo Sự Kiện</h1>
+          <p className="page-subtitle">Xem xét báo cáo đã nộp và xác nhận điểm cho các sự kiện đã hoàn thành</p>
+        </div>
+      )}
 
       {/* Search bar */}
       {!loading && (

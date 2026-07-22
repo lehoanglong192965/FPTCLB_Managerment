@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping({"/api/v1/attendance-sessions/{sessionId}/walk-ins", "/api/attendance-sessions/{sessionId}/walk-ins"})
 @RequiredArgsConstructor
+@PreAuthorize("isAuthenticated()")
 public class WalkInController {
 
     private final WalkInService walkInService;
@@ -33,18 +34,18 @@ public class WalkInController {
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(walkInService.walkInFptu(sessionId, request, principal == null ? null : principal.getUserId()));
+                .body(walkInService.walkInFptu(sessionId, request, principal));
     }
 
     @PostMapping("/guest")
     public ResponseEntity<GuestRegistrationResponse> guest(
             @PathVariable Integer sessionId,
-            @Valid @RequestBody GuestRegistrationRequest request
+            @Valid @RequestBody GuestRegistrationRequest request,
+            @AuthenticationPrincipal UserPrincipal principal
     ) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(walkInService.walkInGuest(sessionId, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(walkInService.walkInGuest(sessionId, request, principal));
     }
 
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     @PostMapping("/guest/emergency-override")
     public ResponseEntity<AttendanceCheckInResponse> guestEmergencyOverride(
             @PathVariable Integer sessionId,
@@ -52,6 +53,6 @@ public class WalkInController {
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(walkInService.emergencyGuestOverride(sessionId, request, principal == null ? null : principal.getUserId()));
+                .body(walkInService.emergencyGuestOverride(sessionId, request, principal));
     }
 }

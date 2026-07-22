@@ -3,7 +3,10 @@ import axiosClient from "../axiosClient";
 const eventApi = {
   // PUBLIC
   getApprovedEvents: () => axiosClient.get("/v1/events/approved"),
+  getPublicEventsIncludingCompleted: () => axiosClient.get("/v1/events/public-list"),
   getEventById: (eventId) => axiosClient.get(`/v1/events/${eventId}`),
+  // CLUB_LEADER / VICE_LEADER — trả đủ trường quản lý (maxParticipants, budget, cửa sổ đăng ký/điểm danh...)
+  getManagedEventById: (eventId) => axiosClient.get(`/v1/events/${eventId}/manage`),
   getMyEventStatus: (eventId) => axiosClient.get(`/v1/events/${eventId}/my-status`),
   getMyAssignments: () => axiosClient.get("/v1/events/my-assignments"),
 
@@ -52,6 +55,8 @@ const eventApi = {
   getPendingForIcpdp: () => axiosClient.get("/icpdp/events/pending"),
   // Lịch sử đã duyệt cho ICPDP — bao gồm cả sự kiện đã kết thúc (khác /v1/events/approved của trang chủ)
   getApprovedForIcpdp: () => axiosClient.get("/icpdp/events/approved"),
+  // Toàn bộ vòng đời sự kiện (kể cả CANCELLED) — dùng cho trang tổng quan Quản Lý Sự Kiện
+  getAllForIcpdp: () => axiosClient.get("/icpdp/events/all"),
   getRejectedForIcpdp: () => axiosClient.get("/icpdp/events/rejected"),
   getEventByIdForIcpdp: (eventId) => axiosClient.get(`/icpdp/events/${eventId}`),
   approveForIcpdp: (eventId) => axiosClient.patch(`/icpdp/events/${eventId}/approve`),
@@ -60,9 +65,21 @@ const eventApi = {
 
   // MEMBER
   register: (eventId) => axiosClient.post(`/events/${eventId}/registrations/me`),
+  createTicketOrder: (eventId, participants) =>
+    axiosClient.post(`/events/${eventId}/ticket-orders`, { participants }),
+  confirmPayment: (registrationId, payload) =>
+    axiosClient.post(`/registrations/${registrationId}/payment/confirm`, payload),
   registerGuest: (eventId, payload) => axiosClient.post(`/events/${eventId}/registrations/guest`, payload),
   registerWalkIn: (eventId, payload) => axiosClient.post(`/events/${eventId}/registrations/walk-in`, payload),
+  // Member ticket details, including the static ticket eligibility flag.
+  getMyRegistrationDetails: () => axiosClient.get("/registrations/me"),
   getMyRegistrations: () => axiosClient.get("/registrations/me/events"),
+
+  // Registration and attendance exports
+  exportRegistrations: (eventId) =>
+    axiosClient.get(`/v1/events/${eventId}/registrations/export`, { responseType: "blob" }),
+  exportAttendance: (eventId) =>
+    axiosClient.get(`/v1/events/${eventId}/attendance/export`, { responseType: "blob" }),
 
   // Registration management
   listRegistrations: (eventId, params = {}) =>
@@ -73,8 +90,10 @@ const eventApi = {
     axiosClient.post(`/events/${eventId}/registrations/${registrationId}/approve`),
   rejectRegistration: (eventId, registrationId, reason) =>
     axiosClient.post(`/events/${eventId}/registrations/${registrationId}/reject`, { reason }),
-  cancelRegistration: (registrationId) =>
-    axiosClient.post(`/registrations/${registrationId}/cancel`),
+  cancelRegistration: (registrationId, reason) =>
+    axiosClient.post(`/registrations/${registrationId}/cancel`, { reason }),
+  cancelTicketOrder: (ticketOrderCode, reason) =>
+    axiosClient.post(`/ticket-orders/${ticketOrderCode}/cancel`, { reason }),
   cancelGuestRegistration: (eventId, guestRegistrationId) =>
     axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/cancel`),
 };

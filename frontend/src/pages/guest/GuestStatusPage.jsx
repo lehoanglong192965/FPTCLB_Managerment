@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { CheckCircle2, Clock, XCircle, Calendar, MapPin, RefreshCw } from 'lucide-react';
+import QRCode from 'react-qr-code';
 import guestApi from '../../services/api/guest/guestApi';
 import { guestErrorMessage } from '../../utils/guestErrorMessages';
 
@@ -44,6 +45,10 @@ export default function GuestStatusPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [paying, setPaying] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     setLoading(true);
@@ -97,6 +102,23 @@ export default function GuestStatusPage() {
     ? new Date(ev.startDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : ev.startDate;
 
+  const handlePayment = async () => {
+    if (paying) return;
+    setPaying(true);
+    setError(null);
+    try {
+      await guestApi.confirmPayment(ref, {
+        paymentMethod,
+        transactionReference: data.paymentReference,
+      });
+      await fetchStatus();
+    } catch (err) {
+      setError(guestErrorMessage(err, 'Không thể xác nhận thanh toán vé.'));
+    } finally {
+      setPaying(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full max-w-md p-8">
@@ -109,6 +131,35 @@ export default function GuestStatusPage() {
             {cfg.badge}
           </span>
         </div>
+
+        {data.paymentStatus === 'PENDING' && (
+          <div className="mb-6 rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm">
+            <p className="font-bold text-orange-800">Thanh toán vé khách</p>
+            <p className="mt-1 text-lg font-bold text-orange-600">
+              {Number(data.amountDue || 0).toLocaleString('vi-VN')} {data.paymentCurrency || 'VND'}
+            </p>
+            <p className="mt-1 break-all text-xs text-gray-600">Mã đối chiếu: {data.paymentReference}</p>
+            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="mt-3 w-full rounded-lg border border-orange-200 bg-white p-2">
+              <option value="BANK_TRANSFER">Chuyển khoản ngân hàng</option>
+              <option value="VNPAY">VNPay</option>
+              <option value="MOMO">MoMo</option>
+            </select>
+            <button type="button" onClick={handlePayment} disabled={paying} className="mt-3 w-full rounded-lg border-0 bg-orange-500 px-3 py-2 font-bold text-white disabled:opacity-50">
+              {paying ? 'Đang xác nhận...' : 'Xác nhận thanh toán'}
+            </button>
+          </div>
+        )}
+
+        {data.ticketCode && data.status === 'CONFIRMED' && (
+          <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-5 text-center">
+            <p className="mb-3 font-bold text-green-800">Vé QR của khách</p>
+            <div className="mx-auto w-fit rounded-xl bg-white p-3 shadow-sm">
+              <QRCode value={data.ticketCode} size={190} />
+            </div>
+            <p className="mt-3 break-all text-xs text-gray-600">{data.ticketCode}</p>
+            <p className="mt-1 text-xs text-green-700">Xuất trình mã này khi check-in.</p>
+          </div>
+        )}
 
         {/* Info */}
         <div className="space-y-3 text-sm">
@@ -135,6 +186,37 @@ export default function GuestStatusPage() {
             </div>
           )}
         </div>
+
+        {['CONFIRMED', 'WAITLISTED', 'PENDING_VERIFICATION'].includes(data.status) && (
+          <div className="mt-6 border-t border-gray-100 pt-5">
+            <textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Lý do không thể tham gia..."
+              className="w-full rounded-lg border border-gray-300 p-3 text-sm outline-none focus:border-red-400"
+            />
+            <button
+              disabled={cancelling || !cancelReason.trim()}
+              onClick={async () => {
+                setCancelling(true);
+                setError(null);
+                try {
+                  const res = await guestApi.cancel(ref, cancelReason.trim());
+                  setData(res?.data ?? res);
+                } catch (err) {
+                  setError(guestErrorMessage(err, 'Không thể hủy đăng ký.'));
+                } finally {
+                  setCancelling(false);
+                }
+              }}
+              className="mt-2 w-full rounded-lg border border-red-200 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              {cancelling ? 'Đang xử lý...' : 'Hủy đăng ký'}
+            </button>
+          </div>
+        )}
 
         <Link
           to="/"

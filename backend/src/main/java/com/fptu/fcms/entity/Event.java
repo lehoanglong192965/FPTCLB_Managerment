@@ -37,15 +37,38 @@ public class Event {
     private String eventName;
 
     @org.hibernate.annotations.Nationalized
-    @Column(name = "description")
+    @Column(name = "description", columnDefinition = "NVARCHAR(MAX)")
     private String description;
+
+    @org.hibernate.annotations.Nationalized
+    @Column(name = "venueName")
+    private String venueName;
 
     @org.hibernate.annotations.Nationalized
     @Column(name = "location")
     private String location;
 
+    @org.hibernate.annotations.Nationalized
+    @Column(name = "locationDetail")
+    private String locationDetail;
+
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
     @Column(name = "budget")
     private BigDecimal budget;
+
+    @Column(name = "isPaidEvent", nullable = false)
+    private Boolean isPaidEvent = false;
+
+    @Column(name = "ticketPrice")
+    private BigDecimal ticketPrice;
+
+    @Column(name = "ticketCurrency", length = 3)
+    private String ticketCurrency = "VND";
 
     @Column(name = "maxParticipants")
     private Integer maxParticipants;
@@ -164,6 +187,12 @@ public class Event {
         if (feedbackEnabled == null) {
             feedbackEnabled = true;
         }
+        if (isPaidEvent == null) isPaidEvent = false;
+        if (ticketCurrency == null || ticketCurrency.isBlank()) ticketCurrency = "VND";
+        if (Boolean.TRUE.equals(isPaidEvent) && (ticketPrice == null || ticketPrice.signum() <= 0)) {
+            throw new IllegalArgumentException("Paid events require a positive ticket price.");
+        }
+        if (!Boolean.TRUE.equals(isPaidEvent)) ticketPrice = null;
     }
 
 }

@@ -3,6 +3,8 @@ package com.fptu.fcms.entity;
 import com.fptu.fcms.enums.ParticipantType;
 import com.fptu.fcms.enums.RegistrationChannel;
 import com.fptu.fcms.enums.RegistrationStatus;
+import com.fptu.fcms.enums.PaymentMethod;
+import com.fptu.fcms.enums.PaymentStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -21,6 +23,7 @@ import lombok.Setter;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.Locale;
 
 @Entity
@@ -99,11 +102,52 @@ public class GuestEventRegistration {
     @Column(name = "waitlistPosition")
     private Integer waitlistPosition;
 
+    @Column(name = "ticketCode")
+    private String ticketCode;
+
+    @Column(name = "ticketIssuedAt")
+    private LocalDateTime ticketIssuedAt;
+
+    @Column(name = "ticketRevokedAt")
+    private LocalDateTime ticketRevokedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "paymentStatus")
+    private PaymentStatus paymentStatus = PaymentStatus.NOT_REQUIRED;
+
+    @Column(name = "amountDue")
+    private BigDecimal amountDue;
+
+    @Column(name = "amountPaid")
+    private BigDecimal amountPaid;
+
+    @Column(name = "paymentCurrency", length = 3)
+    private String paymentCurrency;
+
+    @Column(name = "paymentReference", length = 64)
+    private String paymentReference;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "paymentMethod")
+    private PaymentMethod paymentMethod;
+
+    @Column(name = "paidAt")
+    private LocalDateTime paidAt;
+
+    @Column(name = "paymentExpiresAt")
+    private LocalDateTime paymentExpiresAt;
+
     @Column(name = "verifiedAt")
     private LocalDateTime verifiedAt;
 
     @Column(name = "cancelledAt")
     private LocalDateTime cancelledAt;
+
+    @Column(name = "cancellationReason", length = 500)
+    private String cancellationReason;
+
+    @Column(name = "cancellationSource", length = 30)
+    private String cancellationSource;
 
     @Column(name = "createdAt")
     private LocalDateTime createdAt;

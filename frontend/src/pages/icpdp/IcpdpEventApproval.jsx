@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { X, Calendar, MapPin, Clock, ChevronRight, Search } from "lucide-react";
+import { X, ArrowLeft, ChevronRight, Search } from "lucide-react";
 import eventApi from "../../services/api/events/eventApi";
 import clubApi from "../../services/api/clubs/clubApi";
 import { useToast } from "../../contexts/ToastContext";
 import { getServerOrigin } from "../../services/api/axiosClient";
+import LocationPicker from "../../components/events/LocationPicker";
 
 const getImageUrl = (url) => {
   if (!url) return "";
@@ -12,6 +13,37 @@ const getImageUrl = (url) => {
 };
 
 const BUDGET_LIMIT = 5_000_000;
+
+// Cùng bố cục "Thông tin" của trang Quản lý sự kiện bên club-leader
+// (EventManageDetailPage.jsx) — để ICPDP xem chi tiết theo giao diện quen thuộc.
+const labelStyle = { fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 };
+const inputStyle = { width: "100%", fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "8px 10px", boxSizing: "border-box", outline: "none" };
+const accentInputStyle = { ...inputStyle, borderLeft: "3px solid #E6430A", overflowWrap: "anywhere", wordBreak: "break-word" };
+
+function SectionHeader({ children }) {
+  return (
+    <div style={{ background: "#eef2ff", color: "#1d4ed8", fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 14px", borderRadius: 8 }}>
+      {children}
+    </div>
+  );
+}
+
+function ReadBox({ value, multiline = false }) {
+  return (
+    <div style={{
+      ...accentInputStyle, borderLeft: inputStyle.border,
+      color: value ? "#111827" : "#9ca3af", minHeight: multiline ? 90 : "auto",
+      whiteSpace: multiline ? "pre-line" : "normal", lineHeight: multiline ? 1.6 : "normal", cursor: "default",
+    }}>
+      {value || "Chưa có"}
+    </div>
+  );
+}
+
+function formatTime(isoStr) {
+  if (!isoStr) return "";
+  return new Date(isoStr).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+}
 
 const STATUS_BADGE = {
   pending:  { cls: "bg-yellow-100 text-yellow-700", label: "Chờ IC-PDP duyệt" },
@@ -141,95 +173,127 @@ function RejectModal({ event, onConfirm, onClose }) {
   );
 }
 
-/* ── Detail popup ─────────────────────────────────────── */
-function DetailPopup({ event, onClose, onApprove, onReject }) {
+/* ── Detail view — hiện nguyên trang thay vì popup, cùng bố cục tab "Thông tin" của
+   EventManageDetailPage (club-leader) ── */
+function EventDetailView({ event, onBack, onApprove, onReject }) {
   const hasBudgetWarning = parseBudget(event.budget) > BUDGET_LIMIT;
   const badge = STATUS_BADGE[event.status] ?? STATUS_BADGE.pending;
-
-  const rows = [
-    { icon: <Calendar size={14} className="text-[#E6430A]" />, label: "Ngày tổ chức", value: event.eventDate },
-    { icon: <MapPin size={14} className="text-[#E6430A]" />,   label: "Địa điểm",    value: event.location },
-    {
-      icon: <span style={{ fontSize: 13, fontWeight: 700, color: "#E6430A", lineHeight: 1 }}>₫</span>,
-      label: "Ngân sách",
-      value: event.budget ? `${event.budget} đ` : null,
-      warn: hasBudgetWarning,
-    },
-    { icon: <Clock size={14} className="text-[#E6430A]" />,    label: "Nộp ngày",    value: event.submittedAt },
-  ].filter(r => r.value);
+  const timeStr = formatTime(event.startDateRaw);
+  const endTimeStr = formatTime(event.endDateRaw);
 
   return (
-    <div
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-      style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
-    >
+    <div>
+      <button
+        onClick={onBack}
+        className="inline-flex items-center gap-1.5 mb-4 px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 text-sm font-semibold cursor-pointer hover:border-[#e6430a] hover:text-[#e6430a] transition-all"
+      >
+        <ArrowLeft size={15} /> Quay lại
+      </button>
+
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
-          width: "100%", maxWidth: 520, maxHeight: "90vh",
-          background: "#fff", borderRadius: 16, overflowY: "auto",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+          background: "#fff", borderRadius: 16,
+          boxShadow: "0 1px 3px rgba(13,27,62,0.07)", border: "1px solid #f0f0f0",
           display: "flex", flexDirection: "column",
-          margin: "0 16px",
         }}
       >
-        {/* Banner */}
-        {event.bannerUrl && (
-          <div style={{
-            height: 160, flexShrink: 0, borderRadius: "16px 16px 0 0",
-            backgroundImage: `url(${getImageUrl(event.bannerUrl)})`,
-            backgroundSize: "cover", backgroundPosition: "center",
-          }} />
-        )}
-
         {/* Header */}
-        <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "flex-start", gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600, marginBottom: 8 }}
-              className={badge.cls}>
-              {badge.label}
+        <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #f0f0f0" }}>
+          <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600, marginBottom: 8 }}
+            className={badge.cls}>
+            {badge.label}
+          </span>
+          {event.status === "approved" && event.phaseLabel && (
+            <span className={`inline-block ml-2 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              event.isFinished ? "bg-gray-200 text-gray-600" : "bg-blue-100 text-blue-700"
+            }`}>
+              {event.phaseLabel}
             </span>
-            {hasBudgetWarning && event.status === "pending" && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold ml-2">
-                ⚠ Ngân sách vượt 5 triệu
-              </span>
-            )}
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#111827", lineHeight: 1.35 }}>
-              {event.name}
-            </h2>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#E6430A", fontWeight: 600 }}>{event.club}</p>
-          </div>
-          <button
-            onClick={onClose}
-            style={{ border: "none", background: "transparent", cursor: "pointer", padding: 6, color: "#6b7280", flexShrink: 0, borderRadius: 8 }}
-          >
-            <X size={20} />
-          </button>
+          )}
+          {hasBudgetWarning && event.status === "pending" && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold ml-2">
+              ⚠ Ngân sách vượt 5 triệu
+            </span>
+          )}
+          <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: "#111827", lineHeight: 1.35 }}>
+            {event.name}
+          </h2>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "#E6430A", fontWeight: 600 }}>{event.club}</p>
         </div>
 
-        {/* Info rows */}
-        <div style={{ padding: "16px 24px", borderBottom: "1px solid #f0f0f0", display: "flex", flexDirection: "column", gap: 12 }}>
-          {rows.map((r, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-              <div style={{ width: 20, display: "flex", justifyContent: "center", paddingTop: 1, flexShrink: 0 }}>{r.icon}</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.4 }}>{r.label}</span>
-                <span style={{ fontSize: 13.5, color: r.warn ? "#dc2626" : "#111827", fontWeight: r.warn ? 700 : 400 }}>{r.value}</span>
+        {/* Thông tin — cùng SectionHeader/ReadBox 2 cột như tab "Thông tin" bên club-leader */}
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #f0f0f0" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 24, alignItems: "start" }}>
+            {/* Cột trái: Banner → Thông tin → Thời gian */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={labelStyle}>Ảnh banner</label>
+                {event.bannerUrl ? (
+                  <img src={getImageUrl(event.bannerUrl)} alt="Banner" style={{ width: "100%", height: 150, objectFit: "cover", borderRadius: 8, display: "block" }} />
+                ) : (
+                  <div style={{ padding: "24px 0", textAlign: "center", color: "#9ca3af", fontSize: 13, border: "1.5px dashed #e5e7eb", borderRadius: 8 }}>Chưa có ảnh banner</div>
+                )}
+              </div>
+
+              <SectionHeader>Thông tin</SectionHeader>
+              <div>
+                <label style={labelStyle}>Tên sự kiện</label>
+                <ReadBox value={event.name} />
+              </div>
+              <div>
+                <label style={labelStyle}>Mô tả sự kiện</label>
+                <ReadBox value={event.description} multiline />
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Số người tối đa</label>
+                  <ReadBox value={event.maxParticipants ? `${event.maxParticipants} người` : null} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Quỹ dự kiến (VNĐ)</label>
+                  <ReadBox value={event.budget ? `${event.budget} đ` : null} />
+                </div>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Thông tin bán vé</label>
+                <ReadBox value={event.isPaidEvent ? `${Number(event.ticketPrice || 0).toLocaleString("vi-VN")} ${event.ticketCurrency || "VND"} / vé` : "Miễn phí"} />
+              </div>
+
+              <SectionHeader>Thời gian</SectionHeader>
+              <div>
+                <label style={labelStyle}>Ngày tổ chức</label>
+                <ReadBox value={event.eventDate} />
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Giờ bắt đầu</label>
+                  <ReadBox value={timeStr || null} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Giờ kết thúc</label>
+                  <ReadBox value={endTimeStr || null} />
+                </div>
               </div>
             </div>
-          ))}
 
-          {/* Description */}
-          {event.description && (
-            <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 10, marginTop: 2 }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 6 }}>
-                Mô tả sự kiện
-              </span>
-              <p style={{ margin: 0, fontSize: 13, color: "#374151", lineHeight: 1.75, whiteSpace: "pre-line" }}>
-                {event.description}
-              </p>
+            {/* Cột phải: Địa điểm */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <SectionHeader>Địa điểm</SectionHeader>
+              <div>
+                <label style={labelStyle}>Tên địa điểm / Toà nhà</label>
+                <ReadBox value={event.venueName} />
+              </div>
+              <div>
+                <label style={labelStyle}>Địa chỉ (định vị trên bản đồ)</label>
+                <LocationPicker address={event.location} lat={event.latitude} lng={event.longitude} readOnly />
+              </div>
+              <div>
+                <label style={labelStyle}>Chi tiết cụ thể</label>
+                <ReadBox value={event.locationDetail} />
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Rejection reason */}
@@ -245,19 +309,19 @@ function DetailPopup({ event, onClose, onApprove, onReject }) {
         )}
 
         {/* Actions */}
-        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ padding: "20px 24px", display: "flex", justifyContent: "flex-end", gap: 10 }}>
           {event.status === "pending" ? (<>
             <button
-              onClick={() => { onApprove(event.id); onClose(); }}
-              style={{ padding: "11px 0", borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%" }}
-            >
-              Phê duyệt
-            </button>
-            <button
               onClick={() => onReject(event)}
-              style={{ padding: "11px 0", borderRadius: 10, border: "none", background: "#dc2626", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%" }}
+              style={{ padding: "11px 24px", borderRadius: 10, border: "none", background: "#dc2626", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
             >
               Từ chối
+            </button>
+            <button
+              onClick={() => onApprove(event.id)}
+              style={{ padding: "11px 24px", borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+            >
+              Phê duyệt
             </button>
           </>) : (
             <p style={{ margin: 0, fontSize: 13, color: "#9ca3af", fontStyle: "italic" }}>
@@ -271,7 +335,7 @@ function DetailPopup({ event, onClose, onApprove, onReject }) {
 }
 
 /* ── Main ──────────────────────────────────────────────── */
-export default function IcpdpEventApproval() {
+export default function IcpdpEventApproval({ embedded = false }) {
   const toast = useToast();
   const [activeTab, setActiveTab]       = useState("pending");
   const [events, setEvents]             = useState([]);
@@ -303,6 +367,21 @@ export default function IcpdpEventApproval() {
         const resolveClubName = (e) =>
           e.clubName ?? clubNameById[e.clubID] ?? `CLB #${e.clubID}`;
 
+        // Các trường thô còn lại — dùng để hiển thị popup chi tiết theo đúng bố cục
+        // tab "Thông tin" của trang Quản lý sự kiện bên club-leader (SectionHeader/ReadBox).
+        const rawInfo = (e) => ({
+          venueName:       e.venueName,
+          locationDetail:  e.locationDetail,
+          maxParticipants: e.maxParticipants,
+          latitude:        e.latitude,
+          longitude:       e.longitude,
+          startDateRaw:    e.startDate,
+          endDateRaw:      e.endDate,
+          isPaidEvent:     e.isPaidEvent === true,
+          ticketPrice:     e.ticketPrice ?? null,
+          ticketCurrency:  e.ticketCurrency || "VND",
+        });
+
         const fromPending = pendingList.map((e) => ({
           id:               e.eventID,
           status:           "pending",
@@ -317,6 +396,7 @@ export default function IcpdpEventApproval() {
           createdAtRaw:     e.createdAt,
           bannerUrl:        e.bannerUrl ?? null,
           scheduleConflict: false,
+          ...rawInfo(e),
         }));
 
         // Sự kiện đã duyệt lấy từ API ICPDP (gồm cả đã kết thúc: COMPLETED/CLOSED/báo cáo...)
@@ -337,6 +417,7 @@ export default function IcpdpEventApproval() {
           createdAtRaw:     e.createdAt,
           bannerUrl:        e.bannerUrl ?? null,
           scheduleConflict: false,
+          ...rawInfo(e),
         }));
 
         // Lịch sử từ chối lấy từ API thật (backend trả kèm rejectionReason)
@@ -355,6 +436,7 @@ export default function IcpdpEventApproval() {
           bannerUrl:        e.bannerUrl ?? null,
           rejectionReason:  e.rejectionReason ?? "",
           scheduleConflict: false,
+          ...rawInfo(e),
         }));
 
         setEvents(sortByNewest([...fromPending, ...fromApproved, ...fromRejected]));
@@ -371,6 +453,7 @@ export default function IcpdpEventApproval() {
       setEvents((prev) =>
         prev.map((e) => e.id === id ? { ...e, status: "approved", statusLabel: "Đã phê duyệt" } : e)
       );
+      setSelectedEvent(null);
     } catch (err) {
       toast.error(err?.response?.data?.message ?? "Phê duyệt thất bại.");
     }
@@ -397,11 +480,21 @@ export default function IcpdpEventApproval() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-title">Phê Duyệt Sự Kiện</h1>
-        <p className="page-subtitle">Xét duyệt đề xuất tổ chức sự kiện từ các câu lạc bộ</p>
-      </div>
+      {!embedded && (
+        <div className="page-header">
+          <h1 className="page-title">Phê Duyệt Sự Kiện</h1>
+          <p className="page-subtitle">Xét duyệt đề xuất tổ chức sự kiện từ các câu lạc bộ</p>
+        </div>
+      )}
 
+      {selectedEvent ? (
+        <EventDetailView
+          event={selectedEvent}
+          onBack={() => setSelectedEvent(null)}
+          onApprove={approve}
+          onReject={(ev) => { setRejectTarget(ev); }}
+        />
+      ) : (<>
       {/* Search */}
       <div className="relative max-w-sm mb-4">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: '#94A3B8' }} />
@@ -501,18 +594,9 @@ export default function IcpdpEventApproval() {
           );
         })}
       </div>
+      </>)}
 
-      {/* Detail popup */}
-      {selectedEvent && (
-        <DetailPopup
-          event={selectedEvent}
-          onClose={() => setSelectedEvent(null)}
-          onApprove={approve}
-          onReject={(ev) => { setRejectTarget(ev); }}
-        />
-      )}
-
-      {/* Reject modal (on top of detail popup) */}
+      {/* Reject modal */}
       {rejectTarget && (
         <RejectModal
           event={rejectTarget}

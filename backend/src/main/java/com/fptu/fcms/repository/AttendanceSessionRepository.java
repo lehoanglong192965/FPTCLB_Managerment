@@ -4,10 +4,12 @@ import com.fptu.fcms.entity.AttendanceSession;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface AttendanceSessionRepository extends JpaRepository<AttendanceSession, Integer> {
     Optional<AttendanceSession> findByEventID(Integer eventID);
     Optional<AttendanceSession> findBySessionIDAndIsDeletedFalse(Integer sessionID);
+    List<AttendanceSession> findByEventIDAndIsDeletedFalseOrderByCheckInTimeAsc(Integer eventID);
 }

@@ -4,9 +4,14 @@ import com.fptu.fcms.dto.request.EventWalkInRegistrationRequest;
 import com.fptu.fcms.dto.request.EventGuestRegistrationRequest;
 import com.fptu.fcms.dto.request.GuestRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
+import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
+import com.fptu.fcms.dto.request.GroupTicketPurchaseRequest;
+import com.fptu.fcms.dto.request.RegistrationCancelRequest;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationResponse;
+import com.fptu.fcms.dto.response.MyRegistrationResponse;
+import com.fptu.fcms.dto.response.EventRegistrationResultResponse;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EventRegistrationService;
 import com.fptu.fcms.service.GuestRegistrationService;
@@ -39,11 +44,32 @@ public class EventRegistrationApiController {
     @PostMapping({"/api/events/{eventId}/registrations/me"})
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Dang ky su kien cho tai khoan hien tai")
-    public ResponseEntity<Map<String, String>> registerMe(
+    public ResponseEntity<EventRegistrationResultResponse> registerMe(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventRegistrationService.registerEvent(eventId, currentUser.getUserId());
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Registration submitted."));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(eventRegistrationService.registerEvent(eventId, currentUser.getUserId()));
+    }
+
+    @PostMapping("/api/events/{eventId}/ticket-orders")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Dat 1 den 4 ve cho su kien ban ve")
+    public ResponseEntity<EventRegistrationResultResponse> registerGroupTickets(
+            @PathVariable Integer eventId,
+            @Valid @RequestBody GroupTicketPurchaseRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(eventRegistrationService.registerGroupTickets(eventId, currentUser.getUserId(), request));
+    }
+
+    @PostMapping("/api/registrations/{registrationId}/payment/confirm")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Confirm payment for the current user's paid event registration")
+    public ResponseEntity<MyRegistrationResponse> confirmPayment(
+            @PathVariable Integer registrationId,
+            @Valid @RequestBody ConfirmEventPaymentRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(eventRegistrationService.confirmPayment(registrationId, currentUser.getUserId(), request));
     }
 
     @GetMapping({"/api/registrations/me/events"})
@@ -51,6 +77,15 @@ public class EventRegistrationApiController {
     @Operation(summary = "Lay danh sach su kien da dang ky cua toi")
     public ResponseEntity<List<Event>> getMyRegistrations(@AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.ok(eventRegistrationService.getEventsByUserRegistered(currentUser.getUserId()));
+    }
+
+    @GetMapping({"/api/registrations/me"})
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Get my registration ticket details")
+    public ResponseEntity<List<MyRegistrationResponse>> getMyRegistrationDetails(
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        return ResponseEntity.ok(eventRegistrationService.getMyRegistrationDetails(currentUser.getUserId()));
     }
 
     @PostMapping({"/api/events/{eventId}/registrations/guest"})
@@ -138,7 +173,7 @@ public class EventRegistrationApiController {
     }
 
     @PostMapping({"/api/events/{eventId}/registrations/{registrationId}/approve", "/api/v1/events/{eventId}/registrations/{registrationId}/approve"})
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     @Operation(summary = "Duyet dang ky")
     public ResponseEntity<Map<String, String>> approveRegistration(
             @PathVariable Integer eventId,
@@ -149,7 +184,7 @@ public class EventRegistrationApiController {
     }
 
     @PostMapping({"/api/events/{eventId}/registrations/{registrationId}/reject"})
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     @Operation(summary = "Tu choi dang ky")
     public ResponseEntity<Map<String, String>> rejectRegistration(
             @PathVariable Integer eventId,
@@ -165,13 +200,25 @@ public class EventRegistrationApiController {
     @Operation(summary = "Huy dang ky cua chinh minh")
     public ResponseEntity<Map<String, String>> cancelRegistration(
             @PathVariable Integer registrationId,
+            @Valid @RequestBody(required = false) RegistrationCancelRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventRegistrationService.cancelRegistration(registrationId, currentUser);
+        eventRegistrationService.cancelRegistration(registrationId, request, currentUser);
         return ResponseEntity.ok(Map.of("message", "Registration cancelled."));
     }
 
+    @PostMapping("/api/ticket-orders/{ticketOrderCode}/cancel")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Huy toan bo don ve cua tai khoan hien tai")
+    public ResponseEntity<Map<String, String>> cancelTicketOrder(
+            @PathVariable String ticketOrderCode,
+            @Valid @RequestBody(required = false) RegistrationCancelRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventRegistrationService.cancelTicketOrder(ticketOrderCode, request, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Ticket order cancelled."));
+    }
+
     @PostMapping({"/api/events/{eventId}/registrations/guest/{guestRegistrationId}/cancel"})
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     @Operation(summary = "Leader huy dang ky cua khach")
     public ResponseEntity<Map<String, String>> cancelGuestRegistration(
             @PathVariable Integer eventId,

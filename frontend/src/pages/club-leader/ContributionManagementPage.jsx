@@ -70,6 +70,7 @@ function FinalizeModal({ count, onConfirm, onClose }) {
 }
 
 function InstantFinalizeModal({ count, onConfirm, onClose }) {
+  const isEmpty = count === 0;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
@@ -84,10 +85,16 @@ function InstantFinalizeModal({ count, onConfirm, onClose }) {
           <h3 className="font-bold text-gray-900">Chốt đóng góp ngay</h3>
         </div>
         <p className="text-sm text-gray-600 mb-2">
-          Điểm của <strong>{count}</strong> thành viên sẽ được chốt vào BXH ngay lập tức.
+          {isEmpty ? (
+            <>Sự kiện không có thành viên trong danh sách đóng góp. Xác nhận chốt bảng rỗng?</>
+          ) : (
+            <>Điểm của <strong>{count}</strong> thành viên sẽ được chốt vào BXH ngay lập tức.</>
+          )}
         </p>
         <p className="text-xs text-blue-700 bg-blue-50 rounded-lg px-3 py-2 mb-5">
-          Thao tác này bỏ qua thời gian khiếu nại 24 giờ. Sau khi chốt, bảng điểm không thể chỉnh từ màn này.
+          {isEmpty
+            ? 'Sau khi chốt, sự kiện sẽ hoàn tất phần đóng góp và không phát sinh điểm thành viên.'
+            : 'Thao tác này bỏ qua thời gian khiếu nại 24 giờ. Sau khi chốt, bảng điểm không thể chỉnh từ màn này.'}
         </p>
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Hủy</button>
@@ -232,8 +239,9 @@ function AppealsPanel({ appeals, contributions, onProcess, canProcess }) {
   );
 }
 
-export default function ContributionManagementPage() {
-  const { eventId } = useParams();
+export default function ContributionManagementPage({ eventId: eventIdProp, embedded = false } = {}) {
+  const { eventId: eventIdParam } = useParams();
+  const eventId = eventIdProp ?? eventIdParam;
   const navigate = useNavigate();
   const { user } = useAuth();
   const canResolveOrFinalize = user?.role === 'CLUB_LEADER';
@@ -269,10 +277,13 @@ export default function ContributionManagementPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [contribRes, batchRes] = await Promise.allSettled([
-        contributionApi.getDraft(eventId),
-        contributionApi.getBatch(eventId),
-      ]);
+      // Gọi tuần tự (không song song) — cả 2 API tự tạo ContributionBatch nếu
+      // sự kiện chưa có batch nào; gọi song song từng gây race condition tạo
+      // ra 2 batch trùng cho cùng 1 sự kiện, khiến lần đọc sau lỗi 500 (query
+      // chỉ mong 1 kết quả nhưng nhận về 2). getDraft chạy trước để nó tạo/tìm
+      // batch xong rồi mới đến getBatch.
+      const [contribRes] = await Promise.allSettled([contributionApi.getDraft(eventId)]);
+      const [batchRes] = await Promise.allSettled([contributionApi.getBatch(eventId)]);
       if (contribRes.status === 'fulfilled') {
         const raw = contribRes.value;
         const data = Array.isArray(raw) ? raw : (raw?.data ?? raw?.content ?? []);
@@ -332,7 +343,6 @@ export default function ContributionManagementPage() {
       || searchParams.get('instant') !== '1'
       || batchStatus === 'FINALIZED'
       || batchStatus === 'CLOSED'
-      || contributions.length === 0
     ) {
       return;
     }
@@ -372,7 +382,7 @@ export default function ContributionManagementPage() {
     setShowInstantFinalizeModal(false);
     setFinalizing(true);
     try {
-      if (!isFinalized) {
+      if (!isFinalized && contributions.length > 0) {
         await contributionApi.update(eventId, buildContributionPayload());
       }
       const res = await contributionApi.finalize(eventId);
@@ -381,7 +391,9 @@ export default function ContributionManagementPage() {
       if (batch?.status) setBatchStatus(batch.status);
       setAppealClosesAt(batch?.appealClosesAt ?? null);
       setAppeals([]);
-      toast.success('Đã chốt đóng góp ngay. Điểm đã được cập nhật vào BXH thành viên.');
+      toast.success(contributions.length === 0
+        ? 'Đã chốt sự kiện không có người tham gia.'
+        : 'Đã chốt đóng góp ngay. Điểm đã được cập nhật vào BXH thành viên.');
       fetchData();
     } catch (err) {
       const code = err?.response?.data?.code;
@@ -427,18 +439,26 @@ export default function ContributionManagementPage() {
   if (loading) return <div className="p-10 text-center text-sm text-gray-400">Đang tải...</div>;
 
   return (
-    <div className="p-6 max-w-6xl">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors">
-        <ArrowLeft size={16} /> Quay lại
-      </button>
+    <div className={embedded ? "" : "p-6 max-w-6xl"}>
+      {!embedded && (
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors">
+          <ArrowLeft size={16} /> Quay lại
+        </button>
+      )}
 
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Users size={22} className="text-blue-600" /> Chốt Bảng Đóng Góp
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">Chọn vai trò đóng góp và nhận xét Good/Not good. Tier BXH sẽ tự tính theo tổng điểm.</p>
-        </div>
+        {embedded ? (
+          <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 m-0">
+            <Users size={16} className="text-blue-600" /> Chốt bảng đóng góp
+          </p>
+        ) : (
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Users size={22} className="text-blue-600" /> Chốt Bảng Đóng Góp
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">Chọn vai trò đóng góp và nhận xét Good/Not good. Tier BXH sẽ tự tính theo tổng điểm.</p>
+          </div>
+        )}
         {!isFinalized && (
           <div className="flex gap-3">
             <button
@@ -458,7 +478,7 @@ export default function ContributionManagementPage() {
             {canResolveOrFinalize && (
               <button
                 onClick={() => setShowInstantFinalizeModal(true)}
-                disabled={finalizing || saving || contributions.length === 0}
+                disabled={finalizing || saving}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
               >
                 <CheckCircle2 size={15} /> Chốt ngay
@@ -484,7 +504,7 @@ export default function ContributionManagementPage() {
           {canResolveOrFinalize && (
             <button
               onClick={() => setShowInstantFinalizeModal(true)}
-              disabled={finalizing || contributions.length === 0 || appeals.length > 0}
+              disabled={finalizing || appeals.length > 0}
               className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
               title={appeals.length > 0 ? 'Cần xử lý khiếu nại trước khi chốt ngay' : undefined}
             >

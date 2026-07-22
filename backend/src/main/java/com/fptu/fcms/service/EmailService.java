@@ -1,6 +1,7 @@
 package com.fptu.fcms.service;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 public interface EmailService {
 
@@ -32,5 +33,16 @@ public interface EmailService {
      * Gửi email dạng text thuần với Subject và Content tùy chỉnh
      */
     void sendSimpleEmail(String to, String subject, String content);
+
+    void sendEventTicketConfirmationEmail(
+            String email, String fullName, String eventName,
+            LocalDateTime startDate, LocalDateTime endDate, String location,
+            String ticketCode, BigDecimal amountPaid, String currency
+    );
+
+    void sendEventTicketCancellationEmail(
+            String email, String fullName, String eventName,
+            LocalDateTime startDate, String ticketCode
+    );
 }
 

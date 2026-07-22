@@ -2,6 +2,7 @@ package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.dto.request.GuestOtpVerifyRequest;
 import com.fptu.fcms.dto.request.GuestRegistrationRequest;
+import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
 import com.fptu.fcms.dto.response.GuestOtpVerifyResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationStatusResponse;
@@ -13,13 +14,19 @@ import com.fptu.fcms.enums.GuestOtpStatus;
 import com.fptu.fcms.enums.ParticipantType;
 import com.fptu.fcms.enums.RegistrationChannel;
 import com.fptu.fcms.enums.RegistrationStatus;
+import com.fptu.fcms.enums.PaymentStatus;
 import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.GuestVerificationOtpRepository;
 import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.GuestRegistrationService;
 import com.fptu.fcms.service.RegistrationAllocationPort;
 import com.fptu.fcms.service.RegistrationNotificationService;
+import com.fptu.fcms.service.event.RegistrationAllocationService;
+import com.fptu.fcms.service.event.RegistrationLifecycle;
+import com.fptu.fcms.repository.AttendanceSessionRepository;
+import com.fptu.fcms.repository.AttendanceRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -38,6 +45,7 @@ import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -45,15 +53,22 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final int DEFAULT_OTP_MAX_ATTEMPTS = 5;
+    private static final int MAX_REGISTRATION_ATTEMPTS = 2;
+    private static final long REREGISTRATION_COOLDOWN_MINUTES = 30;
+    private static final long REREGISTRATION_DEADLINE_HOURS = 24;
     private static final Set<RegistrationStatus> INACTIVE_GUEST_STATUSES = Set.of(RegistrationStatus.CANCELLED, RegistrationStatus.REJECTED);
 
     private final EventRepository eventRepository;
+    private final EventRegistrationRepository eventRegistrationRepository;
     private final GuestEventRegistrationRepository guestEventRegistrationRepository;
     private final GuestVerificationOtpRepository guestVerificationOtpRepository;
     private final RegistrationAllocationPort registrationAllocationPort;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final RegistrationNotificationService registrationNotificationService;
+    private final RegistrationAllocationService registrationAllocationService;
+    private final AttendanceSessionRepository attendanceSessionRepository;
+    private final AttendanceRecordRepository attendanceRecordRepository;
 
     @Value("${fcms.guest.otp-expiration-minutes:10}")
     private long otpExpirationMinutes;
@@ -64,10 +79,16 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
     @Override
     @Transactional
     public GuestRegistrationResponse createGuestRegistration(Integer eventId, GuestRegistrationRequest request) {
-        eventRepository.findByEventIDAndIsDeletedFalseForUpdate(eventId)
+        Event event = eventRepository.findByEventIDAndIsDeletedFalseForUpdate(eventId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
-
+        LocalDateTime requestTime = LocalDateTime.now();
+        if (!com.fptu.fcms.enums.EventStatus.REGISTRATION_OPEN.equals(event.getEventStatus())
+                || (event.getRegistrationOpenAt() != null && requestTime.isBefore(event.getRegistrationOpenAt()))
+                || (event.getRegistrationCloseAt() != null && requestTime.isAfter(event.getRegistrationCloseAt()))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "REGISTRATION_WINDOW_CLOSED");
+        }
         validateGuestRequest(eventId, request);
+        validateGuestReRegistration(event, normalizeEmail(request.getEmail()));
 
         LocalDateTime now = LocalDateTime.now();
         String rawReference = generateOpaqueToken();
@@ -89,6 +110,9 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         registration.setStatus(RegistrationStatus.PENDING_VERIFICATION.name());
         registration.setRegistrationStatus(RegistrationStatus.PENDING_VERIFICATION);
         registration.setRegistrationCode(generateRegistrationCode());
+        registration.setPaymentStatus(PaymentStatus.NOT_REQUIRED);
+        registration.setAmountPaid(BigDecimal.ZERO);
+        registration.setPaymentCurrency(event.getTicketCurrency() == null ? "VND" : event.getTicketCurrency());
         registration.setCreatedAt(now);
         registration.setUpdatedAt(now);
         registration.setIsDeleted(false);
@@ -149,6 +173,22 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         RegistrationStatus status = RegistrationStatus.fromValue(allocatedStatus);
         registration.setStatus(status == null ? null : status.name());
         registration.setRegistrationStatus(status);
+        if (RegistrationStatus.CONFIRMED.equals(status)) {
+            if (Boolean.TRUE.equals(event.getIsPaidEvent())) {
+                registration.setPaymentStatus(PaymentStatus.PENDING);
+                registration.setAmountDue(event.getTicketPrice());
+                registration.setAmountPaid(BigDecimal.ZERO);
+                registration.setPaymentReference("GUEST-" + registration.getGuestRegistrationID() + "-"
+                        + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT));
+                registration.setPaymentExpiresAt(now.plusMinutes(30));
+            } else {
+                issueTicket(registration, now);
+            }
+        } else if (RegistrationStatus.WAITLISTED.equals(status) && Boolean.TRUE.equals(event.getIsPaidEvent())) {
+            registration.setPaymentStatus(PaymentStatus.AWAITING_ELIGIBILITY);
+            registration.setAmountDue(event.getTicketPrice());
+            registration.setAmountPaid(BigDecimal.ZERO);
+        }
         registration.setUpdatedAt(now);
         guestEventRegistrationRepository.save(registration);
         registrationNotificationService.notifyGuestRegistrationStatus(registration);
@@ -198,15 +238,75 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
 
     @Override
     @Transactional
-    public GuestRegistrationStatusResponse cancel(String guestReference) {
+    public GuestRegistrationStatusResponse cancel(String guestReference, String reason) {
         GuestEventRegistration registration = findByReference(guestReference);
+        Event event = eventRepository.findByEventIDAndIsDeletedFalseForUpdate(registration.getEventID())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
+        LocalDateTime now = LocalDateTime.now();
+        if (event.getStartDate() == null || !now.isBefore(event.getStartDate())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "CANCEL_DEADLINE_PASSED");
+        }
+        attendanceSessionRepository.findByEventID(event.getEventID()).ifPresent(session -> {
+            if (attendanceRecordRepository.existsBySessionIDAndGuestRegistrationIDAndIsDeletedFalse(
+                    session.getSessionID(), registration.getGuestRegistrationID())) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "ALREADY_CHECKED_IN");
+            }
+        });
+        if (!now.isBefore(event.getStartDate().minusHours(24)) && (reason == null || reason.isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "CANCELLATION_REASON_REQUIRED");
+        }
+        RegistrationStatus oldStatus = RegistrationStatus.fromValue(effectiveStatus(registration));
         registration.setStatus(RegistrationStatus.CANCELLED.name());
         registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
-        registration.setCancelledAt(LocalDateTime.now());
-        registration.setUpdatedAt(LocalDateTime.now());
+        registration.setCancelledAt(now);
+        registration.setTicketRevokedAt(now);
+        registration.setCancellationReason(reason == null || reason.isBlank() ? null : reason.trim());
+        registration.setCancellationSource("PARTICIPANT");
+        registration.setUpdatedAt(now);
         guestEventRegistrationRepository.save(registration);
+        if (RegistrationLifecycle.CONFIRMED_STATUSES.contains(oldStatus)) {
+            registrationAllocationService.promoteWaitlisted(event.getEventID(), event.getMaxParticipants());
+        }
         registrationNotificationService.notifyGuestRegistrationStatus(registration);
         return toStatus(registration);
+    }
+
+    @Override
+    @Transactional
+    public GuestRegistrationStatusResponse confirmPayment(String guestReference, ConfirmEventPaymentRequest request) {
+        GuestEventRegistration registration = findByReference(guestReference);
+        Event event = eventRepository.findByEventIDAndIsDeletedFalseForUpdate(registration.getEventID())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
+        if (!PaymentStatus.PENDING.equals(registration.getPaymentStatus())) {
+            if (PaymentStatus.PAID.equals(registration.getPaymentStatus())) return toStatus(registration);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "GUEST_PAYMENT_NOT_PENDING");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (registration.getPaymentExpiresAt() != null && registration.getPaymentExpiresAt().isBefore(now)) {
+            registration.setPaymentStatus(PaymentStatus.EXPIRED);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "GUEST_PAYMENT_EXPIRED");
+        }
+        registration.setPaymentStatus(PaymentStatus.PAID);
+        registration.setAmountPaid(registration.getAmountDue());
+        registration.setPaymentMethod(request.getPaymentMethod());
+        if (request.getTransactionReference() != null && !request.getTransactionReference().isBlank()) {
+            registration.setPaymentReference(request.getTransactionReference().trim());
+        }
+        registration.setPaidAt(now);
+        issueTicket(registration, now);
+        GuestEventRegistration saved = guestEventRegistrationRepository.save(registration);
+        emailService.sendEventTicketConfirmationEmail(
+                saved.getGuestEmail(), saved.getGuestFullName(), event.getEventName(), event.getStartDate(), event.getEndDate(),
+                event.getLocation(), saved.getTicketCode(), saved.getAmountPaid(), saved.getPaymentCurrency());
+        return toStatus(saved);
+    }
+
+    private void issueTicket(GuestEventRegistration registration, LocalDateTime now) {
+        if (registration.getTicketCode() == null || registration.getTicketCode().isBlank()) {
+            registration.setTicketCode(UUID.randomUUID().toString());
+        }
+        if (registration.getTicketIssuedAt() == null) registration.setTicketIssuedAt(now);
+        registration.setTicketRevokedAt(null);
     }
 
     private void validateGuestRequest(Integer eventId, GuestRegistrationRequest request) {
@@ -221,6 +321,38 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         if (guestEventRegistrationRepository.existsActiveGuestPhone(eventId, phone, INACTIVE_GUEST_STATUSES)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "GUEST_DUPLICATE_PHONE");
         }
+        boolean duplicateInAccountOrders = eventRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
+                .filter(registration -> registration.getRegistrationStatus() != null
+                        && !INACTIVE_GUEST_STATUSES.contains(registration.getRegistrationStatus()))
+                .anyMatch(registration -> email.equalsIgnoreCase(normalizeEmail(registration.getGuestEmail()))
+                        || phone.equals(normalizePhone(registration.getGuestPhone())));
+        if (duplicateInAccountOrders) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "GUEST_DUPLICATE_EMAIL_OR_PHONE");
+        }
+    }
+
+    private void validateGuestReRegistration(Event event, String normalizedEmail) {
+        long attempts = guestEventRegistrationRepository
+                .countByEventIDAndGuestEmailNormalizedAndIsDeletedFalse(event.getEventID(), normalizedEmail);
+        if (attempts == 0) return;
+        if (attempts >= MAX_REGISTRATION_ATTEMPTS) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "REREGISTRATION_LIMIT_REACHED");
+        }
+        if (event.getStartDate() != null
+                && !LocalDateTime.now().isBefore(event.getStartDate().minusHours(REREGISTRATION_DEADLINE_HOURS))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "REREGISTRATION_DEADLINE_PASSED");
+        }
+        guestEventRegistrationRepository
+                .findTopByEventIDAndGuestEmailNormalizedAndRegistrationStatusAndIsDeletedFalseOrderByCancelledAtDesc(
+                        event.getEventID(), normalizedEmail, RegistrationStatus.CANCELLED)
+                .ifPresent(cancelled -> {
+                    LocalDateTime cancelledAt = cancelled.getCancelledAt() != null
+                            ? cancelled.getCancelledAt() : cancelled.getUpdatedAt();
+                    if (cancelledAt != null
+                            && LocalDateTime.now().isBefore(cancelledAt.plusMinutes(REREGISTRATION_COOLDOWN_MINUTES))) {
+                        throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "REREGISTRATION_COOLDOWN");
+                    }
+                });
     }
 
     private OtpIssue createOtp(Integer guestRegistrationId, String guestEmail) {
@@ -262,7 +394,17 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
                 maskEmail(registration.getGuestEmail()),
                 maskPhone(registration.getGuestPhone()),
                 registration.getRegistrationCode(),
-                registration.getWaitlistPosition()
+                registration.getWaitlistPosition(),
+                registration.getTicketRevokedAt() == null ? registration.getTicketCode() : null,
+                registration.getTicketIssuedAt(),
+                registration.getPaymentStatus(),
+                registration.getAmountDue(),
+                registration.getAmountPaid(),
+                registration.getPaymentCurrency(),
+                registration.getPaymentReference(),
+                registration.getPaymentMethod(),
+                registration.getPaidAt(),
+                registration.getPaymentExpiresAt()
         );
     }
 

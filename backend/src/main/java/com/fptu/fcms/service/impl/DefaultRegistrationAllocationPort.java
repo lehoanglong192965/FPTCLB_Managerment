@@ -25,7 +25,7 @@ public class DefaultRegistrationAllocationPort implements RegistrationAllocation
             return RegistrationLifecycle.STATUS_WAITLISTED.name();
         }
 
-        long confirmedCount = eventRegistrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
+        long confirmedCount = eventRegistrationRepository.countByEventIDAndRegistrationStatusInAndCapacityExemptFalseAndIsDeletedFalse(
                 event.getEventID(),
                 RegistrationLifecycle.CONFIRMED_STATUSES
         ) + guestEventRegistrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(

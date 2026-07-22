@@ -49,6 +49,11 @@ public class EventController {
         return ResponseEntity.ok(eventService.getApprovedEvents());
     }
 
+    @GetMapping("/public-list")
+    public ResponseEntity<List<Event>> getPublicEventsIncludingCompleted() {
+        return ResponseEntity.ok(eventService.getPublicEventsIncludingCompleted());
+    }
+
     @GetMapping("/report-uploaded")
     @PreAuthorize("hasRole('ICPDP')")
     public ResponseEntity<List<Event>> getReportUploadedEvents() {
@@ -92,12 +97,19 @@ public class EventController {
 
     @GetMapping("/{eventId}/my-status")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Map<String, Boolean>> getMyStatus(
+    public ResponseEntity<Map<String, Object>> getMyStatus(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        boolean registered = eventRegistrationService.isUserRegistered(eventId, currentUser.getUserId());
+        Map<String, Object> status = new java.util.HashMap<>(
+                eventRegistrationService.getRegistrationStatus(eventId, currentUser.getUserId()));
         boolean assigned = eventService.isUserAssigned(eventId, currentUser.getUserId());
-        return ResponseEntity.ok(Map.of("registered", registered, "assigned", assigned));
+        boolean paymentExempt = assigned
+                || eventService.isHostClubLeaderOrVice(eventId, currentUser.getUserId());
+        long purchasedTicketCount = eventRegistrationService.countActiveTicketsPurchased(eventId, currentUser.getUserId());
+        status.put("assigned", assigned);
+        status.put("paymentExempt", paymentExempt);
+        status.put("purchasedTicketCount", purchasedTicketCount);
+        return ResponseEntity.ok(status);
     }
 
     @GetMapping("/{eventId}/registration-policy")
@@ -125,11 +137,12 @@ public class EventController {
     }
 
     @PutMapping("/{eventId}")
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
     public ResponseEntity<Map<String, String>> updateEvent(
             @PathVariable Integer eventId,
-            @RequestBody @Valid com.fptu.fcms.dto.request.UpdateEventRequest request) {
-        eventService.updateEvent(eventId, request);
+            @RequestBody @Valid com.fptu.fcms.dto.request.UpdateEventRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.updateEvent(eventId, request, currentUser);
         return ResponseEntity.ok(Map.of("message", "Event updated successfully."));
     }
 
@@ -177,26 +190,29 @@ public class EventController {
     }
 
     @PatchMapping("/{eventId}/start")
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
     public ResponseEntity<Map<String, String>> startEvent(
-            @PathVariable Integer eventId) {
-        eventService.startEvent(eventId);
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.startEvent(eventId, currentUser);
         return ResponseEntity.ok(Map.of("message", "Event started successfully."));
     }
 
     @PatchMapping({"/{eventId}/finish", "/{eventId}/end"})
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
     public ResponseEntity<Map<String, String>> finishEvent(
-            @PathVariable Integer eventId) {
-        eventService.finishEvent(eventId);
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.finishEvent(eventId, currentUser);
         return ResponseEntity.ok(Map.of("message", "Event finished successfully."));
     }
 
     @PatchMapping("/{eventId}/close")
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     public ResponseEntity<Map<String, String>> closeEvent(
-            @PathVariable Integer eventId) {
-        eventService.closeEvent(eventId);
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.closeEvent(eventId, currentUser);
         return ResponseEntity.ok(Map.of("message", "Event closed successfully."));
     }
 
@@ -210,12 +226,13 @@ public class EventController {
     }
 
     @PatchMapping("/{clubId}/{eventId}/cancel")
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
     public ResponseEntity<Map<String, String>> cancelEvent(
             @PathVariable Integer clubId,
             @PathVariable Integer eventId,
-            @Valid @RequestBody CancelEventRequest request) {
-        eventService.cancelEvent(clubId, eventId, request);
+            @Valid @RequestBody CancelEventRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.cancelEvent(clubId, eventId, request, currentUser);
         return ResponseEntity.ok(Map.of("message", "Event cancelled successfully."));
     }
 
@@ -225,14 +242,15 @@ public class EventController {
             @PathVariable Integer eventId,
             @PathVariable String studentId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        String fullName = eventService.checkIn(eventId, studentId, currentUser);
-        return ResponseEntity.ok(Map.of("message", "Check-in successful.", "fullName", fullName, "studentId", studentId));
+        return ResponseEntity.status(HttpStatus.GONE).body(Map.of("message", "This endpoint is retired. Use POST /api/v1/attendance-sessions/{sessionId}/check-ins."));
     }
 
     @GetMapping("/{eventId}/check-in")
-    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
-    public ResponseEntity<List<Map<String, Object>>> getCheckedInAttendees(@PathVariable Integer eventId) {
-        return ResponseEntity.ok(eventService.getCheckedInAttendees(eventId));
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<Map<String, Object>>> getCheckedInAttendees(
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(eventService.getCheckedInAttendees(eventId, currentUser));
     }
 
     @GetMapping("/{eventId}/contributions")
@@ -279,8 +297,9 @@ public class EventController {
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     public ResponseEntity<Map<String, String>> addAssignment(
             @PathVariable Integer eventId,
-            @RequestBody EventAssignmentRequest request) {
-        eventService.addAssignment(eventId, request);
+            @RequestBody EventAssignmentRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.addAssignment(eventId, request, currentUser);
         return ResponseEntity.ok(Map.of("message", "Assignment created successfully."));
     }
 
@@ -288,23 +307,27 @@ public class EventController {
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     public ResponseEntity<Map<String, String>> assignCheckInStaff(
             @PathVariable Integer eventId,
-            @PathVariable Integer userId) {
-        eventService.assignCheckInStaff(eventId, userId);
+            @PathVariable Integer userId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.assignCheckInStaff(eventId, userId, currentUser);
         return ResponseEntity.ok(Map.of("message", "Check-in staff assigned successfully."));
     }
 
     @GetMapping("/{eventId}/assignments")
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
-    public ResponseEntity<List<EventAssignment>> getAssignments(@PathVariable Integer eventId) {
-        return ResponseEntity.ok(eventService.getAssignments(eventId));
+    public ResponseEntity<List<EventAssignment>> getAssignments(
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(eventService.getAssignments(eventId, currentUser));
     }
 
     @DeleteMapping("/{eventId}/check-in-staff/{userId}")
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     public ResponseEntity<Map<String, String>> revokeCheckInStaff(
             @PathVariable Integer eventId,
-            @PathVariable Integer userId) {
-        eventService.revokeCheckInStaff(eventId, userId);
+            @PathVariable Integer userId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.revokeCheckInStaff(eventId, userId, currentUser);
         return ResponseEntity.ok(Map.of("message", "Check-in staff revoked successfully."));
     }
 
@@ -312,8 +335,9 @@ public class EventController {
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     public ResponseEntity<Map<String, String>> removeAssignment(
             @PathVariable Integer eventId,
-            @PathVariable Integer userId) {
-        eventService.removeAssignment(eventId, userId);
+            @PathVariable Integer userId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.removeAssignment(eventId, userId, currentUser);
         return ResponseEntity.ok(Map.of("message", "Assignment removed successfully."));
     }
 }

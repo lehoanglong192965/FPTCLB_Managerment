@@ -9,6 +9,7 @@ import semesterApi from "../../services/api/admin/semesterApi";
 import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
 import clubRegistrationApi from "../../services/api/clubs/clubRegistrationApi";
 import { useToast } from "../../contexts/ToastContext";
+import LocationPicker from "../../components/events/LocationPicker";
 
 /* ─── Constants ─────────────────────────────────────────────── */
 
@@ -20,11 +21,18 @@ const STEPS = [
 
 const EMPTY_FORM = {
   name: "", desc: "", budget: "", banner: null, bannerPublicId: "",
-  isInternal: false, maxParticipants: "",
-  date: "", startTime: "", endTime: "", location: "",
+  isInternal: false, maxParticipants: "", isPaidEvent: false, ticketPrice: "", ticketCurrency: "VND",
+  date: "", startTime: "", endTime: "",
+  venueName: "", location: "", locationDetail: "",
+  latitude: null, longitude: null,
 };
 
 const BUDGET_LIMIT = 5_000_000;
+const DESCRIPTION_WORD_LIMIT = 1000;
+const countWords = (value) => {
+  const normalized = String(value ?? "").trim();
+  return normalized ? normalized.split(/\s+/u).length : 0;
+};
 const fmtVND = (val) => {
   const n = Number(String(val).replace(/\D/g, ""));
   return isNaN(n) ? "" : n.toLocaleString("vi-VN");
@@ -262,10 +270,12 @@ function Step1({ form, onChange, errors }) {
           value={form.desc}
           onChange={(e) => onChange("desc", e.target.value)}
         />
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-          <span style={{ fontSize: 11.5, color: form.desc.length >= 30 ? "#059669" : "#9ca3af" }}>
-            {form.desc.length} / 30+ ký tự
-          </span>
+        <div style={{
+          marginTop: 5, textAlign: "right", fontSize: 12,
+          color: countWords(form.desc) > DESCRIPTION_WORD_LIMIT ? "#dc2626" : "#6b7280",
+          fontWeight: countWords(form.desc) > DESCRIPTION_WORD_LIMIT ? 600 : 400,
+        }}>
+          {countWords(form.desc).toLocaleString("vi-VN")}/{DESCRIPTION_WORD_LIMIT.toLocaleString("vi-VN")} từ
         </div>
         <FieldError msg={errors.desc} />
       </div>
@@ -309,6 +319,23 @@ function Step1({ form, onChange, errors }) {
         <FieldError msg={errors.maxParticipants} />
       </div>
 
+      <div style={{ padding: 16, border: "1.5px solid #fed7aa", borderRadius: 12, background: "#fff7ed" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontWeight: 700, color: "#9a3412" }}>
+          <input type="checkbox" checked={form.isPaidEvent} onChange={(e) => onChange("isPaidEvent", e.target.checked)} />
+          Sự kiện có bán vé
+        </label>
+        {form.isPaidEvent && (
+          <div style={{ marginTop: 12 }}>
+            <Label required>Giá một vé</Label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 90px", gap: 8 }}>
+              <input style={inputStyle(errors.ticketPrice)} type="number" min="1000" step="1000" value={form.ticketPrice} onChange={(e) => onChange("ticketPrice", e.target.value)} placeholder="VD: 50000" />
+              <select style={inputStyle()} value={form.ticketCurrency} onChange={(e) => onChange("ticketCurrency", e.target.value)}><option value="VND">VND</option></select>
+            </div>
+            <FieldError msg={errors.ticketPrice} />
+          </div>
+        )}
+      </div>
+
       <InternalToggle value={form.isInternal} onChange={onChange} />
     </div>
   );
@@ -347,14 +374,42 @@ function Step2({ form, onChange, errors }) {
       </div>
 
       <div>
-        <Label required>Địa điểm tổ chức</Label>
+        <Label>Tên địa điểm / Toà nhà</Label>
         <input
-          style={inputStyle(errors.location)}
-          placeholder="VD: Hội trường A, Tòa nhà FPT, Tầng 3"
-          value={form.location}
-          onChange={(e) => onChange("location", e.target.value)}
+          style={inputStyle(false)}
+          placeholder="VD: Hội trường Beta – Đại học FPT"
+          value={form.venueName}
+          onChange={(e) => onChange("venueName", e.target.value)}
+        />
+      </div>
+
+      <div>
+        <Label required>Địa chỉ (định vị trên bản đồ)</Label>
+        <LocationPicker
+          address={form.location}
+          lat={form.latitude}
+          lng={form.longitude}
+          error={errors.location}
+          onChange={({ address, lat, lng }) => {
+            onChange("location", address);
+            onChange("latitude", typeof lat === "number" ? lat : null);
+            onChange("longitude", typeof lng === "number" ? lng : null);
+          }}
         />
         <FieldError msg={errors.location} />
+      </div>
+
+      <div>
+        <Label>Chi tiết cụ thể</Label>
+        <input
+          style={inputStyle(false)}
+          placeholder="VD: Tầng 3, phòng 302, lối vào cổng chính"
+          value={form.locationDetail}
+          onChange={(e) => onChange("locationDetail", e.target.value)}
+        />
+        <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "#9ca3af" }}>
+          Tầng, phòng, hoặc hướng dẫn tìm đường trong khuôn viên (không bắt buộc).
+        </p>
       </div>
     </div>
   );
@@ -381,7 +436,7 @@ function SummaryRow({ label, value }) {
   return (
     <div style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid #f9fafb" }}>
       <span style={{ fontSize: 12.5, color: "#6b7280", minWidth: 140, flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: 13, color: "#111827", fontWeight: 500 }}>{value}</span>
+      <span style={{ fontSize: 13, color: "#111827", fontWeight: 500, minWidth: 0, wordBreak: "break-word", overflowWrap: "anywhere" }}>{value}</span>
     </div>
   );
 }
@@ -412,6 +467,21 @@ function Step3({ form }) {
         <SummaryRow label="Mô tả"       value={form.desc} />
         <SummaryRow label="Phạm vi"     value={form.isInternal ? "Nội bộ CLB" : "Công khai"} />
         <SummaryRow label="Số người tối đa" value={form.maxParticipants ? `${form.maxParticipants} người` : "Không giới hạn"} />
+        <SummaryRow label="Hình thức tham gia" value={form.isPaidEvent ? "Sự kiện bán vé" : "Sự kiện miễn phí"} />
+        {form.isPaidEvent && (
+          <>
+            <SummaryRow
+              label="Giá một vé"
+              value={`${fmtVND(form.ticketPrice)} ${form.ticketCurrency || "VND"} / vé`}
+            />
+            <SummaryRow
+              label="Doanh thu vé tối đa"
+              value={form.maxParticipants
+                ? `${fmtVND(Number(form.ticketPrice || 0) * Number(form.maxParticipants || 0))} ${form.ticketCurrency || "VND"}`
+                : "Chưa xác định"}
+            />
+          </>
+        )}
         <div style={{ display: "flex", gap: 12, padding: "8px 0", alignItems: "center" }}>
           <span style={{ fontSize: 12.5, color: "#6b7280", minWidth: 140, flexShrink: 0 }}>Ngân sách</span>
           <span style={{ fontSize: 13, color: Number(form.budget) > BUDGET_LIMIT ? "#dc2626" : "#111827", fontWeight: 600 }}>
@@ -426,7 +496,15 @@ function Step3({ form }) {
       <SummaryCard icon={<CalendarDays size={15} color="#E6430A" />} title="Thời gian & Địa điểm">
         <SummaryRow label="Ngày"      value={form.date} />
         <SummaryRow label="Thời gian" value={`${form.startTime} – ${form.endTime}`} />
-        <SummaryRow label="Địa điểm" value={form.location || "—"} />
+        <SummaryRow label="Tên địa điểm / Tòa nhà" value={form.venueName || "Chưa cung cấp"} />
+        <SummaryRow label="Địa chỉ" value={form.location || "—"} />
+        <SummaryRow label="Chi tiết cụ thể" value={form.locationDetail || "Chưa cung cấp"} />
+        <SummaryRow
+          label="Tọa độ bản đồ"
+          value={typeof form.latitude === "number" && typeof form.longitude === "number"
+            ? `${form.latitude.toFixed(6)}, ${form.longitude.toFixed(6)}`
+            : "Chưa ghim vị trí"}
+        />
       </SummaryCard>
     </div>
   );
@@ -434,34 +512,69 @@ function Step3({ form }) {
 
 /* ─── Validation ─────────────────────────────────────────────── */
 
+// Kiểm tra ngày/giờ tổ chức — dùng chung cho validate khi bấm "Bước tiếp theo"
+// VÀ validate ngay khi người dùng chọn ngày/giờ (live), tránh trường hợp chọn
+// giờ trong quá khứ mà không báo lỗi cho tới lúc bấm nút.
+function validateDateTime(form) {
+  const e = {};
+  const now     = new Date();
+  const today   = new Date(); today.setHours(0, 0, 0, 0);
+  const minDate = new Date(today); minDate.setDate(minDate.getDate() + 14);
+
+  if (!form.date) {
+    e.date = "Vui lòng chọn ngày tổ chức.";
+  } else {
+    const evDate = new Date(form.date);
+    if (evDate <= today) e.date = "Ngày tổ chức phải là ngày trong tương lai.";
+    else if (evDate < minDate) e.date = "Đề xuất phải được gửi trước ít nhất 14 ngày so với ngày tổ chức.";
+  }
+
+  if (!form.startTime) {
+    e.startTime = "Vui lòng chọn giờ bắt đầu.";
+  } else if (form.date && new Date(`${form.date}T${form.startTime}:00`) <= now) {
+    e.startTime = "Giờ bắt đầu phải ở thời điểm trong tương lai.";
+  }
+
+  if (!form.endTime) {
+    e.endTime = "Vui lòng chọn giờ kết thúc.";
+  } else if (form.startTime && form.endTime <= form.startTime) {
+    e.endTime = "Giờ kết thúc phải sau giờ bắt đầu.";
+  } else if (form.date && new Date(`${form.date}T${form.endTime}:00`) <= now) {
+    e.endTime = "Giờ kết thúc phải ở thời điểm trong tương lai.";
+  }
+
+  return e;
+}
+
 function validate(step, form) {
   const e = {};
   if (step === 1) {
     if (!form.banner)
       e.banner = "Vui lòng tải lên banner sự kiện.";
-    if (!form.name.trim() || form.name.trim().length < 5)
-      e.name = "Tên sự kiện phải có ít nhất 5 ký tự.";
+    {
+      const name = form.name.trim();
+      if (!name)
+        e.name = "Vui lòng nhập tên sự kiện.";
+      else if (name.length < 5)
+        e.name = "Tên sự kiện quá ngắn (< 5 ký tự). Vui lòng đặt tên rõ ràng, đầy đủ hơn.";
+      else if (name.length > 100)
+        e.name = "Tên sự kiện quá dài (> 100 ký tự). Vui lòng rút gọn lại cho súc tích.";
+      else if (!/\p{L}/u.test(name))
+        e.name = "Tên sự kiện phải chứa ít nhất một chữ cái, không thể chỉ gồm số hoặc ký tự đặc biệt.";
+    }
     if (!form.desc.trim() || form.desc.trim().length < 30)
-      e.desc = "Mô tả phải có ít nhất 30 ký tự.";
+      e.desc = "Nội dung của bạn quá ngắn (< 30 ký tự), vui lòng kiểm tra và nhập đầy đủ hơn.";
+    else if (countWords(form.desc) > DESCRIPTION_WORD_LIMIT)
+      e.desc = "Nội dung quá dài (> 1000 từ), vui lòng kiểm tra và rút gọn nội dung của bạn.";
     if (!form.budget || Number(form.budget) < 0)
       e.budget = "Vui lòng nhập ngân sách dự kiến (nhập 0 nếu không có).";
     if (!form.maxParticipants || Number(form.maxParticipants) < 1)
       e.maxParticipants = "Vui lòng nhập số người tham gia tối đa (ít nhất 1 người).";
+    if (form.isPaidEvent && (!form.ticketPrice || Number(form.ticketPrice) <= 0))
+      e.ticketPrice = "Sự kiện bán vé phải có giá vé lớn hơn 0.";
   }
   if (step === 2) {
-    if (!form.date) {
-      e.date = "Vui lòng chọn ngày tổ chức.";
-    } else {
-      const today   = new Date(); today.setHours(0, 0, 0, 0);
-      const minDate = new Date(today); minDate.setDate(minDate.getDate() + 14);
-      const evDate  = new Date(form.date);
-      if (evDate <= today)   e.date = "Ngày tổ chức phải là ngày trong tương lai.";
-      else if (evDate < minDate) e.date = "Đề xuất phải được gửi trước ít nhất 14 ngày so với ngày tổ chức.";
-    }
-    if (!form.startTime) e.startTime = "Vui lòng chọn giờ bắt đầu.";
-    if (!form.endTime)   e.endTime   = "Vui lòng chọn giờ kết thúc.";
-    if (form.startTime && form.endTime && form.endTime <= form.startTime)
-      e.endTime = "Giờ kết thúc phải sau giờ bắt đầu.";
+    Object.assign(e, validateDateTime(form));
     if (!form.location.trim())
       e.location = "Vui lòng nhập địa điểm tổ chức.";
   }
@@ -497,9 +610,35 @@ export default function CreateEventPage() {
       .catch(() => {});
   }, []);
 
+  const DATETIME_FIELDS = ["date", "startTime", "endTime"];
+
+  // LocationPicker gọi onChange nhiều lần liên tiếp trong cùng 1 lượt (địa chỉ, lat, lng),
+  // nên phải dùng ref để nối tiếp đúng giá trị mới nhất — dùng `form` từ closure sẽ bị
+  // các lần gọi sau ghi đè mất thay đổi của lần gọi trước (mỗi lần đều spread từ `form` cũ).
+  const formRef = useRef(form);
+  useEffect(() => { formRef.current = form; }, [form]);
+
   const onChange = (field, value) => {
-    setForm((f) => ({ ...f, [field]: value }));
-    if (errors[field]) setErrors((e) => { const n = { ...e }; delete n[field]; return n; });
+    const nextForm = { ...formRef.current, [field]: value };
+    formRef.current = nextForm;
+    setForm(nextForm);
+    if (DATETIME_FIELDS.includes(field)) {
+      // Báo lỗi ngay khi chọn ngày/giờ thay vì đợi tới lúc bấm "Bước tiếp theo",
+      // để bắt được ngay trường hợp chọn giờ trong quá khứ. Không báo lỗi "bắt buộc"
+      // sớm cho các trường chưa động tới (chỉ báo khi đã có giá trị hoặc là trường vừa sửa).
+      const dtErrors = validateDateTime(nextForm);
+      setErrors((e) => {
+        const n = { ...e };
+        DATETIME_FIELDS.forEach((k) => {
+          const err = dtErrors[k];
+          const shouldShow = err && (nextForm[k] || k === field);
+          if (shouldShow) n[k] = err; else delete n[k];
+        });
+        return n;
+      });
+    } else if (errors[field]) {
+      setErrors((e) => { const n = { ...e }; delete n[field]; return n; });
+    }
   };
 
   const goNext = () => {
@@ -521,8 +660,15 @@ export default function CreateEventPage() {
         eventCode:     `EVT-${clubId}-${Date.now()}`,
         eventName:     form.name,
         description:   form.desc,
+        venueName:     form.venueName?.trim() || null,
         location:      form.location || null,
+        locationDetail: form.locationDetail?.trim() || null,
+        latitude:      typeof form.latitude === "number" ? form.latitude : null,
+        longitude:     typeof form.longitude === "number" ? form.longitude : null,
         budget:        Number(form.budget) || 0,
+        isPaidEvent:   form.isPaidEvent,
+        ticketPrice:   form.isPaidEvent ? Number(form.ticketPrice) : null,
+        ticketCurrency: form.ticketCurrency || "VND",
         startDate:     `${form.date}T${form.startTime}:00`,
         endDate:       `${form.date}T${form.endTime}:00`,
         maxParticipants: form.maxParticipants ? parseInt(form.maxParticipants) : null,

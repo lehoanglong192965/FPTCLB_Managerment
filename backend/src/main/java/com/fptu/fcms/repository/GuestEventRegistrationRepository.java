@@ -34,10 +34,14 @@ public interface GuestEventRegistrationRepository extends JpaRepository<GuestEve
     );
 
     List<GuestEventRegistration> findByEventIDAndIsDeletedFalse(Integer eventID);
+    long countByEventIDAndGuestEmailNormalizedAndIsDeletedFalse(Integer eventID, String guestEmailNormalized);
+    Optional<GuestEventRegistration> findTopByEventIDAndGuestEmailNormalizedAndRegistrationStatusAndIsDeletedFalseOrderByCancelledAtDesc(
+            Integer eventID, String guestEmailNormalized, RegistrationStatus registrationStatus);
 
     Optional<GuestEventRegistration> findByGuestRegistrationIDAndIsDeletedFalse(Integer guestRegistrationID);
 
     Optional<GuestEventRegistration> findByGuestReferenceHashAndIsDeletedFalse(String hash);
+    Optional<GuestEventRegistration> findByEventIDAndTicketCodeAndIsDeletedFalse(Integer eventID, String ticketCode);
 
     boolean existsByRegistrationCodeAndIsDeletedFalse(String code);
 

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, Search, CheckCircle2, XCircle, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Users, Search, CheckCircle2, XCircle, Trash2, X, Download } from 'lucide-react';
 import eventApi from '../../services/api/events/eventApi';
+import { buildEventCsvFileName, downloadCsvFile, getDownloadErrorMessage } from '../../utils/csvDownload';
 import { useToast } from '../../contexts/ToastContext';
 
 const STATUS_CFG = {
@@ -67,8 +68,9 @@ function RejectModal({ name, onConfirm, onClose }) {
   );
 }
 
-export default function RegistrationMgmtPage() {
-  const { eventId } = useParams();
+export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = false, maxParticipants } = {}) {
+  const { eventId: eventIdParam } = useParams();
+  const eventId = eventIdProp ?? eventIdParam;
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -78,6 +80,7 @@ export default function RegistrationMgmtPage() {
   const [tab, setTab] = useState('');
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState(null); // registrationId
+  const [exportLoading, setExportLoading] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null); // { id, name }
 
   const fetchRegistrations = useCallback(async () => {
@@ -157,6 +160,31 @@ export default function RegistrationMgmtPage() {
     }
   };
 
+  const handleExport = async (exportType) => {
+    if (!eventId || exportLoading) return;
+
+    const isAttendance = exportType === 'attendance';
+    setExportLoading(exportType);
+    try {
+      const csvData = isAttendance
+        ? await eventApi.exportAttendance(eventId)
+        : await eventApi.exportRegistrations(eventId);
+      downloadCsvFile(csvData, buildEventCsvFileName(eventId, exportType));
+      toast.success(isAttendance
+        ? '\u0110\u00e3 t\u1ea3i CSV \u0111i\u1ec3m danh.'
+        : '\u0110\u00e3 t\u1ea3i CSV \u0111\u0103ng k\u00fd.');
+    } catch (err) {
+      toast.error(await getDownloadErrorMessage(
+        err,
+        isAttendance
+          ? 'Kh\u00f4ng th\u1ec3 xu\u1ea5t CSV \u0111i\u1ec3m danh.'
+          : 'Kh\u00f4ng th\u1ec3 xu\u1ea5t CSV \u0111\u0103ng k\u00fd.',
+      ));
+    } finally {
+      setExportLoading(null);
+    }
+  };
+
   const filtered = registrations.filter((r) => {
     if (tab) {
       const matchTab = tab === 'PENDING_APPROVAL' ? isPendingApproval(r.status) : r.status === tab;
@@ -174,25 +202,76 @@ export default function RegistrationMgmtPage() {
   const counts = {
     '': registrations.length,
     PENDING_APPROVAL: registrations.filter((r) => isPendingApproval(r.status)).length,
-    CONFIRMED: registrations.filter((r) => r.status === 'CONFIRMED').length,
+    // Vé Ban tổ chức là vé miễn phí và không chiếm quota người tham gia.
+    CONFIRMED: registrations.filter((r) => r.status === 'CONFIRMED' && !r.capacityExempt).length,
     REJECTED:  registrations.filter((r) => r.status === 'REJECTED').length,
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className={embedded ? "" : "p-6 max-w-5xl mx-auto"}>
       {/* Header */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors"
-      >
-        <ArrowLeft size={16} /> Quay lại
-      </button>
+      {!embedded && (
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors"
+        >
+          <ArrowLeft size={16} /> Quay lại
+        </button>
+      )}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Users size={22} className="text-blue-600" /> Quản lý đăng ký
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">Duyệt và quản lý danh sách đăng ký tham gia sự kiện</p>
+        {embedded ? (
+          <div className="flex items-center gap-2.5">
+            <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5 m-0">
+              <Users size={16} className="text-blue-600" /> Danh sách đăng ký
+            </p>
+            {typeof maxParticipants === 'number' && maxParticipants > 0 && (
+              <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                counts.CONFIRMED >= maxParticipants ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+              }`}>
+                {counts.CONFIRMED}/{maxParticipants} đã đăng ký
+              </span>
+            )}
+          </div>
+        ) : (
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Users size={22} className="text-blue-600" /> Quản lý đăng ký
+            </h1>
+            <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
+              Duyệt và quản lý danh sách đăng ký tham gia sự kiện
+              {typeof maxParticipants === 'number' && maxParticipants > 0 && (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                  counts.CONFIRMED >= maxParticipants ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {counts.CONFIRMED}/{maxParticipants}
+                </span>
+              )}
+            </p>
+          </div>
+        )}
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => handleExport('registrations')}
+            disabled={Boolean(exportLoading) || !eventId}
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Download size={15} />
+            {exportLoading === 'registrations'
+              ? '\u0110ang xu\u1ea5t...'
+              : 'Xu\u1ea5t CSV \u0111\u0103ng k\u00fd'}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleExport('attendance')}
+            disabled={Boolean(exportLoading) || !eventId}
+            className="inline-flex items-center gap-1.5 text-sm px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Download size={15} />
+            {exportLoading === 'attendance'
+              ? '\u0110ang xu\u1ea5t...'
+              : 'Xu\u1ea5t CSV \u0111i\u1ec3m danh'}
+          </button>
         </div>
         <button
           onClick={fetchRegistrations}

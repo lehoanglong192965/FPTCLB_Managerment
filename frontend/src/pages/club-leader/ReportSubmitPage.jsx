@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FileText, Upload, ArrowLeft, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { FileText, Upload, ArrowLeft, CheckCircle2, AlertCircle, RefreshCw, Download } from 'lucide-react';
 import reportApi from '../../services/api/report/reportApi';
 import eventApi from '../../services/api/events/eventApi';
+import { buildEventCsvFileName, downloadCsvFile, getDownloadErrorMessage } from '../../utils/csvDownload';
 import { useToast } from '../../contexts/ToastContext';
 
-export default function ReportSubmitPage() {
-  const { eventId } = useParams();
+export default function ReportSubmitPage({ eventId: eventIdProp, embedded = false, onSubmitted } = {}) {
+  const { eventId: eventIdParam } = useParams();
+  const eventId = eventIdProp ?? eventIdParam;
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -17,6 +19,7 @@ export default function ReportSubmitPage() {
   const [uploading, setUploading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [exportingAttendance, setExportingAttendance] = useState(false);
 
   useEffect(() => {
     if (!eventId) return;
@@ -68,10 +71,29 @@ export default function ReportSubmitPage() {
         toast.success('Đã nộp báo cáo thành công!');
       }
       setSubmitted(true);
+      onSubmitted?.();
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Nộp báo cáo thất bại. Vui lòng thử lại.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleExportAttendance = async () => {
+    if (!eventId || exportingAttendance) return;
+
+    setExportingAttendance(true);
+    try {
+      const csvData = await eventApi.exportAttendance(eventId);
+      downloadCsvFile(csvData, buildEventCsvFileName(eventId, 'attendance'));
+      toast.success('\u0110\u00e3 t\u1ea3i CSV \u0111i\u1ec3m danh.');
+    } catch (err) {
+      toast.error(await getDownloadErrorMessage(
+        err,
+        'Kh\u00f4ng th\u1ec3 xu\u1ea5t CSV \u0111i\u1ec3m danh.',
+      ));
+    } finally {
+      setExportingAttendance(false);
     }
   };
 
@@ -81,17 +103,19 @@ export default function ReportSubmitPage() {
 
   if (submitted) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[60vh]">
+      <div className={embedded ? "flex items-center justify-center py-16" : "p-6 flex items-center justify-center min-h-[60vh]"}>
         <div className="text-center">
           <CheckCircle2 size={56} className="text-green-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900">Nộp báo cáo thành công!</h2>
           <p className="text-gray-500 text-sm mt-2">ICPDP sẽ xem xét và phê duyệt báo cáo của bạn.</p>
-          <button
-            onClick={() => navigate(-1)}
-            className="mt-6 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            Về quản lý sự kiện
-          </button>
+          {!embedded && (
+            <button
+              onClick={() => navigate(-1)}
+              className="mt-6 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              Về quản lý sự kiện
+            </button>
+          )}
         </div>
       </div>
     );
@@ -100,28 +124,34 @@ export default function ReportSubmitPage() {
   const isResubmit = existing?.status === 'REJECTED';
 
   return (
-    <div className="p-6 max-w-2xl">
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors"
-      >
-        <ArrowLeft size={16} /> Quay lại
-      </button>
+    <div className={embedded ? "" : "p-6 max-w-2xl"}>
+      {embedded ? (
+        <p className="mb-4 text-sm font-semibold text-gray-700 flex items-center gap-1.5 m-0">
+          <FileText size={16} className="text-blue-600" /> {isResubmit ? 'Nộp lại báo cáo' : 'Nộp báo cáo sự kiện'}
+        </p>
+      ) : (<>
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-5 transition-colors"
+        >
+          <ArrowLeft size={16} /> Quay lại
+        </button>
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <FileText size={22} className="text-blue-600" />
-          {isResubmit ? 'Nộp Lại Báo Cáo' : 'Nộp Báo Cáo Sự Kiện'}
-        </h1>
-        {event && (
-          <p className="text-sm text-gray-500 mt-1">
-            {event.eventName}
-            {event.endDate && (
-              <> &mdash; Kết thúc: {new Date(event.endDate).toLocaleDateString('vi-VN')}</>
-            )}
-          </p>
-        )}
-      </div>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <FileText size={22} className="text-blue-600" />
+            {isResubmit ? 'Nộp Lại Báo Cáo' : 'Nộp Báo Cáo Sự Kiện'}
+          </h1>
+          {event && (
+            <p className="text-sm text-gray-500 mt-1">
+              {event.eventName}
+              {event.endDate && (
+                <> &mdash; Kết thúc: {new Date(event.endDate).toLocaleDateString('vi-VN')}</>
+              )}
+            </p>
+          )}
+        </div>
+      </>)}
 
       {/* Rejection reason banner */}
       {isResubmit && existing?.rejectionReason && (
@@ -180,6 +210,17 @@ export default function ReportSubmitPage() {
 
         <div className="flex gap-3 pt-2">
           <button
+            type="button"
+            onClick={handleExportAttendance}
+            disabled={!eventId || exportingAttendance}
+            className="px-5 py-2.5 border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+          >
+            <Download size={15} />
+            {exportingAttendance
+              ? '\u0110ang xu\u1ea5t...'
+              : 'Xu\u1ea5t CSV \u0111i\u1ec3m danh'}
+          </button>
+          <button
             type="submit"
             disabled={!file || uploading}
             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2"
@@ -190,13 +231,15 @@ export default function ReportSubmitPage() {
               <><Upload size={15} /> {isResubmit ? 'Nộp lại báo cáo' : 'Nộp báo cáo'}</>
             )}
           </button>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
-          >
-            Huỷ
-          </button>
+          {!embedded && (
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+            >
+              Huỷ
+            </button>
+          )}
         </div>
       </form>
     </div>

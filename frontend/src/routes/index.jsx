@@ -48,18 +48,16 @@ const DashboardLayout = lazy(() => import("../components/layout/DashboardLayout"
 const ClubDashboardPage = lazy(() => import("../pages/dashboard/ClubDashboardPage"));
 
 // ICPDP pages
-const IcpdpNotifications = lazy(() => import("../pages/icpdp/IcpdpNotifications"));
 const IcpdpEventApproval = lazy(() => import("../pages/icpdp/IcpdpEventApproval"));
+const IcpdpEventManagement = lazy(() => import("../pages/icpdp/IcpdpEventManagement"));
+const IcpdpEventDetailPage = lazy(() => import("../pages/icpdp/IcpdpEventDetailPage"));
 const IcpdpPersonnelReassign = lazy(() => import("../pages/icpdp/IcpdpPersonnelReassign"));
 const IcpdpDisciplineLog = lazy(() => import("../pages/icpdp/IcpdpDisciplineLog"));
 const IcpdpClubManagement = lazy(() => import("../pages/icpdp/IcpdpClubManagement"));
-const IcpdpClubQuality = lazy(() => import("../pages/icpdp/IcpdpClubQuality"));
 const IcpdpRecruitment = lazy(() => import("../pages/icpdp/IcpdpRecruitment"));
 const IcpdpReportReview = lazy(() => import("../pages/icpdp/IcpdpReportReview"));
 const IcpdpCompetitionList = lazy(() => import("../pages/icpdp/IcpdpCompetitionList"));
 const IcpdpCompetitionDetail = lazy(() => import("../pages/icpdp/IcpdpCompetitionDetail"));
-const IcpdpEmergencyOverridePage = lazy(() => import("../pages/icpdp/IcpdpEmergencyOverridePage"));
-const IcpdpEmergencyOverrideLookup = lazy(() => import("../pages/icpdp/IcpdpEmergencyOverrideLookup"));
 const IcpdpContributionPage = lazy(() => import("../pages/icpdp/IcpdpContributionPage"));
 
 // Admin pages
@@ -70,6 +68,7 @@ const SystemConfigPage = lazy(() => import("../pages/admin/SystemConfigPage"));
 // Club Leader pages
 const ClubMemberMgmt = lazy(() => import("../pages/club-leader/ClubMemberMgmt"));
 const ClubEventsMgmt = lazy(() => import("../pages/club-leader/ClubEventsMgmt"));
+const EventManageDetailPage = lazy(() => import("../pages/club-leader/EventManageDetailPage"));
 const PersonnelAssignmentPage = lazy(() => import("../pages/club-leader/PersonnelAssignmentPage"));
 const ClubReports = lazy(() => import("../pages/club-leader/ClubReports"));
 const ClubApplicationsMgmt = lazy(() => import("../pages/club-leader/ClubApplicationsMgmt"));
@@ -170,23 +169,23 @@ export default function AppRoutes() {
           </PrivateRoute>
         }
       >
-        <Route index element={<Navigate to="/icpdp/club-dashboard" replace />} />
+        <Route index element={<Navigate to="/icpdp/club-management" replace />} />
         <Route path="club-dashboard" element={<ClubDashboardPage />} />
-        <Route path="club-overview" element={<IcpdpClubQuality />} />
         <Route path="club-management" element={<IcpdpClubManagement />} />
         <Route path="clubs/create" element={<ClubRegistrationForm mode="icpdp" />} />
         <Route path="event-approval" element={<IcpdpEventApproval />} />
+        <Route path="event-management" element={<IcpdpEventManagement />} />
         <Route path="report-review" element={<IcpdpReportReview />} />
         <Route path="personnel-reassign" element={<IcpdpPersonnelReassign />} />
         <Route path="discipline-log" element={<IcpdpDisciplineLog />} />
         <Route path="recruitment" element={<IcpdpRecruitment />} />
         <Route path="competition" element={<IcpdpCompetitionList />} />
         <Route path="competition/:competitionId" element={<IcpdpCompetitionDetail />} />
+        <Route path="events/:eventId/manage" element={<IcpdpEventDetailPage />} />
+        <Route path="events/:eventId/checkin" element={<CheckInPage />} />
+        <Route path="events/:eventId/attendance/:sessionId/correct" element={<AttendanceCorrectionPage />} />
         <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
-        <Route path="emergency-override" element={<IcpdpEmergencyOverrideLookup />} />
-        <Route path="events/:eventId/emergency-override" element={<IcpdpEmergencyOverridePage />} />
         <Route path="events/:eventId/contributions" element={<IcpdpContributionPage />} />
-        <Route path="notifications" element={<IcpdpNotifications />} />
         <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -225,6 +224,7 @@ export default function AppRoutes() {
           <Route element={<ClubManagementLayout />}>
             <Route path="space" element={<ClubSpace />} />
             <Route path="events" element={<ClubEventsMgmt />} />
+            <Route path="events/:eventId" element={<EventManageDetailPage />} />
             <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
             <Route path="events/:eventId/checkin" element={<CheckInPage />} />
             <Route path="events/:eventId/walkin" element={<WalkInPage />} />
@@ -244,6 +244,7 @@ export default function AppRoutes() {
         </Route>
         <Route element={<ClubManagementLayout />}>
           <Route path="event-create" element={<CreateEventPage />} />
+          <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         </Route>
         <Route path="events" element={<MemberEvents />} />
         <Route path="clubs" element={<MemberClubs />} />
@@ -254,7 +255,6 @@ export default function AppRoutes() {
         <Route path="notifications" element={<MemberNotifications />} />
         <Route path="notification-settings" element={<MemberNotificationSettings />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
-        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -275,6 +275,7 @@ export default function AppRoutes() {
           <Route element={<ClubManagementLayout />}>
             <Route path="space" element={<ClubSpace />} />
             <Route path="events" element={<ClubEventsMgmt />} />
+            <Route path="events/:eventId" element={<EventManageDetailPage />} />
             <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
             <Route path="events/:eventId/checkin" element={<CheckInPage />} />
             <Route path="events/:eventId/walkin" element={<WalkInPage />} />
@@ -291,6 +292,7 @@ export default function AppRoutes() {
         </Route>
         <Route element={<ClubManagementLayout />}>
           <Route path="event-create" element={<CreateEventPage />} />
+          <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         </Route>
         <Route path="events" element={<MemberEvents />} />
         <Route path="clubs" element={<MemberClubs />} />
@@ -301,7 +303,6 @@ export default function AppRoutes() {
         <Route path="notifications" element={<MemberNotifications />} />
         <Route path="notification-settings" element={<MemberNotificationSettings />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
-        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 

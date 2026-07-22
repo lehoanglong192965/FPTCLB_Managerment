@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Calendar, MapPin, Clock, ArrowLeft } from "lucide-react";
+import { Calendar, MapPin, Clock, ArrowLeft, Users } from "lucide-react";
 import eventApi from "../../services/api/events/eventApi";
 import clubApi from "../../services/api/clubs/clubApi";
 import EventRegistrationBtn from "../../components/events/EventRegistrationBtn";
@@ -65,6 +65,10 @@ export default function EventDetailPage() {
   const timeStr = event.startDate
     ? new Date(event.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
     : "";
+  const endTimeStr = event.endDate
+    ? new Date(event.endDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
+    : "";
+  const timeRangeStr = timeStr && endTimeStr ? `${timeStr} - ${endTimeStr}` : timeStr;
 
   return (
     <div className={`min-h-screen bg-[#F2F4F7] ${user ? "pt-[calc(68px+28px)]" : "pt-8"} px-[5%] pb-[60px] font-['Be_Vietnam_Pro','Inter',sans-serif]`}>
@@ -78,83 +82,84 @@ export default function EventDetailPage() {
           <ArrowLeft size={15} /> Quay lại
         </button>
 
-        {/* Hero banner */}
-        <div className="relative rounded-[18px] overflow-hidden h-[300px] flex items-end max-md:h-[220px]"
-          style={event.bannerUrl
-            ? { backgroundImage: `url(${getImageUrl(event.bannerUrl)})`, backgroundSize: "cover", backgroundPosition: "center" }
-            : { background: clubObj ? `linear-gradient(135deg, ${clubObj.color}cc, ${clubObj.color}66)` : "linear-gradient(135deg, #1A6FC4cc, #1A6FC466)" }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-          <div className="relative z-10 px-9 py-8 w-full">
-            <span className="inline-flex items-center text-[12px] font-bold px-3 py-1 rounded-full mb-3 text-white"
-              style={{ background: badge.bg }}>
-              {badge.label}
-            </span>
-            <h1 className="text-[clamp(1.5rem,3vw,2.2rem)] font-black text-white tracking-[-0.5px] mb-1.5 leading-[1.2]">
-              {event.eventName}
-            </h1>
-            <p className="text-sm text-white/80 m-0">
-              Tổ chức bởi <strong className="text-white font-bold">{clubName}</strong>
-            </p>
+        {/* Banner + tiêu đề — kiểu TicketGo: ảnh banner sạch, chữ nằm bên dưới chứ không đè lên ảnh */}
+        <div className="bg-white rounded-[18px] border border-[#EBEBEB] overflow-hidden">
+          <div className="w-full h-[320px] max-md:h-[200px]"
+            style={event.bannerUrl
+              ? { backgroundImage: `url(${getImageUrl(event.bannerUrl)})`, backgroundSize: "cover", backgroundPosition: "center" }
+              : { background: clubObj ? `linear-gradient(135deg, ${clubObj.color}cc, ${clubObj.color}66)` : "linear-gradient(135deg, #1A6FC4cc, #1A6FC466)" }}
+          />
+
+          <div className="px-8 py-7 max-md:px-5 max-md:py-5">
+            <div className="flex items-center justify-between gap-6 max-md:flex-col">
+              <div className="flex-1 min-w-0">
+                <span className="inline-flex items-center text-[12px] font-bold px-3 py-1 rounded-full mb-3 text-white"
+                  style={{ background: badge.bg }}>
+                  {badge.label}
+                </span>
+                <h1 className="text-[clamp(1.4rem,2.6vw,1.9rem)] font-black text-[#111827] tracking-[-0.5px] mb-1.5 leading-[1.25]">
+                  {event.eventName}
+                </h1>
+                <p className="text-sm text-[#6B7280] m-0">
+                  Tổ chức bởi <strong className="text-[#111827] font-bold">{clubName}</strong>
+                </p>
+                {typeof event.maxParticipants === "number" && event.maxParticipants > 0 && (
+                  <span className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1 rounded-full text-[13px] font-bold"
+                    style={{
+                      background: (event.currentParticipants ?? 0) >= event.maxParticipants ? "#FEE2E2" : "#DCFCE7",
+                      color: (event.currentParticipants ?? 0) >= event.maxParticipants ? "#DC2626" : "#16A34A",
+                    }}>
+                    <Users size={14} />
+                    {event.currentParticipants ?? 0}/{event.maxParticipants} người đã đăng ký
+                  </span>
+                )}
+              </div>
+
+              <div className="w-[220px] shrink-0 max-md:w-full">
+                <EventRegistrationBtn
+                  eventId={event.eventID}
+                  eventStatus={event.eventStatus}
+                  isPaidEvent={event.isPaidEvent === true}
+                  ticketPrice={event.ticketPrice}
+                  ticketCurrency={event.ticketCurrency || "VND"}
+                  onRegisterSuccess={() => window.location.reload()}
+                />
+              </div>
+            </div>
+
+            {/* Thông tin sự kiện — xếp dọc: Thời gian → Ngày tổ chức → Địa chỉ */}
+            <div className="mt-5 pt-5 border-t border-[#F0F0F0]">
+              <h3 className="text-[1.05rem] font-extrabold text-[#111827] m-0 mb-3">Thông tin sự kiện</h3>
+              <div className="flex flex-col gap-2 text-sm text-[#374151]">
+                {timeRangeStr && (
+                  <span className="flex items-center gap-1.5">
+                    <Clock size={15} className="text-[#F37021]" /> {timeRangeStr}
+                  </span>
+                )}
+                <span className="flex items-center gap-1.5">
+                  <Calendar size={15} className="text-[#F37021]" /> {dateStr}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <MapPin size={15} className="text-[#F37021]" /> {event.location || event.venueName || "Chưa xếp phòng"}
+                </span>
+                <span className="flex items-center gap-1.5 font-semibold text-[#F37021]">
+                  {event.isPaidEvent
+                    ? `Giá vé: ${Number(event.ticketPrice || 0).toLocaleString("vi-VN")} ${event.ticketCurrency || "VND"} / vé`
+                    : "Vé tham dự miễn phí"}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Body */}
-        <div className="grid grid-cols-[1fr_300px] gap-5 items-start max-md:grid-cols-1">
-
-          {/* Main — mô tả */}
-          <div className="bg-white rounded-[14px] border border-[#EBEBEB] px-8 py-7">
-            <h2 className="text-[1.05rem] font-extrabold text-[#111827] mb-4">Giới thiệu sự kiện</h2>
-            {event.description ? (
-              <p className="text-sm text-[#4B5563] leading-[1.8] whitespace-pre-line">{event.description}</p>
-            ) : (
-              <p className="text-sm text-[#9CA3AF] italic">Chưa có mô tả.</p>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <aside className="flex flex-col gap-4">
-            {/* Thông tin */}
-            <div className="bg-white rounded-[14px] border border-[#EBEBEB] px-5 py-5 flex flex-col gap-4">
-              <h3 className="text-[15px] font-bold text-[#111827] m-0">Thông tin sự kiện</h3>
-
-              <div className="flex items-start gap-3 text-sm text-[#374151]">
-                <Calendar size={16} className="text-[#F37021] shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold m-0 mb-0.5">Ngày tổ chức</p>
-                  <p className="text-[#6B7280] m-0">{dateStr}</p>
-                </div>
-              </div>
-
-              {timeStr && (
-                <div className="flex items-start gap-3 text-sm text-[#374151]">
-                  <Clock size={16} className="text-[#F37021] shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold m-0 mb-0.5">Thời gian</p>
-                    <p className="text-[#6B7280] m-0">{timeStr}</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-start gap-3 text-sm text-[#374151]">
-                <MapPin size={16} className="text-[#F37021] shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold m-0 mb-0.5">Địa điểm</p>
-                  <p className="text-[#6B7280] m-0">{event.location || "Chưa xếp phòng"}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Nút đăng ký */}
-            <div className="bg-white rounded-[14px] border border-[#EBEBEB] px-5 py-5">
-              <EventRegistrationBtn
-                eventId={event.eventID}
-                eventStatus={event.eventStatus}
-                onRegisterSuccess={() => window.location.reload()}
-              />
-            </div>
-          </aside>
-
+        {/* Giới thiệu sự kiện — nút đăng ký đã chuyển lên khối banner phía trên nên không cần sidebar riêng nữa */}
+        <div className="bg-white rounded-[14px] border border-[#EBEBEB] px-8 py-7">
+          <h2 className="text-[1.05rem] font-extrabold text-[#111827] mb-4">Giới thiệu sự kiện</h2>
+          {event.description ? (
+            <p className="text-sm text-[#4B5563] leading-[1.8] whitespace-pre-line">{event.description}</p>
+          ) : (
+            <p className="text-sm text-[#9CA3AF] italic">Chưa có mô tả.</p>
+          )}
         </div>
       </div>
     </div>

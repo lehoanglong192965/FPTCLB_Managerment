@@ -33,8 +33,9 @@ function ScoreBar({ label, value }) {
   );
 }
 
-export default function FeedbackSummaryPage() {
-  const { eventId } = useParams();
+export default function FeedbackSummaryPage({ eventId: eventIdProp, embedded = false } = {}) {
+  const { eventId: eventIdParam } = useParams();
+  const eventId = eventIdProp ?? eventIdParam;
   const navigate = useNavigate();
 
   const [report, setReport] = useState(null);
@@ -88,18 +89,26 @@ export default function FeedbackSummaryPage() {
   const overall = report?.avgOverallRating ?? 0;
 
   return (
-    <div className="p-6 max-w-3xl">
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-5 flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-800"
-      >
-        <ArrowLeft size={16} /> Quay lại
-      </button>
+    <div className={embedded ? "" : "p-6 max-w-3xl"}>
+      {!embedded && (
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-5 flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-800"
+        >
+          <ArrowLeft size={16} /> Quay lại
+        </button>
+      )}
 
-      <h1 className="mb-1 flex items-center gap-2 text-2xl font-bold text-gray-900">
-        <BarChart2 size={22} className="text-orange-500" /> Feedback / Event Report
-      </h1>
-      <p className="mb-6 text-sm text-gray-500">{report?.eventName || `Sự kiện #${eventId}`}</p>
+      {embedded ? (
+        <p className="mb-4 text-sm font-semibold text-gray-700 flex items-center gap-1.5 m-0">
+          <BarChart2 size={16} className="text-orange-500" /> Đánh giá từ người tham dự
+        </p>
+      ) : (<>
+        <h1 className="mb-1 flex items-center gap-2 text-2xl font-bold text-gray-900">
+          <BarChart2 size={22} className="text-orange-500" /> Feedback / Event Report
+        </h1>
+        <p className="mb-6 text-sm text-gray-500">{report?.eventName || `Sự kiện #${eventId}`}</p>
+      </>)}
 
       <div className="mb-6 grid gap-4 md:grid-cols-[220px_1fr]">
         <div className="rounded-lg border border-orange-100 bg-orange-50 p-6 text-center">
