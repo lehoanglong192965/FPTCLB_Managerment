@@ -1,22 +1,17 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, Pencil, X } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import eventApi from "../../services/api/events/eventApi";
 import clubApi from "../../services/api/clubs/clubApi";
 import { getServerOrigin } from "../../services/api/axiosClient";
 import { useToast } from "../../contexts/ToastContext";
-import { useConfirm } from "../../contexts/ConfirmContext";
 import LocationPicker from "../../components/events/LocationPicker";
-import FinishEventModal from "../../components/events/FinishEventModal";
-import RegistrationMgmtPage from "../club-leader/RegistrationMgmtPage";
-import AttendanceDashboardPage from "../club-leader/AttendanceDashboardPage";
+import RichTextView from "../../components/ui/RichTextView";
 
-/* Cùng bố cục 2 tab "Thông tin"/"Quản lý" + thanh tiến trình với EventManageDetailPage.jsx
-   (club-leader) — ICPDP có đầy đủ quyền quản lý vòng đời sự kiện giống leader (mở/đóng
-   đăng ký, bắt đầu/kết thúc/huỷ sự kiện, sửa số người tham gia tối đa sau khi đã duyệt).
-   Riêng phần báo cáo/đóng góp không nhúng lại form nộp/chấm điểm của club-leader ở đây —
-   ICPDP đã có luồng riêng phù hợp vai trò (tab "Báo cáo" trong Quản Lý Sự Kiện, trang
-   Đóng góp) để tránh chồng chéo quyền hạn. */
+/* ICPDP chỉ xem thông tin sự kiện ở đây (không quản lý vòng đời) — việc mở/đóng đăng ký,
+   bắt đầu/kết thúc/huỷ sự kiện thuộc về club-leader. ICPDP chỉ được sửa số người tham gia
+   tối đa sau khi đã duyệt, và có luồng riêng cho duyệt báo cáo/đóng góp (tab "Báo cáo"
+   trong Quản Lý Sự Kiện, trang Đóng góp). */
 
 const getImageUrl = (url) => {
   if (!url) return "";
@@ -43,48 +38,6 @@ const STATUS_CFG = {
   CANCELLED: { label: "Đã hủy", color: "#dc2626", bg: "#fee2e2" },
 };
 
-const REPORT_PHASE_STATUSES = ["COMPLETED", "REPORTUPLOADED", "REPORTPENDINGAPPROVAL", "REPORTAPPROVED", "REPORTREJECTED", "CONTRIBUTIONDRAFT", "CONTRIBUTIONSCORING", "CONTRIBUTIONPENDINGAPPROVAL", "CONTRIBUTIONAPPROVED", "CONTRIBUTIONFINALIZED", "CLOSED"];
-
-const STEPS = [
-  { key: "registration", label: "Đăng ký", statuses: ["APPROVED", "UPCOMING", "REGISTRATIONOPEN", "REGISTRATIONCLOSED", "CHECKINOPEN"] },
-  { key: "ongoing", label: "Diễn ra", statuses: ["ONGOING"] },
-  { key: "report", label: "Báo cáo và đóng góp", statuses: REPORT_PHASE_STATUSES },
-];
-
-function StatusStepper({ status }) {
-  const currentIndex = STEPS.findIndex((s) => s.statuses.includes(status));
-  if (currentIndex === -1) return null;
-  return (
-    <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 22 }}>
-      {STEPS.map((step, i) => {
-        const done = i < currentIndex;
-        const active = i === currentIndex;
-        const color = done || active ? "#E6430A" : "#d1d5db";
-        return (
-          <div key={step.key} style={{ display: "flex", alignItems: "center", flex: i === STEPS.length - 1 ? "0 0 auto" : 1 }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flexShrink: 0 }}>
-              <div style={{
-                width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                background: done ? "#E6430A" : active ? "#fff" : "#f3f4f6",
-                border: `2px solid ${color}`, color: done ? "#fff" : active ? "#E6430A" : "#9ca3af",
-                fontSize: 11, fontWeight: 700, flexShrink: 0,
-              }}>
-                {done ? <Check size={13} /> : i + 1}
-              </div>
-              <span style={{ fontSize: 11, fontWeight: active ? 700 : 600, color: active ? "#E6430A" : "#9ca3af", whiteSpace: "nowrap" }}>
-                {step.label}
-              </span>
-            </div>
-            {i < STEPS.length - 1 && (
-              <div style={{ flex: 1, height: 2, background: done ? "#E6430A" : "#e5e7eb", margin: "0 6px", marginTop: -18 }} />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 const labelStyle = { fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 };
 const inputStyle = { width: "100%", fontSize: 13.5, border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "8px 10px", boxSizing: "border-box", outline: "none" };
 const accentInputStyle = { ...inputStyle, borderLeft: "3px solid #E6430A" };
@@ -100,73 +53,10 @@ function SectionHeader({ children }) {
 function ReadBox({ value, multiline = false }) {
   return (
     <div style={{
-      ...accentInputStyle, color: value ? "#111827" : "#9ca3af", minHeight: multiline ? 90 : "auto",
-      whiteSpace: multiline ? "pre-line" : "normal", lineHeight: multiline ? 1.6 : "normal",
+      fontSize: 13.5, color: value ? "#111827" : "#9ca3af",
+      whiteSpace: multiline ? "pre-line" : "normal", lineHeight: 1.6, padding: "2px 0",
     }}>
       {value || "Chưa có"}
-    </div>
-  );
-}
-
-const btnStyle = (bg, disabled = false) => ({
-  padding: "11px 16px", borderRadius: 10, fontSize: 13.5, fontWeight: 600,
-  background: bg, color: "#fff", border: "none", cursor: disabled ? "not-allowed" : "pointer",
-  display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%",
-});
-
-const secondaryBtnStyle = (color, disabled = false) => ({
-  padding: "10px 16px", borderRadius: 10, fontSize: 13.5, fontWeight: 600,
-  background: "#fff", color, border: `1.5px solid ${color}`, cursor: disabled ? "not-allowed" : "pointer",
-  display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%",
-});
-
-const REASON_MIN = 10;
-function CancelModal({ eventName, onConfirm, onClose }) {
-  const [reason, setReason] = useState("");
-  const [touched, setTouched] = useState(false);
-  const isValid = reason.trim().length >= REASON_MIN;
-
-  return (
-    <div
-      className="fixed inset-0 flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.4)", zIndex: 9999 }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-[15px] font-bold text-gray-900 m-0">Hủy sự kiện</h2>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 cursor-pointer border-none bg-transparent">
-            <X size={16} />
-          </button>
-        </div>
-        <div className="px-6 py-5">
-          <p className="text-[13.5px] text-gray-600 mb-4 leading-relaxed">
-            Nhập lý do hủy sự kiện <strong>"{eventName}"</strong>.
-          </p>
-          <textarea
-            value={reason}
-            onChange={(e) => { setReason(e.target.value); setTouched(true); }}
-            placeholder="Nhập lý do hủy..."
-            rows={4}
-            className={`w-full resize-none rounded-xl border text-[13.5px] text-gray-800 px-3.5 py-3 outline-none transition-colors leading-relaxed ${
-              touched && !isValid ? "border-red-400 bg-red-50/40" : "border-gray-200 focus:border-[#e6430a] bg-white"
-            }`}
-            style={{ boxSizing: "border-box" }}
-          />
-          {touched && !isValid && <p className="text-[12px] text-red-600 mt-1">Lý do phải có ít nhất {REASON_MIN} ký tự.</p>}
-        </div>
-        <div className="flex gap-2.5 px-6 pb-5">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 text-[13.5px] font-semibold hover:bg-gray-50 cursor-pointer">
-            Đóng
-          </button>
-          <button
-            onClick={() => { setTouched(true); if (isValid) onConfirm(reason.trim()); }}
-            className="flex-1 py-2.5 rounded-xl text-white text-[13.5px] font-semibold border-none bg-red-600 hover:bg-red-700 cursor-pointer"
-          >
-            Xác nhận hủy
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -175,19 +65,14 @@ export default function IcpdpEventDetailPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-  const confirm = useConfirm();
 
   const [ev, setEv] = useState(null);
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [activeTab, setActiveTab] = useState("info");
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ maxParticipants: "" });
   const [saving, setSaving] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [finishOpen, setFinishOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -214,41 +99,53 @@ export default function IcpdpEventDetailPage() {
 
   const patchEvent = (patch) => setEv((prev) => (prev ? { ...prev, ...patch } : prev));
 
-  const runAction = async (fn, patch, errLabel) => {
-    setBusy(true);
-    try {
-      await fn();
-      if (patch) patchEvent(patch);
-    } catch (e) {
-      toast.error(`${errLabel}: ` + (e.response?.data?.message || e.message));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleCancelConfirm = async (reason) => {
-    try {
-      await eventApi.cancel(ev.clubID, ev.eventID, reason);
-      patchEvent({ eventStatus: "Cancelled" });
-      setCancelOpen(false);
-      toast.success("Đã hủy sự kiện.");
-    } catch (e) {
-      toast.error("Lỗi khi hủy sự kiện: " + (e.response?.data?.message || e.message));
-    }
-  };
-
   const enterEdit = () => {
-    setEditForm({ maxParticipants: ev.maxParticipants ?? "" });
+    const dt = ev.startDate ? new Date(ev.startDate) : null;
+    const endDt = ev.endDate ? new Date(ev.endDate) : null;
+    const pad = (n) => String(n).padStart(2, "0");
+    setEditForm({
+      maxParticipants: ev.maxParticipants ?? "",
+      budget: ev.budget ?? "",
+      date: dt ? `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}` : "",
+      time: dt ? `${pad(dt.getHours())}:${pad(dt.getMinutes())}` : "",
+      endTime: endDt ? `${pad(endDt.getHours())}:${pad(endDt.getMinutes())}` : "",
+      venueName: ev.venueName || "",
+      location: ev.location || "",
+      locationDetail: ev.locationDetail || "",
+      latitude: typeof ev.latitude === "number" ? ev.latitude : null,
+      longitude: typeof ev.longitude === "number" ? ev.longitude : null,
+    });
     setIsEditing(true);
   };
 
   const handleSaveEdit = async () => {
     setSaving(true);
     try {
-      await eventApi.update(ev.eventID, {
+      const startDate = editForm.date && editForm.time ? `${editForm.date}T${editForm.time}:00` : undefined;
+      const endDate = editForm.date && editForm.endTime ? `${editForm.date}T${editForm.endTime}:00` : undefined;
+      const payload = {
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : undefined,
+        budget: editForm.budget !== "" ? Number(editForm.budget) : undefined,
+        startDate,
+        endDate,
+        venueName: editForm.venueName ?? undefined,
+        location: editForm.location || undefined,
+        locationDetail: editForm.locationDetail ?? undefined,
+        latitude: typeof editForm.latitude === "number" ? editForm.latitude : undefined,
+        longitude: typeof editForm.longitude === "number" ? editForm.longitude : undefined,
+      };
+      await eventApi.update(ev.eventID, payload);
+      patchEvent({
+        maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : ev.maxParticipants,
+        budget: editForm.budget !== "" ? Number(editForm.budget) : ev.budget,
+        startDate: startDate ?? ev.startDate,
+        endDate: endDate ?? ev.endDate,
+        venueName: editForm.venueName,
+        location: editForm.location,
+        locationDetail: editForm.locationDetail,
+        latitude: editForm.latitude,
+        longitude: editForm.longitude,
       });
-      patchEvent({ maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : ev.maxParticipants });
       setIsEditing(false);
       toast.success("Đã lưu thay đổi.");
     } catch (e) {
@@ -268,7 +165,6 @@ export default function IcpdpEventDetailPage() {
   const clubName = club?.name ?? club?.clubName ?? "CLB FPTU";
 
   const isLimitedEdit = ["APPROVED", "UPCOMING", "REGISTRATIONOPEN", "REGISTRATIONCLOSED"].includes(status);
-  const canCancel = ["APPROVED", "REGISTRATIONOPEN", "REGISTRATIONCLOSED", "ONGOING"].includes(status);
 
   const dateStr = ev.startDate ? new Date(ev.startDate).toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "Chưa xác định";
   const timeStr = ev.startDate ? new Date(ev.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "";
@@ -294,25 +190,7 @@ export default function IcpdpEventDetailPage() {
           <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: "#111827", lineHeight: 1.35, wordBreak: "break-word" }}>{ev.eventName}</h2>
         </div>
 
-        {/* Tab: Thông tin / Quản lý */}
-        <div style={{ display: "flex", gap: 4, padding: "0 24px", borderBottom: "1px solid #f0f0f0" }}>
-          {[{ key: "info", label: "Thông tin" }, { key: "manage", label: "Quản lý" }].map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              style={{
-                padding: "12px 18px", border: "none", borderBottom: `2.5px solid ${activeTab === key ? "#E6430A" : "transparent"}`,
-                background: "transparent", fontSize: 13.5, fontWeight: 600, cursor: "pointer",
-                color: activeTab === key ? "#E6430A" : "#6b7280", marginBottom: -1,
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === "info" && (<>
-          <div style={{ padding: "18px 24px", borderBottom: "1px solid #f0f0f0" }}>
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #f0f0f0" }}>
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 24, alignItems: "start" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div>
@@ -331,7 +209,7 @@ export default function IcpdpEventDetailPage() {
                 </div>
                 <div>
                   <label style={labelStyle}>Mô tả sự kiện</label>
-                  <ReadBox value={ev.description} multiline />
+                  <RichTextView html={ev.description} />
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <div style={{ flex: 1 }}>
@@ -344,23 +222,39 @@ export default function IcpdpEventDetailPage() {
                   </div>
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>Quỹ dự kiến (VNĐ)</label>
-                    <ReadBox value={fmtBudget(ev.budget)} />
+                    {isEditing ? (
+                      <input type="number" min={0} step={1000} value={editForm.budget}
+                        onChange={(e) => setEditForm((f) => ({ ...f, budget: e.target.value }))}
+                        placeholder="0" style={accentInputStyle} />
+                    ) : <ReadBox value={fmtBudget(ev.budget)} />}
                   </div>
                 </div>
 
                 <SectionHeader>Thời gian</SectionHeader>
                 <div>
                   <label style={labelStyle}>Ngày tổ chức</label>
-                  <ReadBox value={dateStr} />
+                  {isEditing ? (
+                    <input type="date" value={editForm.date}
+                      onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))}
+                      style={accentInputStyle} />
+                  ) : <ReadBox value={dateStr} />}
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>Giờ bắt đầu</label>
-                    <ReadBox value={timeStr || null} />
+                    {isEditing ? (
+                      <input type="time" value={editForm.time}
+                        onChange={(e) => setEditForm((f) => ({ ...f, time: e.target.value }))}
+                        style={accentInputStyle} />
+                    ) : <ReadBox value={timeStr || null} />}
                   </div>
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>Giờ kết thúc</label>
-                    <ReadBox value={endTimeStr || null} />
+                    {isEditing ? (
+                      <input type="time" value={editForm.endTime}
+                        onChange={(e) => setEditForm((f) => ({ ...f, endTime: e.target.value }))}
+                        style={accentInputStyle} />
+                    ) : <ReadBox value={endTimeStr || null} />}
                   </div>
                 </div>
               </div>
@@ -369,15 +263,22 @@ export default function IcpdpEventDetailPage() {
                 <SectionHeader>Địa điểm</SectionHeader>
                 <div>
                   <label style={labelStyle}>Tên địa điểm / Toà nhà</label>
-                  <ReadBox value={ev.venueName} />
+                  {isEditing ? (
+                    <input value={editForm.venueName}
+                      onChange={(e) => setEditForm((f) => ({ ...f, venueName: e.target.value }))}
+                      placeholder="VD: Hội trường Beta – Đại học FPT" style={accentInputStyle} />
+                  ) : <ReadBox value={ev.venueName} />}
                 </div>
                 <div>
                   <label style={labelStyle}>Địa chỉ (định vị trên bản đồ)</label>
-                  <LocationPicker address={ev.location} lat={ev.latitude} lng={ev.longitude} readOnly />
-                </div>
-                <div>
-                  <label style={labelStyle}>Chi tiết cụ thể</label>
-                  <ReadBox value={ev.locationDetail} />
+                  {isEditing ? (
+                    <LocationPicker
+                      address={editForm.location} lat={editForm.latitude} lng={editForm.longitude}
+                      onChange={({ address, lat, lng }) => setEditForm((f) => ({ ...f, location: address, latitude: typeof lat === "number" ? lat : null, longitude: typeof lng === "number" ? lng : null }))}
+                    />
+                  ) : (
+                    <LocationPicker address={ev.location} lat={ev.latitude} lng={ev.longitude} readOnly />
+                  )}
                 </div>
               </div>
             </div>
@@ -388,7 +289,7 @@ export default function IcpdpEventDetailPage() {
               <p style={{ margin: "0 0 8px", fontSize: 12, color: "#9ca3af" }}>Không thể chỉnh sửa thông tin ở trạng thái hiện tại.</p>
             )}
             {isLimitedEdit && !isEditing && (
-              <p style={{ margin: "0 0 8px", fontSize: 12, color: "#9ca3af" }}>Sự kiện đã được duyệt — chỉ có thể chỉnh sửa số người tham gia tối đa.</p>
+              <p style={{ margin: "0 0 8px", fontSize: 12, color: "#9ca3af" }}>Sự kiện đã được duyệt — chỉ có thể chỉnh sửa số người tham gia tối đa, quỹ dự kiến, thời gian và địa điểm (đến khi sự kiện diễn ra).</p>
             )}
             {isLimitedEdit && !isEditing && (
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -404,68 +305,7 @@ export default function IcpdpEventDetailPage() {
               </div>
             )}
           </div>
-        </>)}
-
-        {activeTab === "manage" && (
-          <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
-            {["DRAFT", "PENDINGAPPROVAL", "PENDING"].includes(status) ? (
-              <div style={{ padding: "14px 16px", borderRadius: 10, background: "#fffbeb", border: "1.5px solid #fde68a", fontSize: 13.5, color: "#92400e", fontWeight: 600, textAlign: "center" }}>
-                Sự kiện chưa được duyệt.
-              </div>
-            ) : (<>
-              <StatusStepper status={status} />
-
-              {status === "APPROVED" && (<>
-                <div style={{ padding: "14px 16px", borderRadius: 10, background: "#ecfeff", border: "1.5px solid #a5f3fc", fontSize: 13.5, color: "#0e7490", fontWeight: 500, lineHeight: 1.6 }}>
-                  Mở đăng ký để thành viên có thể đăng ký tham gia, đồng thời xem được trạng thái đăng ký của sự kiện.
-                </div>
-                <button disabled={busy} onClick={async () => {
-                  if (!(await confirm("Bạn có chắc muốn mở đăng ký? Thành viên sẽ thấy và có thể đăng ký tham gia.", { confirmLabel: "Mở đăng ký" }))) return;
-                  runAction(() => eventApi.openRegistration(ev.eventID), { eventStatus: "RegistrationOpen" }, "Lỗi mở đăng ký");
-                }} style={btnStyle("#0891b2", busy)}>Mở đăng ký</button>
-              </>)}
-
-              {status === "REGISTRATIONOPEN" && (<>
-                <RegistrationMgmtPage eventId={ev.eventID} embedded maxParticipants={ev.maxParticipants} />
-                <button disabled={busy} onClick={async () => {
-                  if (!(await confirm("Bạn có chắc muốn đóng đăng ký? Thành viên sẽ không thể đăng ký thêm.", { danger: true, confirmLabel: "Đóng đăng ký" }))) return;
-                  runAction(() => eventApi.closeRegistration(ev.eventID), { eventStatus: "RegistrationClosed" }, "Lỗi đóng đăng ký");
-                }} style={btnStyle("#f59e0b", busy)}>Đóng đăng ký</button>
-              </>)}
-
-              {status === "REGISTRATIONCLOSED" && (<>
-                <RegistrationMgmtPage eventId={ev.eventID} embedded maxParticipants={ev.maxParticipants} />
-                <button disabled={busy} onClick={() => runAction(() => eventApi.start(ev.eventID), { eventStatus: "Ongoing" }, "Lỗi bắt đầu sự kiện")} style={btnStyle("#059669", busy)}>Bắt đầu sự kiện</button>
-              </>)}
-
-              {status === "ONGOING" && (<>
-                <AttendanceDashboardPage eventId={ev.eventID} embedded correctionBasePath={`/icpdp/events/${ev.eventID}/attendance`} />
-                <button onClick={() => navigate(`/icpdp/events/${ev.eventID}/checkin`)} style={secondaryBtnStyle("#0891b2")}>Điểm danh</button>
-                <button onClick={() => setFinishOpen(true)} style={btnStyle("#7c3aed")}>Kết thúc sự kiện</button>
-              </>)}
-
-              {REPORT_PHASE_STATUSES.includes(status) && (
-                <div style={{ padding: "14px 16px", borderRadius: 10, background: "#f5f3ff", border: "1.5px solid #ddd6fe", fontSize: 13.5, color: "#5b21b6", lineHeight: 1.6 }}>
-                  Sự kiện đã kết thúc — vào tab <strong>"Báo cáo"</strong> (Quản Lý Sự Kiện) để xem/duyệt báo cáo, hoặc trang <strong>"Đóng góp"</strong> để xem điểm đóng góp thành viên.
-                </div>
-              )}
-
-              {["CANCELLED", "REJECTED"].includes(status) && (
-                <p style={{ margin: 0, fontSize: 13, color: "#9ca3af", fontStyle: "italic" }}>Không có thao tác khả dụng.</p>
-              )}
-
-              {canCancel && (
-                <button disabled={busy} onClick={() => setCancelOpen(true)} style={{ ...secondaryBtnStyle("#dc2626", busy), marginTop: 4 }}>Hủy sự kiện</button>
-              )}
-            </>)}
-          </div>
-        )}
-      </div>
-
-      {cancelOpen && <CancelModal eventName={ev.eventName} onConfirm={handleCancelConfirm} onClose={() => setCancelOpen(false)} />}
-      {finishOpen && (
-        <FinishEventModal eventId={ev.eventID} isOpen={true} onClose={() => setFinishOpen(false)} onFinishSuccess={() => { patchEvent({ eventStatus: "Completed" }); setFinishOpen(false); }} />
-      )}
+        </div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import clubApi from "../../services/api/clubs/clubApi";
 import EventRegistrationBtn from "../../components/events/EventRegistrationBtn";
 import { useAuth } from "../../contexts/AuthContext";
 import { getServerOrigin } from "../../services/api/axiosClient";
+import RichTextView from "../../components/ui/RichTextView";
 
 const getImageUrl = (url) => {
   if (!url) return "";
@@ -155,11 +156,7 @@ export default function EventDetailPage() {
         {/* Giới thiệu sự kiện — nút đăng ký đã chuyển lên khối banner phía trên nên không cần sidebar riêng nữa */}
         <div className="bg-white rounded-[14px] border border-[#EBEBEB] px-8 py-7">
           <h2 className="text-[1.05rem] font-extrabold text-[#111827] mb-4">Giới thiệu sự kiện</h2>
-          {event.description ? (
-            <p className="text-sm text-[#4B5563] leading-[1.8] whitespace-pre-line">{event.description}</p>
-          ) : (
-            <p className="text-sm text-[#9CA3AF] italic">Chưa có mô tả.</p>
-          )}
+          <RichTextView html={event.description} className="text-sm text-[#4B5563]" emptyText="Chưa có mô tả." />
         </div>
       </div>
     </div>

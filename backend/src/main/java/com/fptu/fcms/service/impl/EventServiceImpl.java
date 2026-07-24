@@ -926,24 +926,27 @@ public class EventServiceImpl implements EventService {
             throw new IllegalArgumentException("Chỉ có thể chỉnh sửa sự kiện trước khi diễn ra.");
         }
         if (!isDraft) {
-            boolean editsOtherFields = request.getEventName() != null
-                    || request.getDescription() != null
-                    || request.getVenueName() != null
+            // ICPDP được sửa thêm quỹ dự kiến, thời gian và địa điểm sau khi duyệt (đến khi sự
+            // kiện diễn ra); Leader/ViceLeader vẫn chỉ được sửa số người tham gia tối đa.
+            boolean isIcpdp = "ICPDP".equals(currentUser.getRoleName());
+            boolean editsIcpdpAllowedFields = request.getVenueName() != null
                     || request.getLocation() != null
                     || request.getLocationDetail() != null
                     || request.getLatitude() != null
                     || request.getLongitude() != null
                     || request.getStartDate() != null
                     || request.getEndDate() != null
+                    || request.getBudget() != null;
+            boolean editsRestrictedFields = request.getEventName() != null
+                    || request.getDescription() != null
                     || request.getAllowWalkIn() != null
                     || request.getRegistrationOpenAt() != null
                     || request.getRegistrationCloseAt() != null
                     || request.getCheckInOpenAt() != null
                     || request.getCheckInCloseAt() != null
-                    || request.getBudget() != null
                     || request.getBannerUrl() != null
                     || (request.getRegistrationPolicies() != null && !request.getRegistrationPolicies().isEmpty());
-            if (editsOtherFields) {
+            if (editsRestrictedFields || (editsIcpdpAllowedFields && !isIcpdp)) {
                 throw new IllegalArgumentException("Sau khi được ICPDP duyệt, chỉ có thể chỉnh sửa số người tham gia tối đa.");
             }
         }
@@ -1123,7 +1126,13 @@ public class EventServiceImpl implements EventService {
         if (description == null || description.isBlank()) {
             return;
         }
-        int wordCount = description.trim().split("\\s+").length;
+        // Mô tả được soạn bằng rich text editor (FE) nên có thể chứa thẻ HTML —
+        // phải bỏ thẻ trước khi đếm từ để không tính nhầm markup vào số từ.
+        String plainText = description.replaceAll("<[^>]*>", " ").trim();
+        if (plainText.isEmpty()) {
+            return;
+        }
+        int wordCount = plainText.split("\\s+").length;
         if (wordCount > 1000) {
             throw new IllegalArgumentException("Mô tả sự kiện không được vượt quá 1000 từ.");
         }

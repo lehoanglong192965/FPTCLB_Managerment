@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local AI tooling config — không cần chia sẻ qua git
+.agents/
+ADMIN_USERS_API_SPEC.md
