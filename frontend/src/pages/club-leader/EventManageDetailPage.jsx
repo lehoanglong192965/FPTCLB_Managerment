@@ -6,6 +6,8 @@ import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
 import { useToast } from "../../contexts/ToastContext";
 import { useConfirm } from "../../contexts/ConfirmContext";
 import LocationPicker from "../../components/events/LocationPicker";
+import RichTextEditor from "../../components/ui/RichTextEditor";
+import RichTextView from "../../components/ui/RichTextView";
 import FinishEventModal from "../../components/events/FinishEventModal";
 import CloseEventButton from "../../components/events/CloseEventButton";
 import RegistrationMgmtPage from "./RegistrationMgmtPage";
@@ -125,13 +127,12 @@ function StatusStepper({ status }) {
   );
 }
 
-/* Ô hiển thị giá trị khi chưa bật chế độ sửa — cùng khung với input để bố cục không đổi. */
+/* Hiển thị giá trị khi chưa bật chế độ sửa — chữ thường, không khung, để phân biệt rõ với lúc đang sửa. */
 function ReadBox({ value, multiline = false }) {
   return (
     <div style={{
-      ...accentInputStyle, borderLeft: inputStyle.border,
-      color: value ? "#111827" : "#9ca3af", minHeight: multiline ? 90 : "auto",
-      whiteSpace: multiline ? "pre-line" : "normal", lineHeight: multiline ? 1.6 : "normal", cursor: "default",
+      fontSize: 13.5, color: value ? "#111827" : "#9ca3af",
+      whiteSpace: multiline ? "pre-line" : "normal", lineHeight: 1.6, padding: "2px 0",
     }}>
       {value || "Chưa có"}
     </div>
@@ -590,9 +591,8 @@ export default function EventManageDetailPage() {
               <div>
                 <label style={labelStyle}>Mô tả sự kiện</label>
                 {isEditing && isFullEdit ? (
-                  <textarea value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} rows={4}
-                    style={{ ...accentInputStyle, resize: "vertical", lineHeight: 1.6 }} />
-                ) : <ReadBox value={ev.description} multiline />}
+                  <RichTextEditor value={editForm.description} onChange={(html) => setEditForm((f) => ({ ...f, description: html }))} />
+                ) : <RichTextView html={ev.description} />}
               </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <div style={{ flex: 1 }}>
@@ -609,24 +609,48 @@ export default function EventManageDetailPage() {
                 </div>
               </div>
               <div style={{ padding: 14, borderRadius: 10, border: `1.5px solid ${ev.isPaidEvent ? "#fed7aa" : "#e5e7eb"}`, background: ev.isPaidEvent ? "#fff7ed" : "#f9fafb" }}>
-                <label style={{ ...labelStyle, color: "#9a3412" }}>Thông tin bán vé</label>
+                <label style={{ ...labelStyle, color: "#9a3412" }}>Thể loại sự kiện</label>
                 {isEditing && isFullEdit ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 700, color: "#374151", cursor: "pointer" }}>
-                      <input type="checkbox" checked={editForm.isPaidEvent} onChange={(e) => setEditForm((f) => ({ ...f, isPaidEvent: e.target.checked, ticketPrice: e.target.checked ? f.ticketPrice : "" }))} />
-                      Sự kiện có bán vé
-                    </label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => setEditForm((f) => ({ ...f, isPaidEvent: false, ticketPrice: "" }))}
+                        style={{
+                          flex: 1, padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                          border: `1.5px solid ${!editForm.isPaidEvent ? "#E6430A" : "#e5e7eb"}`,
+                          background: !editForm.isPaidEvent ? "#FFF3EE" : "#fff",
+                          color: !editForm.isPaidEvent ? "#E6430A" : "#6b7280",
+                        }}
+                      >
+                        Miễn phí
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditForm((f) => ({ ...f, isPaidEvent: true }))}
+                        style={{
+                          flex: 1, padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                          border: `1.5px solid ${editForm.isPaidEvent ? "#E6430A" : "#e5e7eb"}`,
+                          background: editForm.isPaidEvent ? "#FFF3EE" : "#fff",
+                          color: editForm.isPaidEvent ? "#E6430A" : "#6b7280",
+                        }}
+                      >
+                        Bán vé
+                      </button>
+                    </div>
                     {editForm.isPaidEvent && (
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 86px", gap: 8 }}>
-                        <input type="number" min={1000} step={1000} value={editForm.ticketPrice} onChange={(e) => setEditForm((f) => ({ ...f, ticketPrice: e.target.value }))} placeholder="Giá một vé" style={accentInputStyle} />
-                        <select value={editForm.ticketCurrency} onChange={(e) => setEditForm((f) => ({ ...f, ticketCurrency: e.target.value }))} style={accentInputStyle}>
-                          <option value="VND">VND</option>
-                        </select>
+                      <div style={{ position: "relative" }}>
+                        <input
+                          type="number" min={1000} step={1000} value={editForm.ticketPrice}
+                          onChange={(e) => setEditForm((f) => ({ ...f, ticketPrice: e.target.value }))}
+                          placeholder="Giá vé" style={{ ...accentInputStyle, paddingRight: 36 }}
+                        />
+                        <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, fontWeight: 600, color: "#9ca3af", pointerEvents: "none" }}>đ</span>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <ReadBox value={ev.isPaidEvent ? `${Number(ev.ticketPrice || 0).toLocaleString("vi-VN")} ${ev.ticketCurrency || "VND"} / vé` : "Miễn phí"} />
+                  <ReadBox value={ev.isPaidEvent ? `${Number(ev.ticketPrice || 0).toLocaleString("vi-VN")} đ / vé` : "Miễn phí"} />
                 )}
               </div>
 
@@ -672,12 +696,6 @@ export default function EventManageDetailPage() {
                 ) : (
                   <LocationPicker address={ev.location} lat={ev.latitude} lng={ev.longitude} readOnly />
                 )}
-              </div>
-              <div>
-                <label style={labelStyle}>Chi tiết cụ thể</label>
-                {isEditing && isFullEdit ? (
-                  <input value={editForm.locationDetail} onChange={(e) => setEditForm((f) => ({ ...f, locationDetail: e.target.value }))} placeholder="VD: Tầng 3, phòng 302, lối vào cổng chính" style={accentInputStyle} />
-                ) : <ReadBox value={ev.locationDetail} />}
               </div>
             </div>
           </div>

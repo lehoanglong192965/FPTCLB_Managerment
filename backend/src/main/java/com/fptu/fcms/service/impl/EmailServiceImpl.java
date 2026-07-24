@@ -41,53 +41,118 @@ public class EmailServiceImpl implements EmailService {
     @Override
     @Async
     public void sendOTPEmail(String email, String otpCode) {
-        SimpleMailMessage message = new SimpleMailMessage();
         try {
-            message.setFrom("FPTU Club <" + senderEmail + ">");
-            message.setTo(email);
-            message.setSubject("FPTU Club Management - Ma xac thuc OTP cua ban");
-
-            // Soạn nội dung text thuần, dùng \n để xuống dòng
-            String text = "Xin chào,\n\n"
-                    + "Bạn đã yêu cầu xác thực tài khoản. Mã xác thực của bạn là: " + otpCode + "\n\n"
-                    + "Lưu ý: Mã này sẽ hết hạn trong 10 phút. Tuyệt đối không chia sẻ mã này với bất kỳ ai.\n\n"
-                    + "Trân trọng,\nFPTU Club Management System";
-
-            message.setText(text);
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            helper.setFrom("FPTU Club <" + senderEmail + ">");
+            helper.setTo(email);
+            helper.setSubject("FPTU Club Management - Mã xác thực OTP của bạn");
+            helper.setText(buildOtpEmailHtml(otpCode), true);
 
             mailSender.send(message);
             log.info("OTP email sent successfully to: {}", EmailMaskingUtil.maskEmail(email));
         } catch (Exception e) {
             log.error("Error sending OTP email to: {}", EmailMaskingUtil.maskEmail(email), e);
-        } finally {
-            logEmailPreview(message, "OTP", otpCode);
         }
+    }
+
+    private String buildOtpEmailHtml(String otpCode) {
+        return """
+                <div style="background:#F2F2F2;padding:32px 16px;font-family:'Segoe UI',Arial,sans-serif">
+                  <table role="presentation" width="628" align="center" style="max-width:100%%;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);border-collapse:collapse">
+                    <tr>
+                      <td width="628" height="169" align="center" valign="middle" style="background:#14224E">
+                        <table role="presentation" align="center" style="margin:0 auto;border-collapse:collapse">
+                          <tr>
+                            <td style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#FF6B00,#FF8C33);box-shadow:0 4px 14px rgba(0,0,0,0.25);text-align:center;vertical-align:middle;font-size:26px;font-weight:800;color:#ffffff">F</td>
+                            <td style="padding-left:12px;font-size:20px;font-weight:800;color:#F37021;letter-spacing:-0.3px">FPTU Clubs</td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td width="628" height="68" align="center" valign="middle" style="padding:0 24px">
+                        <div style="font-size:20px;font-weight:700;color:#1A1A1A;line-height:1.2">Xác nhận mã OTP</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td width="628" height="244" valign="top" style="padding:12px 32px 16px;box-sizing:border-box">
+                        <p style="margin:0 0 4px;font-size:14px;color:#1A1A1A">Xin chào,</p>
+                        <p style="margin:0 0 10px;font-size:13px;color:#444444;line-height:1.4">Bạn vừa yêu cầu mã xác thực OTP. Vui lòng nhập mã bên dưới để tiếp tục:</p>
+                        <div style="background:#F2F2F2;border-radius:10px;padding:12px 0;margin:0 0 10px;text-align:center;font-size:28px;font-weight:700;letter-spacing:8px;color:#000000">%s</div>
+                        <p style="margin:0;font-size:13px;color:#444444;line-height:1.4">Mã có hiệu lực trong 10 phút. Tuyệt đối không chia sẻ mã này với bất kỳ ai, kể cả nhân viên FPTU Club.</p>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+                """.formatted(escape(otpCode));
     }
 
     @Override
     @Async
     public void sendAccountActivationEmail(String email, String fullName) {
-        SimpleMailMessage message = new SimpleMailMessage();
         try {
-            message.setFrom("FPTU Club <" + senderEmail + ">");
-            message.setTo(email);
-            message.setSubject("FPTU Club Management - Tai khoan da duoc kich hoat");
-
-            // Soạn nội dung text thuần, dùng \n để xuống dòng
-            String text = "Xin chào " + fullName + ",\n\n"
-                    + "Chúc mừng! Tài khoản của bạn đã được kích hoạt thành công.\n"
-                    + "Bạn hiện có thể đăng nhập vào hệ thống bằng email và mật khẩu của mình.\n\n"
-                    + "Trân trọng,\nFPTU Club Management System";
-
-            message.setText(text);
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            helper.setFrom("FPTU Club <" + senderEmail + ">");
+            helper.setTo(email);
+            helper.setSubject("FPTU Club Management - Tài khoản đã được kích hoạt");
+            helper.setText(buildAccountActivationEmailHtml(fullName), true);
 
             mailSender.send(message);
             log.info("Account activation email sent successfully to: {}", EmailMaskingUtil.maskEmail(email));
         } catch (Exception e) {
             log.error("Error sending account activation email to: {}", EmailMaskingUtil.maskEmail(email), e);
-        } finally {
-            logEmailPreview(message, "account activation", null);
         }
+    }
+
+    private String buildAccountActivationEmailHtml(String fullName) {
+        return """
+                <div style="background:#F2F2F2;padding:32px 16px;font-family:'Segoe UI',Arial,sans-serif">
+                  <table role="presentation" width="628" align="center" style="max-width:100%%;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);border-collapse:collapse">
+                    <tr>
+                      <td width="628" height="169" align="center" valign="middle" style="background:#14224E">
+                        <table role="presentation" align="center" style="margin:0 auto;border-collapse:collapse">
+                          <tr>
+                            <td style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#FF6B00,#FF8C33);box-shadow:0 4px 14px rgba(0,0,0,0.25);text-align:center;vertical-align:middle;font-size:26px;font-weight:800;color:#ffffff">F</td>
+                            <td style="padding-left:12px;font-size:20px;font-weight:800;color:#F37021;letter-spacing:-0.3px">FPTU Clubs</td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td width="628" align="center" valign="middle" style="padding:24px 24px 4px">
+                        <div style="font-size:20px;font-weight:700;color:#1A1A1A;line-height:1.2">Tài khoản đã được kích hoạt</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td width="628" valign="top" style="padding:24px 32px 8px;box-sizing:border-box">
+                        <p style="margin:0 0 14px;font-size:14px;color:#1A1A1A">Xin chào <strong>%s</strong>,</p>
+                        <p style="margin:0 0 14px;font-size:13px;color:#444444;line-height:1.5">Cảm ơn bạn đã tạo tài khoản tại <strong>FPTU Club Management System</strong>.</p>
+                        <p style="margin:0 0 14px;font-size:13px;color:#444444;line-height:1.5">Tài khoản của bạn hiện tại đã hoạt động. Bạn có thể đăng nhập bằng email và mật khẩu của mình để bắt đầu sử dụng hệ thống.</p>
+                        <p style="margin:0 0 14px;font-size:13px;color:#444444;line-height:1.5">Sau khi đăng nhập, bạn có thể xem danh sách CLB, đăng ký tham gia sự kiện và theo dõi thông báo của mình.</p>
+                        <p style="margin:0;font-size:13px;color:#444444;line-height:1.5">Trân trọng,<br/>FPTU Club Management System</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td width="628" style="padding:0 32px">
+                        <div style="border-top:1px solid #EDEDED"></div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td width="628" align="center" valign="middle" style="padding:24px 32px 32px">
+                        <table role="presentation" align="center" style="margin:0 auto;border-collapse:collapse">
+                          <tr>
+                            <td style="border-radius:8px;background:linear-gradient(135deg,#FF6B00,#FF8C33)">
+                              <a href="http://localhost:5173/login" style="display:inline-block;padding:12px 32px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none">Khám phá ngay!</a>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+                """.formatted(escape(fullName));
     }
 
     @Override

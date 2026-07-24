@@ -144,7 +144,7 @@ export default function IcpdpEventManagement() {
   });
 
   const stats = useMemo(() => ({
-    upcoming: rows.filter((e) => e.statusGroup === "upcoming").length,
+    upcoming: rows.filter((e) => e.statusGroup === "upcoming" || e.statusGroup === "open").length,
     ongoing: rows.filter((e) => e.statusGroup === "ongoing").length,
     completed: rows.filter((e) => e.statusGroup === "completed").length,
   }), [rows]);

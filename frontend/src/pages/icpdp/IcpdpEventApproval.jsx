@@ -5,6 +5,7 @@ import clubApi from "../../services/api/clubs/clubApi";
 import { useToast } from "../../contexts/ToastContext";
 import { getServerOrigin } from "../../services/api/axiosClient";
 import LocationPicker from "../../components/events/LocationPicker";
+import RichTextView from "../../components/ui/RichTextView";
 
 const getImageUrl = (url) => {
   if (!url) return "";
@@ -242,7 +243,7 @@ function EventDetailView({ event, onBack, onApprove, onReject }) {
               </div>
               <div>
                 <label style={labelStyle}>Mô tả sự kiện</label>
-                <ReadBox value={event.description} multiline />
+                <RichTextView html={event.description} />
               </div>
               <div style={{ display: "flex", gap: 10 }}>
                 <div style={{ flex: 1 }}>
@@ -287,10 +288,6 @@ function EventDetailView({ event, onBack, onApprove, onReject }) {
               <div>
                 <label style={labelStyle}>Địa chỉ (định vị trên bản đồ)</label>
                 <LocationPicker address={event.location} lat={event.latitude} lng={event.longitude} readOnly />
-              </div>
-              <div>
-                <label style={labelStyle}>Chi tiết cụ thể</label>
-                <ReadBox value={event.locationDetail} />
               </div>
             </div>
           </div>
