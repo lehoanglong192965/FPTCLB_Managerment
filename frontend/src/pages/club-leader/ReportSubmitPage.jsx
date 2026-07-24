@@ -5,6 +5,7 @@ import reportApi from '../../services/api/report/reportApi';
 import eventApi from '../../services/api/events/eventApi';
 import { buildEventCsvFileName, downloadCsvFile, getDownloadErrorMessage } from '../../utils/csvDownload';
 import { useToast } from '../../contexts/ToastContext';
+import EventReportStatisticsPanel from '../../components/EventReportStatisticsPanel';
 
 export default function ReportSubmitPage({ eventId: eventIdProp, embedded = false, onSubmitted } = {}) {
   const { eventId: eventIdParam } = useParams();
@@ -14,6 +15,7 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
 
   const [event, setEvent] = useState(null);
   const [existing, setExisting] = useState(null); // existing report if any
+  const [statistics, setStatistics] = useState(null);
   const [file, setFile] = useState(null);
   const [summary, setSummary] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -28,9 +30,10 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
     const load = async () => {
       setLoading(true);
       try {
-        const [evRes, repRes] = await Promise.allSettled([
+        const [evRes, repRes, statisticsRes] = await Promise.allSettled([
           eventApi.getEventById(eventId),
           reportApi.getByEventId(eventId),
+          reportApi.getStatistics(eventId),
         ]);
         if (cancelled) return;
         if (evRes.status === 'fulfilled') {
@@ -44,6 +47,11 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
             setExisting(rep);
             setSummary(rep.summary || '');
           }
+        }
+        if (statisticsRes.status === 'fulfilled') {
+          setStatistics(statisticsRes.value?.data ?? statisticsRes.value);
+        } else if (statisticsRes.reason?.code !== 'ERR_CANCELED' && statisticsRes.reason?.name !== 'CanceledError') {
+          toast.error('Không thể tải dữ liệu tổng hợp của sự kiện.');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -143,6 +151,9 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
   const isResubmit = existing?.status === 'REJECTED';
   const isCompleted = event?.status === 'COMPLETED' || event?.eventStatus === 'COMPLETED';
   const canSubmit = isCompleted || isResubmit;
+  const dataReadyToSubmit = Boolean(statistics)
+    && statistics.attendanceSessionsClosed
+    && Number(statistics.pendingPaymentCount ?? 0) === 0;
 
   return (
     <div className={embedded ? "" : "p-6 max-w-2xl"}>
@@ -203,6 +214,8 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
       )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-100 p-6 space-y-5">
+        <EventReportStatisticsPanel statistics={statistics} />
+
         {/* File upload */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -263,7 +276,7 @@ export default function ReportSubmitPage({ eventId: eventIdProp, embedded = fals
           </button>
           <button
             type="submit"
-            disabled={!file || uploading || !canSubmit}
+            disabled={!file || uploading || !canSubmit || !dataReadyToSubmit}
             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2"
           >
             {uploading ? (

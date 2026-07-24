@@ -68,6 +68,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/api/events/*/guest-registrations").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/events/*/registrations/guest", "/api/v1/events/*/registrations/guest").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/payment-webhooks/sepay").permitAll()
                         .requestMatchers("/api/guest-registrations/**", "/api/guest-feedback/**", "/api/v1/feedback/guest/**").permitAll()
                         .anyRequest().authenticated()
                 )

@@ -25,6 +25,7 @@ import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.AttendanceService;
 import com.fptu.fcms.service.EventAssignmentAccessService;
@@ -58,6 +59,7 @@ public class WalkInServiceImpl implements WalkInService {
     private final GuestRegistrationService guestRegistrationService;
     private final AuditLogService auditLogService;
     private final EventAssignmentAccessService eventAssignmentAccessService;
+    private final ClubMembershipRepository clubMembershipRepository;
 
     @Override
     @Transactional
@@ -69,6 +71,7 @@ public class WalkInServiceImpl implements WalkInService {
         UserAccount user = userRepository.findByStudentIdAndIsDeletedFalse(request.getStudentIdOrEmail())
                 .or(() -> userRepository.findByEmailAndIsDeletedFalse(request.getStudentIdOrEmail().trim().toLowerCase(Locale.ROOT)))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
+        ensureInternalMember(event, user.getUserID());
 
         EventRegistration registration = eventRegistrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(event.getEventID(), user.getUserID())
                 .orElseGet(() -> createFptuWalkInRegistration(event, user));
@@ -93,6 +96,7 @@ public class WalkInServiceImpl implements WalkInService {
         Event event = requireWalkInEvent(session.getEventID());
         eventAssignmentAccessService.ensureCanManageEvent(event.getEventID(), currentUser);
         ensureWalkInAvailable(session, event);
+        ensureGuestsAllowed(event);
         return guestRegistrationService.createGuestRegistration(session.getEventID(), request);
     }
 
@@ -103,6 +107,7 @@ public class WalkInServiceImpl implements WalkInService {
         Event event = requireWalkInEvent(session.getEventID());
         eventAssignmentAccessService.ensureCanManageEvent(event.getEventID(), currentUser);
         ensureWalkInAvailable(session, event);
+        ensureGuestsAllowed(event);
         Integer actorId = currentUser.getUserId();
         LocalDateTime now = LocalDateTime.now();
 
@@ -192,6 +197,20 @@ public class WalkInServiceImpl implements WalkInService {
         }
         if (!Boolean.TRUE.equals(event.getAllowWalkIn())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "WALK_IN_NOT_ALLOWED");
+        }
+    }
+
+    private void ensureInternalMember(Event event, Integer userId) {
+        if (Boolean.TRUE.equals(event.getIsInternal())
+                && clubMembershipRepository.findByClubIDAndUserIDAndSemesterIDAndIsDeletedFalse(
+                event.getClubID(), userId, event.getSemesterID()).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "INTERNAL_EVENT_MEMBER_REQUIRED");
+        }
+    }
+
+    private void ensureGuestsAllowed(Event event) {
+        if (Boolean.TRUE.equals(event.getIsInternal())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "INTERNAL_EVENT_GUEST_NOT_ALLOWED");
         }
     }
 }

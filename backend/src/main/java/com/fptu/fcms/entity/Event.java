@@ -136,6 +136,15 @@ public class Event {
     @Column(name = "rejectionReason", columnDefinition = "NVARCHAR(MAX)")
     private String rejectionReason;
 
+    @Column(name = "withdrawalReason", columnDefinition = "NVARCHAR(MAX)")
+    private String withdrawalReason;
+
+    @Column(name = "withdrawnBy")
+    private Integer withdrawnBy;
+
+    @Column(name = "withdrawnAt")
+    private LocalDateTime withdrawnAt;
+
     @Column(name = "isResubmitted")
     private Boolean isResubmitted;
 

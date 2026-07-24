@@ -2,6 +2,7 @@ package com.fptu.fcms.controller;
 
 import com.fptu.fcms.dto.request.CreateEventReportRequest;
 import com.fptu.fcms.entity.EventReport;
+import com.fptu.fcms.dto.response.EventReportStatisticsResponse;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.ReportUploadService;
 import jakarta.validation.Valid;
@@ -42,6 +43,14 @@ public class ReportController {
     public ResponseEntity<EventReport> getReportByEventId(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        return ResponseEntity.ok(reportUploadService.getReportByEventId(eventId, currentUser));
+        return ResponseEntity.of(reportUploadService.getReportByEventId(eventId, currentUser));
+    }
+
+    @GetMapping("/event/{eventId}/statistics")
+    @PreAuthorize("hasAnyRole('ICPDP', 'Leader', 'ViceLeader')")
+    public ResponseEntity<EventReportStatisticsResponse> getStatistics(
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(reportUploadService.getStatistics(eventId, currentUser));
     }
 }

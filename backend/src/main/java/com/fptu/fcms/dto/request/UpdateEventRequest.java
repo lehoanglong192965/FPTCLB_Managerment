@@ -28,6 +28,7 @@ public class UpdateEventRequest {
     private Boolean isPaidEvent;
     private BigDecimal ticketPrice;
     private String ticketCurrency;
+    private Boolean isInternal;
     private String bannerUrl;
     private String bannerPublicId;
     @Valid

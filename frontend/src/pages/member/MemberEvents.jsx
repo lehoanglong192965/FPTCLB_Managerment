@@ -23,14 +23,17 @@ export default function MemberEvents() {
 
     const load = async () => {
       try {
-        const [eventRes, clubRes, regRes] = await Promise.all([
+        const [eventRes, internalRes, clubRes, regRes] = await Promise.all([
           eventApi.getApprovedEvents().catch(() => []),
+          user ? eventApi.getMyInternalEvents().catch(() => []) : Promise.resolve([]),
           clubApi.getAll().catch(() => []),
           user ? eventApi.getMyRegistrations().catch(() => []) : Promise.resolve([]),
         ]);
         if (cancelled) return;
 
-        setEvents(Array.isArray(eventRes) ? eventRes : (eventRes?.content ?? eventRes?.data ?? []));
+        const publicEvents = Array.isArray(eventRes) ? eventRes : (eventRes?.content ?? eventRes?.data ?? []);
+        const internalEvents = Array.isArray(internalRes) ? internalRes : (internalRes?.content ?? internalRes?.data ?? []);
+        setEvents([...new Map([...publicEvents, ...internalEvents].map((event) => [event.eventID, event])).values()]);
         setClubs(Array.isArray(clubRes) ? clubRes : (clubRes?.content ?? clubRes?.data ?? []));
 
         const regList = Array.isArray(regRes) ? regRes : [];
@@ -76,6 +79,7 @@ export default function MemberEvents() {
       maxParticipants: e.maxParticipants ?? 0,
       currentParticipants: e.currentParticipants ?? 0,
       ticketStatus: isRegistered ? "registered" : undefined,
+      isInternal: e.isInternal === true,
     };
   });
 

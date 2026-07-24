@@ -3,6 +3,7 @@ package com.fptu.fcms.service.impl;
 import com.fptu.fcms.dto.request.CreateEventReportRequest;
 import com.fptu.fcms.dto.response.CloudinaryUploadResult;
 import com.fptu.fcms.dto.response.CsvExportResult;
+import com.fptu.fcms.dto.response.EventReportStatisticsResponse;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventReport;
 import com.fptu.fcms.enums.EventStatus;
@@ -12,6 +13,7 @@ import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.DocumentStorageService;
 import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.EventExportService;
+import com.fptu.fcms.service.EventReportStatisticsService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -54,6 +56,7 @@ class ReportUploadServiceImplEvidenceTest {
     @Mock private ClamAvScanService clamAvScanService;
     @Mock private DocumentStorageService documentStorageService;
     @Mock private EventExportService eventExportService;
+    @Mock private EventReportStatisticsService eventReportStatisticsService;
     @Mock private EventAssignmentAccessService eventAssignmentAccessService;
 
     @InjectMocks private ReportUploadServiceImpl service;
@@ -91,6 +94,16 @@ class ReportUploadServiceImplEvidenceTest {
                 .thenReturn(Optional.of(event));
         lenient().when(eventReportRepository.findByEventIDAndIsDeletedFalse(EVENT_ID))
                 .thenReturn(Optional.of(report));
+        lenient().when(eventReportStatisticsService.calculate(EVENT_ID, principal))
+                .thenReturn(EventReportStatisticsResponse.builder()
+                        .attendanceSessionsClosed(true)
+                        .pendingPaymentCount(0)
+                        .calculatedAt(java.time.LocalDateTime.now())
+                        .revenue(java.math.BigDecimal.ZERO)
+                        .attendanceRate(java.math.BigDecimal.ZERO)
+                        .averageOverallRating(java.math.BigDecimal.ZERO)
+                        .feedbackResponseRate(java.math.BigDecimal.ZERO)
+                        .build());
         lenient().when(eventExportService.exportRegistrations(EVENT_ID, principal))
                 .thenReturn(new CsvExportResult("registration".getBytes(StandardCharsets.UTF_8), 3));
         lenient().when(eventExportService.exportAttendance(EVENT_ID, principal))

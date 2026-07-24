@@ -233,6 +233,9 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             }
 
             UserAccount attendee = resolveTicketHolderAccount(event, participant, email);
+            if (Boolean.TRUE.equals(event.getIsInternal()) && attendee == null) {
+                throw new IllegalArgumentException("Su kien noi bo chi cho phep dat ve cho thanh vien CLB co tai khoan FPTU.");
+            }
             if (attendee != null) {
                 ensureUserAllowedForEvent(event, attendee);
                 if (!inputUserIds.add(attendee.getUserID())) {
@@ -837,6 +840,88 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
     }
 
+    @Override
+    @Transactional
+    public void approveGuestPayment(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        Event event = loadEventForUpdate(eventId);
+        GuestEventRegistration registration = loadGuestRegistrationForPayment(eventId, guestRegistrationId);
+        if (!PaymentStatus.AWAITING_VERIFICATION.equals(registration.getPaymentStatus())) {
+            throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
+                    "Payment must be awaiting verification.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        registration.setPaymentStatus(PaymentStatus.PAID);
+        registration.setAmountPaid(registration.getAmountDue());
+        registration.setPaidAt(now);
+        registration.setPaymentReviewedAt(now);
+        registration.setPaymentReviewedBy(currentUser.getUserId());
+        registration.setPaymentRejectionReason(null);
+        if (!StringUtils.hasText(registration.getTicketCode())) {
+            registration.setTicketCode(UUID.randomUUID().toString());
+        }
+        registration.setTicketIssuedAt(now);
+        registration.setTicketRevokedAt(null);
+        registration.setUpdatedAt(now);
+        registration.setUpdatedBy(currentUser.getUserId());
+        GuestEventRegistration saved = guestRegistrationRepository.save(registration);
+
+        sendAfterCommit(() -> emailService.sendEventTicketConfirmationEmail(
+                saved.getGuestEmail(), saved.getGuestFullName(), event.getEventName(), event.getStartDate(), event.getEndDate(),
+                event.getLocation(), saved.getTicketCode(), saved.getAmountPaid(), saved.getPaymentCurrency()));
+    }
+
+    @Override
+    @Transactional
+    public void rejectGuestPayment(Integer eventId, Integer guestRegistrationId, RegistrationRejectRequest request,
+                                   UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        Event event = loadEventForUpdate(eventId);
+        GuestEventRegistration registration = loadGuestRegistrationForPayment(eventId, guestRegistrationId);
+        if (!PaymentStatus.AWAITING_VERIFICATION.equals(registration.getPaymentStatus())) {
+            throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
+                    "Payment must be awaiting verification.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        if (request == null || !StringUtils.hasText(request.getReason())) {
+            throw new IllegalArgumentException("Payment rejection reason is required.");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        registration.setPaymentStatus(PaymentStatus.FAILED);
+        registration.setAmountPaid(BigDecimal.ZERO);
+        registration.setPaymentReviewedAt(now);
+        registration.setPaymentReviewedBy(currentUser.getUserId());
+        registration.setPaymentRejectionReason(request.getReason().trim());
+        registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
+        registration.setStatus(RegistrationStatus.CANCELLED.name());
+        registration.setCancelledAt(now);
+        registration.setCancellationSource("PAYMENT_REJECTED");
+        registration.setCancellationReason(request.getReason().trim());
+        registration.setTicketRevokedAt(now);
+        registration.setUpdatedAt(now);
+        registration.setUpdatedBy(currentUser.getUserId());
+        GuestEventRegistration saved = guestRegistrationRepository.save(registration);
+        allocationService.promoteWaitlisted(eventId, event.getMaxParticipants());
+
+        sendAfterCommit(() -> emailService.sendSimpleEmail(
+                saved.getGuestEmail(),
+                "Thanh toan khong duoc xac nhan - " + event.getEventName(),
+                "Thanh toan cho ma dang ky " + saved.getRegistrationCode() + " khong duoc xac nhan.\n"
+                        + "Ly do: " + saved.getPaymentRejectionReason() + "\n"
+                        + "Dang ky da bi huy va cho giu tam thoi da duoc giai phong."));
+    }
+
+    private GuestEventRegistration loadGuestRegistrationForPayment(Integer eventId, Integer guestRegistrationId) {
+        GuestEventRegistration registration = guestRegistrationRepository
+                .findByGuestRegistrationIDAndIsDeletedFalse(guestRegistrationId)
+                .orElseThrow(() -> new IllegalArgumentException("Guest registration not found."));
+        if (!Objects.equals(registration.getEventID(), eventId)) {
+            throw new IllegalArgumentException("Registration does not belong to the event.");
+        }
+        return registration;
+    }
+
     private void cancelRegistrationInternal(
             EventRegistration registration,
             Integer actorUserId,
@@ -1061,7 +1146,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
     private void ensureUserAllowedForEvent(Event event, UserAccount user) {
         if (Boolean.TRUE.equals(event.getIsInternal())) {
-            boolean isActiveMember = membershipRepo.existsByClubIDAndUserIDAndIsDeletedFalse(event.getClubID(), user.getUserID());
+            boolean isActiveMember = membershipRepo.findByClubIDAndUserIDAndSemesterIDAndIsDeletedFalse(
+                    event.getClubID(), user.getUserID(), event.getSemesterID()).isPresent();
             if (!isActiveMember) {
                 throw new IllegalArgumentException("Ban phai la thanh vien cua CLB de tham gia su kien noi bo nay.");
             }
@@ -1200,7 +1286,13 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 registration.getGuestFullName(),
                 canViewGuestContact ? registration.getGuestEmail() : null,
                 canViewGuestContact ? registration.getGuestPhone() : null,
-                Boolean.TRUE.equals(registration.getCapacityExempt())
+                Boolean.TRUE.equals(registration.getCapacityExempt()),
+                registration.getPaymentStatus(),
+                registration.getAmountDue(),
+                registration.getPaymentCurrency(),
+                registration.getPaymentReference(),
+                registration.getPaymentMethod(),
+                null
         );
     }
 
@@ -1220,7 +1312,13 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 registration.getGuestFullName(),
                 canViewGuestContact ? registration.getGuestEmail() : null,
                 canViewGuestContact ? registration.getGuestPhone() : null,
-                false
+                false,
+                registration.getPaymentStatus(),
+                registration.getAmountDue(),
+                registration.getPaymentCurrency(),
+                registration.getPaymentReference(),
+                registration.getPaymentMethod(),
+                registration.getPaymentSubmittedAt()
         );
     }
     private boolean matchesParticipantType(RegistrationListItemResponse view, String participantType) {

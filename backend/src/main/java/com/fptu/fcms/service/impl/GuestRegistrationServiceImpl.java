@@ -3,9 +3,12 @@ package com.fptu.fcms.service.impl;
 import com.fptu.fcms.dto.request.GuestOtpVerifyRequest;
 import com.fptu.fcms.dto.request.GuestRegistrationRequest;
 import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
+import com.fptu.fcms.dto.request.GuestRecoveryRequest;
 import com.fptu.fcms.dto.response.GuestOtpVerifyResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationStatusResponse;
+import com.fptu.fcms.dto.response.GuestRecoveryChallengeResponse;
+import com.fptu.fcms.dto.response.GuestRecoveryVerifyResponse;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.entity.GuestVerificationOtp;
@@ -15,6 +18,7 @@ import com.fptu.fcms.enums.ParticipantType;
 import com.fptu.fcms.enums.RegistrationChannel;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.enums.PaymentStatus;
+import com.fptu.fcms.enums.PaymentMethod;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
@@ -76,11 +80,17 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
     @Value("${fcms.guest.otp-resend-cooldown-seconds:60}")
     private long otpResendCooldownSeconds;
 
+    @Value("${fcms.guest.status-base-url:http://localhost:5173/guest/status}")
+    private String guestStatusBaseUrl;
+
     @Override
     @Transactional
     public GuestRegistrationResponse createGuestRegistration(Integer eventId, GuestRegistrationRequest request) {
         Event event = eventRepository.findByEventIDAndIsDeletedFalseForUpdate(eventId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
+        if (Boolean.TRUE.equals(event.getIsInternal())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "INTERNAL_EVENT_GUEST_NOT_ALLOWED");
+        }
         LocalDateTime requestTime = LocalDateTime.now();
         if (!com.fptu.fcms.enums.EventStatus.REGISTRATION_OPEN.equals(event.getEventStatus())
                 || (event.getRegistrationOpenAt() != null && requestTime.isBefore(event.getRegistrationOpenAt()))
@@ -178,8 +188,8 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
                 registration.setPaymentStatus(PaymentStatus.PENDING);
                 registration.setAmountDue(event.getTicketPrice());
                 registration.setAmountPaid(BigDecimal.ZERO);
-                registration.setPaymentReference("GUEST-" + registration.getGuestRegistrationID() + "-"
-                        + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT));
+                registration.setPaymentReference("GUEST"
+                        + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT));
                 registration.setPaymentExpiresAt(now.plusMinutes(30));
             } else {
                 issueTicket(registration, now);
@@ -192,6 +202,9 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         registration.setUpdatedAt(now);
         guestEventRegistrationRepository.save(registration);
         registrationNotificationService.notifyGuestRegistrationStatus(registration);
+        if (PaymentStatus.PENDING.equals(registration.getPaymentStatus())) {
+            sendPaymentContinuationEmail(registration, event, guestReference);
+        }
 
         return new GuestOtpVerifyResponse(
                 registration.getGuestRegistrationID(),
@@ -278,27 +291,107 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         Event event = eventRepository.findByEventIDAndIsDeletedFalseForUpdate(registration.getEventID())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
         if (!PaymentStatus.PENDING.equals(registration.getPaymentStatus())) {
-            if (PaymentStatus.PAID.equals(registration.getPaymentStatus())) return toStatus(registration);
+            if (PaymentStatus.AWAITING_VERIFICATION.equals(registration.getPaymentStatus())
+                    || PaymentStatus.PAID.equals(registration.getPaymentStatus())) return toStatus(registration);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "GUEST_PAYMENT_NOT_PENDING");
+        }
+        if (!PaymentMethod.BANK_TRANSFER.equals(request.getPaymentMethod())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "GUEST_PAYMENT_METHOD_NOT_SUPPORTED");
         }
         LocalDateTime now = LocalDateTime.now();
         if (registration.getPaymentExpiresAt() != null && registration.getPaymentExpiresAt().isBefore(now)) {
             registration.setPaymentStatus(PaymentStatus.EXPIRED);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "GUEST_PAYMENT_EXPIRED");
+            registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
+            registration.setStatus(RegistrationStatus.CANCELLED.name());
+            registration.setCancelledAt(now);
+            registration.setTicketRevokedAt(now);
+            registration.setCancellationSource("PAYMENT_TIMEOUT");
+            registration.setCancellationReason("Payment reservation expired.");
+            registration.setUpdatedAt(now);
+            GuestEventRegistration expired = guestEventRegistrationRepository.save(registration);
+            registrationAllocationService.promoteWaitlisted(event.getEventID(), event.getMaxParticipants());
+            registrationNotificationService.notifyGuestRegistrationStatus(expired);
+            return toStatus(expired);
         }
-        registration.setPaymentStatus(PaymentStatus.PAID);
-        registration.setAmountPaid(registration.getAmountDue());
-        registration.setPaymentMethod(request.getPaymentMethod());
-        if (request.getTransactionReference() != null && !request.getTransactionReference().isBlank()) {
-            registration.setPaymentReference(request.getTransactionReference().trim());
-        }
-        registration.setPaidAt(now);
-        issueTicket(registration, now);
+        registration.setPaymentStatus(PaymentStatus.AWAITING_VERIFICATION);
+        registration.setPaymentMethod(PaymentMethod.BANK_TRANSFER);
+        registration.setPaymentSubmittedAt(now);
+        registration.setPaymentRejectionReason(null);
+        registration.setUpdatedAt(now);
         GuestEventRegistration saved = guestEventRegistrationRepository.save(registration);
-        emailService.sendEventTicketConfirmationEmail(
-                saved.getGuestEmail(), saved.getGuestFullName(), event.getEventName(), event.getStartDate(), event.getEndDate(),
-                event.getLocation(), saved.getTicketCode(), saved.getAmountPaid(), saved.getPaymentCurrency());
         return toStatus(saved);
+    }
+
+    @Override
+    @Transactional
+    public GuestRecoveryChallengeResponse requestRecovery(GuestRecoveryRequest request) {
+        String email = normalizeEmail(request.getEmail());
+        String code = request.getRegistrationCode().trim().toUpperCase(Locale.ROOT);
+        GuestEventRegistration registration = guestEventRegistrationRepository
+                .findByRegistrationCodeAndGuestEmailNormalizedAndIsDeletedFalse(code, email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "GUEST_REGISTRATION_NOT_FOUND"));
+
+        GuestVerificationOtp current = guestVerificationOtpRepository
+                .findTopByGuestRegistrationIDAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                        registration.getGuestRegistrationID(), GuestOtpStatus.ACTIVE)
+                .orElse(null);
+        LocalDateTime now = LocalDateTime.now();
+        if (current != null && current.getResendAvailableAt() != null && current.getResendAvailableAt().isAfter(now)) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "OTP_RESEND_COOLDOWN");
+        }
+        if (current != null) {
+            current.setStatus(GuestOtpStatus.EXPIRED);
+            current.setUpdatedAt(now);
+        }
+
+        String challenge = generateOpaqueToken();
+        OtpIssue issue = createOtp(registration.getGuestRegistrationID(), registration.getGuestEmail());
+        issue.otp().setPurpose("RECOVERY");
+        issue.otp().setChallengeHash(hash(challenge));
+        guestVerificationOtpRepository.save(issue.otp());
+        sendGuestOtpEmail(registration.getGuestEmail(), issue.rawOtp(), issue.otp().getExpiresAt());
+        return new GuestRecoveryChallengeResponse(challenge, maskEmail(registration.getGuestEmail()), issue.otp().getExpiresAt());
+    }
+
+    @Override
+    @Transactional
+    public GuestRecoveryVerifyResponse verifyRecovery(String challenge, GuestOtpVerifyRequest request) {
+        GuestVerificationOtp otp = guestVerificationOtpRepository
+                .findByChallengeHashAndStatusAndIsDeletedFalse(hash(challenge), GuestOtpStatus.ACTIVE)
+                .filter(row -> "RECOVERY".equals(row.getPurpose()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "RECOVERY_CHALLENGE_INVALID"));
+        LocalDateTime now = LocalDateTime.now();
+        if (otp.getExpiresAt().isBefore(now)) {
+            otp.setStatus(GuestOtpStatus.EXPIRED);
+            otp.setUpdatedAt(now);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OTP_EXPIRED");
+        }
+        if (otp.getAttemptCount() >= otp.getMaxAttempts()) {
+            otp.setStatus(GuestOtpStatus.LOCKED);
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "OTP_LOCKED");
+        }
+        if (!passwordEncoder.matches(request.getOtp(), otp.getOtpHash())) {
+            otp.setAttemptCount(otp.getAttemptCount() + 1);
+            otp.setUpdatedAt(now);
+            if (otp.getAttemptCount() >= otp.getMaxAttempts()) otp.setStatus(GuestOtpStatus.LOCKED);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "OTP_INVALID");
+        }
+
+        GuestEventRegistration registration = guestEventRegistrationRepository
+                .findByGuestRegistrationIDAndIsDeletedFalse(otp.getGuestRegistrationID())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "GUEST_REGISTRATION_NOT_FOUND"));
+        String newReference = generateOpaqueToken();
+        registration.setGuestReferenceHash(hash(newReference));
+        registration.setUpdatedAt(now);
+        guestEventRegistrationRepository.save(registration);
+        otp.setStatus(GuestOtpStatus.USED);
+        otp.setUsedAt(now);
+        otp.setVerifiedAt(now);
+        otp.setUpdatedAt(now);
+        return new GuestRecoveryVerifyResponse(
+                newReference,
+                effectiveStatus(registration),
+                registration.getPaymentStatus() == null ? null : registration.getPaymentStatus().name());
     }
 
     private void issueTicket(GuestEventRegistration registration, LocalDateTime now) {
@@ -380,6 +473,19 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         );
     }
 
+    private void sendPaymentContinuationEmail(GuestEventRegistration registration, Event event, String guestReference) {
+        String base = guestStatusBaseUrl == null || guestStatusBaseUrl.isBlank()
+                ? "http://localhost:5173/guest/status" : guestStatusBaseUrl.replaceAll("/+$", "");
+        String link = base + "/" + guestReference;
+        emailService.sendSimpleEmail(
+                registration.getGuestEmail(),
+                "Tiep tuc thanh toan - " + event.getEventName(),
+                "Cho cua ban dang duoc giu den " + registration.getPaymentExpiresAt() + ".\n"
+                        + "Ma dang ky: " + registration.getRegistrationCode() + "\n"
+                        + "So tien: " + registration.getAmountDue() + " " + registration.getPaymentCurrency() + "\n"
+                        + "Tiep tuc thanh toan: " + link);
+    }
+
     private GuestEventRegistration findByReference(String guestReference) {
         return guestEventRegistrationRepository.findByGuestReferenceHashAndIsDeletedFalse(hash(guestReference))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "GUEST_REFERENCE_INVALID"));
@@ -404,7 +510,9 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
                 registration.getPaymentReference(),
                 registration.getPaymentMethod(),
                 registration.getPaidAt(),
-                registration.getPaymentExpiresAt()
+                registration.getPaymentExpiresAt(),
+                registration.getPaymentSubmittedAt(),
+                registration.getPaymentRejectionReason()
         );
     }
 

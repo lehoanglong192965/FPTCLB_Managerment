@@ -3,6 +3,7 @@ import EventCard from "../../components/events/EventCard";
 import eventApi from "../../services/api/events/eventApi";
 import clubApi from "../../services/api/clubs/clubApi";
 import { useAuth } from "../../contexts/AuthContext";
+import { Link } from "react-router-dom";
 
 const BADGE_FILTERS = ["Tất cả", "Sắp diễn ra", "Đăng ký mở", "Đang diễn ra", "Đã kết thúc"];
 
@@ -116,6 +117,9 @@ export default function EventListPage() {
         <p className="text-[15px] text-[#4B5674]">
           Khám phá các workshop, hackathon và chương trình giao lưu sắp diễn ra.
         </p>
+        <Link to="/guest/lookup" className="mt-4 inline-flex rounded-lg border border-orange-200 bg-orange-50 px-3.5 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-100">
+          Tra cứu đăng ký khách
+        </Link>
       </div>
 
       <div className="flex flex-col gap-4 mb-9">

@@ -30,6 +30,12 @@ const guestApi = {
 
   confirmPayment: (guestReference, payload) =>
     axiosClient.post(`/guest-registrations/${guestReference}/confirm-payment`, payload),
+
+  requestRecovery: ({ registrationCode, email }) =>
+    axiosClient.post('/guest-registrations/recovery/request', { registrationCode, email }),
+
+  verifyRecovery: (challenge, otp) =>
+    axiosClient.post(`/guest-registrations/recovery/${challenge}/verify`, { otp }),
 };
 
 export default guestApi;

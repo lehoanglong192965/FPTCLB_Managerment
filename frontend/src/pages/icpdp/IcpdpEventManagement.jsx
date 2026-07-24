@@ -272,6 +272,7 @@ export default function IcpdpEventManagement() {
               <th className="text-left px-4 py-3 font-semibold text-gray-500 w-10">#</th>
               <th className="text-left px-4 py-3 font-semibold text-gray-500">Sự kiện</th>
               <th className="text-left px-4 py-3 font-semibold text-gray-500">Câu lạc bộ</th>
+              <th className="text-left px-4 py-3 font-semibold text-gray-500">Phạm vi</th>
               <th className="text-left px-4 py-3 font-semibold text-gray-500">Thời gian</th>
               <th className="text-center px-4 py-3 font-semibold text-gray-500">Đăng ký</th>
               <th className="text-left px-4 py-3 font-semibold text-gray-500">Trạng thái</th>
@@ -290,6 +291,11 @@ export default function IcpdpEventManagement() {
                   <p className="font-semibold text-gray-900 m-0">{e.eventName}</p>
                 </td>
                 <td className="px-4 py-3.5 text-gray-600">{e.clubName}</td>
+                <td className="px-4 py-3.5">
+                  <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold ${e.isInternal ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700"}`}>
+                    {e.isInternal ? "Nội bộ CLB" : "Công khai"}
+                  </span>
+                </td>
                 <td className="px-4 py-3.5 text-gray-600">
                   {e.startDate ? new Date(e.startDate).toLocaleDateString("vi-VN") : "—"}
                 </td>
@@ -304,7 +310,7 @@ export default function IcpdpEventManagement() {
             ))}
             {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-gray-400 text-[13px]">
+                <td colSpan={8} className="text-center py-12 text-gray-400 text-[13px]">
                   Không có sự kiện nào khớp bộ lọc.
                 </td>
               </tr>

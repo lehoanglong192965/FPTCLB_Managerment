@@ -8,11 +8,11 @@ import AlertModal from '../ui/AlertModal';
 import TicketDetailModal from './TicketDetailModal';
 
 const PAYMENT_BANK = {
-    id: import.meta.env.VITE_PAYMENT_BANK_ID || 'VCB',
-    name: import.meta.env.VITE_PAYMENT_BANK_NAME || 'Vietcombank',
-    accountNumber: import.meta.env.VITE_PAYMENT_ACCOUNT_NUMBER || '1039830831',
+    id: import.meta.env.VITE_PAYMENT_BANK_ID || 'MB',
+    name: import.meta.env.VITE_PAYMENT_BANK_NAME || 'MB Bank',
+    accountNumber: import.meta.env.VITE_PAYMENT_ACCOUNT_NUMBER || '0796578863',
     accountName: import.meta.env.VITE_PAYMENT_ACCOUNT_NAME || 'LE HOANG LONG',
-    branch: import.meta.env.VITE_PAYMENT_BANK_BRANCH || 'PGD Long Bình Tân',
+    branch: import.meta.env.VITE_PAYMENT_BANK_BRANCH || 'MB Bank',
 };
 
 const buildVietQrUrl = ({ amount, paymentReference }) => {

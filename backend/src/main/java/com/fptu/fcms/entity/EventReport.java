@@ -6,6 +6,7 @@ import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Entity
 @SQLRestriction("isDeleted = false")
@@ -95,6 +96,64 @@ public class EventReport {
 
     @Column(name = "evidenceAttendanceRowCount")
     private Integer evidenceAttendanceRowCount;
+
+    // Immutable statistics captured from operational data when the report is submitted.
+    @Column(name = "snapshotGeneratedAt")
+    private LocalDateTime snapshotGeneratedAt;
+
+    @Column(name = "snapshotTotalRegistrations")
+    private Long snapshotTotalRegistrations;
+
+    @Column(name = "snapshotConfirmedRegistrations")
+    private Long snapshotConfirmedRegistrations;
+
+    @Column(name = "snapshotCancelledRegistrations")
+    private Long snapshotCancelledRegistrations;
+
+    @Column(name = "snapshotFptuRegistrations")
+    private Long snapshotFptuRegistrations;
+
+    @Column(name = "snapshotGuestRegistrations")
+    private Long snapshotGuestRegistrations;
+
+    @Column(name = "snapshotPendingPaymentCount")
+    private Long snapshotPendingPaymentCount;
+
+    @Column(name = "snapshotPaidTicketCount")
+    private Long snapshotPaidTicketCount;
+
+    @Column(name = "snapshotRevenue", precision = 19, scale = 2)
+    private BigDecimal snapshotRevenue;
+
+    @Column(name = "snapshotCurrency", length = 3)
+    private String snapshotCurrency;
+
+    @Column(name = "snapshotAttendanceSessionCount")
+    private Integer snapshotAttendanceSessionCount;
+
+    @Column(name = "snapshotPresentParticipants")
+    private Long snapshotPresentParticipants;
+
+    @Column(name = "snapshotAbsentParticipants")
+    private Long snapshotAbsentParticipants;
+
+    @Column(name = "snapshotWalkInParticipants")
+    private Long snapshotWalkInParticipants;
+
+    @Column(name = "snapshotAttendanceRate", precision = 7, scale = 2)
+    private BigDecimal snapshotAttendanceRate;
+
+    @Column(name = "snapshotFeedbackCount")
+    private Long snapshotFeedbackCount;
+
+    @Column(name = "snapshotAverageRating", precision = 4, scale = 2)
+    private BigDecimal snapshotAverageRating;
+
+    @Column(name = "snapshotFeedbackResponseRate", precision = 7, scale = 2)
+    private BigDecimal snapshotFeedbackResponseRate;
+
+    @Column(name = "snapshotPlannedBudget", precision = 19, scale = 2)
+    private BigDecimal snapshotPlannedBudget;
 
     @Column(name = "isDeleted")
     private Boolean isDeleted = false;

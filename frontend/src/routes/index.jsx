@@ -28,6 +28,7 @@ const EventDetailPage = lazy(() => import("../pages/events/EventDetailPage"));
 const GuestRegisterPage = lazy(() => import("../pages/guest/GuestRegisterPage"));
 const GuestVerifyOtpPage = lazy(() => import("../pages/guest/GuestVerifyOtpPage"));
 const GuestStatusPage = lazy(() => import("../pages/guest/GuestStatusPage"));
+const GuestLookupPage = lazy(() => import("../pages/guest/GuestLookupPage"));
 
 // Feedback flow (Sprint 7)
 const FeedbackPage = lazy(() => import("../pages/feedback/FeedbackPage"));
@@ -143,6 +144,7 @@ export default function AppRoutes() {
       <Route path="/guest/register/:eventId" element={<GuestRegisterPage />} />
       <Route path="/guest/verify-otp" element={<GuestVerifyOtpPage />} />
       <Route path="/guest/status/:ref" element={<GuestStatusPage />} />
+      <Route path="/guest/lookup" element={<GuestLookupPage />} />
 
       {/* ── Feedback (Sprint 7) ─────────────────────────────── */}
       <Route

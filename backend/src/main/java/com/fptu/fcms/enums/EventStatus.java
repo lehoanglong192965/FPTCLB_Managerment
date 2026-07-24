@@ -13,6 +13,7 @@ public enum EventStatus {
     PENDING_APPROVAL,
     APPROVED,
     REJECTED,
+    WITHDRAWN,
     CANCELLED,
     REGISTRATION_OPEN,
     REGISTRATION_CLOSED,
@@ -49,6 +50,7 @@ public enum EventStatus {
             case "PENDING_APPROVAL", "PENDINGAPPROVAL" -> PENDING_APPROVAL;
             case "APPROVED" -> APPROVED;
             case "REJECTED" -> REJECTED;
+            case "WITHDRAWN" -> WITHDRAWN;
             case "CANCELLED", "CANCELED" -> CANCELLED;
             case "REGISTRATION_OPEN", "REGISTRATIONOPEN" -> REGISTRATION_OPEN;
             case "REGISTRATION_CLOSED", "REGISTRATIONCLOSED" -> REGISTRATION_CLOSED;

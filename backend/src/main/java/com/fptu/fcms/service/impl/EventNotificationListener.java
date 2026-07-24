@@ -42,7 +42,7 @@ public class EventNotificationListener {
     @EventListener
     @Transactional
     public void onEventLifecycleChanged(EventLifecycleChangedEvent event) {
-        if (!List.of(EventStatus.APPROVED, EventStatus.REJECTED, EventStatus.CANCELLED).contains(event.newStatus())) {
+        if (!List.of(EventStatus.APPROVED, EventStatus.REJECTED, EventStatus.WITHDRAWN, EventStatus.CANCELLED).contains(event.newStatus())) {
             return;
         }
 
@@ -103,6 +103,7 @@ public class EventNotificationListener {
         return switch (status) {
             case APPROVED -> "Sự kiện được duyệt: " + clubName;
             case REJECTED -> "Sự kiện bị từ chối: " + clubName;
+            case WITHDRAWN -> "CLB đã rút yêu cầu tổ chức: " + clubName;
             case CANCELLED -> "Sự kiện đã hủy: " + clubName;
             default -> "Cập nhật sự kiện: " + clubName;
         };
@@ -113,6 +114,7 @@ public class EventNotificationListener {
         return switch (status) {
             case APPROVED -> "Sự kiện đã được phê duyệt." + suffix;
             case REJECTED -> "Sự kiện đã bị từ chối." + suffix;
+            case WITHDRAWN -> "CLB đã rút yêu cầu tổ chức sự kiện." + suffix;
             case CANCELLED -> "Sự kiện đã bị hủy." + suffix;
             default -> "Trạng thái sự kiện đã thay đổi." + suffix;
         };

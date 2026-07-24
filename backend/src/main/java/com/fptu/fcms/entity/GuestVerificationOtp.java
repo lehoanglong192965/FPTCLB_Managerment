@@ -40,6 +40,12 @@ public class GuestVerificationOtp {
     @Column(name = "otpHash", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String otpHash;
 
+    @Column(name = "purpose", length = 30)
+    private String purpose;
+
+    @Column(name = "challengeHash", length = 64)
+    private String challengeHash;
+
     @Column(name = "expiresAt", nullable = false)
     private LocalDateTime expiresAt;
 

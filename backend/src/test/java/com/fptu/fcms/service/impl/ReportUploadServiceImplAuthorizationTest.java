@@ -10,6 +10,7 @@ import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.DocumentStorageService;
 import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.EventExportService;
+import com.fptu.fcms.service.EventReportStatisticsService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -35,6 +36,7 @@ class ReportUploadServiceImplAuthorizationTest {
     @Mock private ClamAvScanService clamAvScanService;
     @Mock private DocumentStorageService documentStorageService;
     @Mock private EventExportService eventExportService;
+    @Mock private EventReportStatisticsService eventReportStatisticsService;
     @Mock private EventAssignmentAccessService eventAssignmentAccessService;
 
     @InjectMocks private ReportUploadServiceImpl service;
@@ -67,7 +69,7 @@ class ReportUploadServiceImplAuthorizationTest {
         EventReport report = new EventReport();
         when(eventReportRepository.findByEventIDAndIsDeletedFalse(42)).thenReturn(Optional.of(report));
 
-        assertSame(report, service.getReportByEventId(42, principal));
+        assertSame(report, service.getReportByEventId(42, principal).orElseThrow());
 
         var ordered = inOrder(eventAssignmentAccessService, eventReportRepository);
         ordered.verify(eventAssignmentAccessService).ensureCanManageEvent(42, principal);

@@ -27,6 +27,7 @@ const STEPS = [
 const EMPTY_FORM = {
   name: "", desc: "", budget: "", banner: null, bannerPublicId: "",
   isInternal: false, maxParticipants: "", isPaidEvent: false, ticketPrice: "", ticketCurrency: "VND",
+  requiresManualApproval: false,
   date: "", startTime: "", endTime: "",
   venueName: "", location: "",
   latitude: null, longitude: null,
@@ -275,6 +276,29 @@ function InternalToggle({ value, onChange }) {
   );
 }
 
+function ApprovalModeToggle({ value, onChange }) {
+  return (
+    <div>
+      <Label>Cách xác nhận đăng ký</Label>
+      <div style={{ display: "flex", gap: 12 }}>
+        {[
+          { val: false, label: "Tự động xác nhận", desc: "Khuyến nghị — người đủ điều kiện và còn chỗ được xác nhận ngay" },
+          { val: true, label: "Leader duyệt thủ công", desc: "Người đăng ký phải chờ Leader duyệt hoặc từ chối" },
+        ].map(({ val, label, desc }) => {
+          const active = value === val;
+          return (
+            <button key={String(val)} type="button" onClick={() => onChange("requiresManualApproval", val)}
+              style={{ flex: 1, padding: "12px 16px", borderRadius: 10, textAlign: "left", cursor: "pointer", border: `1.5px solid ${active ? "#E6430A" : "#e5e7eb"}`, background: active ? "#FFF3EE" : "#fff", color: active ? "#E6430A" : "#6b7280" }}>
+              <div style={{ fontWeight: 700, fontSize: 13.5 }}>{label}</div>
+              <div style={{ fontSize: 12, color: active ? "#c2410c" : "#9ca3af", marginTop: 3, lineHeight: 1.5 }}>{desc}</div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Step 1 ─────────────────────────────────────────────────── */
 
 function Step1({ form, onChange, errors }) {
@@ -387,6 +411,7 @@ function Step2({ form, onChange, errors }) {
       </div>
 
       <InternalToggle value={form.isInternal} onChange={onChange} />
+      <ApprovalModeToggle value={form.requiresManualApproval} onChange={onChange} />
     </div>
   );
 }
@@ -506,6 +531,7 @@ function Step4({ form }) {
           <RichTextView html={form.desc} style={{ fontSize: 13, color: "#111827" }} />
         </div>
         <SummaryRow label="Phạm vi"     value={form.isInternal ? "Nội bộ CLB" : "Công khai"} />
+        <SummaryRow label="Xác nhận đăng ký" value={form.requiresManualApproval ? "Leader duyệt thủ công" : "Tự động xác nhận"} />
         <SummaryRow label="Số người tối đa" value={form.maxParticipants ? `${form.maxParticipants} người` : "Không giới hạn"} />
         <SummaryRow label="Hình thức tham gia" value={form.isPaidEvent ? "Sự kiện bán vé" : "Sự kiện miễn phí"} />
         {form.isPaidEvent && (
@@ -718,6 +744,11 @@ export default function CreateEventPage() {
         maxParticipants: form.maxParticipants ? parseInt(form.maxParticipants) : null,
         isResubmitted: false,
         isInternal:    form.isInternal,
+        registrationPolicies: [
+          { participantType: "CORE_TEAM", isEnabled: true, waitlistEnabled: false, requiresManualApproval: false },
+          { participantType: "SUPPORT_ORGANIZER", isEnabled: true, waitlistEnabled: false, requiresManualApproval: false },
+          { participantType: "PARTICIPANT", isEnabled: true, waitlistEnabled: true, requiresManualApproval: form.requiresManualApproval },
+        ],
         bannerUrl:     form.banner || null,
         bannerPublicId: form.bannerPublicId || null,
         assignments:   null,

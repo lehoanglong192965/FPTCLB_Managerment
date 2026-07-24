@@ -4,9 +4,12 @@ import com.fptu.fcms.dto.request.GuestOtpVerifyRequest;
 import com.fptu.fcms.dto.request.GuestRegistrationRequest;
 import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
 import com.fptu.fcms.dto.request.RegistrationCancelRequest;
+import com.fptu.fcms.dto.request.GuestRecoveryRequest;
 import com.fptu.fcms.dto.response.GuestOtpVerifyResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationStatusResponse;
+import com.fptu.fcms.dto.response.GuestRecoveryChallengeResponse;
+import com.fptu.fcms.dto.response.GuestRecoveryVerifyResponse;
 import com.fptu.fcms.service.GuestRegistrationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -63,5 +66,18 @@ public class GuestRegistrationController {
             @PathVariable String guestReference,
             @Valid @RequestBody ConfirmEventPaymentRequest request) {
         return ResponseEntity.ok(guestRegistrationService.confirmPayment(guestReference, request));
+    }
+
+    @PostMapping("/guest-registrations/recovery/request")
+    public ResponseEntity<GuestRecoveryChallengeResponse> requestRecovery(
+            @Valid @RequestBody GuestRecoveryRequest request) {
+        return ResponseEntity.ok(guestRegistrationService.requestRecovery(request));
+    }
+
+    @PostMapping("/guest-registrations/recovery/{challenge}/verify")
+    public ResponseEntity<GuestRecoveryVerifyResponse> verifyRecovery(
+            @PathVariable String challenge,
+            @Valid @RequestBody GuestOtpVerifyRequest request) {
+        return ResponseEntity.ok(guestRegistrationService.verifyRecovery(challenge, request));
     }
 }

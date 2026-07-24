@@ -29,4 +29,6 @@ public class GuestRegistrationStatusResponse {
     private PaymentMethod paymentMethod;
     private LocalDateTime paidAt;
     private LocalDateTime paymentExpiresAt;
+    private LocalDateTime paymentSubmittedAt;
+    private String paymentRejectionReason;
 }

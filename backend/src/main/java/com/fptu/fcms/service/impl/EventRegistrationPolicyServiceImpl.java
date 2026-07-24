@@ -106,7 +106,7 @@ public class EventRegistrationPolicyServiceImpl implements EventRegistrationPoli
                     policy.setQuota(null);
                     policy.setWaitlistEnabled(Boolean.FALSE);
                     policy.setQuotaReleaseAt(null);
-                    policy.setRequiresManualApproval(RegistrationLifecycle.PARTICIPANT_TYPE_PARTICIPANT.equals(type));
+                    policy.setRequiresManualApproval(Boolean.FALSE);
                     policy.setRequiresApproval(policy.getRequiresManualApproval());
                     policy.setCreatedAt(now);
                     policy.setIsDeleted(false);

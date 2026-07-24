@@ -31,6 +31,7 @@ const STATUS_DEFS = [
   { keys: ["Closed",                  "CLOSED"],                       label: "Đã đóng",                     color: "#374151", bg: "#e5e7eb" },
   { keys: ["Cancelled",               "CANCELLED",        "CANCELED"],label: "Đã hủy",                      color: "#dc2626", bg: "#fee2e2" },
   { keys: ["Rejected",                "REJECTED"],                     label: "Bị từ chối",                  color: "#b91c1c", bg: "#fff1f2" },
+  { keys: ["Withdrawn",               "WITHDRAWN"],                    label: "Đã rút",                     color: "#9f1239", bg: "#fff1f2" },
 ];
 
 const STATUS_CFG = Object.fromEntries(
@@ -116,6 +117,7 @@ export default function ClubEventsMgmt() {
     "DRAFT",
     "PENDING_APPROVAL", "PENDINGAPPROVAL",
     "REJECTED",
+    "WITHDRAWN",
     "APPROVED",
     "REGISTRATION_OPEN", "REGISTRATIONOPEN",
     "REGISTRATION_CLOSED", "REGISTRATIONCLOSED",

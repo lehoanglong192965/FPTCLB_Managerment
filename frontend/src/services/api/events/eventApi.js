@@ -4,6 +4,7 @@ const eventApi = {
   // PUBLIC
   getApprovedEvents: () => axiosClient.get("/v1/events/approved"),
   getPublicEventsIncludingCompleted: () => axiosClient.get("/v1/events/public-list"),
+  getMyInternalEvents: () => axiosClient.get("/v1/events/internal"),
   getEventById: (eventId) => axiosClient.get(`/v1/events/${eventId}`),
   // CLUB_LEADER / VICE_LEADER — trả đủ trường quản lý (maxParticipants, budget, cửa sổ đăng ký/điểm danh...)
   getManagedEventById: (eventId) => axiosClient.get(`/v1/events/${eventId}/manage`),
@@ -16,6 +17,7 @@ const eventApi = {
   // Xóa mềm sự kiện ở trạng thái Draft/Rejected (chỉ người tạo)
   deleteDraft: (eventId) => axiosClient.delete(`/v1/events/${eventId}`),
   submit: (eventId) => axiosClient.patch(`/v1/events/${eventId}/submit`),
+  withdraw: (eventId, reason) => axiosClient.patch(`/v1/events/${eventId}/withdraw`, { reason }),
   start: (eventId) => axiosClient.patch(`/v1/events/${eventId}/start`),
   finish: (eventId) => axiosClient.patch(`/v1/events/${eventId}/finish`),
   close: (eventId) => axiosClient.patch(`/v1/events/${eventId}/close`),
@@ -96,6 +98,10 @@ const eventApi = {
     axiosClient.post(`/ticket-orders/${ticketOrderCode}/cancel`, { reason }),
   cancelGuestRegistration: (eventId, guestRegistrationId) =>
     axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/cancel`),
+  approveGuestPayment: (eventId, guestRegistrationId) =>
+    axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/payment/approve`),
+  rejectGuestPayment: (eventId, guestRegistrationId, reason) =>
+    axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/payment/reject`, { reason }),
 };
 
 export default eventApi;

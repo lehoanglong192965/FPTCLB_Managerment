@@ -17,14 +17,23 @@ const STATUS_CFG = {
 
 const isPendingApproval = (status) => status === 'PENDING_APPROVAL' || status === 'PENDING';
 
+const PAYMENT_STATUS_CFG = {
+  PENDING: { label: 'Chưa chuyển khoản', color: 'text-orange-700', bg: 'bg-orange-100' },
+  AWAITING_VERIFICATION: { label: 'Chờ xác minh CK', color: 'text-blue-700', bg: 'bg-blue-100' },
+  PAID: { label: 'Đã thanh toán', color: 'text-green-700', bg: 'bg-green-100' },
+  FAILED: { label: 'Thanh toán bị từ chối', color: 'text-red-700', bg: 'bg-red-100' },
+  EXPIRED: { label: 'Hết hạn thanh toán', color: 'text-gray-600', bg: 'bg-gray-100' },
+};
+
 const TABS = [
   { id: '',          label: 'Tất cả'    },
   { id: 'PENDING_APPROVAL', label: 'Chờ duyệt' },
+  { id: 'PAYMENT_VERIFICATION', label: 'Chờ xác minh CK' },
   { id: 'CONFIRMED', label: 'Đã duyệt'  },
   { id: 'REJECTED',  label: 'Từ chối'   },
 ];
 
-function RejectModal({ name, onConfirm, onClose }) {
+function RejectModal({ name, onConfirm, onClose, payment = false }) {
   const [reason, setReason] = useState('');
   return (
     <div
@@ -34,18 +43,18 @@ function RejectModal({ name, onConfirm, onClose }) {
     >
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-gray-900">Từ chối đăng ký</h3>
+          <h3 className="font-bold text-gray-900">{payment ? 'Từ chối thanh toán' : 'Từ chối đăng ký'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={18} />
           </button>
         </div>
         <p className="text-sm text-gray-600 mb-3">
-          Từ chối đăng ký của <strong>{name}</strong>?
+          {payment ? 'Không xác nhận chuyển khoản của ' : 'Từ chối đăng ký của '}<strong>{name}</strong>?
         </p>
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Lý do từ chối (tuỳ chọn)..."
+          placeholder={payment ? 'Lý do không xác nhận thanh toán...' : 'Lý do từ chối...'}
           rows={3}
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300 mb-4"
         />
@@ -60,7 +69,7 @@ function RejectModal({ name, onConfirm, onClose }) {
             onClick={() => onConfirm(reason.trim())}
             className="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-lg font-medium"
           >
-            Xác nhận từ chối
+            {payment ? 'Từ chối thanh toán' : 'Xác nhận từ chối'}
           </button>
         </div>
       </div>
@@ -82,6 +91,7 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
   const [actionLoading, setActionLoading] = useState(null); // registrationId
   const [exportLoading, setExportLoading] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null); // { id, name }
+  const [paymentRejectTarget, setPaymentRejectTarget] = useState(null);
 
   const fetchRegistrations = useCallback(async () => {
     setLoading(true);
@@ -160,6 +170,41 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
     }
   };
 
+  const handleApproveGuestPayment = async (reg) => {
+    const guestId = reg.guestRegistrationId ?? reg.registrationId;
+    const loadingKey = `guest-${guestId}`;
+    setActionLoading(loadingKey);
+    try {
+      await eventApi.approveGuestPayment(eventId, guestId);
+      toast.success(`Đã xác nhận thanh toán của ${reg.fullName || reg.name}`);
+      fetchRegistrations();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Không thể xác nhận thanh toán.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectGuestPayment = async (reason) => {
+    const target = paymentRejectTarget;
+    setPaymentRejectTarget(null);
+    if (!target || !reason) {
+      toast.error('Vui lòng nhập lý do từ chối thanh toán.');
+      return;
+    }
+    const loadingKey = `guest-${target.id}`;
+    setActionLoading(loadingKey);
+    try {
+      await eventApi.rejectGuestPayment(eventId, target.id, reason);
+      toast.success(`Đã từ chối thanh toán của ${target.name}`);
+      fetchRegistrations();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Không thể từ chối thanh toán.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleExport = async (exportType) => {
     if (!eventId || exportLoading) return;
 
@@ -187,7 +232,11 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
 
   const filtered = registrations.filter((r) => {
     if (tab) {
-      const matchTab = tab === 'PENDING_APPROVAL' ? isPendingApproval(r.status) : r.status === tab;
+      const matchTab = tab === 'PENDING_APPROVAL'
+        ? isPendingApproval(r.status)
+        : tab === 'PAYMENT_VERIFICATION'
+          ? r.paymentStatus === 'AWAITING_VERIFICATION'
+          : r.status === tab;
       if (!matchTab) return false;
     }
     const q = search.toLowerCase();
@@ -202,6 +251,7 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
   const counts = {
     '': registrations.length,
     PENDING_APPROVAL: registrations.filter((r) => isPendingApproval(r.status)).length,
+    PAYMENT_VERIFICATION: registrations.filter((r) => r.paymentStatus === 'AWAITING_VERIFICATION').length,
     // Vé Ban tổ chức là vé miễn phí và không chiếm quota người tham gia.
     CONFIRMED: registrations.filter((r) => r.status === 'CONFIRMED' && !r.capacityExempt).length,
     REJECTED:  registrations.filter((r) => r.status === 'REJECTED').length,
@@ -331,6 +381,7 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Email</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Loại</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Trạng thái</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">Thanh toán</th>
                 <th className="text-right px-4 py-3 font-semibold text-gray-600">Hành động</th>
               </tr>
             </thead>
@@ -341,6 +392,7 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
                   ? 'guest-' + (r.guestRegistrationId ?? r.registrationId ?? idx)
                   : 'fptu-' + (r.registrationId ?? r.id ?? idx);
                 const cfg = STATUS_CFG[r.status] ?? { label: r.status, color: 'text-gray-600', bg: 'bg-gray-100' };
+                const paymentCfg = PAYMENT_STATUS_CFG[r.paymentStatus];
                 const isLoading = actionLoading === regId;
                 return (
                   <tr key={regId} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
@@ -359,6 +411,17 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
                       </span>
                     </td>
                     <td className="px-4 py-3">
+                      {paymentCfg ? (
+                        <div>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${paymentCfg.bg} ${paymentCfg.color}`}>
+                            {paymentCfg.label}
+                          </span>
+                          {r.paymentReference && <p className="mt-1 text-[11px] text-gray-500">{r.paymentReference}</p>}
+                          {r.amountDue != null && <p className="text-[11px] text-gray-500">{Number(r.amountDue).toLocaleString('vi-VN')} {r.paymentCurrency || 'VND'}</p>}
+                        </div>
+                      ) : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         {!isGuest && isPendingApproval(r.status) && (
                           <>
@@ -374,6 +437,26 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
                               onClick={() => setRejectTarget({ id: r.registrationId ?? r.id, name: r.fullName || r.name })}
                               disabled={isLoading}
                               title="Từ chối"
+                              className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50"
+                            >
+                              <XCircle size={16} />
+                            </button>
+                          </>
+                        )}
+                        {isGuest && r.paymentStatus === 'AWAITING_VERIFICATION' && (
+                          <>
+                            <button
+                              onClick={() => handleApproveGuestPayment(r)}
+                              disabled={isLoading}
+                              title="Xác nhận đã nhận chuyển khoản"
+                              className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 disabled:opacity-50"
+                            >
+                              <CheckCircle2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => setPaymentRejectTarget({ id: r.guestRegistrationId, name: r.fullName || r.name })}
+                              disabled={isLoading}
+                              title="Từ chối thanh toán"
                               className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50"
                             >
                               <XCircle size={16} />
@@ -411,6 +494,14 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
           name={rejectTarget.name}
           onConfirm={handleRejectConfirm}
           onClose={() => setRejectTarget(null)}
+        />
+      )}
+      {paymentRejectTarget && (
+        <RejectModal
+          payment
+          name={paymentRejectTarget.name}
+          onConfirm={handleRejectGuestPayment}
+          onClose={() => setPaymentRejectTarget(null)}
         />
       )}
     </div>

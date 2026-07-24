@@ -1,6 +1,7 @@
 package com.fptu.fcms.controller;
 
 import com.fptu.fcms.dto.request.CancelEventRequest;
+import com.fptu.fcms.dto.request.WithdrawEventRequest;
 import com.fptu.fcms.dto.request.ContributionEmergencyOverrideRequest;
 import com.fptu.fcms.dto.request.CreateEventProposalRequest;
 import com.fptu.fcms.dto.request.EventApprovalRequest;
@@ -83,8 +84,18 @@ public class EventController {
     }
 
     @GetMapping("/{eventId}")
-    public ResponseEntity<EventDetailResponse> getEventById(@PathVariable Integer eventId) {
-        return ResponseEntity.ok(eventService.getPublicEventDetail(eventId));
+    public ResponseEntity<EventDetailResponse> getEventById(
+            @PathVariable Integer eventId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(eventService.getPublicEventDetail(eventId, currentUser));
+    }
+
+    @GetMapping("/internal")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Lay su kien noi bo cua cac CLB ma nguoi dung dang la thanh vien")
+    public ResponseEntity<List<Event>> getMyInternalEvents(
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(eventService.getInternalEventsForMember(currentUser));
     }
 
     @GetMapping("/{eventId}/manage")
@@ -167,6 +178,17 @@ public class EventController {
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.ok(eventService.submitEventProposal(eventId, currentUser));
+    }
+
+    @PatchMapping("/{eventId}/withdraw")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
+    @Operation(summary = "Rut yeu cau to chuc event dang cho ICPDP duyet")
+    public ResponseEntity<Map<String, String>> withdrawEvent(
+            @PathVariable Integer eventId,
+            @Valid @RequestBody WithdrawEventRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.withdrawEvent(eventId, request, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Event proposal withdrawn successfully."));
     }
 
     @RequestMapping(value = {"/{eventId}/registration/open", "/{eventId}/open-registration"}, method = {RequestMethod.POST, RequestMethod.PATCH})

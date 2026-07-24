@@ -2,6 +2,8 @@ package com.fptu.fcms.repository;
 
 import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.enums.RegistrationStatus;
+import com.fptu.fcms.enums.PaymentStatus;
+import java.time.LocalDateTime;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -34,6 +36,8 @@ public interface GuestEventRegistrationRepository extends JpaRepository<GuestEve
     );
 
     List<GuestEventRegistration> findByEventIDAndIsDeletedFalse(Integer eventID);
+    List<GuestEventRegistration> findByPaymentStatusAndPaymentExpiresAtBeforeAndIsDeletedFalse(
+            PaymentStatus paymentStatus, LocalDateTime paymentExpiresAt);
     long countByEventIDAndGuestEmailNormalizedAndIsDeletedFalse(Integer eventID, String guestEmailNormalized);
     Optional<GuestEventRegistration> findTopByEventIDAndGuestEmailNormalizedAndRegistrationStatusAndIsDeletedFalseOrderByCancelledAtDesc(
             Integer eventID, String guestEmailNormalized, RegistrationStatus registrationStatus);
@@ -42,6 +46,9 @@ public interface GuestEventRegistrationRepository extends JpaRepository<GuestEve
 
     Optional<GuestEventRegistration> findByGuestReferenceHashAndIsDeletedFalse(String hash);
     Optional<GuestEventRegistration> findByEventIDAndTicketCodeAndIsDeletedFalse(Integer eventID, String ticketCode);
+    Optional<GuestEventRegistration> findByRegistrationCodeAndGuestEmailNormalizedAndIsDeletedFalse(
+            String registrationCode, String guestEmailNormalized);
+    Optional<GuestEventRegistration> findByPaymentReferenceAndIsDeletedFalse(String paymentReference);
 
     boolean existsByRegistrationCodeAndIsDeletedFalse(String code);
 

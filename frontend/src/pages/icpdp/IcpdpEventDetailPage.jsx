@@ -229,6 +229,10 @@ export default function IcpdpEventDetailPage() {
                     ) : <ReadBox value={fmtBudget(ev.budget)} />}
                   </div>
                 </div>
+                <div style={{ padding: 12, borderRadius: 9, border: "1.5px solid #ddd6fe", background: "#f5f3ff" }}>
+                  <label style={{ ...labelStyle, color: "#6d28d9" }}>Phạm vi sự kiện</label>
+                  <ReadBox value={ev.isInternal ? "Nội bộ CLB — chỉ thành viên CLB được tham gia" : "Công khai — mở cho tất cả sinh viên"} />
+                </div>
 
                 <SectionHeader>Thời gian</SectionHeader>
                 <div>

@@ -54,4 +54,8 @@ public interface EventRegistrationService {
     void cancelTicketOrder(String ticketOrderCode, RegistrationCancelRequest request, UserPrincipal currentUser);
 
     void cancelGuestRegistration(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser);
+
+    void approveGuestPayment(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser);
+
+    void rejectGuestPayment(Integer eventId, Integer guestRegistrationId, RegistrationRejectRequest request, UserPrincipal currentUser);
 }

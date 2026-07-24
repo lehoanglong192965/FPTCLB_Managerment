@@ -204,6 +204,9 @@ function EventDetailView({ event, onBack, onApprove, onReject }) {
             className={badge.cls}>
             {badge.label}
           </span>
+          <span className={`inline-block ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${event.isInternal ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700"}`}>
+            {event.isInternal ? "Nội bộ CLB" : "Công khai"}
+          </span>
           {event.status === "approved" && event.phaseLabel && (
             <span className={`inline-block ml-2 px-2.5 py-0.5 rounded-full text-xs font-medium ${
               event.isFinished ? "bg-gray-200 text-gray-600" : "bg-blue-100 text-blue-700"
@@ -377,6 +380,7 @@ export default function IcpdpEventApproval({ embedded = false }) {
           isPaidEvent:     e.isPaidEvent === true,
           ticketPrice:     e.ticketPrice ?? null,
           ticketCurrency:  e.ticketCurrency || "VND",
+          isInternal:      e.isInternal === true,
         });
 
         const fromPending = pendingList.map((e) => ({
@@ -564,6 +568,9 @@ export default function IcpdpEventApproval({ embedded = false }) {
                 <div className="flex flex-wrap items-center gap-2 mb-1.5">
                   <span className={`inline-block px-3 py-0.5 rounded-full text-xs font-semibold ${badge.cls}`}>
                     {badge.label}
+                  </span>
+                  <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${event.isInternal ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700"}`}>
+                    {event.isInternal ? "Nội bộ CLB" : "Công khai"}
                   </span>
                   {event.status === "approved" && event.phaseLabel && (
                     <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${

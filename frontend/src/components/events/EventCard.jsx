@@ -63,6 +63,11 @@ export default function EventCard({ event }) {
             : { background: `linear-gradient(135deg, ${event.color || "#E6430A"}, ${(event.color || "#E6430A")}99)` }
         }
       >
+        {event.isInternal && (
+          <div className="absolute top-3 left-3 z-[1] text-[11px] font-bold px-2.5 py-1 rounded-full border border-violet-200 bg-violet-50 text-violet-700">
+            Nội bộ CLB
+          </div>
+        )}
         {!event.bannerUrl && (
           <div
             className="absolute inset-0"

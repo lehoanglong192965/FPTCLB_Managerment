@@ -25,6 +25,7 @@ public interface EventService {
     void revokeCheckInStaff(Integer eventId, Integer userId, UserPrincipal currentUser);
     List<EventAssignment> getAssignments(Integer eventId, UserPrincipal currentUser);
     void cancelEvent(Integer clubID, Integer eventId, CancelEventRequest request, UserPrincipal currentUser);
+    void withdrawEvent(Integer eventId, com.fptu.fcms.dto.request.WithdrawEventRequest request, UserPrincipal currentUser);
     EventApprovalResponse approveEvent(Integer eventId, EventApprovalRequest request, UserPrincipal currentUser);
     List<Event> getPendingEvents();
     List<Event> getApprovedEvents();
@@ -33,7 +34,8 @@ public interface EventService {
     List<Event> getIcpdpAllEvents();
     List<Event> getRejectedEvents();
     Event getEventById(Integer eventId);
-    EventDetailResponse getPublicEventDetail(Integer eventId);
+    EventDetailResponse getPublicEventDetail(Integer eventId, UserPrincipal currentUser);
+    List<Event> getInternalEventsForMember(UserPrincipal currentUser);
     EventDetailResponse getManagedEventDetail(Integer eventId, UserPrincipal currentUser);
     List<Event> getEventsByClubId(Integer clubId);
     void startEvent(Integer eventId, UserPrincipal currentUser);

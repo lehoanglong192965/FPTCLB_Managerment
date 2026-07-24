@@ -137,6 +137,18 @@ public class GuestEventRegistration {
     @Column(name = "paymentExpiresAt")
     private LocalDateTime paymentExpiresAt;
 
+    @Column(name = "paymentSubmittedAt")
+    private LocalDateTime paymentSubmittedAt;
+
+    @Column(name = "paymentReviewedAt")
+    private LocalDateTime paymentReviewedAt;
+
+    @Column(name = "paymentReviewedBy")
+    private Integer paymentReviewedBy;
+
+    @Column(name = "paymentRejectionReason", length = 500)
+    private String paymentRejectionReason;
+
     @Column(name = "verifiedAt")
     private LocalDateTime verifiedAt;
 

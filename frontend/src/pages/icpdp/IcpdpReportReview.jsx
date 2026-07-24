@@ -6,6 +6,7 @@ import eventApi from "../../services/api/events/eventApi";
 import { useConfirm } from "../../contexts/ConfirmContext";
 import { useToast } from "../../contexts/ToastContext";
 import { getServerOrigin } from "../../services/api/axiosClient";
+import EventReportStatisticsPanel from "../../components/EventReportStatisticsPanel";
 
 
 const getImageUrl = (url) => {
@@ -76,6 +77,11 @@ function DetailModal({ ev, report, onApprove, onReject, onClose, approving, onVi
         <div className="px-6 py-5 overflow-y-auto flex-1">
           {report ? (
             <>
+              {report.snapshotGeneratedAt && (
+                <div className="mb-4">
+                  <EventReportStatisticsPanel statistics={report} snapshot />
+                </div>
+              )}
               <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#94A3B8", letterSpacing: "0.1em" }}>
                 Tóm tắt báo cáo
               </p>

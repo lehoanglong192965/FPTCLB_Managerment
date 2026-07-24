@@ -72,6 +72,7 @@ public class EventServiceImpl implements EventService {
     private static final EventStatus STATUS_PENDING_APPROVAL = EventStatus.PENDING_APPROVAL;
     private static final EventStatus STATUS_APPROVED = EventStatus.APPROVED;
     private static final EventStatus STATUS_REJECTED = EventStatus.REJECTED;
+    private static final EventStatus STATUS_WITHDRAWN = EventStatus.WITHDRAWN;
     private static final EventStatus STATUS_CANCELLED = EventStatus.CANCELLED;
     private static final EventStatus STATUS_REGISTRATION_OPEN = EventStatus.REGISTRATION_OPEN;
     private static final EventStatus STATUS_REGISTRATION_CLOSED = EventStatus.REGISTRATION_CLOSED;
@@ -93,6 +94,7 @@ public class EventServiceImpl implements EventService {
                     EventStatus.PENDING,
                     EventStatus.PENDING_APPROVAL,
                     EventStatus.REJECTED,
+                    EventStatus.WITHDRAWN,
                     EventStatus.CANCELLED
             ))
     );
@@ -311,6 +313,35 @@ public class EventServiceImpl implements EventService {
                         + ". Lượt gửi tiếp theo sẽ mở lại sau " + cooldownHours + " giờ."
                         : "Đã gửi đề xuất sự kiện thành công."
         );
+    }
+
+    @Override
+    @Transactional
+    public void withdrawEvent(Integer eventId, WithdrawEventRequest request, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        Event event = eventRepository.findByEventIDAndIsDeletedFalseForUpdate(eventId)
+                .orElseThrow(() -> new BusinessRuleException(
+                        "EVENT_NOT_FOUND", "Khong tim thay su kien.", HttpStatus.NOT_FOUND));
+
+        EventStatus oldStatus = event.getEventStatus();
+        if (!STATUS_PENDING_APPROVAL.equals(oldStatus) && !STATUS_PENDING.equals(oldStatus)) {
+            throw new BusinessRuleException(
+                    "EVENT_STATE_INVALID",
+                    "Chi co the rut yeu cau khi su kien dang cho ICPDP duyet. Su kien co the da duoc xu ly; vui long tai lai trang.",
+                    HttpStatus.CONFLICT);
+        }
+
+        String reason = request.getReason().trim();
+        event.setEventStatus(STATUS_WITHDRAWN);
+        event.setWithdrawalReason(reason);
+        event.setWithdrawnBy(currentUser.getUserId());
+        event.setWithdrawnAt(LocalDateTime.now());
+        Event saved = eventRepository.save(event);
+
+        auditLogService.record(
+                currentUser.getUserId(), "Event", saved.getEventID(), "EVENT_PROPOSAL_WITHDRAWN",
+                oldStatus.name(), STATUS_WITHDRAWN.name(), reason);
+        publishLifecycleEvent(saved, oldStatus, STATUS_WITHDRAWN, null, reason);
     }
 
     @Override
@@ -543,7 +574,8 @@ public class EventServiceImpl implements EventService {
     @Transactional(readOnly = true)
     public List<Event> getApprovedEvents() {
         List<Event> events = eventRepository.findByEventStatusInAndIsDeletedFalse(
-                List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_REGISTRATION_CLOSED, STATUS_ONGOING));
+                List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_REGISTRATION_CLOSED, STATUS_ONGOING))
+                .stream().filter(event -> !Boolean.TRUE.equals(event.getIsInternal())).collect(Collectors.toList());
         attachCurrentParticipants(events);
         return events;
     }
@@ -557,7 +589,25 @@ public class EventServiceImpl implements EventService {
     @Transactional(readOnly = true)
     public List<Event> getPublicEventsIncludingCompleted() {
         List<Event> events = eventRepository.findByEventStatusInAndIsDeletedFalse(
-                List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_REGISTRATION_CLOSED, STATUS_ONGOING, STATUS_COMPLETED));
+                List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_REGISTRATION_CLOSED, STATUS_ONGOING, STATUS_COMPLETED))
+                .stream().filter(event -> !Boolean.TRUE.equals(event.getIsInternal())).collect(Collectors.toList());
+        attachCurrentParticipants(events);
+        return events;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Event> getInternalEventsForMember(UserPrincipal currentUser) {
+        if (currentUser == null) {
+            throw new BusinessRuleException("AUTHENTICATION_REQUIRED", "Ban can dang nhap.", HttpStatus.UNAUTHORIZED);
+        }
+        List<Event> events = eventRepository.findByEventStatusInAndIsDeletedFalse(
+                        List.of(STATUS_APPROVED, STATUS_REGISTRATION_OPEN, STATUS_REGISTRATION_CLOSED, STATUS_ONGOING, STATUS_COMPLETED))
+                .stream()
+                .filter(event -> Boolean.TRUE.equals(event.getIsInternal()))
+                .filter(event -> clubMembershipRepository.findByClubIDAndUserIDAndSemesterIDAndIsDeletedFalse(
+                        event.getClubID(), currentUser.getUserId(), event.getSemesterID()).isPresent())
+                .collect(Collectors.toList());
         attachCurrentParticipants(events);
         return events;
     }
@@ -634,8 +684,20 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional(readOnly = true)
-    public EventDetailResponse getPublicEventDetail(Integer eventId) {
+    public EventDetailResponse getPublicEventDetail(Integer eventId, UserPrincipal currentUser) {
         Event event = getActiveEventOrThrow(eventId);
+        if (Boolean.TRUE.equals(event.getIsInternal())) {
+            boolean isMember = currentUser != null
+                    && clubMembershipRepository.findByClubIDAndUserIDAndSemesterIDAndIsDeletedFalse(
+                    event.getClubID(), currentUser.getUserId(), event.getSemesterID()).isPresent();
+            boolean isIcpdp = currentUser != null && eventPermissionService.isIcpdp(currentUser);
+            if (!isMember && !isIcpdp) {
+                throw new BusinessRuleException(
+                        "INTERNAL_EVENT_ACCESS_DENIED",
+                        "Su kien nay chi danh cho thanh vien CLB.",
+                        HttpStatus.FORBIDDEN);
+            }
+        }
         return toEventDetailResponse(event, null, false);
     }
 
@@ -997,6 +1059,7 @@ public class EventServiceImpl implements EventService {
                     || request.getCheckInOpenAt() != null
                     || request.getCheckInCloseAt() != null
                     || request.getBudget() != null
+                    || request.getIsInternal() != null
                     || request.getBannerUrl() != null
                     || (request.getRegistrationPolicies() != null && !request.getRegistrationPolicies().isEmpty());
             if (editsOtherFields) {
@@ -1032,6 +1095,7 @@ public class EventServiceImpl implements EventService {
         if (request.getIsPaidEvent() != null)   event.setIsPaidEvent(request.getIsPaidEvent());
         if (request.getTicketPrice() != null || Boolean.FALSE.equals(request.getIsPaidEvent())) event.setTicketPrice(request.getTicketPrice());
         if (StringUtils.hasText(request.getTicketCurrency())) event.setTicketCurrency(request.getTicketCurrency().trim().toUpperCase());
+        if (isProposalEditable && request.getIsInternal() != null) event.setIsInternal(request.getIsInternal());
         if (request.getBannerUrl() != null) {
             event.setBannerUrl(request.getBannerUrl().isBlank() ? null : request.getBannerUrl());
             event.setBannerPublicId(normalizePublicId(request.getBannerPublicId()));
@@ -1471,7 +1535,10 @@ public class EventServiceImpl implements EventService {
                 isManager ? event.getApprovedAt() : null,
                 isManager ? event.getPdpFeedback() : null,
                 isManager ? event.getRejectionReason() : null,
-                isManager ? event.getIsInternal() : null,
+                isManager ? event.getWithdrawalReason() : null,
+                isManager ? event.getWithdrawnBy() : null,
+                isManager ? event.getWithdrawnAt() : null,
+                event.getIsInternal(),
                 isManager ? event.getIsScoreLocked() : null,
                 isManager ? usedSubmissionAttempts : null,
                 isManager ? Math.max(0, configuredMaxAttempts - usedSubmissionAttempts) : null,

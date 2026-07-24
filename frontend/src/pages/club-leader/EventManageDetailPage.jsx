@@ -40,6 +40,7 @@ const STATUS_DEFS = [
   { keys: ["Closed", "CLOSED"], label: "Đã đóng", color: "#374151", bg: "#e5e7eb" },
   { keys: ["Cancelled", "CANCELLED", "CANCELED"], label: "Đã hủy", color: "#dc2626", bg: "#fee2e2" },
   { keys: ["Rejected", "REJECTED"], label: "Bị từ chối", color: "#b91c1c", bg: "#fff1f2" },
+  { keys: ["Withdrawn", "WITHDRAWN"], label: "Đã rút", color: "#9f1239", bg: "#fff1f2" },
 ];
 const STATUS_CFG = Object.fromEntries(
   STATUS_DEFS.flatMap(({ keys, label, color, bg }) => keys.map((k) => [k, { label, color, bg }]))
@@ -166,9 +167,15 @@ function normalizeEvent(ev) {
     isPaidEvent: ev.isPaidEvent === true,
     ticketPrice: ev.ticketPrice ?? null,
     ticketCurrency: ev.ticketCurrency || "VND",
+    isInternal: ev.isInternal === true,
+    registrationPolicies: Array.isArray(ev.registrationPolicies) ? ev.registrationPolicies : [],
+    requiresManualApproval: Array.isArray(ev.registrationPolicies)
+      && ev.registrationPolicies.some((policy) => policy.participantType === "PARTICIPANT" && policy.requiresManualApproval === true),
     bannerUrl: ev.bannerUrl ?? null,
     bannerPublicId: ev.bannerPublicId ?? null,
     rejectionReason: ev.rejectionReason ?? null,
+    withdrawalReason: ev.withdrawalReason ?? null,
+    withdrawnAt: ev.withdrawnAt ?? null,
     submissionAttemptCount: ev.submissionAttemptCount ?? 0,
     submissionMaxAttempts: ev.submissionMaxAttempts ?? 3,
     submissionCooldownHours: ev.submissionCooldownHours ?? 24,
@@ -180,10 +187,10 @@ function normalizeEvent(ev) {
 }
 
 const REASON_MIN = 20;
-function CancelModal({ event, onConfirm, onClose }) {
+function CancelModal({ event, onConfirm, onClose, withdrawal = false }) {
   const [reason, setReason] = useState("");
   const [touched, setTouched] = useState(false);
-  const isValid = reason.trim().length > REASON_MIN;
+  const isValid = reason.trim().length >= REASON_MIN;
   const showError = touched && !isValid;
   const remaining = REASON_MIN - reason.trim().length;
   return (
@@ -195,7 +202,7 @@ function CancelModal({ event, onConfirm, onClose }) {
             <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
               <AlertTriangle size={16} className="text-red-600" />
             </div>
-            <h2 className="text-[15px] font-bold text-gray-900 m-0">Hủy sự kiện</h2>
+            <h2 className="text-[15px] font-bold text-gray-900 m-0">{withdrawal ? "Rút yêu cầu tổ chức" : "Hủy sự kiện"}</h2>
           </div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer border-none bg-transparent">
             <X size={16} />
@@ -203,16 +210,18 @@ function CancelModal({ event, onConfirm, onClose }) {
         </div>
         <div className="px-6 py-5">
           <p className="text-[13.5px] text-gray-600 mb-4 leading-relaxed">
-            Bạn sắp hủy sự kiện <span className="font-semibold text-gray-900">"{event.eventName}"</span>. Hành động này không thể hoàn tác.
+            {withdrawal
+              ? <>Bạn sắp rút yêu cầu tổ chức <span className="font-semibold text-gray-900">"{event.eventName}"</span>. ICPDP sẽ không thể tiếp tục duyệt và thao tác này không thể hoàn tác trực tiếp.</>
+              : <>Bạn sắp hủy sự kiện <span className="font-semibold text-gray-900">"{event.eventName}"</span>. Hành động này không thể hoàn tác.</>}
           </p>
-          <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">Lý do hủy <span className="text-red-500">*</span></label>
+          <label className="block text-[13px] font-semibold text-gray-700 mb-1.5">{withdrawal ? "Lý do rút yêu cầu" : "Lý do hủy"} <span className="text-red-500">*</span></label>
           <textarea value={reason} onChange={(e) => { setReason(e.target.value); setTouched(true); }} onBlur={() => setTouched(true)}
-            placeholder="Nhập lý do hủy sự kiện..." rows={4}
+            placeholder={withdrawal ? "Nhập lý do không tiếp tục tổ chức..." : "Nhập lý do hủy sự kiện..."} rows={4}
             className={`w-full resize-none rounded-xl border text-[13.5px] text-gray-800 px-3.5 py-3 outline-none transition-colors leading-relaxed ${showError ? "border-red-400 bg-red-50/40" : "border-gray-200 focus:border-[#e6430a] bg-white"}`}
             style={{ boxSizing: "border-box" }} />
           <div className="flex items-center justify-between mt-1.5">
             {showError ? (
-              <p className="text-[12px] text-red-600 font-medium">Lý do phải có hơn {REASON_MIN} ký tự{remaining > 0 && ` (còn thiếu ${remaining} ký tự)`}.</p>
+              <p className="text-[12px] text-red-600 font-medium">Lý do phải có ít nhất {REASON_MIN} ký tự{remaining > 0 && ` (còn thiếu ${remaining} ký tự)`}.</p>
             ) : <span />}
             <span className={`text-[11px] ml-auto font-medium ${isValid ? "text-green-600" : "text-gray-400"}`}>{reason.trim().length} / {REASON_MIN}+</span>
           </div>
@@ -221,7 +230,7 @@ function CancelModal({ event, onConfirm, onClose }) {
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-700 text-[13.5px] font-semibold hover:bg-gray-50 transition-colors cursor-pointer">Quay lại</button>
           <button onClick={() => { setTouched(true); if (isValid) onConfirm(event.eventID, reason.trim()); }} disabled={touched && !isValid}
             className={`flex-1 py-2.5 rounded-xl text-white text-[13.5px] font-semibold transition-colors border-none ${touched && !isValid ? "bg-red-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-700 cursor-pointer"}`}>
-            Xác nhận hủy
+            {withdrawal ? "Xác nhận rút" : "Xác nhận hủy"}
           </button>
         </div>
       </div>
@@ -253,6 +262,7 @@ export default function EventManageDetailPage() {
   const [busy, setBusy] = useState(false);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [finishOpen, setFinishOpen] = useState(false);
 
   // Chặn mọi điều hướng (back, sidebar, đổi URL...) trong lúc đang sửa mà chưa lưu.
@@ -345,6 +355,8 @@ export default function EventManageDetailPage() {
       isPaidEvent: ev.isPaidEvent === true,
       ticketPrice: ev.ticketPrice ?? "",
       ticketCurrency: ev.ticketCurrency || "VND",
+      isInternal: ev.isInternal === true,
+      requiresManualApproval: ev.requiresManualApproval === true,
       bannerFile: null,
     });
     setIsEditing(true);
@@ -382,6 +394,12 @@ export default function EventManageDetailPage() {
         isPaidEvent: editForm.isPaidEvent === true,
         ticketPrice: editForm.isPaidEvent ? Number(editForm.ticketPrice) : null,
         ticketCurrency: editForm.ticketCurrency || "VND",
+        isInternal: editForm.isInternal === true,
+        registrationPolicies: [
+          { participantType: "CORE_TEAM", isEnabled: true, waitlistEnabled: false, requiresManualApproval: false },
+          { participantType: "SUPPORT_ORGANIZER", isEnabled: true, waitlistEnabled: false, requiresManualApproval: false },
+          { participantType: "PARTICIPANT", isEnabled: true, waitlistEnabled: true, requiresManualApproval: editForm.requiresManualApproval === true },
+        ],
       } : {
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : undefined,
       };
@@ -413,6 +431,8 @@ export default function EventManageDetailPage() {
         isPaidEvent: editForm.isPaidEvent === true,
         ticketPrice: editForm.isPaidEvent ? Number(editForm.ticketPrice) : null,
         ticketCurrency: editForm.ticketCurrency || "VND",
+        isInternal: editForm.isInternal === true,
+        requiresManualApproval: editForm.requiresManualApproval === true,
         bannerUrl: newBannerUrl,
         bannerPublicId: newBannerPublicId,
       } : {
@@ -446,6 +466,24 @@ export default function EventManageDetailPage() {
       setCancelOpen(false);
     } catch (e) {
       toast.error("Lỗi khi hủy sự kiện: " + (e.response?.data?.message || e.message));
+    }
+  };
+
+  const handleWithdrawConfirm = async (id, reason) => {
+    setBusy(true);
+    try {
+      await eventApi.withdraw(id, reason);
+      patchEvent({
+        eventStatus: "Withdrawn",
+        withdrawalReason: reason,
+        withdrawnAt: new Date().toISOString(),
+      });
+      setWithdrawOpen(false);
+      toast.success("Đã rút yêu cầu tổ chức sự kiện.");
+    } catch (e) {
+      toast.error("Không thể rút yêu cầu: " + (e.response?.data?.message || e.message));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -654,6 +692,42 @@ export default function EventManageDetailPage() {
                 )}
               </div>
 
+              <div style={{ padding: 14, borderRadius: 10, border: "1.5px solid #ddd6fe", background: "#f5f3ff" }}>
+                <label style={{ ...labelStyle, color: "#6d28d9" }}>Phạm vi sự kiện</label>
+                {isEditing && isFullEdit ? (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {[
+                      { value: false, label: "Công khai" },
+                      { value: true, label: "Nội bộ CLB" },
+                    ].map((option) => (
+                      <button key={String(option.value)} type="button"
+                        onClick={() => setEditForm((form) => ({ ...form, isInternal: option.value }))}
+                        style={{ flex: 1, padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${editForm.isInternal === option.value ? "#7c3aed" : "#ddd6fe"}`, background: editForm.isInternal === option.value ? "#ede9fe" : "#fff", color: "#6d28d9" }}>
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : <ReadBox value={ev.isInternal ? "Nội bộ CLB — chỉ thành viên CLB được tham gia" : "Công khai — mở cho tất cả sinh viên"} />}
+              </div>
+
+              <div style={{ padding: 14, borderRadius: 10, border: "1.5px solid #bae6fd", background: "#f0f9ff" }}>
+                <label style={{ ...labelStyle, color: "#0369a1" }}>Cách xác nhận đăng ký</label>
+                {isEditing && isFullEdit ? (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {[
+                      { value: false, label: "Tự động xác nhận" },
+                      { value: true, label: "Leader duyệt thủ công" },
+                    ].map((option) => (
+                      <button key={String(option.value)} type="button"
+                        onClick={() => setEditForm((form) => ({ ...form, requiresManualApproval: option.value }))}
+                        style={{ flex: 1, padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${editForm.requiresManualApproval === option.value ? "#0284c7" : "#bae6fd"}`, background: editForm.requiresManualApproval === option.value ? "#e0f2fe" : "#fff", color: "#0369a1" }}>
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : <ReadBox value={ev.requiresManualApproval ? "Leader duyệt thủ công" : "Tự động xác nhận"} />}
+              </div>
+
               <SectionHeader>Thời gian</SectionHeader>
               <div>
                 <label style={labelStyle}>Ngày tổ chức</label>
@@ -709,6 +783,14 @@ export default function EventManageDetailPage() {
           </div>
         )}
 
+        {status === "WITHDRAWN" && ev.withdrawalReason && (
+          <div style={{ margin: "16px 24px 0", padding: "14px 16px", borderRadius: 10, background: "#fff1f2", border: "1.5px solid #fecdd3" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 11.5, fontWeight: 700, color: "#9f1239", textTransform: "uppercase", letterSpacing: 0.5 }}>Lý do rút yêu cầu tổ chức</p>
+            <p style={{ margin: 0, fontSize: 13.5, color: "#881337", lineHeight: 1.7, whiteSpace: "pre-line" }}>{ev.withdrawalReason}</p>
+            {ev.withdrawnAt && <p style={{ margin: "6px 0 0", fontSize: 11.5, color: "#9f1239" }}>Thời gian rút: {new Date(ev.withdrawnAt).toLocaleString("vi-VN")}</p>}
+          </div>
+        )}
+
         {isFullEdit && (
           <div style={{ margin: "16px 24px 0", padding: "10px 14px", borderRadius: 10, background: isSubmitBlocked ? "#fff7ed" : "#f8fafc", border: `1px solid ${isSubmitBlocked ? "#fdba74" : "#e2e8f0"}`, fontSize: 12.5, color: isSubmitBlocked ? "#9a3412" : "#475569" }}>
             {isSubmitBlocked
@@ -749,9 +831,14 @@ export default function EventManageDetailPage() {
         {activeTab === "manage" && (
         <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
           {["DRAFT", "PENDINGAPPROVAL", "PENDING"].includes(status) ? (
+            <>
             <div style={{ padding: "14px 16px", borderRadius: 10, background: "#fffbeb", border: "1.5px solid #fde68a", fontSize: 13.5, color: "#92400e", fontWeight: 600, textAlign: "center" }}>
-              Sự kiện chưa được duyệt. Vui lòng gửi đề xuất cho ICPDP.
+              {status === "DRAFT" ? "Sự kiện chưa được gửi cho ICPDP duyệt." : "Sự kiện đang chờ ICPDP duyệt."}
             </div>
+            {["PENDINGAPPROVAL", "PENDING"].includes(status) && (
+              <button disabled={busy} onClick={() => setWithdrawOpen(true)} style={secondaryBtnStyle("#be123c", busy)}>Rút yêu cầu tổ chức</button>
+            )}
+            </>
           ) : (<>
           <StatusStepper status={status} />
 
@@ -825,6 +912,10 @@ export default function EventManageDetailPage() {
             <p style={{ margin: 0, fontSize: 13, color: "#9ca3af", fontStyle: "italic" }}>Không có thao tác khả dụng.</p>
           )}
 
+          {status === "WITHDRAWN" && (
+            <p style={{ margin: 0, fontSize: 13, color: "#9f1239", fontStyle: "italic" }}>Yêu cầu đã được rút và chỉ còn ở chế độ xem lịch sử.</p>
+          )}
+
           {["REGISTRATIONOPEN", "REGISTRATIONCLOSED"].includes(status) && (
             <button onClick={() => setCancelOpen(true)} style={secondaryBtnStyle("#dc2626")}>Hủy sự kiện</button>
           )}
@@ -865,6 +956,7 @@ export default function EventManageDetailPage() {
 
       {/* Modal huỷ sự kiện */}
       {cancelOpen && <CancelModal event={ev} onConfirm={handleCancelConfirm} onClose={() => setCancelOpen(false)} />}
+      {withdrawOpen && <CancelModal withdrawal event={ev} onConfirm={handleWithdrawConfirm} onClose={() => setWithdrawOpen(false)} />}
 
       {/* Modal kết thúc sự kiện */}
       {finishOpen && (

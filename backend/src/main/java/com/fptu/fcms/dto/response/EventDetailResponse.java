@@ -47,6 +47,9 @@ public class EventDetailResponse {
     private final LocalDateTime approvedAt;
     private final String pdpFeedback;
     private final String rejectionReason;
+    private final String withdrawalReason;
+    private final Integer withdrawnBy;
+    private final LocalDateTime withdrawnAt;
     private final Boolean isInternal;
     private final Boolean isScoreLocked;
     private final Integer submissionAttemptCount;

@@ -9,6 +9,10 @@ const reportApi = {
   getByEventId: (eventId) =>
     axiosClient.get(`/v1/reports/event/${eventId}`),
 
+  // Live, server-calculated event data used to preview the report snapshot.
+  getStatistics: (eventId) =>
+    axiosClient.get(`/v1/reports/event/${eventId}/statistics`),
+
   // POST /api/v1/reports  (multipart/form-data)
   // CreateEventReportRequest: eventID (Integer @NotNull), summary (@NotBlank, max 1000), file (MultipartFile @NotNull)
   submit: (eventId, { file, summary }) => {

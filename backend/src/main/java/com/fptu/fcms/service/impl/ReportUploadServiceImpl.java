@@ -4,6 +4,7 @@ import com.fptu.fcms.config.CloudinaryFolders;
 import com.fptu.fcms.dto.request.CreateEventReportRequest;
 import com.fptu.fcms.dto.response.CloudinaryUploadResult;
 import com.fptu.fcms.dto.response.CsvExportResult;
+import com.fptu.fcms.dto.response.EventReportStatisticsResponse;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventReport;
 import com.fptu.fcms.enums.EventReportStatus;
@@ -14,6 +15,7 @@ import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.DocumentStorageService;
 import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.EventExportService;
+import com.fptu.fcms.service.EventReportStatisticsService;
 import com.fptu.fcms.service.ReportUploadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +35,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -48,13 +51,18 @@ public class ReportUploadServiceImpl implements ReportUploadService {
     private final ClamAvScanService clamAvScanService;
     private final DocumentStorageService documentStorageService;
     private final EventExportService eventExportService;
+    private final EventReportStatisticsService eventReportStatisticsService;
     private final EventAssignmentAccessService eventAssignmentAccessService;
 
     @Override
-    public EventReport getReportByEventId(Integer eventId, UserPrincipal currentUser) {
+    public Optional<EventReport> getReportByEventId(Integer eventId, UserPrincipal currentUser) {
         eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
-        return eventReportRepository.findByEventIDAndIsDeletedFalse(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Report not found for event " + eventId));
+        return eventReportRepository.findByEventIDAndIsDeletedFalse(eventId);
+    }
+
+    @Override
+    public EventReportStatisticsResponse getStatistics(Integer eventId, UserPrincipal currentUser) {
+        return eventReportStatisticsService.calculate(eventId, currentUser);
     }
 
     @Override
@@ -69,6 +77,17 @@ public class ReportUploadServiceImpl implements ReportUploadService {
                 && !EventStatus.REPORT_REJECTED.equals(event.getEventStatus())) {
             throw new IllegalArgumentException(
                     "Chỉ được nộp báo cáo khi sự kiện đã kết thúc (Completed) hoặc báo cáo trước đó bị từ chối (Report Rejected).");
+        }
+
+        EventReportStatisticsResponse statistics =
+                eventReportStatisticsService.calculate(event.getEventID(), currentUser);
+        if (!statistics.isAttendanceSessionsClosed()) {
+            throw new IllegalArgumentException(
+                    "Vui lòng đóng tất cả phiên điểm danh trước khi nộp báo cáo.");
+        }
+        if (statistics.getPendingPaymentCount() > 0) {
+            throw new IllegalArgumentException(
+                    "Vẫn còn giao dịch chờ thanh toán hoặc xác minh. Vui lòng xử lý trước khi nộp báo cáo.");
         }
 
         MultipartFile file = request.getFile();
@@ -106,6 +125,8 @@ public class ReportUploadServiceImpl implements ReportUploadService {
             report.setRejectionReason(null);
             report.setIsDeleted(false);
 
+            attachStatisticsSnapshot(report, statistics);
+
             generateAndAttachEvidence(report, event.getEventID(), currentUser, newPublicIds);
 
             eventReportRepository.saveAndFlush(report);
@@ -127,6 +148,31 @@ public class ReportUploadServiceImpl implements ReportUploadService {
             }
             throw ex;
         }
+    }
+
+    private void attachStatisticsSnapshot(
+            EventReport report,
+            EventReportStatisticsResponse statistics
+    ) {
+        report.setSnapshotGeneratedAt(statistics.getCalculatedAt());
+        report.setSnapshotTotalRegistrations(statistics.getTotalRegistrations());
+        report.setSnapshotConfirmedRegistrations(statistics.getConfirmedRegistrations());
+        report.setSnapshotCancelledRegistrations(statistics.getCancelledRegistrations());
+        report.setSnapshotFptuRegistrations(statistics.getFptuRegistrations());
+        report.setSnapshotGuestRegistrations(statistics.getGuestRegistrations());
+        report.setSnapshotPendingPaymentCount(statistics.getPendingPaymentCount());
+        report.setSnapshotPaidTicketCount(statistics.getPaidTicketCount());
+        report.setSnapshotRevenue(statistics.getRevenue());
+        report.setSnapshotCurrency(statistics.getCurrency());
+        report.setSnapshotAttendanceSessionCount(statistics.getAttendanceSessionCount());
+        report.setSnapshotPresentParticipants(statistics.getPresentParticipants());
+        report.setSnapshotAbsentParticipants(statistics.getAbsentParticipants());
+        report.setSnapshotWalkInParticipants(statistics.getWalkInParticipants());
+        report.setSnapshotAttendanceRate(statistics.getAttendanceRate());
+        report.setSnapshotFeedbackCount(statistics.getFeedbackCount());
+        report.setSnapshotAverageRating(statistics.getAverageOverallRating());
+        report.setSnapshotFeedbackResponseRate(statistics.getFeedbackResponseRate());
+        report.setSnapshotPlannedBudget(statistics.getPlannedBudget());
     }
 
     private void generateAndAttachEvidence(

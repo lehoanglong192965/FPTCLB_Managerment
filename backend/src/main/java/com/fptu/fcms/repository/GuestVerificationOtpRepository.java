@@ -15,4 +15,7 @@ public interface GuestVerificationOtpRepository extends JpaRepository<GuestVerif
             Integer guestRegistrationID,
             GuestOtpStatus status
     );
+
+    Optional<GuestVerificationOtp> findByChallengeHashAndStatusAndIsDeletedFalse(
+            String challengeHash, GuestOtpStatus status);
 }

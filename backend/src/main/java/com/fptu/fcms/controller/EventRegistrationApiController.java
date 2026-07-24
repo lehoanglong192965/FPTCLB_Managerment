@@ -227,4 +227,27 @@ public class EventRegistrationApiController {
         eventRegistrationService.cancelGuestRegistration(eventId, guestRegistrationId, currentUser);
         return ResponseEntity.ok(Map.of("message", "Guest registration cancelled."));
     }
+
+    @PostMapping({"/api/events/{eventId}/registrations/guest/{guestRegistrationId}/payment/approve"})
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
+    @Operation(summary = "Leader xac nhan chuyen khoan cua khach")
+    public ResponseEntity<Map<String, String>> approveGuestPayment(
+            @PathVariable Integer eventId,
+            @PathVariable Integer guestRegistrationId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventRegistrationService.approveGuestPayment(eventId, guestRegistrationId, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Guest payment approved."));
+    }
+
+    @PostMapping({"/api/events/{eventId}/registrations/guest/{guestRegistrationId}/payment/reject"})
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
+    @Operation(summary = "Leader tu choi chuyen khoan cua khach")
+    public ResponseEntity<Map<String, String>> rejectGuestPayment(
+            @PathVariable Integer eventId,
+            @PathVariable Integer guestRegistrationId,
+            @Valid @RequestBody RegistrationRejectRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventRegistrationService.rejectGuestPayment(eventId, guestRegistrationId, request, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Guest payment rejected."));
+    }
 }
