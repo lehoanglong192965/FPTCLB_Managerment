@@ -14,6 +14,8 @@ const MOCK_CONFIG = {
   minPoints: 10,
   maxFileSize: 10,
   fileSizeUnit: "MB",
+  eventSubmissionMaxAttempts: 3,
+  eventSubmissionCooldownHours: 24,
 };
 
 const MOCK_MULTIPLIERS = [
@@ -32,6 +34,8 @@ const CONFIG_LABELS = {
   minPoints:              "Điểm tối thiểu",
   maxFileSize:            "Giới hạn file",
   fileSizeUnit:           "Đơn vị file",
+  eventSubmissionMaxAttempts: "Số lần submit Event tối đa",
+  eventSubmissionCooldownHours: "Thời gian chờ submit Event",
 };
 
 const PERSISTED_CONFIG_KEYS = {
@@ -39,6 +43,8 @@ const PERSISTED_CONFIG_KEYS = {
   multipliers: "ADMIN_POINT_MULTIPLIERS",
   holidays: "ADMIN_PUBLIC_HOLIDAYS",
   versions: "ADMIN_CONFIG_VERSIONS",
+  eventSubmissionMaxAttempts: "EVENT_SUBMISSION_MAX_ATTEMPTS",
+  eventSubmissionCooldownHours: "EVENT_SUBMISSION_COOLDOWN_HOURS",
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -90,6 +96,12 @@ export default function SystemConfigPage() {
     });
   };
 
+  const saveScalarConfig = async (key, value) => {
+    await axiosClient.put(`/admin/system-configs/${key}`, {
+      configValue: String(value),
+    });
+  };
+
   useEffect(() => {
     let cancelled = false;
     const loadPersistedConfig = async () => {
@@ -108,7 +120,18 @@ export default function SystemConfigPage() {
           }
         };
         if (!cancelled) {
-          const persistedGeneral = parse(PERSISTED_CONFIG_KEYS.general, MOCK_CONFIG);
+          const persistedGeneral = {
+            ...MOCK_CONFIG,
+            ...parse(PERSISTED_CONFIG_KEYS.general, MOCK_CONFIG),
+          };
+          const maxAttempts = Number(byKey.get(PERSISTED_CONFIG_KEYS.eventSubmissionMaxAttempts));
+          const cooldownHours = Number(byKey.get(PERSISTED_CONFIG_KEYS.eventSubmissionCooldownHours));
+          if (Number.isInteger(maxAttempts) && maxAttempts > 0) {
+            persistedGeneral.eventSubmissionMaxAttempts = maxAttempts;
+          }
+          if (Number.isInteger(cooldownHours) && cooldownHours > 0) {
+            persistedGeneral.eventSubmissionCooldownHours = cooldownHours;
+          }
           setConfig(persistedGeneral);
           setConfigDraft(persistedGeneral);
           setMultipliers(parse(PERSISTED_CONFIG_KEYS.multipliers, MOCK_MULTIPLIERS));
@@ -183,6 +206,8 @@ export default function SystemConfigPage() {
       minPoints: Number(values?.minPoints),
       maxFileSize: Number(values?.maxFileSize),
       fileSizeUnit: values?.fileSizeUnit,
+      eventSubmissionMaxAttempts: Number(values?.eventSubmissionMaxAttempts),
+      eventSubmissionCooldownHours: Number(values?.eventSubmissionCooldownHours),
     };
 
     if (values?.submitThresholdDays === undefined
@@ -210,6 +235,18 @@ export default function SystemConfigPage() {
       toast.error("Giới hạn kích thước file là bắt buộc và phải là số nguyên lớn hơn 0.");
       return;
     }
+    if (!Number.isInteger(normalized.eventSubmissionMaxAttempts)
+      || normalized.eventSubmissionMaxAttempts < 1
+      || normalized.eventSubmissionMaxAttempts > 20) {
+      toast.error("Số lần submit Event tối đa phải là số nguyên từ 1 đến 20.");
+      return;
+    }
+    if (!Number.isInteger(normalized.eventSubmissionCooldownHours)
+      || normalized.eventSubmissionCooldownHours < 1
+      || normalized.eventSubmissionCooldownHours > 720) {
+      toast.error("Thời gian chờ submit Event phải là số giờ nguyên từ 1 đến 720.");
+      return;
+    }
     if (!["KB", "MB", "GB"].includes(normalized.fileSizeUnit)) {
       toast.error("Vui lòng chọn đơn vị file hợp lệ.");
       return;
@@ -235,6 +272,14 @@ export default function SystemConfigPage() {
       await Promise.all([
         saveJsonConfig(PERSISTED_CONFIG_KEYS.general, normalized),
         saveJsonConfig(PERSISTED_CONFIG_KEYS.versions, nextVersions),
+        saveScalarConfig(
+          PERSISTED_CONFIG_KEYS.eventSubmissionMaxAttempts,
+          normalized.eventSubmissionMaxAttempts,
+        ),
+        saveScalarConfig(
+          PERSISTED_CONFIG_KEYS.eventSubmissionCooldownHours,
+          normalized.eventSubmissionCooldownHours,
+        ),
       ]);
       setVersions(nextVersions);
       setConfig(normalized);
@@ -549,6 +594,40 @@ export default function SystemConfigPage() {
                 ]}
                 placeholder="Chọn đơn vị"
                 allowClear
+                style={{ width: "100%" }}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                <span className="text-red-500">*</span> Số lần submit Event tối đa
+              </label>
+              <InputNumber
+                value={configDraft.eventSubmissionMaxAttempts}
+                onChange={(value) => setConfigDraft((current) => ({
+                  ...current,
+                  eventSubmissionMaxAttempts: value,
+                }))}
+                min={1}
+                max={20}
+                precision={0}
+                placeholder="VD: 3"
+                style={{ width: "100%" }}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                <span className="text-red-500">*</span> Thời gian chờ sau khi vượt ngưỡng (giờ)
+              </label>
+              <InputNumber
+                value={configDraft.eventSubmissionCooldownHours}
+                onChange={(value) => setConfigDraft((current) => ({
+                  ...current,
+                  eventSubmissionCooldownHours: value,
+                }))}
+                min={1}
+                max={720}
+                precision={0}
+                placeholder="VD: 24"
                 style={{ width: "100%" }}
               />
             </div>

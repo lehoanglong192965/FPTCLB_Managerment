@@ -139,6 +139,15 @@ public class Event {
     @Column(name = "isResubmitted")
     private Boolean isResubmitted;
 
+    @Column(name = "submissionAttemptCount", nullable = false)
+    private Integer submissionAttemptCount = 0;
+
+    @Column(name = "lastSubmittedAt")
+    private LocalDateTime lastSubmittedAt;
+
+    @Column(name = "submissionBlockedUntil")
+    private LocalDateTime submissionBlockedUntil;
+
     @Column(name = "isInternal")
     private Boolean isInternal;
 
@@ -183,6 +192,9 @@ public class Event {
         }
         if (allowWalkIn == null) {
             allowWalkIn = false;
+        }
+        if (submissionAttemptCount == null || submissionAttemptCount < 0) {
+            submissionAttemptCount = 0;
         }
         if (feedbackEnabled == null) {
             feedbackEnabled = true;

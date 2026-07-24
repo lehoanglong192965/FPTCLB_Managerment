@@ -168,6 +168,13 @@ function normalizeEvent(ev) {
     bannerUrl: ev.bannerUrl ?? null,
     bannerPublicId: ev.bannerPublicId ?? null,
     rejectionReason: ev.rejectionReason ?? null,
+    submissionAttemptCount: ev.submissionAttemptCount ?? 0,
+    submissionMaxAttempts: ev.submissionMaxAttempts ?? 3,
+    submissionCooldownHours: ev.submissionCooldownHours ?? 24,
+    submissionAttemptsRemaining: ev.submissionAttemptsRemaining
+      ?? Math.max(0, (ev.submissionMaxAttempts ?? 3) - (ev.submissionAttemptCount ?? 0)),
+    lastSubmittedAt: ev.lastSubmittedAt ?? null,
+    submissionBlockedUntil: ev.submissionBlockedUntil ?? null,
   };
 }
 
@@ -243,6 +250,7 @@ export default function EventManageDetailPage() {
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const [cancelOpen, setCancelOpen] = useState(false);
   const [finishOpen, setFinishOpen] = useState(false);
 
@@ -256,6 +264,11 @@ export default function EventManageDetailPage() {
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [isEditing]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -275,6 +288,39 @@ export default function EventManageDetailPage() {
     })();
     return () => { active = false; };
   }, [eventId]);
+
+  // Quota submit có thể được Admin thay đổi trong khi Leader đang mở trang.
+  // Khi tab được focus lại hoặc sau mỗi 15 giây, chỉ đồng bộ các trường quota
+  // để mở nút gửi ngay mà không làm mất dữ liệu Leader đang chỉnh sửa.
+  useEffect(() => {
+    if (!ev?.submissionBlockedUntil || isEditing) return undefined;
+    let active = true;
+    const refreshSubmissionQuota = async () => {
+      try {
+        const detail = await eventApi.getManagedEventById(eventId);
+        if (!active || !detail) return;
+        const latest = normalizeEvent(detail?.data ?? detail);
+        setEv((current) => (current ? {
+          ...current,
+          submissionAttemptCount: latest.submissionAttemptCount,
+          submissionAttemptsRemaining: latest.submissionAttemptsRemaining,
+          submissionMaxAttempts: latest.submissionMaxAttempts,
+          submissionCooldownHours: latest.submissionCooldownHours,
+          submissionBlockedUntil: latest.submissionBlockedUntil,
+        } : current));
+      } catch {
+        // Backend vẫn kiểm tra quota khi submit; lỗi refresh nền không cần chặn trang.
+      }
+    };
+
+    window.addEventListener("focus", refreshSubmissionQuota);
+    const timer = window.setInterval(refreshSubmissionQuota, 15_000);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", refreshSubmissionQuota);
+      window.clearInterval(timer);
+    };
+  }, [eventId, ev?.submissionBlockedUntil, isEditing]);
 
   const patchEvent = (patch) => setEv((prev) => (prev ? { ...prev, ...patch } : prev));
 
@@ -418,9 +464,19 @@ export default function EventManageDetailPage() {
     if (!(await confirm(`Gửi đề xuất sự kiện "${ev.eventName}" để ICPDP duyệt?`, { confirmLabel: "Gửi đề xuất" }))) return;
     setBusy(true);
     try {
-      await eventApi.submit(ev.eventID);
-      patchEvent({ eventStatus: "PendingApproval" });
-      toast.success("Đã gửi đề xuất sự kiện.");
+      const response = await eventApi.submit(ev.eventID);
+      const result = response?.data ?? response;
+      patchEvent({
+        eventStatus: result?.eventStatus ?? "PendingApproval",
+        submissionAttemptCount: result?.submissionAttemptCount ?? ev.submissionAttemptCount + 1,
+        submissionAttemptsRemaining: result?.attemptsRemaining,
+        submissionMaxAttempts: result?.maxSubmissionAttempts ?? ev.submissionMaxAttempts,
+        submissionCooldownHours: result?.submissionCooldownHours ?? ev.submissionCooldownHours,
+        lastSubmittedAt: result?.lastSubmittedAt ?? new Date().toISOString(),
+        submissionBlockedUntil: result?.submissionBlockedUntil ?? null,
+        rejectionReason: null,
+      });
+      toast.success(result?.message ?? "Đã gửi đề xuất sự kiện.");
     } catch (e) {
       toast.error("Lỗi gửi đề xuất: " + (e.response?.data?.message || e.message));
     } finally {
@@ -442,11 +498,16 @@ export default function EventManageDetailPage() {
 
   const rawStatus = ev.eventStatus || "Draft";
   const status = rawStatus.toUpperCase().replace(/_/g, "");
-  // Sửa toàn bộ thông tin: chỉ khi còn Bản nháp. Sau khi ICPDP duyệt (đến trước lúc
+  // Sửa toàn bộ thông tin khi còn Bản nháp hoặc đã bị từ chối. Sau khi ICPDP duyệt (đến trước lúc
   // sự kiện bắt đầu diễn ra) chỉ được đổi số người tham gia tối đa.
-  const isFullEdit = status === "DRAFT";
+  const isFullEdit = ["DRAFT", "REJECTED"].includes(status);
   const isLimitedEdit = ["APPROVED", "UPCOMING", "REGISTRATIONOPEN", "REGISTRATIONCLOSED"].includes(status);
   const canEdit = isFullEdit || isLimitedEdit;
+  const blockedUntilMs = ev.submissionBlockedUntil ? new Date(ev.submissionBlockedUntil).getTime() : 0;
+  const isSubmitBlocked = blockedUntilMs > clockNow;
+  const blockedUntilLabel = isSubmitBlocked
+    ? new Date(blockedUntilMs).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" })
+    : "";
   const cfg = STATUS_CFG[rawStatus] || STATUS_CFG[status] || STATUS_CFG["Draft"];
   const dateStr = ev.startDate ? new Date(ev.startDate).toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "Chưa xác định";
   const timeStr = ev.startDate ? new Date(ev.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "";
@@ -630,6 +691,14 @@ export default function EventManageDetailPage() {
           </div>
         )}
 
+        {isFullEdit && (
+          <div style={{ margin: "16px 24px 0", padding: "10px 14px", borderRadius: 10, background: isSubmitBlocked ? "#fff7ed" : "#f8fafc", border: `1px solid ${isSubmitBlocked ? "#fdba74" : "#e2e8f0"}`, fontSize: 12.5, color: isSubmitBlocked ? "#9a3412" : "#475569" }}>
+            {isSubmitBlocked
+              ? `Bạn đã gửi đề xuất ${ev.submissionMaxAttempts} lần. Có thể gửi lại sau ${blockedUntilLabel}.`
+              : `Còn ${ev.submissionAttemptsRemaining ?? Math.max(0, ev.submissionMaxAttempts - (ev.submissionAttemptCount ?? 0))}/${ev.submissionMaxAttempts} lượt gửi trước khi phải chờ ${ev.submissionCooldownHours} giờ.`}
+          </div>
+        )}
+
         {/* Chỉnh sửa thông tin — toàn bộ khi còn Bản nháp; chỉ số người tham gia tối đa sau khi ICPDP đã duyệt (trước khi diễn ra) */}
         <div style={{ padding: "20px 24px" }}>
           {!canEdit && !isEditing && (
@@ -641,8 +710,8 @@ export default function EventManageDetailPage() {
           {canEdit && !isEditing && (
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
               {isFullEdit && (
-                <button disabled={busy} onClick={handleSubmitProposal} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 20px", borderRadius: 8, border: "1.5px solid #E6430A", background: "#fff", color: "#E6430A", fontWeight: 600, fontSize: 13, cursor: busy ? "not-allowed" : "pointer" }}>
-                  Gửi đề xuất
+                <button disabled={busy || isSubmitBlocked} onClick={handleSubmitProposal} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 20px", borderRadius: 8, border: "1.5px solid #E6430A", background: "#fff", color: isSubmitBlocked ? "#9ca3af" : "#E6430A", fontWeight: 600, fontSize: 13, cursor: busy || isSubmitBlocked ? "not-allowed" : "pointer", opacity: isSubmitBlocked ? 0.65 : 1 }}>
+                  {isSubmitBlocked ? "Đang tạm khóa gửi" : "Gửi đề xuất"}
                 </button>
               )}
               <button onClick={enterEdit} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 20px", borderRadius: 8, border: "none", background: "#E6430A", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
@@ -734,7 +803,7 @@ export default function EventManageDetailPage() {
           </>)}
 
           {/* Trạng thái không có thao tác */}
-          {["CANCELLED", "REJECTED"].includes(status) && (
+          {status === "CANCELLED" && (
             <p style={{ margin: 0, fontSize: 13, color: "#9ca3af", fontStyle: "italic" }}>Không có thao tác khả dụng.</p>
           )}
 

@@ -8,6 +8,7 @@ import com.fptu.fcms.dto.request.EventAssignmentRequest;
 import com.fptu.fcms.dto.request.ReportRejectRequest;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
 import com.fptu.fcms.dto.response.EventDetailResponse;
+import com.fptu.fcms.dto.response.EventSubmissionResponse;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventAssignment;
 import io.swagger.v3.oas.annotations.Operation;
@@ -162,11 +163,10 @@ public class EventController {
 
     @PatchMapping("/{eventId}/submit")
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
-    public ResponseEntity<Map<String, String>> submitEventProposal(
+    public ResponseEntity<EventSubmissionResponse> submitEventProposal(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventService.submitEventProposal(eventId, currentUser);
-        return ResponseEntity.ok(Map.of("message", "Event proposal submitted successfully."));
+        return ResponseEntity.ok(eventService.submitEventProposal(eventId, currentUser));
     }
 
     @RequestMapping(value = {"/{eventId}/registration/open", "/{eventId}/open-registration"}, method = {RequestMethod.POST, RequestMethod.PATCH})

@@ -49,6 +49,12 @@ public class EventDetailResponse {
     private final String rejectionReason;
     private final Boolean isInternal;
     private final Boolean isScoreLocked;
+    private final Integer submissionAttemptCount;
+    private final Integer submissionAttemptsRemaining;
+    private final Integer submissionMaxAttempts;
+    private final Integer submissionCooldownHours;
+    private final LocalDateTime lastSubmittedAt;
+    private final LocalDateTime submissionBlockedUntil;
     private final LocalDateTime createdAt;
     private final Integer createdBy;
     private final List<EventRegistrationPolicyResponse> registrationPolicies;

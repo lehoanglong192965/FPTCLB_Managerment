@@ -5,6 +5,7 @@ import com.fptu.fcms.dto.response.ContributionDTO;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
 import com.fptu.fcms.dto.response.EventDetailResponse;
 import com.fptu.fcms.dto.response.EventRegistrationPolicyResponse;
+import com.fptu.fcms.dto.response.EventSubmissionResponse;
 import com.fptu.fcms.entity.AttendanceRecord;
 import com.fptu.fcms.entity.AttendanceSession;
 import com.fptu.fcms.entity.AuditLog;
@@ -36,6 +37,7 @@ import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.EventRegistrationPolicyService;
 import com.fptu.fcms.service.EventService;
 import com.fptu.fcms.service.ImageCleanupService;
+import com.fptu.fcms.service.SystemConfigService;
 import com.fptu.fcms.service.AttendanceSessionService;
 import com.fptu.fcms.service.event.EventPermissionService;
 import com.fptu.fcms.service.event.EventStateMachineService;
@@ -112,6 +114,11 @@ public class EventServiceImpl implements EventService {
     private static final String LEADER_EVALUATION_NOT_GOOD = "NOT_GOOD";
     private static final int NOT_GOOD_PENALTY_POINTS = 10;
     private static final BigDecimal HIGH_BUDGET_THRESHOLD = new BigDecimal("5000000");
+    private static final String SUBMISSION_MAX_ATTEMPTS_CONFIG = "EVENT_SUBMISSION_MAX_ATTEMPTS";
+    private static final String SUBMISSION_COOLDOWN_HOURS_CONFIG = "EVENT_SUBMISSION_COOLDOWN_HOURS";
+    private static final int DEFAULT_MAX_SUBMISSION_ATTEMPTS = 3;
+    private static final int DEFAULT_SUBMISSION_COOLDOWN_HOURS = 24;
+    private static final String EVENT_SUBMISSION_ACTION = "EVENT_PROPOSAL_SUBMITTED";
 
     private final EventRepository eventRepository;
     private final SemesterRepository semesterRepository;
@@ -138,6 +145,7 @@ public class EventServiceImpl implements EventService {
     private final ContributionBatchRepository contributionBatchRepository;
     private final ImageCleanupService imageCleanupService;
     private final AttendanceSessionService attendanceSessionService;
+    private final SystemConfigService systemConfigService;
 
     @Override
     public boolean isUserAssigned(Integer eventId, Integer userId) {
@@ -211,6 +219,7 @@ public class EventServiceImpl implements EventService {
         event.setEndDate(request.getEndDate());
         event.setEventStatus(STATUS_DRAFT);
         event.setIsResubmitted(isResubmit);
+        event.setSubmissionAttemptCount(0);
         event.setIsInternal(Boolean.TRUE.equals(request.getIsInternal()));
         event.setIsScoreLocked(false);
         event.setBannerUrl(request.getBannerUrl());
@@ -242,19 +251,66 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public void submitEventProposal(Integer eventId, UserPrincipal currentUser) {
+    public EventSubmissionResponse submitEventProposal(Integer eventId, UserPrincipal currentUser) {
         eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
-        Event event = getActiveEventOrThrow(eventId);
+        Event event = eventRepository.findByEventIDAndIsDeletedFalseForUpdate(eventId)
+                .orElseThrow(() -> new BusinessRuleException(
+                        "EVENT_NOT_FOUND",
+                        "Không tìm thấy sự kiện.",
+                        HttpStatus.NOT_FOUND));
         assertCanModifyDraft(event, currentUser);
 
-        if (!STATUS_DRAFT.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Only Draft events can be submitted.");
+        EventStatus oldStatus = event.getEventStatus();
+        if (!STATUS_DRAFT.equals(oldStatus) && !STATUS_REJECTED.equals(oldStatus)) {
+            throw new BusinessRuleException(
+                    "EVENT_STATE_INVALID",
+                    "Chỉ có thể gửi sự kiện ở trạng thái bản nháp hoặc bị từ chối.",
+                    HttpStatus.CONFLICT);
         }
 
+        LocalDateTime now = LocalDateTime.now();
+        int maxAttempts = submissionMaxAttempts();
+        int cooldownHours = submissionCooldownHours();
+        SubmissionQuota quota = submissionQuota(currentUser.getUserId(), now, maxAttempts, cooldownHours);
+        validateSubmissionQuota(quota);
         validateEventBeforeSubmission(event);
         eventRegistrationPolicyService.validateBeforeSubmit(eventId);
+
+        int attemptCount = quota.usedAttempts() + 1;
+        event.setSubmissionAttemptCount(attemptCount);
+        event.setLastSubmittedAt(now);
+        event.setSubmissionBlockedUntil(attemptCount >= maxAttempts ? now.plusHours(cooldownHours) : null);
+        event.setIsResubmitted(Boolean.TRUE.equals(event.getIsResubmitted()) || STATUS_REJECTED.equals(oldStatus));
+        event.setPdpFeedback(null);
+        event.setRejectionReason(null);
+        event.setApprovedBy(null);
+        event.setApprovedAt(null);
         event.setEventStatus(STATUS_PENDING_APPROVAL);
-        eventRepository.save(event);
+        Event saved = eventRepository.save(event);
+
+        auditLogService.record(
+                currentUser.getUserId(),
+                "Event",
+                saved.getEventID(),
+                EVENT_SUBMISSION_ACTION,
+                oldStatus.name(),
+                "PENDING_APPROVAL; attempt=" + attemptCount,
+                null);
+
+        return new EventSubmissionResponse(
+                saved.getEventID(),
+                saved.getEventStatus(),
+                attemptCount,
+                Math.max(0, maxAttempts - attemptCount),
+                maxAttempts,
+                cooldownHours,
+                saved.getLastSubmittedAt(),
+                saved.getSubmissionBlockedUntil(),
+                attemptCount >= maxAttempts
+                        ? "Đã gửi đề xuất lần thứ " + maxAttempts
+                        + ". Lượt gửi tiếp theo sẽ mở lại sau " + cooldownHours + " giờ."
+                        : "Đã gửi đề xuất sự kiện thành công."
+        );
     }
 
     @Override
@@ -916,16 +972,16 @@ public class EventServiceImpl implements EventService {
         eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = getActiveEventOrThrow(eventId);
         EventStatus status = event.getEventStatus();
-        boolean isDraft = STATUS_DRAFT.equals(status);
+        boolean isProposalEditable = STATUS_DRAFT.equals(status) || STATUS_REJECTED.equals(status);
         // Sau khi ICPDP đã duyệt (Approved/RegistrationOpen/RegistrationClosed) nhưng
         // sự kiện chưa diễn ra: vẫn cho sửa, nhưng chỉ được đổi số người tham gia tối đa.
         boolean isPostApprovalEditable = STATUS_APPROVED.equals(status)
                 || STATUS_REGISTRATION_OPEN.equals(status)
                 || STATUS_REGISTRATION_CLOSED.equals(status);
-        if (!isDraft && !isPostApprovalEditable) {
+        if (!isProposalEditable && !isPostApprovalEditable) {
             throw new IllegalArgumentException("Chỉ có thể chỉnh sửa sự kiện trước khi diễn ra.");
         }
-        if (!isDraft) {
+        if (!isProposalEditable) {
             boolean editsOtherFields = request.getEventName() != null
                     || request.getDescription() != null
                     || request.getVenueName() != null
@@ -1175,6 +1231,65 @@ public class EventServiceImpl implements EventService {
         }
     }
 
+    private void validateSubmissionQuota(SubmissionQuota quota) {
+        if (quota.blockedUntil() != null) {
+            java.time.format.DateTimeFormatter formatter =
+                    java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+            throw new BusinessRuleException(
+                    "EVENT_SUBMISSION_COOLDOWN",
+                    "Bạn đã gửi đề xuất tối đa " + quota.maxAttempts()
+                            + " lần trong " + quota.cooldownHours() + " giờ. Vui lòng thử lại sau "
+                            + quota.blockedUntil().format(formatter) + ".",
+                    HttpStatus.TOO_MANY_REQUESTS);
+        }
+    }
+
+    private SubmissionQuota submissionQuota(
+            Integer actorId,
+            LocalDateTime now,
+            int maxAttempts,
+            int cooldownHours) {
+        LocalDateTime windowStart = now.minusHours(cooldownHours);
+        int usedAttempts = Math.toIntExact(auditLogRepository
+                .countByActorIDAndActionTypeAndExecutedAtGreaterThanEqual(
+                        actorId, EVENT_SUBMISSION_ACTION, windowStart));
+        LocalDateTime blockedUntil = null;
+        if (usedAttempts >= maxAttempts) {
+            blockedUntil = auditLogRepository
+                    .findFirstByActorIDAndActionTypeAndExecutedAtGreaterThanEqualOrderByExecutedAtAsc(
+                            actorId, EVENT_SUBMISSION_ACTION, windowStart)
+                    .map(AuditLog::getExecutedAt)
+                    .map(firstAttempt -> firstAttempt.plusHours(cooldownHours))
+                    .orElse(now.plusHours(cooldownHours));
+        }
+        return new SubmissionQuota(usedAttempts, maxAttempts, cooldownHours, blockedUntil);
+    }
+
+    private record SubmissionQuota(
+            int usedAttempts,
+            int maxAttempts,
+            int cooldownHours,
+            LocalDateTime blockedUntil) {
+    }
+
+    private int submissionMaxAttempts() {
+        return positiveIntegerConfig(SUBMISSION_MAX_ATTEMPTS_CONFIG, DEFAULT_MAX_SUBMISSION_ATTEMPTS);
+    }
+
+    private int submissionCooldownHours() {
+        return positiveIntegerConfig(SUBMISSION_COOLDOWN_HOURS_CONFIG, DEFAULT_SUBMISSION_COOLDOWN_HOURS);
+    }
+
+    private int positiveIntegerConfig(String key, int fallback) {
+        try {
+            int value = Integer.parseInt(systemConfigService.getConfigValue(key).trim());
+            return value > 0 ? value : fallback;
+        } catch (RuntimeException exception) {
+            log.warn("Invalid or missing system config {}. Using fallback {}.", key, fallback);
+            return fallback;
+        }
+    }
+
     private void assertCanModifyDraft(Event event, UserPrincipal currentUser) {
         if (event.getCreatedBy() != null && currentUser != null && !event.getCreatedBy().equals(currentUser.getUserId())) {
             throw new BusinessRuleException("Only the creator can modify this draft.", HttpStatus.FORBIDDEN);
@@ -1312,6 +1427,17 @@ public class EventServiceImpl implements EventService {
         // để FE (kể cả trang public) hiển thị "x/y đã đăng ký".
         attachCurrentParticipants(List.of(event));
 
+        int configuredMaxAttempts = isManager ? submissionMaxAttempts() : 0;
+        int configuredCooldownHours = isManager ? submissionCooldownHours() : 0;
+        SubmissionQuota managerQuota = isManager
+                ? submissionQuota(
+                        currentUser.getUserId(),
+                        LocalDateTime.now(),
+                        configuredMaxAttempts,
+                        configuredCooldownHours)
+                : null;
+        int usedSubmissionAttempts = managerQuota == null ? 0 : managerQuota.usedAttempts();
+
         return new EventDetailResponse(
                 event.getEventID(),
                 event.getClubID(),
@@ -1347,6 +1473,12 @@ public class EventServiceImpl implements EventService {
                 isManager ? event.getRejectionReason() : null,
                 isManager ? event.getIsInternal() : null,
                 isManager ? event.getIsScoreLocked() : null,
+                isManager ? usedSubmissionAttempts : null,
+                isManager ? Math.max(0, configuredMaxAttempts - usedSubmissionAttempts) : null,
+                isManager ? configuredMaxAttempts : null,
+                isManager ? configuredCooldownHours : null,
+                isManager ? event.getLastSubmittedAt() : null,
+                isManager ? managerQuota.blockedUntil() : null,
                 isManager ? event.getCreatedAt() : null,
                 isManager ? event.getCreatedBy() : null,
                 policies

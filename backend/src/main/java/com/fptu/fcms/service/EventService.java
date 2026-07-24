@@ -6,6 +6,7 @@ import com.fptu.fcms.dto.request.EventApprovalRequest;
 import com.fptu.fcms.dto.request.EventAssignmentRequest;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
 import com.fptu.fcms.dto.response.EventDetailResponse;
+import com.fptu.fcms.dto.response.EventSubmissionResponse;
 import com.fptu.fcms.dto.response.ContributionDTO;
 import com.fptu.fcms.dto.response.EventRegistrationPolicyResponse;
 import com.fptu.fcms.entity.Event;
@@ -17,7 +18,7 @@ import java.util.Map;
 
 public interface EventService {
     void createEventProposal(CreateEventProposalRequest request, UserPrincipal currentUser);
-    void submitEventProposal(Integer eventId, UserPrincipal currentUser);
+    EventSubmissionResponse submitEventProposal(Integer eventId, UserPrincipal currentUser);
     void addAssignment(Integer eventId, EventAssignmentRequest request, UserPrincipal currentUser);
     void removeAssignment(Integer eventId, Integer userId, UserPrincipal currentUser);
     void assignCheckInStaff(Integer eventId, Integer userId, UserPrincipal currentUser);
