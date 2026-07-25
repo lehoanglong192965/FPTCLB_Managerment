@@ -54,6 +54,7 @@ export const SIDEBAR_CONFIGS = {
   CLUB_LEADER: [
     { key: "my-club",       label: "Câu Lạc Bộ Của Tôi",   icon: Building2,  path: "/club-leader/my-club" },
     { key: "clubs",         label: "Khám Phá CLB",         icon: Star,       path: "/club-leader/clubs" },
+    { key: "apply",         label: "Đơn Ứng Tuyển",        icon: Send,       path: "/club-leader/apply" },
     { key: "events",        label: "Khám Phá Sự Kiện",     icon: Calendar,   path: "/club-leader/events" },
     { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/club-leader/tickets" },
     { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/club-leader/pending-feedback" },
@@ -64,6 +65,7 @@ export const SIDEBAR_CONFIGS = {
   VICE_LEADER: [
     { key: "my-club",       label: "Câu Lạc Bộ Của Tôi",   icon: Building2,  path: "/vice-leader/my-club" },
     { key: "clubs",         label: "Khám Phá CLB",         icon: Star,       path: "/vice-leader/clubs" },
+    { key: "apply",         label: "Đơn Ứng Tuyển",        icon: Send,       path: "/vice-leader/apply" },
     { key: "events",        label: "Khám Phá Sự Kiện",     icon: Calendar,   path: "/vice-leader/events" },
     { key: "tickets",       label: "Vé Của Tôi",           icon: ClipboardList, path: "/vice-leader/tickets" },
     { key: "pending-feedback", label: "Feedback Cần Gửi",  icon: MessageSquare, path: "/vice-leader/pending-feedback" },
