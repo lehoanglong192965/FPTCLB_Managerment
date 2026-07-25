@@ -251,6 +251,7 @@ export default function AppRoutes() {
         </Route>
         <Route path="events" element={<MemberEvents />} />
         <Route path="clubs" element={<MemberClubs />} />
+        <Route path="apply" element={<MemberApply />} />
         <Route path="tickets" element={<MemberMyTickets />} />
         <Route path="tickets/:registrationId" element={<TicketDetailPage />} />
         <Route path="pending-feedback" element={<MemberPendingFeedback />} />
@@ -300,6 +301,7 @@ export default function AppRoutes() {
         </Route>
         <Route path="events" element={<MemberEvents />} />
         <Route path="clubs" element={<MemberClubs />} />
+        <Route path="apply" element={<MemberApply />} />
         <Route path="tickets" element={<MemberMyTickets />} />
         <Route path="tickets/:registrationId" element={<TicketDetailPage />} />
         <Route path="pending-feedback" element={<MemberPendingFeedback />} />
