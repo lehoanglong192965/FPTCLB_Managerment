@@ -5,7 +5,6 @@ import { useNotifications } from '../../contexts/NotificationsContext';
 import { useToast } from '../../contexts/ToastContext';
 import eventApi from '../../services/api/events/eventApi';
 import AlertModal from '../ui/AlertModal';
-import TicketDetailModal from './TicketDetailModal';
 
 const PAYMENT_BANK = {
     id: import.meta.env.VITE_PAYMENT_BANK_ID || 'MB',
@@ -69,15 +68,12 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
     const [canReregister, setCanReregister] = useState(true);
     const [reregistrationBlockReason, setReregistrationBlockReason] = useState(null);
     const [canReregisterAt, setCanReregisterAt] = useState(null);
-    const [showCancel, setShowCancel] = useState(false);
-    const [cancelReason, setCancelReason] = useState('');
     const [isAssigned, setIsAssigned]   = useState(false);
     const [paymentExempt, setPaymentExempt] = useState(false);
     const [statusLoading, setStatusLoading] = useState(true);
     const [registrationResult, setRegistrationResult] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
     const [paying, setPaying] = useState(false);
-    const [selectedTicket, setSelectedTicket] = useState(null);
     const [ticketLoading, setTicketLoading] = useState(false);
     const [cancelling, setCancelling] = useState(false);
     const [purchasedTicketCount, setPurchasedTicketCount] = useState(0);
@@ -219,7 +215,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
                 toast.error('Không tìm thấy thông tin vé của sự kiện này.');
                 return;
             }
-            setSelectedTicket(ticket);
+            navigate(`${myTicketsPath}/${ticket.registrationId}`);
         } catch (error) {
             toast.error(error.response?.data?.message || 'Không thể tải thông tin vé.');
         } finally {
@@ -254,9 +250,6 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
             setReregistrationBlockReason('REREGISTRATION_COOLDOWN');
             setCanReregisterAt(new Date(Date.now() + 30 * 60 * 1000).toISOString());
             setRegistrationResult(null);
-            setSelectedTicket(null);
-            setShowCancel(false);
-            setCancelReason('');
             toast.success('Đã hủy vé và thu hồi mã QR.');
             if (onRegisterSuccess) onRegisterSuccess();
         } catch (error) {
@@ -270,7 +263,6 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
         && registrationResult?.paymentStatus !== 'AWAITING_VERIFICATION'
         && !(isPaidEvent && !paymentExempt && purchasedTicketCount < 4)) {
         return (
-            <>
             <div className="flex flex-col gap-2 relative">
                 <button
                     className="w-full px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 bg-green-100 text-green-700 cursor-default border-none"
@@ -285,42 +277,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
                 >
                     <i className={`fas ${ticketLoading ? 'fa-spinner fa-spin' : 'fa-ticket-alt'}`}></i> {ticketLoading ? 'Đang tải vé...' : 'Xem vé của tôi'}
                 </button>
-                <button
-                    onClick={() => setShowCancel(true)}
-                    disabled={cancelling || ticketLoading}
-                    className="w-full px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 cursor-pointer border border-red-300 bg-white text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                >
-                    <i className={`fas ${cancelling ? 'fa-spinner fa-spin' : 'fa-times-circle'}`}></i> {cancelling ? 'Đang hủy vé...' : 'Hủy đăng ký / vé'}
-                </button>
-                {showCancel && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-                            <h3 className="text-lg font-semibold text-gray-900">Xác nhận hủy đăng ký</h3>
-                            <p className="mt-2 text-sm text-gray-600">Nếu hủy sát giờ, bạn bắt buộc phải cung cấp lý do.</p>
-                            <textarea
-                                value={cancelReason}
-                                onChange={(e) => setCancelReason(e.target.value)}
-                                maxLength={500}
-                                rows={4}
-                                placeholder="Lý do không thể tham gia..."
-                                className="mt-4 w-full rounded-lg border border-gray-300 p-3 outline-none focus:border-red-400"
-                            />
-                            <div className="mt-4 flex justify-end gap-3">
-                                <button onClick={() => setShowCancel(false)} className="rounded-lg border px-4 py-2">Quay lại</button>
-                                <button
-                                    disabled={cancelling || !cancelReason.trim()}
-                                    onClick={() => handleCancelTicket(cancelReason.trim())}
-                                    className="rounded-lg bg-red-600 px-4 py-2 text-white disabled:opacity-50"
-                                >
-                                    Xác nhận hủy
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </div>
-            {selectedTicket && <TicketDetailModal ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />}
-            </>
         );
     }
 

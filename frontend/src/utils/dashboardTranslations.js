@@ -209,6 +209,20 @@ export function translateChartLabel(label) {
   return translateDashboardText(label);
 }
 
+const DECISION_TONE = {
+  Continue: "good",
+  "Continue with Improvement Plan": "watch",
+  Warning: "watch",
+  Suspend: "risk",
+  Close: "risk",
+};
+
+// Tông màu dùng chung cho badge quyết định (header trang + panel đánh giá) —
+// tách riêng khỏi STATUS_CLASS của KpiCard vì đây là 1 tập giá trị khác (Continue/Suspend/...).
+export function decisionTone(value) {
+  return DECISION_TONE[value] ?? "info";
+}
+
 export function translateAttentionReason(reason) {
   if (typeof reason === "string" && reason.startsWith("Contribution batch status: ")) {
     const status = reason.replace("Contribution batch status: ", "");

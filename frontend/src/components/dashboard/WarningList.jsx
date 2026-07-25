@@ -1,16 +1,11 @@
+import { AlertTriangle } from "lucide-react";
 import {
   translateSeverity,
   translateStatus,
   translateWarningMessage,
   translateWarningType,
 } from "../../utils/dashboardTranslations";
-
-const SEVERITY_CLASS = {
-  CRITICAL: "bg-red-100 text-red-700 border-red-200",
-  HIGH: "bg-orange-100 text-orange-700 border-orange-200",
-  MEDIUM: "bg-amber-100 text-amber-700 border-amber-200",
-  LOW: "bg-blue-100 text-blue-700 border-blue-200",
-};
+import { severityTone, toneClasses } from "./statusTone";
 
 export default function WarningList({ warnings = [] }) {
   if (!warnings.length) {
@@ -22,31 +17,30 @@ export default function WarningList({ warnings = [] }) {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-500">
-            <th className="py-2 pr-3">Mức độ</th>
-            <th className="py-2 pr-3">Loại</th>
-            <th className="py-2 pr-3">Nội dung</th>
-            <th className="py-2 pr-3">Trạng thái</th>
-          </tr>
-        </thead>
-        <tbody>
-          {warnings.map((warning, index) => (
-            <tr key={`${warning.type}-${index}`} className="border-b border-gray-50">
-              <td className="py-3 pr-3">
-                <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${SEVERITY_CLASS[warning.severity] ?? SEVERITY_CLASS.LOW}`}>
+    <div className="space-y-2.5">
+      {warnings.map((warning, index) => {
+        const tone = toneClasses(severityTone(warning.severity));
+        return (
+          <div
+            key={`${warning.type}-${index}`}
+            className={`flex items-start gap-3 rounded-lg border border-l-4 ${tone.border} ${tone.borderL} ${tone.bg} p-3.5`}
+          >
+            <AlertTriangle size={16} className={`mt-0.5 shrink-0 ${tone.text}`} />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="m-0 text-[13.5px] font-bold text-gray-900">{translateWarningType(warning.type)}</p>
+                <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide ${tone.text} ${tone.bg} border ${tone.border}`}>
                   {translateSeverity(warning.severity)}
                 </span>
-              </td>
-              <td className="py-3 pr-3 font-semibold text-gray-900">{translateWarningType(warning.type)}</td>
-              <td className="py-3 pr-3 text-gray-600">{translateWarningMessage(warning.message)}</td>
-              <td className="py-3 pr-3 text-gray-500">{translateStatus(warning.status)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>
+              <p className="m-0 mt-1 text-[12.5px] leading-relaxed text-gray-600">{translateWarningMessage(warning.message)}</p>
+              {warning.status && (
+                <p className="m-0 mt-1 text-[11px] font-medium text-gray-400">{translateStatus(warning.status)}</p>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

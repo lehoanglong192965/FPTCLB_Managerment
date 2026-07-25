@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Ticket, Search, Loader2 } from "lucide-react";
 import EventCard from "../../components/events/EventCard";
 import eventApi from "../../services/api/events/eventApi";
 import clubApi from "../../services/api/clubs/clubApi";
 import contributionApi from "../../services/api/contribution/contributionApi";
-import TicketDetailModal from "../../components/events/TicketDetailModal";
 
 const FILTER_TABS = [
   { key: "all",        label: "Tất cả"       },
@@ -16,12 +16,13 @@ const isAppealWindowStatus = (status) =>
   status === "APPEAL_WINDOW" || status === "APPEAL_OPEN";
 
 export default function MemberMyTickets() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [search, setSearch]       = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [tickets, setTickets]     = useState([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState("");
-  const [selectedTicket, setSelectedTicket] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -213,28 +214,19 @@ export default function MemberMyTickets() {
             ) : (
               <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
                 {filtered.map((ev) => (
-                  <div key={`${ev.ticketStatus}-${ev.registrationId ?? ev.id}`} className="space-y-2">
-                    <EventCard event={ev} />
-                    {ev.registrationId != null && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedTicket(ev)}
-                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700 transition hover:bg-orange-100"
-                      >
-                        <Ticket size={15} />
-                        {ev.ticketEligible ? "Open QR ticket" : "View ticket status"}
-                      </button>
-                    )}
-                  </div>
+                  <EventCard
+                    key={`${ev.ticketStatus}-${ev.registrationId ?? ev.id}`}
+                    event={ev}
+                    onCardClick={ev.registrationId != null
+                      ? () => navigate(`${location.pathname.replace(/\/$/, "")}/${ev.registrationId}`)
+                      : undefined}
+                  />
                 ))}
               </div>
             )}
           </>
         )}
       </div>
-      {selectedTicket && (
-        <TicketDetailModal ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />
-      )}
     </div>
   );
 }

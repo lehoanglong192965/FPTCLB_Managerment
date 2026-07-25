@@ -27,7 +27,7 @@ const TICKET_STATUS = {
   cancelled: { bg: "#FEE2E2", color: "#DC2626", label: "Đã hủy" },
 };
 
-export default function EventCard({ event }) {
+export default function EventCard({ event, onCardClick }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const roleBasePath = pathname.startsWith("/club-leader")
@@ -41,6 +41,7 @@ export default function EventCard({ event }) {
     isTicketMode ? { state: { fromTickets: true, ticketStatus: event.ticketStatus } } : undefined
   );
   const toAppeal = () => navigate(`${roleBasePath}/events/${event.id}/appeal`);
+  const handleCardClick = onCardClick ?? toDetail;
 
   const badge = BADGE[event.badgeType] ?? BADGE.upcoming;
   const ticket = TICKET_STATUS[event.ticketStatus] ?? TICKET_STATUS.registered;
@@ -49,7 +50,7 @@ export default function EventCard({ event }) {
 
   return (
     <div
-      onClick={toDetail}
+      onClick={handleCardClick}
       className="bg-white rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-1.5 group"
       style={{ border: "1.5px solid #EBEBEB", boxShadow: "0 2px 8px rgba(13,27,62,0.06)" }}
       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 16px 40px rgba(13,27,62,0.13)"; }}

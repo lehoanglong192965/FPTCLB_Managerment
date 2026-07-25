@@ -96,6 +96,7 @@ const MemberClubs = lazy(() => import("../pages/member/MemberClubs"));
 const MemberMyClubs = lazy(() => import("../pages/member/MemberMyClubs"));
 const MemberNotifications = lazy(() => import("../pages/member/MemberNotifications"));
 const MemberMyTickets = lazy(() => import("../pages/member/MemberMyTickets"));
+const TicketDetailPage = lazy(() => import("../pages/shared/TicketDetailPage"));
 const MemberApply = lazy(() => import("../pages/member/MemberApply"));
 const ClubRegistrationForm = lazy(() => import("../pages/icpdp/ClubRegistrationForm"));
 const MemberNotificationSettings = lazy(() => import("../pages/member/MemberNotificationSettings"));
@@ -251,6 +252,7 @@ export default function AppRoutes() {
         <Route path="events" element={<MemberEvents />} />
         <Route path="clubs" element={<MemberClubs />} />
         <Route path="tickets" element={<MemberMyTickets />} />
+        <Route path="tickets/:registrationId" element={<TicketDetailPage />} />
         <Route path="pending-feedback" element={<MemberPendingFeedback />} />
         <Route path="contributions" element={<MemberMyContributionsPage />} />
         <Route path="events/:eventId/appeal" element={<MemberAppealPage />} />
@@ -299,6 +301,7 @@ export default function AppRoutes() {
         <Route path="events" element={<MemberEvents />} />
         <Route path="clubs" element={<MemberClubs />} />
         <Route path="tickets" element={<MemberMyTickets />} />
+        <Route path="tickets/:registrationId" element={<TicketDetailPage />} />
         <Route path="pending-feedback" element={<MemberPendingFeedback />} />
         <Route path="contributions" element={<MemberMyContributionsPage />} />
         <Route path="events/:eventId/appeal" element={<MemberAppealPage />} />
@@ -324,6 +327,7 @@ export default function AppRoutes() {
         <Route path="events" element={<MemberEvents />} />
         <Route path="pending-feedback" element={<MemberPendingFeedback />} />
         <Route path="tickets" element={<MemberMyTickets />} />
+        <Route path="tickets/:registrationId" element={<TicketDetailPage />} />
         <Route path="notifications" element={<MemberNotifications />} />
         <Route path="notification-settings" element={<MemberNotificationSettings />} />
         <Route path="apply" element={<MemberApply />} />
