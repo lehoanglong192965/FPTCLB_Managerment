@@ -8,6 +8,7 @@ import ApplyClubModal from "../../components/clubs/ApplyClubModal";
 import AlertModal from "../../components/ui/AlertModal";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
+import { useConfirm } from "../../contexts/ConfirmContext";
 
 const ACTIVE_STATUSES = new Set(["Submitted", "Reviewing", "ACCEPTED"]);
 
@@ -24,12 +25,14 @@ export default function ClubDetailPage() {
   const [showApply, setShowApply]     = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const toast = useToast();
-  const [alreadyApplied, setAlreadyApplied] = useState(false);
+  const confirm = useConfirm();
+  const [currentApplication, setCurrentApplication] = useState(null);
+  const [withdrawing, setWithdrawing] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     setError("");
-    setAlreadyApplied(false);
+    setCurrentApplication(null);
     setClubEvents([]);
     clubApi.getByIdPublic(decodeURIComponent(abbr))
       .then((res) => {
@@ -79,14 +82,14 @@ export default function ClubDetailPage() {
       .then((data) => {
         if (cancelled) return;
         const arr = Array.isArray(data) ? data : (data?.content ?? data?.data ?? []);
-        const hasActive = arr.some(
+        const activeApplication = arr.find(
           (a) => a.clubID === club.id && ACTIVE_STATUSES.has(a.status)
         );
-        setAlreadyApplied(hasActive);
+        setCurrentApplication(activeApplication ?? null);
       })
       .catch((err) => {
         if (cancelled || err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
-        setAlreadyApplied(false);
+        setCurrentApplication(null);
       });
     return () => { cancelled = true; };
   }, [user, club?.id]);
@@ -94,16 +97,41 @@ export default function ClubDetailPage() {
   const handleApplySubmitted = async (payload) => {
     setShowApply(false);
     try {
-      await applicationApi.apply({
+      const createdApplication = await applicationApi.apply({
         clubID: club.id,
         introduction: payload.introduction,
         cvUrl: payload.cvUrl ?? "",
       });
-      setAlreadyApplied(true);
+      setCurrentApplication(createdApplication);
       toast.success(`Nộp đơn vào ${club.name} thành công!`);
     } catch (err) {
       const msg = err?.response?.data?.message ?? "Không thể nộp đơn. Vui lòng thử lại.";
       toast.error(msg);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    if (!currentApplication || currentApplication.status !== "Submitted") return;
+    const agreed = await confirm(
+      `Bạn có chắc muốn rút đơn ứng tuyển vào ${club.name}? Sau khi rút, bạn phải chờ 3 giờ mới có thể nộp lại vào CLB này.`,
+      {
+        title: "Xác nhận rút đơn",
+        confirmLabel: "Rút đơn",
+        cancelLabel: "Giữ lại đơn",
+        danger: true,
+      }
+    );
+    if (!agreed) return;
+
+    setWithdrawing(true);
+    try {
+      await applicationApi.withdraw(currentApplication.applicationID);
+      setCurrentApplication(null);
+      toast.success("Đã rút đơn ứng tuyển.");
+    } catch (err) {
+      toast.error(err?.response?.data?.message ?? "Không thể rút đơn. Vui lòng thử lại.");
+    } finally {
+      setWithdrawing(false);
     }
   };
 
@@ -112,7 +140,7 @@ export default function ClubDetailPage() {
     if (!user) {
       return { label: "Nộp đơn ứng tuyển", onClick: () => setShowLoginPrompt(true) };
     }
-    if (alreadyApplied) {
+    if (currentApplication) {
       return { label: "Đã nộp đơn — đang chờ duyệt", onClick: () => navigate("/member/apply"), disabled: false };
     }
     return { label: "Nộp đơn ứng tuyển", onClick: () => setShowApply(true) };
@@ -162,6 +190,12 @@ export default function ClubDetailPage() {
           club={club}
           clubEvents={clubEvents}
           primaryAction={getPrimaryAction()}
+          secondaryAction={currentApplication?.status === "Submitted" ? {
+            label: withdrawing ? "Đang rút đơn..." : "Rút đơn ứng tuyển",
+            onClick: handleWithdraw,
+            disabled: withdrawing,
+            danger: true,
+          } : null}
         />
       </div>
 

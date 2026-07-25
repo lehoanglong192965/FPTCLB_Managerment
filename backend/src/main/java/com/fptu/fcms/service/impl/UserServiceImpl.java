@@ -137,6 +137,29 @@ public class UserServiceImpl implements UserService {
         );
     }
 
+    @Override
+    public java.util.List<ClubRoleResponse> getClubRoles(Integer userId) {
+        Optional<Semester> activeSemesterOpt = semesterRepository.findByIsActiveTrueAndIsDeletedFalse();
+        if (activeSemesterOpt.isEmpty()) {
+            return java.util.List.of();
+        }
+
+        return clubMembershipRepository
+                .findByUserIDAndSemesterIDAndIsDeletedFalse(
+                        userId,
+                        activeSemesterOpt.get().getSemesterID()
+                )
+                .stream()
+                .map(membership -> new ClubRoleResponse(
+                        membership.getClubRoleID(),
+                        membership.getClubID(),
+                        clubRoleRepository.findById(membership.getClubRoleID())
+                                .map(role -> role.getRoleName())
+                                .orElse("Member")
+                ))
+                .toList();
+    }
+
     private int clubRolePriority(Integer clubRoleID) {
         if (clubRoleID == null) {
             return 99;

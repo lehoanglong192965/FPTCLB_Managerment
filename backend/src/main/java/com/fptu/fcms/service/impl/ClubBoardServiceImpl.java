@@ -418,7 +418,7 @@ public class ClubBoardServiceImpl implements ClubBoardService {
         if (isLeaderElsewhere) {
             // NOTE BR-A02: Đây là thông báo lỗi chính khi vi phạm rule Leader 2 CLB.
             throw new BusinessRuleException(
-                    "[BR-03] Không thể bổ nhiệm Leader: sinh viên này đã đang giữ chức Leader " +
+                    " Không thể bổ nhiệm Leader: sinh viên này đã đang giữ chức Leader " +
                             "tại một CLB khác trong học kỳ hiện tại. " +
                             "Một sinh viên chỉ được làm Leader của tối đa 1 CLB trong 1 học kỳ."
             );

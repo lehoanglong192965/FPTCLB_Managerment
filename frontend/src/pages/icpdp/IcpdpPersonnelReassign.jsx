@@ -114,7 +114,7 @@ export default function IcpdpPersonnelReassign() {
     setSubmitting(true);
     try {
       // Backend: POST /api/icpdp/personnel-reassign (PersonnelReassignRequest)
-      await icpdpStatsApi.reassign({
+      const created = await icpdpStatsApi.reassign({
         clubID:    Number(form.clubId),
         position:  form.position,
         newUserID: newPerson.userId,
@@ -123,15 +123,15 @@ export default function IcpdpPersonnelReassign() {
       });
       setHistory((prev) => [
         {
-          id:     Date.now(),
-          date:   new Date().toLocaleDateString("vi-VN"),
-          club:   selectedClub?.name ?? "—",
-          action: form.position === "leader" ? "replace_leader" : "replace_vice",
-          from:   currentHolder?.name ?? "—",
-          to:     newPerson?.name ?? "—",
-          reason: form.reason,
-          by:     "IC-PDP",
-          status: "completed",
+          id:     created?.id       ?? Date.now(),
+          date:   created?.date     ?? new Date().toLocaleString("vi-VN"),
+          club:   created?.clubName ?? selectedClub?.name ?? "—",
+          action: created?.action   ?? (form.position === "leader" ? "replace_leader" : "replace_vice"),
+          from:   created?.fromName ?? currentHolder?.name ?? "—",
+          to:     created?.toName   ?? newPerson?.name ?? "—",
+          reason: created?.reason   ?? form.reason,
+          by:     created?.by       ?? "IC-PDP",
+          status: created?.status   ?? "completed",
         },
         ...prev,
       ]);

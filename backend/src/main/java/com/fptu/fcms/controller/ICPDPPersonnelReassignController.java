@@ -35,7 +35,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ICPDPPersonnelReassignController {
 
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final DateTimeFormatter DATE_TIME_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 
     private final PersonnelReassignService personnelReassignService;
 
@@ -63,7 +63,7 @@ public class ICPDPPersonnelReassignController {
     private Map<String, Object> toResponse(PersonnelReassignLog log) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", log.getLogID());
-        m.put("date", log.getCreatedAt() != null ? log.getCreatedAt().format(DATE_FMT) : "");
+        m.put("date", log.getCreatedAt() != null ? log.getCreatedAt().format(DATE_TIME_FMT) : "");
         m.put("clubName", log.getClubName());
         m.put("action", "leader".equals(log.getPosition()) ? "replace_leader" : "replace_vice");
         m.put("position", log.getPosition());
