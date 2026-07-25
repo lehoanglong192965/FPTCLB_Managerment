@@ -3,6 +3,7 @@ import { FileText, CheckCircle, Clock, Calendar, XCircle, Inbox, RotateCcw, Refr
 import applicationApi from "../../services/api/member/applicationApi";
 import { getServerOrigin } from "../../services/api/axiosClient";
 import { useToast } from "../../contexts/ToastContext";
+import { useConfirm } from "../../contexts/ConfirmContext";
 
 const APP_STATUS_MAP = {
   Submitted:  { label: "Chờ duyệt CV",   cls: "bg-amber-100 text-amber-700" },
@@ -27,6 +28,7 @@ const isWithdrawn  = (s) => s === "Withdrawn";
 
 export default function MemberApply() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading]           = useState(true);
   const [activeFilter, setActiveFilter] = useState("ALL");
@@ -50,6 +52,17 @@ export default function MemberApply() {
   useEffect(() => { loadApplications(); }, [loadApplications]);
 
   const handleWithdraw = async (app) => {
+    const agreed = await confirm(
+      `Bạn có chắc muốn rút đơn ứng tuyển vào ${app.clubName ?? `CLB #${app.clubID}`}? Sau khi rút, bạn phải chờ 3 giờ mới có thể nộp lại vào CLB này.`,
+      {
+        title: "Xác nhận rút đơn",
+        confirmLabel: "Rút đơn",
+        cancelLabel: "Giữ lại đơn",
+        danger: true,
+      }
+    );
+    if (!agreed) return;
+
     setWithdrawing(true);
     try {
       await applicationApi.withdraw(app.applicationID);
@@ -175,6 +188,19 @@ export default function MemberApply() {
                     <span className="flex items-center gap-1 text-[12.5px] text-slate-500">
                       <Calendar size={13} /> Nộp ngày {date}
                     </span>
+                    {app.status === "Submitted" && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleWithdraw(app);
+                        }}
+                        disabled={withdrawing}
+                        className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 bg-white text-[12px] font-semibold text-red-600 cursor-pointer transition-colors hover:bg-red-50 font-[inherit] disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        <RotateCcw size={13} /> {withdrawing ? "Đang rút..." : "Rút đơn"}
+                      </button>
+                    )}
                   </div>
                 );
               })}

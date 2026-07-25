@@ -530,10 +530,10 @@ function normalizeClubPost(raw) {
   };
 }
 
-export default function ClubSpace({ club: clubProp, onBack }) {
+export default function ClubSpace({ club: clubProp, onBack, canManage }) {
   const { user }    = useAuth();
   const toast       = useToast();
-  const isLeader    = user?.role === "CLUB_LEADER" || user?.role === "VICE_LEADER";
+  const isLeader    = canManage ?? (user?.role === "CLUB_LEADER" || user?.role === "VICE_LEADER");
 
   // Self-fetch khi không có club prop (leader my-club page)
   const [selfClub, setSelfClub]       = useState(null);

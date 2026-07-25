@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, Loader2 } from "lucide-react";
 import ClubCard from "../../components/clubs/ClubCard";
+import ClubSpace from "../../components/clubs/ClubSpace";
 import authApi from "../../services/api/auth/authApi";
 import clubApi from "../../services/api/clubs/clubApi";
 import { useAuth } from "../../contexts/AuthContext";
@@ -22,27 +23,30 @@ export default function ClubLeaderMyClubs() {
   const [joinedClubs, setJoinedClubs]   = useState([]);
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState("");
+  const [selectedClub, setSelectedClub] = useState(null);
 
   const base = user?.role === "VICE_LEADER" ? "/vice-leader" : "/club-leader";
 
   useEffect(() => {
     let cancelled = false;
 
-    authApi.getMyClubRole()
-      .then(async (roleRes) => {
+    authApi.getMyClubRoles()
+      .then(async (rolesRes) => {
         if (cancelled) return;
-        const clubID = roleRes?.clubID;
-        if (!clubID) {
+        const roles = Array.isArray(rolesRes) ? rolesRes : (rolesRes?.data ?? []);
+        if (roles.length === 0) {
           setJoinedClubs([]);
           return;
         }
 
-        const matched = await clubApi.getById(clubID);
+        const clubs = await Promise.all(roles.map(async (role) => {
+          const matched = await clubApi.getById(role.clubID);
+          const club = normalizeClub(matched?.data ?? matched);
+          const roleLabel = ROLE_LABEL[role.roleName] ?? role.roleName ?? "Thành viên";
+          return { ...club, role: roleLabel, isManaged: MANAGED_ROLE_NAMES.has(role.roleName) };
+        }));
         if (cancelled) return;
-
-        const club = normalizeClub(matched?.data ?? matched);
-        const roleLabel = ROLE_LABEL[roleRes.roleName] ?? roleRes.roleName ?? "Thành viên";
-        setJoinedClubs([{ ...club, role: roleLabel, isManaged: MANAGED_ROLE_NAMES.has(roleRes.roleName) }]);
+        setJoinedClubs(clubs);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -58,11 +62,20 @@ export default function ClubLeaderMyClubs() {
   }, []);
 
   const openClub = (club) => {
-    // Có quyền Leader/ViceLeader ở CLB này → vào trang quản lý (kèm thanh điều hướng quản lý)
-    // Ngược lại → xem như thành viên thường qua trang public
+    // CLB đang quản lý dùng layout quản lý; CLB tham gia với vai trò Member mở không gian nội bộ.
     if (club.isManaged) navigate(`${base}/my-club/space`);
-    else navigate(`/clubs/${encodeURIComponent(club.abbr)}`);
+    else setSelectedClub(club);
   };
+
+  if (selectedClub) {
+    return (
+      <ClubSpace
+        club={selectedClub}
+        canManage={false}
+        onBack={() => setSelectedClub(null)}
+      />
+    );
+  }
 
   return (
     <div>

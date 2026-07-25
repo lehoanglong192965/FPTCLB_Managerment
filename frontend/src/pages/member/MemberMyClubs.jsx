@@ -25,11 +25,11 @@ export default function MemberMyClubs() {
   useEffect(() => {
     let cancelled = false;
 
-    authApi.getMyClubRole()
-      .then(async (roleRes) => {
+    authApi.getMyClubRoles()
+      .then(async (rolesRes) => {
         if (cancelled) return;
-        const clubID = roleRes?.clubID;
-        if (!clubID) {
+        const roles = Array.isArray(rolesRes) ? rolesRes : (rolesRes?.data ?? []);
+        if (roles.length === 0) {
           setJoinedClubs([]);
           return;
         }
@@ -38,16 +38,16 @@ export default function MemberMyClubs() {
         const allClubs = Array.isArray(clubsRaw)
           ? clubsRaw
           : (clubsRaw?.content ?? clubsRaw?.data ?? []);
-        let matched = allClubs.find((c) => c.clubID === clubID || c.id === clubID);
-
-        if (!matched) {
-          matched = await clubApi.getById(clubID);
-        }
+        const clubs = await Promise.all(roles.map(async (role) => {
+          let matched = allClubs.find((c) => c.clubID === role.clubID || c.id === role.clubID);
+          if (!matched) matched = await clubApi.getById(role.clubID);
+          const club = normalizeClub(matched?.data ?? matched);
+          const roleLabel = ROLE_LABEL[role.roleName] ?? role.roleName ?? "Thành viên";
+          return { ...club, role: roleLabel };
+        }));
 
         if (cancelled) return;
-        const club = normalizeClub(matched);
-        const roleLabel = ROLE_LABEL[roleRes.roleName] ?? roleRes.roleName ?? "Thành viên";
-        setJoinedClubs([{ ...club, role: roleLabel }]);
+        setJoinedClubs(clubs);
       })
       .catch((err) => {
         if (cancelled) return;

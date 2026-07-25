@@ -11,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/user")
@@ -45,6 +46,11 @@ public class ProfileController {
         Integer userId = currentUser.getUserId();
         ClubRoleResponse response = userService.getClubRole(userId);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/my-club-roles")
+    public ResponseEntity<List<ClubRoleResponse>> getMyClubRoles(@AuthenticationPrincipal UserPrincipal currentUser) {
+        return ResponseEntity.ok(userService.getClubRoles(currentUser.getUserId()));
     }
 
     @GetMapping("/by-student-id/{studentId}")

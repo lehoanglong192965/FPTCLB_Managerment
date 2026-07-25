@@ -37,6 +37,9 @@ const authApi = {
   getMyClubRole: () =>
     axiosClient.get("/user/my-club-role", { skipAuthLogout: true }),
 
+  getMyClubRoles: () =>
+    axiosClient.get("/user/my-club-roles", { skipAuthLogout: true }),
+
   verifyOTP: (email, otpCode) =>
     axiosClient.post("/auth/verify-otp", { email, otpCode }),
 

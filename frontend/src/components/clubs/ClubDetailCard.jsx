@@ -44,6 +44,7 @@ function MapPinIcon() {
  * @param {object}   club          normalized club object (see usePublicClubs#normalizeClub)
  * @param {object[]} clubEvents    events to list under "Sự kiện" (default: [])
  * @param {object}   primaryAction optional { label, onClick } rendered as the hero CTA button
+ * @param {object}   secondaryAction optional secondary { label, onClick, disabled, danger }
  * @param {object}   onBack        optional () => void — renders a "← Quay lại" link above the hero card
  */
 const resolveImg = (url) => {
@@ -52,7 +53,7 @@ const resolveImg = (url) => {
   return getServerOrigin() + url;
 };
 
-export default function ClubDetailCard({ club, clubEvents = [], primaryAction, onBack }) {
+export default function ClubDetailCard({ club, clubEvents = [], primaryAction, secondaryAction, onBack }) {
   const navigate  = useNavigate();
   const avatarBg  = `linear-gradient(135deg, ${club.color}cc, ${club.color}66)`;
   const imgSrc    = resolveImg(club.clubImage ?? club.image ?? club.logoUrl ?? null);
@@ -101,14 +102,29 @@ export default function ClubDetailCard({ club, clubEvents = [], primaryAction, o
           </div>
         </div>
 
-        {primaryAction && (
-          <div className="shrink-0 max-md:w-full">
+        {(primaryAction || secondaryAction) && (
+          <div className="shrink-0 max-md:w-full flex flex-col items-stretch gap-2">
+            {primaryAction && (
             <button
               className="px-[22px] py-[11px] bg-[#F37021] text-white border-none rounded-[10px] text-sm font-semibold cursor-pointer whitespace-nowrap transition-all hover:bg-[#e05c0a] hover:-translate-y-px max-md:w-full max-md:text-center"
               onClick={primaryAction.onClick}
             >
               {primaryAction.label}
             </button>
+            )}
+            {secondaryAction && (
+              <button
+                className={`px-[22px] py-[9px] bg-white rounded-[10px] text-sm font-semibold whitespace-nowrap transition-all max-md:w-full max-md:text-center disabled:opacity-60 disabled:cursor-not-allowed ${
+                  secondaryAction.danger
+                    ? "border border-red-200 text-red-600 cursor-pointer hover:bg-red-50 hover:border-red-300"
+                    : "border border-gray-200 text-gray-600 cursor-pointer hover:bg-gray-50"
+                }`}
+                onClick={secondaryAction.onClick}
+                disabled={secondaryAction.disabled}
+              >
+                {secondaryAction.label}
+              </button>
+            )}
           </div>
         )}
       </div>
