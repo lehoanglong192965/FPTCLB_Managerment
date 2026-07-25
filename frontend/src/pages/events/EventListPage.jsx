@@ -7,12 +7,28 @@ import { Link } from "react-router-dom";
 
 const BADGE_FILTERS = ["Tất cả", "Sắp diễn ra", "Đăng ký mở", "Đang diễn ra", "Đã kết thúc"];
 
+// Mọi trạng thái từ COMPLETED trở đi trong vòng đời sự kiện (đã nộp báo cáo/đang chấm
+// đóng góp/đã đóng...) đều hiển thị chung là "Đã kết thúc" trên landing page công khai.
+const FINISHED_STATUSES = new Set([
+  "COMPLETED",
+  "REPORTUPLOADED",
+  "REPORTPENDINGAPPROVAL",
+  "REPORTAPPROVED",
+  "REPORTREJECTED",
+  "CONTRIBUTIONDRAFT",
+  "CONTRIBUTIONPENDINGAPPROVAL",
+  "CONTRIBUTIONAPPROVED",
+  "CONTRIBUTIONSCORING",
+  "CONTRIBUTIONFINALIZED",
+  "CLOSED",
+]);
+
 function getStatusBadge(event) {
-  const s = (event.eventStatus || "").toUpperCase();
-  if (s === "APPROVED")             return { badge: "Sắp diễn ra",     badgeType: "upcoming" };
-  if (s === "REGISTRATIONCLOSED")   return { badge: "Đóng đăng ký",    badgeType: "closed" };
-  if (s === "ONGOING")              return { badge: "Đang diễn ra",    badgeType: "ongoing" };
-  if (s === "COMPLETED")            return { badge: "Đã kết thúc",     badgeType: "completed" };
+  const s = (event.eventStatus || "").toUpperCase().replace(/_/g, "");
+  if (s === "APPROVED")           return { badge: "Sắp diễn ra",  badgeType: "upcoming" };
+  if (s === "REGISTRATIONCLOSED") return { badge: "Đóng đăng ký", badgeType: "closed" };
+  if (s === "ONGOING")            return { badge: "Đang diễn ra", badgeType: "ongoing" };
+  if (FINISHED_STATUSES.has(s))   return { badge: "Đã kết thúc",  badgeType: "completed" };
   const isFull = Number(event.maxParticipants) > 0 && Number(event.currentParticipants) >= Number(event.maxParticipants);
   if (isFull) return { badge: "Hết chỗ", badgeType: "full" };
   return { badge: "Đăng ký mở", badgeType: "open" };

@@ -880,6 +880,7 @@ export default function EventManageDetailPage() {
             <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #f0f0f0", marginBottom: 4 }}>
               {[
                 { key: "report", label: "Báo cáo" },
+                { key: "registrations", label: "Đăng ký" },
                 { key: "feedback", label: "Đánh giá" },
                 { key: "contribution", label: "Đóng góp" },
               ].map(({ key, label }) => (
@@ -899,6 +900,9 @@ export default function EventManageDetailPage() {
 
             {reportSubTab === "report" && (
               <ReportSubmitPage eventId={ev.eventID} embedded onSubmitted={() => patchEvent({ eventStatus: "ReportUploaded" })} />
+            )}
+            {reportSubTab === "registrations" && (
+              <RegistrationMgmtPage eventId={ev.eventID} embedded maxParticipants={ev.maxParticipants} />
             )}
             {reportSubTab === "feedback" && <FeedbackSummaryPage eventId={ev.eventID} embedded />}
             {reportSubTab === "contribution" && (<>

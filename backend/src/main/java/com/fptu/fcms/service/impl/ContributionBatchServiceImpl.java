@@ -660,6 +660,11 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
 
         for (ClubMembership membership : membershipByUser.values()) {
             Integer userId = membership.getUserID();
+            String roleName = roleNameById.get(membership.getClubRoleID());
+            // Leader/ViceLeader là người tổ chức, không cần chấm điểm đóng góp — chỉ chấm cho Member.
+            if (!isMemberRole(membership.getClubRoleID(), roleName)) {
+                continue;
+            }
             EventRegistration registration = confirmedRegistrationByUser.get(userId);
             EventAssignment assignment = assignmentByUser.get(userId);
             AttendanceRecord attendanceRecord = attendanceByUser.get(userId);
@@ -671,9 +676,8 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
             contribution.setAssignmentID(assignment == null ? null : assignment.getAssignmentID());
             contribution.setMembershipID(membership.getMembershipID());
             contribution.setClubRoleIDSnapshot(membership.getClubRoleID());
-            String roleName = roleNameById.get(membership.getClubRoleID());
             contribution.setClubRoleSnapshot(roleName);
-            contribution.setIndividualRankingEligible(isMemberRole(membership.getClubRoleID(), roleName));
+            contribution.setIndividualRankingEligible(true);
             contribution.setTier(resolveTier(contribution.getFinalPoints()));
             contribution.setRationale(null);
             contribution.setReleasedToPerformance(false);

@@ -10,6 +10,8 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -152,6 +154,25 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
         LOGGER.warn("Data integrity violation", ex);
         return buildErrorResponse(HttpStatus.CONFLICT, ApiErrorCode.CONFLICT.name(), "Data conflicts with an existing record.");
+    }
+
+    /**
+     * File tải lên vượt quá spring.servlet.multipart.max-file-size/max-request-size.
+     * Không bắt riêng thì rơi vào handleGenericException -> 500 mù mờ, sai bản chất (lỗi do
+     * người dùng chọn file quá lớn, không phải lỗi server).
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        LOGGER.warn("Upload rejected: file too large", ex);
+        return buildErrorResponse(HttpStatus.PAYLOAD_TOO_LARGE, ApiErrorCode.BAD_REQUEST.name(),
+                "File tải lên vượt quá dung lượng cho phép (tối đa 10MB).");
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiErrorResponse> handleMultipartError(MultipartException ex) {
+        LOGGER.warn("Multipart request error", ex);
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, ApiErrorCode.BAD_REQUEST.name(),
+                "Không thể xử lý file tải lên. Vui lòng kiểm tra lại file và thử lại.");
     }
 
     @ExceptionHandler(Exception.class)
