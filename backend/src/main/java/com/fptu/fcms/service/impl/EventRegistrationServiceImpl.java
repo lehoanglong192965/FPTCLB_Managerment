@@ -44,6 +44,7 @@ import com.fptu.fcms.service.AuditLogService;
 import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.EventRegistrationService;
 import com.fptu.fcms.service.EmailService;
+import com.fptu.fcms.service.GuestPaymentEmailService;
 import com.fptu.fcms.service.event.EventPermissionService;
 import com.fptu.fcms.service.event.EventStateMachineService;
 import com.fptu.fcms.service.event.RegistrationAllocationResult;
@@ -101,6 +102,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     private final NotificationRepository notificationRepository;
     private final NotificationRecipientRepository notificationRecipientRepository;
     private final EmailService emailService;
+    private final GuestPaymentEmailService guestPaymentEmailService;
     private final AttendanceSessionRepository attendanceSessionRepository;
 
     @Override
@@ -285,7 +287,9 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             registration.setStatus(RegistrationStatus.CONFIRMED.name());
             registration.setCapacityExempt(exempt);
             registration.setPaymentCurrency(StringUtils.hasText(event.getTicketCurrency()) ? event.getTicketCurrency() : "VND");
-            registration.setPaymentReference(paymentReference);
+            // A paid group order has one transfer reference. Store it on exactly one
+            // payable row so the database uniqueness constraint remains valid.
+            registration.setPaymentReference(null);
             registration.setAmountPaid(BigDecimal.ZERO);
             registration.setCreatedAt(now);
             registration.setCreatedBy(purchaserUserID);
@@ -305,6 +309,11 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             }
             registrations.add(registration);
         }
+
+        registrations.stream()
+                .filter(item -> PaymentStatus.PENDING.equals(item.getPaymentStatus()))
+                .findFirst()
+                .ifPresent(item -> item.setPaymentReference(paymentReference));
 
         List<EventRegistration> saved = registrationRepo.saveAll(registrations);
         saved.stream().filter(registration -> PaymentStatus.NOT_REQUIRED.equals(registration.getPaymentStatus()))
@@ -440,6 +449,9 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         if (!Boolean.TRUE.equals(event.getIsPaidEvent())) {
             throw new IllegalArgumentException("This event does not require payment.");
         }
+        if (request == null || !com.fptu.fcms.enums.PaymentMethod.BANK_TRANSFER.equals(request.getPaymentMethod())) {
+            throw new IllegalArgumentException("Only bank transfer is currently supported.");
+        }
         List<EventRegistration> orderRegistrations = StringUtils.hasText(registration.getTicketOrderCode())
                 ? registrationRepo.findByTicketOrderCodeAndPurchaserUserIDAndIsDeletedFalse(
                         registration.getTicketOrderCode(), userId).stream()
@@ -448,6 +460,10 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 : List.of(registration);
         if (orderRegistrations.isEmpty()) orderRegistrations = List.of(registration);
         if (orderRegistrations.stream().allMatch(item -> PaymentStatus.PAID.equals(item.getPaymentStatus())
+                || PaymentStatus.NOT_REQUIRED.equals(item.getPaymentStatus()))) {
+            return toMyRegistrationResponse(registration, event);
+        }
+        if (orderRegistrations.stream().allMatch(item -> PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus())
                 || PaymentStatus.NOT_REQUIRED.equals(item.getPaymentStatus()))) {
             return toMyRegistrationResponse(registration, event);
         }
@@ -466,31 +482,14 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
         for (EventRegistration item : orderRegistrations) {
             if (!PaymentStatus.PENDING.equals(item.getPaymentStatus())) continue;
-            item.setPaymentStatus(PaymentStatus.PAID);
-            item.setAmountPaid(item.getAmountDue());
+            item.setPaymentStatus(PaymentStatus.AWAITING_VERIFICATION);
             item.setPaymentMethod(request.getPaymentMethod());
-            item.setPaidAt(now);
-            if (RegistrationLifecycle.CONFIRMED_STATUSES.contains(item.getRegistrationStatus())) {
-                if (!StringUtils.hasText(item.getTicketCode())) item.setTicketCode(UUID.randomUUID().toString());
-                if (item.getTicketIssuedAt() == null) item.setTicketIssuedAt(now);
-            }
+            item.setUpdatedAt(now);
+            item.setUpdatedBy(userId);
         }
         List<EventRegistration> savedOrder = registrationRepo.saveAll(orderRegistrations);
-        savedOrder.forEach(item -> sendTicketEmailAfterCommit(item, event));
-        UserAccount purchaser = loadActiveUser(userId);
-        String orderCode = registration.getTicketOrderCode();
-        BigDecimal orderTotal = savedOrder.stream()
-                .map(EventRegistration::getAmountPaid)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        sendAfterCommit(() -> emailService.sendSimpleEmail(
-                purchaser.getEmail(),
-                "Thanh toán đơn vé thành công - " + event.getEventName(),
-                "Đơn vé " + orderCode + " đã thanh toán thành công.\n"
-                        + "Số vé: " + savedOrder.size() + "\n"
-                        + "Tổng tiền: " + orderTotal.toPlainString() + " "
-                        + (StringUtils.hasText(event.getTicketCurrency()) ? event.getTicketCurrency() : "VND")
-                        + "\nBạn có thể quản lý từng vé trong mục Vé Của Tôi."));
+        // Reporting a transfer only requests verification; tickets are issued by
+        // SePay webhook processing or an authorized organizer review.
         EventRegistration saved = savedOrder.stream()
                 .filter(item -> Objects.equals(item.getRegistrationID(), registrationId))
                 .findFirst().orElse(savedOrder.get(0));
@@ -584,10 +583,10 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 ticketEligible,
                 registration.getRegisteredAt(),
                 registration.getPaymentStatus(),
-                registration.getAmountDue(),
+                amountDueForOrder(registration),
                 registration.getAmountPaid(),
                 registration.getPaymentCurrency(),
-                registration.getPaymentReference(),
+                paymentReferenceForOrder(registration),
                 registration.getPaymentMethod(),
                 registration.getPaidAt(),
                 registration.getPaymentExpiresAt(),
@@ -615,6 +614,33 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registrationRepo.findByPurchaserUserIDAndIsDeletedFalse(userId)
                 .forEach(registration -> unique.put(registration.getRegistrationID(), registration));
         return new java.util.ArrayList<>(unique.values());
+    }
+
+    private String paymentReferenceForOrder(EventRegistration registration) {
+        if (StringUtils.hasText(registration.getPaymentReference())) return registration.getPaymentReference();
+        if (!StringUtils.hasText(registration.getTicketOrderCode()) || registration.getPurchaserUserID() == null) return null;
+        return registrationRepo.findByTicketOrderCodeAndPurchaserUserIDAndIsDeletedFalse(
+                        registration.getTicketOrderCode(), registration.getPurchaserUserID()).stream()
+                .map(EventRegistration::getPaymentReference)
+                .filter(StringUtils::hasText)
+                .findFirst().orElse(null);
+    }
+
+    private BigDecimal amountDueForOrder(EventRegistration registration) {
+        if (!StringUtils.hasText(registration.getTicketOrderCode()) || registration.getPurchaserUserID() == null) {
+            return registration.getAmountDue();
+        }
+        if (!PaymentStatus.PENDING.equals(registration.getPaymentStatus())
+                && !PaymentStatus.AWAITING_VERIFICATION.equals(registration.getPaymentStatus())) {
+            return registration.getAmountDue();
+        }
+        return registrationRepo.findByTicketOrderCodeAndPurchaserUserIDAndIsDeletedFalse(
+                        registration.getTicketOrderCode(), registration.getPurchaserUserID()).stream()
+                .filter(item -> PaymentStatus.PENDING.equals(item.getPaymentStatus())
+                        || PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus()))
+                .map(EventRegistration::getAmountDue)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private String ticketHolderName(EventRegistration registration) {
@@ -754,6 +780,9 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setUpdatedAt(LocalDateTime.now());
         registration.setUpdatedBy(currentUser.getUserId());
         registration.setTicketRevokedAt(LocalDateTime.now());
+        if (PaymentStatus.PAID.equals(registration.getPaymentStatus())) {
+            registration.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+        }
         registration.setIsDeleted(false);
         registrationRepo.save(registration);
         saveAudit(currentUser.getUserId(), registration, "REGISTRATION_REJECTED", oldStatus == null ? null : oldStatus.name(), RegistrationLifecycle.STATUS_REJECTED.name(), request.getReason());
@@ -832,12 +861,124 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setStatus(RegistrationStatus.CANCELLED.name());
         registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
         registration.setCancelledAt(LocalDateTime.now());
+        registration.setTicketRevokedAt(LocalDateTime.now());
+        if (PaymentStatus.PAID.equals(registration.getPaymentStatus())) {
+            registration.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+        }
         registration.setUpdatedAt(LocalDateTime.now());
         guestRegistrationRepository.save(registration);
 
         if (oldStatus != null && RegistrationLifecycle.CONFIRMED_STATUSES.contains(oldStatus)) {
             allocationService.promoteWaitlisted(eventId, event.getMaxParticipants());
         }
+    }
+
+    @Override
+    @Transactional
+    public void approveMemberPayment(Integer eventId, Integer registrationId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        Event event = loadEventForUpdate(eventId);
+        EventRegistration registration = loadRegistrationForEvent(eventId, registrationId);
+        List<EventRegistration> order = memberPaymentOrder(registration);
+        if (order.stream().noneMatch(item -> PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus()))) {
+            throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
+                    "Payment must be awaiting verification.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (EventRegistration item : order) {
+            if (!PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus())) continue;
+            item.setPaymentStatus(PaymentStatus.PAID);
+            item.setAmountPaid(item.getAmountDue());
+            item.setPaidAt(now);
+            item.setUpdatedAt(now);
+            item.setUpdatedBy(currentUser.getUserId());
+            if (RegistrationLifecycle.CONFIRMED_STATUSES.contains(currentRegistrationStatus(item))) {
+                if (!StringUtils.hasText(item.getTicketCode())) item.setTicketCode(UUID.randomUUID().toString());
+                if (item.getTicketIssuedAt() == null) item.setTicketIssuedAt(now);
+                item.setTicketRevokedAt(null);
+            }
+        }
+        registrationRepo.saveAll(order).forEach(item -> sendTicketEmailAfterCommit(item, event));
+    }
+
+    @Override
+    @Transactional
+    public void rejectMemberPayment(Integer eventId, Integer registrationId, RegistrationRejectRequest request,
+                                    UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        Event event = loadEventForUpdate(eventId);
+        EventRegistration registration = loadRegistrationForEvent(eventId, registrationId);
+        if (request == null || !StringUtils.hasText(request.getReason())) {
+            throw new IllegalArgumentException("Payment rejection reason is required.");
+        }
+        List<EventRegistration> order = memberPaymentOrder(registration);
+        if (order.stream().noneMatch(item -> PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus()))) {
+            throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
+                    "Payment must be awaiting verification.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (EventRegistration item : order) {
+            if (!PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus())) continue;
+            item.setPaymentStatus(PaymentStatus.FAILED);
+            item.setAmountPaid(BigDecimal.ZERO);
+            item.setRegistrationStatus(RegistrationStatus.CANCELLED);
+            item.setStatus(RegistrationStatus.CANCELLED.name());
+            item.setCancelledAt(now);
+            item.setCancellationSource("PAYMENT_REJECTED");
+            item.setCancellationReason(request.getReason().trim());
+            item.setTicketRevokedAt(now);
+            item.setUpdatedAt(now);
+            item.setUpdatedBy(currentUser.getUserId());
+        }
+        registrationRepo.saveAll(order);
+        allocationService.promoteWaitlisted(eventId, event.getMaxParticipants());
+    }
+
+    private List<EventRegistration> memberPaymentOrder(EventRegistration registration) {
+        if (!StringUtils.hasText(registration.getTicketOrderCode()) || registration.getPurchaserUserID() == null) {
+            return List.of(registration);
+        }
+        List<EventRegistration> order = registrationRepo.findByTicketOrderCodeAndPurchaserUserIDAndIsDeletedFalse(
+                registration.getTicketOrderCode(), registration.getPurchaserUserID());
+        return order.isEmpty() ? List.of(registration) : order;
+    }
+
+    @Override
+    @Transactional
+    public void markMemberRefunded(Integer eventId, Integer registrationId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        loadEventForUpdate(eventId);
+        EventRegistration registration = loadRegistrationForEvent(eventId, registrationId);
+        List<EventRegistration> order = memberPaymentOrder(registration);
+        if (order.stream().noneMatch(item -> PaymentStatus.REFUND_PENDING.equals(item.getPaymentStatus()))) {
+            throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
+                    "Refund must be pending.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        order.stream().filter(item -> PaymentStatus.REFUND_PENDING.equals(item.getPaymentStatus())).forEach(item -> {
+            item.setPaymentStatus(PaymentStatus.REFUNDED);
+            item.setUpdatedAt(now);
+            item.setUpdatedBy(currentUser.getUserId());
+        });
+        registrationRepo.saveAll(order);
+    }
+
+    @Override
+    @Transactional
+    public void markGuestRefunded(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        loadEventForUpdate(eventId);
+        GuestEventRegistration registration = loadGuestRegistrationForPayment(eventId, guestRegistrationId);
+        if (!PaymentStatus.REFUND_PENDING.equals(registration.getPaymentStatus())) {
+            throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
+                    "Refund must be pending.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        registration.setPaymentStatus(PaymentStatus.REFUNDED);
+        registration.setUpdatedAt(LocalDateTime.now());
+        registration.setUpdatedBy(currentUser.getUserId());
+        guestRegistrationRepository.save(registration);
     }
 
     @Override
@@ -858,6 +999,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setPaymentReviewedAt(now);
         registration.setPaymentReviewedBy(currentUser.getUserId());
         registration.setPaymentRejectionReason(null);
+        registration.setPaymentConfirmedEmailSentAt(now);
         if (!StringUtils.hasText(registration.getTicketCode())) {
             registration.setTicketCode(UUID.randomUUID().toString());
         }
@@ -893,6 +1035,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setPaymentReviewedAt(now);
         registration.setPaymentReviewedBy(currentUser.getUserId());
         registration.setPaymentRejectionReason(request.getReason().trim());
+        registration.setPaymentRejectedEmailSentAt(now);
         registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
         registration.setStatus(RegistrationStatus.CANCELLED.name());
         registration.setCancelledAt(now);
@@ -904,12 +1047,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         GuestEventRegistration saved = guestRegistrationRepository.save(registration);
         allocationService.promoteWaitlisted(eventId, event.getMaxParticipants());
 
-        sendAfterCommit(() -> emailService.sendSimpleEmail(
-                saved.getGuestEmail(),
-                "Thanh toan khong duoc xac nhan - " + event.getEventName(),
-                "Thanh toan cho ma dang ky " + saved.getRegistrationCode() + " khong duoc xac nhan.\n"
-                        + "Ly do: " + saved.getPaymentRejectionReason() + "\n"
-                        + "Dang ky da bi huy va cho giu tam thoi da duoc giai phong."));
+        sendAfterCommit(() -> guestPaymentEmailService.sendPaymentRejected(saved, event));
     }
 
     private GuestEventRegistration loadGuestRegistrationForPayment(Integer eventId, Integer guestRegistrationId) {
@@ -1290,7 +1428,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 registration.getPaymentStatus(),
                 registration.getAmountDue(),
                 registration.getPaymentCurrency(),
-                registration.getPaymentReference(),
+                paymentReferenceForOrder(registration),
                 registration.getPaymentMethod(),
                 null
         );

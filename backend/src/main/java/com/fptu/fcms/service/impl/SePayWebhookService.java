@@ -3,12 +3,16 @@ package com.fptu.fcms.service.impl;
 import com.fptu.fcms.dto.request.SePayWebhookRequest;
 import com.fptu.fcms.entity.BankPaymentTransaction;
 import com.fptu.fcms.entity.Event;
+import com.fptu.fcms.entity.EventRegistration;
 import com.fptu.fcms.entity.GuestEventRegistration;
+import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.enums.PaymentMethod;
 import com.fptu.fcms.enums.PaymentStatus;
 import com.fptu.fcms.repository.BankPaymentTransactionRepository;
 import com.fptu.fcms.repository.EventRepository;
+import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
+import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +32,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.HexFormat;
 import java.util.Locale;
+import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,12 +42,14 @@ import java.util.regex.Pattern;
 public class SePayWebhookService {
     private static final String PROVIDER = "SEPAY";
     private static final Pattern PAYMENT_REFERENCE_PATTERN = Pattern.compile(
-            "(?i)(GUEST-\\d+-[A-Z0-9]{6,32}|GUEST[A-Z0-9]{6,10})");
+            "(?i)(GUEST-\\d+-[A-Z0-9]{6,32}|GUEST[A-Z0-9]{6,10}|EVT-\\d+-[A-Z0-9]{6,32}|PAY-\\d+-[A-Z0-9]{6,32})");
     private static final DateTimeFormatter SEPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final BankPaymentTransactionRepository bankPaymentTransactionRepository;
     private final GuestEventRegistrationRepository guestRegistrationRepository;
+    private final EventRegistrationRepository eventRegistrationRepository;
     private final EventRepository eventRepository;
+    private final UserRepository userRepository;
     private final EmailService emailService;
 
     @Value("${fcms.payment.sepay.account-number}")
@@ -92,7 +99,13 @@ public class SePayWebhookService {
         GuestEventRegistration registration = guestRegistrationRepository
                 .findByPaymentReferenceAndIsDeletedFalse(paymentReference).orElse(null);
         if (registration == null) {
-            saveForReview(transaction, "UNMATCHED", "No guest registration matches the payment reference.");
+            EventRegistration memberRegistration = eventRegistrationRepository
+                    .findByPaymentReferenceAndIsDeletedFalse(paymentReference).orElse(null);
+            if (memberRegistration == null) {
+                saveForReview(transaction, "UNMATCHED", "No registration matches the payment reference.");
+                return;
+            }
+            processMemberPayment(transaction, memberRegistration, request.getTransferAmount(), transactionDate, now);
             return;
         }
         transaction.setGuestRegistrationID(registration.getGuestRegistrationID());
@@ -126,6 +139,7 @@ public class SePayWebhookService {
         registration.setPaymentReviewedAt(now);
         registration.setPaymentReviewedBy(null);
         registration.setPaymentRejectionReason(null);
+        registration.setPaymentConfirmedEmailSentAt(now);
         if (!StringUtils.hasText(registration.getTicketCode())) registration.setTicketCode(UUID.randomUUID().toString());
         registration.setTicketIssuedAt(now);
         registration.setTicketRevokedAt(null);
@@ -141,6 +155,81 @@ public class SePayWebhookService {
                 savedRegistration.getGuestEmail(), savedRegistration.getGuestFullName(), event.getEventName(),
                 event.getStartDate(), event.getEndDate(), event.getLocation(), savedRegistration.getTicketCode(),
                 savedRegistration.getAmountPaid(), savedRegistration.getPaymentCurrency()));
+    }
+
+    private void processMemberPayment(BankPaymentTransaction transaction, EventRegistration primary,
+                                      BigDecimal transferAmount, LocalDateTime transactionDate, LocalDateTime now) {
+        List<EventRegistration> order = primary.getTicketOrderCode() != null && primary.getPurchaserUserID() != null
+                ? eventRegistrationRepository.findByTicketOrderCodeAndPurchaserUserIDAndIsDeletedFalse(
+                        primary.getTicketOrderCode(), primary.getPurchaserUserID())
+                : List.of(primary);
+        if (order.isEmpty()) order = List.of(primary);
+
+        if (order.stream().allMatch(item -> PaymentStatus.PAID.equals(item.getPaymentStatus())
+                || PaymentStatus.NOT_REQUIRED.equals(item.getPaymentStatus()))) {
+            saveForReview(transaction, "ALREADY_PAID", "Ticket order was already paid.");
+            return;
+        }
+        BigDecimal amountDue = order.stream()
+                .filter(item -> PaymentStatus.PENDING.equals(item.getPaymentStatus())
+                        || PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus()))
+                .map(EventRegistration::getAmountDue)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (amountDue.compareTo(transferAmount) != 0) {
+            saveForReview(transaction, "NEEDS_REVIEW", "Transfer amount does not match order amount due.");
+            return;
+        }
+        if (order.stream().anyMatch(item -> !PaymentStatus.PENDING.equals(item.getPaymentStatus())
+                && !PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus())
+                && !PaymentStatus.NOT_REQUIRED.equals(item.getPaymentStatus()))) {
+            saveForReview(transaction, "NEEDS_REVIEW", "Ticket order is not eligible for payment.");
+            return;
+        }
+        if (order.stream().anyMatch(item -> item.getPaymentExpiresAt() != null
+                && transactionDate.isAfter(item.getPaymentExpiresAt()))) {
+            saveForReview(transaction, "NEEDS_REVIEW", "Transfer was made after payment deadline.");
+            return;
+        }
+
+        Event event = eventRepository.findByEventIDAndIsDeletedFalseForUpdate(primary.getEventID())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
+        for (EventRegistration item : order) {
+            if (!PaymentStatus.PENDING.equals(item.getPaymentStatus())
+                    && !PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus())) continue;
+            item.setPaymentStatus(PaymentStatus.PAID);
+            item.setPaymentMethod(PaymentMethod.BANK_TRANSFER);
+            item.setAmountPaid(item.getAmountDue());
+            item.setPaidAt(now);
+            if (!StringUtils.hasText(item.getTicketCode())) item.setTicketCode(UUID.randomUUID().toString());
+            item.setTicketIssuedAt(now);
+            item.setTicketRevokedAt(null);
+            item.setUpdatedAt(now);
+        }
+        List<EventRegistration> savedOrder = eventRegistrationRepository.saveAll(order);
+        transaction.setProcessingStatus("PROCESSED");
+        transaction.setProcessingMessage("Payment matched and ticket order was issued.");
+        transaction.setProcessedAt(now);
+        bankPaymentTransactionRepository.save(transaction);
+
+        for (EventRegistration item : savedOrder) {
+            if (!PaymentStatus.PAID.equals(item.getPaymentStatus())) continue;
+            String email = item.getGuestEmail();
+            String fullName = item.getGuestFullName();
+            if (item.getUserID() != null) {
+                UserAccount user = userRepository.findByUserIDAndIsDeletedFalse(item.getUserID()).orElse(null);
+                if (user != null) {
+                    email = user.getEmail();
+                    fullName = user.getFullName();
+                }
+            }
+            if (!StringUtils.hasText(email)) continue;
+            String recipient = email;
+            String recipientName = fullName;
+            sendAfterCommit(() -> emailService.sendEventTicketConfirmationEmail(
+                    recipient, recipientName, event.getEventName(), event.getStartDate(), event.getEndDate(),
+                    event.getLocation(), item.getTicketCode(), item.getAmountPaid(), item.getPaymentCurrency()));
+        }
     }
 
     private void validateRequiredFields(SePayWebhookRequest request) {

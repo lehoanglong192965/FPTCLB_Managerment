@@ -142,6 +142,14 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         return doFinalizeSession(session, currentUser.getUserId());
     }
 
+    @Override
+    @Transactional
+    public AttendanceSessionResponse finalizeAttendanceForEventAutomatically(Integer eventId) {
+        AttendanceSession session = attendanceSessionRepository.findByEventIDForUpdate(eventId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "ATTENDANCE_SESSION_NOT_FOUND"));
+        return doFinalizeSession(session, null);
+    }
+
     /**
      * Shared finalization implementation. Receives an already-locked session entity.
      *

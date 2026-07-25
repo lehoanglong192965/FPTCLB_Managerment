@@ -1,6 +1,8 @@
 package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.entity.EventRegistration;
+import com.fptu.fcms.entity.GuestEventRegistration;
+import com.fptu.fcms.enums.PaymentStatus;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
@@ -19,6 +21,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -67,5 +70,32 @@ class RegistrationAllocationServiceImplTicketTest {
         assertEquals(RegistrationStatus.CONFIRMED, waitlisted.getRegistrationStatus());
         assertNotNull(waitlisted.getTicketCode());
         assertNotNull(waitlisted.getTicketIssuedAt());
+    }
+
+    @Test
+    void promotesGuestWaitlistAndOpensPaymentWindow() {
+        GuestEventRegistration guest = new GuestEventRegistration();
+        guest.setGuestRegistrationID(51);
+        guest.setEventID(12);
+        guest.setRegistrationStatus(RegistrationStatus.WAITLISTED);
+        guest.setStatus(RegistrationStatus.WAITLISTED.name());
+        guest.setPaymentStatus(PaymentStatus.AWAITING_ELIGIBILITY);
+
+        when(registrationRepository.countByEventIDAndRegistrationStatusInAndCapacityExemptFalseAndIsDeletedFalse(
+                12, RegistrationLifecycle.CONFIRMED_STATUSES)).thenReturn(0L);
+        when(guestRegistrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
+                12, RegistrationLifecycle.CONFIRMED_STATUSES)).thenReturn(0L);
+        when(registrationRepository.findByEventIDAndRegistrationStatusAndIsDeletedFalseOrderByRegisteredAtAsc(
+                12, RegistrationLifecycle.STATUS_WAITLISTED)).thenReturn(List.of());
+        when(guestRegistrationRepository.findByEventIDAndIsDeletedFalse(12)).thenReturn(List.of(guest));
+        when(guestRegistrationRepository.save(any(GuestEventRegistration.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertEquals(1, service.promoteWaitlisted(12, 1));
+        assertEquals(RegistrationStatus.CONFIRMED, guest.getRegistrationStatus());
+        assertEquals(PaymentStatus.PENDING, guest.getPaymentStatus());
+        assertNotNull(guest.getPaymentReference());
+        assertNotNull(guest.getPaymentExpiresAt());
+        assertNull(guest.getTicketCode());
     }
 }

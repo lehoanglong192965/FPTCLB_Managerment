@@ -118,7 +118,13 @@ fcms:
   feedback:
     public-base-url: ${FEEDBACK_PUBLIC_BASE_URL:http://localhost:5173/feedback/guest}
   payment:
+    bank-name: ${PAYMENT_BANK_NAME:MB Bank}
+    account-name: ${PAYMENT_ACCOUNT_NAME:LE HOANG LONG}
+    bank-branch: ${PAYMENT_BANK_BRANCH:MB Bank}
     sepay:
       account-number: ${SEPAY_ACCOUNT_NUMBER:0796578863}
       webhook-api-key: ${SEPAY_WEBHOOK_API_KEY:}
+  guest:
+    status-base-url: ${GUEST_STATUS_BASE_URL:http://localhost:5173/guest/status}
+    lookup-url: ${GUEST_LOOKUP_URL:http://localhost:5173/guest/lookup}
 

@@ -46,9 +46,12 @@ public interface EventService {
     void approveEvent(Integer eventId, UserPrincipal currentUser);
     void rejectEvent(Integer eventId, String reason, UserPrincipal currentUser);
     void openRegistration(Integer eventId, UserPrincipal currentUser);
+    void openRegistrationAutomatically(Integer eventId);
     void closeRegistration(Integer eventId, UserPrincipal currentUser);
     // Internal scheduler-only operation; never expose this through a controller.
     void closeRegistrationAutomatically(Integer eventId);
+    void startEventAutomatically(Integer eventId);
+    void finishEventAutomatically(Integer eventId);
     void updateEvent(Integer eventId, com.fptu.fcms.dto.request.UpdateEventRequest request, UserPrincipal currentUser);
     void deleteDraftEvent(Integer eventId, UserPrincipal currentUser);
     boolean isUserAssigned(Integer eventId, Integer userId);

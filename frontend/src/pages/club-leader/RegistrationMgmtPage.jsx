@@ -23,6 +23,8 @@ const PAYMENT_STATUS_CFG = {
   PAID: { label: 'Đã thanh toán', color: 'text-green-700', bg: 'bg-green-100' },
   FAILED: { label: 'Thanh toán bị từ chối', color: 'text-red-700', bg: 'bg-red-100' },
   EXPIRED: { label: 'Hết hạn thanh toán', color: 'text-gray-600', bg: 'bg-gray-100' },
+  REFUND_PENDING: { label: 'Chờ hoàn tiền', color: 'text-amber-700', bg: 'bg-amber-100' },
+  REFUNDED: { label: 'Đã hoàn tiền', color: 'text-teal-700', bg: 'bg-teal-100' },
 };
 
 const TABS = [
@@ -170,12 +172,14 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
     }
   };
 
-  const handleApproveGuestPayment = async (reg) => {
-    const guestId = reg.guestRegistrationId ?? reg.registrationId;
-    const loadingKey = `guest-${guestId}`;
+  const handleApprovePayment = async (reg) => {
+    const isGuest = reg.type === 'GUEST';
+    const registrationId = isGuest ? (reg.guestRegistrationId ?? reg.registrationId) : (reg.registrationId ?? reg.id);
+    const loadingKey = `${isGuest ? 'guest' : 'fptu'}-${registrationId}`;
     setActionLoading(loadingKey);
     try {
-      await eventApi.approveGuestPayment(eventId, guestId);
+      if (isGuest) await eventApi.approveGuestPayment(eventId, registrationId);
+      else await eventApi.approveMemberPayment(eventId, registrationId);
       toast.success(`Đã xác nhận thanh toán của ${reg.fullName || reg.name}`);
       fetchRegistrations();
     } catch (err) {
@@ -185,21 +189,40 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
     }
   };
 
-  const handleRejectGuestPayment = async (reason) => {
+  const handleRejectPayment = async (reason) => {
     const target = paymentRejectTarget;
     setPaymentRejectTarget(null);
     if (!target || !reason) {
       toast.error('Vui lòng nhập lý do từ chối thanh toán.');
       return;
     }
-    const loadingKey = `guest-${target.id}`;
+    const loadingKey = `${target.isGuest ? 'guest' : 'fptu'}-${target.id}`;
     setActionLoading(loadingKey);
     try {
-      await eventApi.rejectGuestPayment(eventId, target.id, reason);
+      if (target.isGuest) await eventApi.rejectGuestPayment(eventId, target.id, reason);
+      else await eventApi.rejectMemberPayment(eventId, target.id, reason);
       toast.success(`Đã từ chối thanh toán của ${target.name}`);
       fetchRegistrations();
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Không thể từ chối thanh toán.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleMarkRefunded = async (reg) => {
+    const isGuest = reg.type === 'GUEST';
+    const registrationId = isGuest ? (reg.guestRegistrationId ?? reg.registrationId) : (reg.registrationId ?? reg.id);
+    if (!window.confirm(`Xác nhận đã hoàn tiền cho ${reg.fullName || reg.name || 'người tham gia'}?`)) return;
+    const loadingKey = `${isGuest ? 'guest' : 'fptu'}-${registrationId}`;
+    setActionLoading(loadingKey);
+    try {
+      if (isGuest) await eventApi.markGuestRefunded(eventId, registrationId);
+      else await eventApi.markMemberRefunded(eventId, registrationId);
+      toast.success('Đã ghi nhận hoàn tiền thành công.');
+      fetchRegistrations();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Không thể ghi nhận hoàn tiền.');
     } finally {
       setActionLoading(null);
     }
@@ -443,10 +466,10 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
                             </button>
                           </>
                         )}
-                        {isGuest && r.paymentStatus === 'AWAITING_VERIFICATION' && (
+                        {r.paymentStatus === 'AWAITING_VERIFICATION' && (
                           <>
                             <button
-                              onClick={() => handleApproveGuestPayment(r)}
+                              onClick={() => handleApprovePayment(r)}
                               disabled={isLoading}
                               title="Xác nhận đã nhận chuyển khoản"
                               className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 disabled:opacity-50"
@@ -454,7 +477,11 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
                               <CheckCircle2 size={16} />
                             </button>
                             <button
-                              onClick={() => setPaymentRejectTarget({ id: r.guestRegistrationId, name: r.fullName || r.name })}
+                              onClick={() => setPaymentRejectTarget({
+                                id: isGuest ? (r.guestRegistrationId ?? r.registrationId) : (r.registrationId ?? r.id),
+                                name: r.fullName || r.name,
+                                isGuest,
+                              })}
                               disabled={isLoading}
                               title="Từ chối thanh toán"
                               className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50"
@@ -462,6 +489,16 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
                               <XCircle size={16} />
                             </button>
                           </>
+                        )}
+                        {r.paymentStatus === 'REFUND_PENDING' && (
+                          <button
+                            onClick={() => handleMarkRefunded(r)}
+                            disabled={isLoading}
+                            title="Xác nhận đã hoàn tiền"
+                            className="rounded-lg border border-amber-300 px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                          >
+                            Đã hoàn
+                          </button>
                         )}
                         {(isGuest
                           ? r.status !== 'CANCELLED' && r.status !== 'REJECTED'
@@ -500,7 +537,7 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
         <RejectModal
           payment
           name={paymentRejectTarget.name}
-          onConfirm={handleRejectGuestPayment}
+          onConfirm={handleRejectPayment}
           onClose={() => setPaymentRejectTarget(null)}
         />
       )}

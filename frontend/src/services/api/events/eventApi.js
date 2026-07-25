@@ -102,6 +102,14 @@ const eventApi = {
     axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/payment/approve`),
   rejectGuestPayment: (eventId, guestRegistrationId, reason) =>
     axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/payment/reject`, { reason }),
+  approveMemberPayment: (eventId, registrationId) =>
+    axiosClient.post(`/events/${eventId}/registrations/${registrationId}/payment/approve`),
+  rejectMemberPayment: (eventId, registrationId, reason) =>
+    axiosClient.post(`/events/${eventId}/registrations/${registrationId}/payment/reject`, { reason }),
+  markMemberRefunded: (eventId, registrationId) =>
+    axiosClient.post(`/events/${eventId}/registrations/${registrationId}/refund/complete`),
+  markGuestRefunded: (eventId, guestRegistrationId) =>
+    axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/refund/complete`),
 };
 
 export default eventApi;

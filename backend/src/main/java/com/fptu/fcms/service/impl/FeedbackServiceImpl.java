@@ -94,7 +94,6 @@ public class FeedbackServiceImpl implements FeedbackService {
                         .map(event -> new PendingCandidate(event, registration))
                         .orElse(null))
                 .filter(Objects::nonNull)
-                .filter(candidate -> !isHostClubMember(candidate.event(), userId))
                 .filter(candidate -> isFeedbackOpenForEvent(candidate.event(), now))
                 .filter(candidate -> hasPresentAttendance(candidate.event().getEventID(), candidate.registration().getRegistrationID()))
                 .map(candidate -> new PendingFeedbackEventResponse(
@@ -118,9 +117,6 @@ public class FeedbackServiceImpl implements FeedbackService {
         }
         Event event = findEvent(eventId);
         validateFeedbackWindowAndEventEnded(event, LocalDateTime.now());
-        if (isHostClubMember(event, userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "HOST_CLUB_MEMBER_CANNOT_FEEDBACK");
-        }
         EventRegistration registration = eventRegistrationRepository
                 .findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "REGISTRATION_NOT_FOUND"));

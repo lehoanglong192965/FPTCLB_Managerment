@@ -267,6 +267,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
     };
 
     if (isRegistered && registrationResult?.paymentStatus !== 'PENDING'
+        && registrationResult?.paymentStatus !== 'AWAITING_VERIFICATION'
         && !(isPaidEvent && !paymentExempt && purchasedTicketCount < 4)) {
         return (
             <>
@@ -366,16 +367,29 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
                 paymentMethod,
                 transactionReference: registrationResult.paymentReference,
             });
-            addNotification({ title: 'Thanh toán thành công', content: 'Vé QR của bạn đã được phát hành.' });
-            toast.success('Thanh toán thành công. Vé QR của bạn đã được phát hành.');
+            addNotification({ title: 'Đã báo chuyển khoản', content: 'Hệ thống đang chờ SePay hoặc ban tổ chức xác minh.' });
+            toast.success('Đã gửi yêu cầu xác minh chuyển khoản. Vé sẽ được phát hành sau khi giao dịch được đối soát.');
             if (onRegisterSuccess) onRegisterSuccess();
-            navigate(myTicketsPath, { replace: true });
+            setRegistrationResult((current) => ({ ...current, paymentStatus: 'AWAITING_VERIFICATION' }));
         } catch (error) {
             toast.error(getApiErrorMessage(error, 'Không thể xác nhận thanh toán. Vui lòng thử lại.'));
         } finally {
             setPaying(false);
         }
     };
+
+    if (registrationResult?.paymentStatus === 'AWAITING_VERIFICATION') {
+        return (
+            <div className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                <p className="m-0 font-bold">Đang chờ xác minh chuyển khoản</p>
+                <p className="m-0">SePay hoặc ban tổ chức đang đối chiếu giao dịch. Vé QR chỉ được phát hành sau khi thanh toán được xác nhận.</p>
+                <p className="m-0 break-all text-xs">Mã đối chiếu: {registrationResult.paymentReference}</p>
+                <button type="button" onClick={() => navigate(myTicketsPath)} className="w-full rounded-lg border border-blue-300 bg-white px-3 py-2 font-semibold text-blue-700">
+                    Xem trạng thái vé
+                </button>
+            </div>
+        );
+    }
 
     const updateTicketQuantity = (quantity) => {
         const safeQuantity = Math.max(1, Math.min(Number(quantity) || 1, Math.max(1, 4 - purchasedTicketCount)));
@@ -432,8 +446,6 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
                 <p className="m-0 break-all text-xs text-gray-600">Mã đối chiếu: {registrationResult.paymentReference}</p>
                 <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="w-full rounded-lg border border-orange-200 bg-white p-2">
                     <option value="BANK_TRANSFER">Chuyển khoản ngân hàng</option>
-                    <option value="VNPAY">VNPay</option>
-                    <option value="MOMO">MoMo</option>
                 </select>
                 {paymentMethod === 'BANK_TRANSFER' && (
                     <div className="space-y-2 rounded-lg border border-orange-200 bg-white p-3 text-center">
@@ -453,7 +465,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
                     </div>
                 )}
                 <button type="button" onClick={handlePayment} disabled={paying} className="w-full rounded-lg border-0 bg-[#F37021] px-3 py-2 font-bold text-white disabled:opacity-50">
-                    {paying ? 'Đang xác nhận...' : 'Xác nhận thanh toán'}
+                    {paying ? 'Đang gửi...' : 'Tôi đã chuyển khoản'}
                 </button>
                 <button
                     type="button"

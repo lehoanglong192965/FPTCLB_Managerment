@@ -58,4 +58,12 @@ public interface EventRegistrationService {
     void approveGuestPayment(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser);
 
     void rejectGuestPayment(Integer eventId, Integer guestRegistrationId, RegistrationRejectRequest request, UserPrincipal currentUser);
+
+    void approveMemberPayment(Integer eventId, Integer registrationId, UserPrincipal currentUser);
+
+    void rejectMemberPayment(Integer eventId, Integer registrationId, RegistrationRejectRequest request, UserPrincipal currentUser);
+
+    void markMemberRefunded(Integer eventId, Integer registrationId, UserPrincipal currentUser);
+
+    void markGuestRefunded(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser);
 }

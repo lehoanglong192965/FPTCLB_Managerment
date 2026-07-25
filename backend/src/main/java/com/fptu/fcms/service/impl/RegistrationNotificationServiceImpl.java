@@ -27,12 +27,7 @@ public class RegistrationNotificationServiceImpl implements RegistrationNotifica
         }
         if (RegistrationStatus.CONFIRMED.equals(status)) {
             if (PaymentStatus.PENDING.equals(registration.getPaymentStatus())) {
-                emailService.sendSimpleEmail(
-                        registration.getGuestEmail(),
-                        "FCMS Guest Ticket Payment Required",
-                        "Your email is verified. Complete payment using reference "
-                                + registration.getPaymentReference() + " to receive your QR ticket."
-                );
+                // A single detailed, idempotent payment email is dispatched by GuestPaymentEmailService.
                 return;
             }
             var event = eventRepository.findByEventIDAndIsDeletedFalse(registration.getEventID()).orElse(null);

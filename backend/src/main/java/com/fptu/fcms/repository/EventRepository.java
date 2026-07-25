@@ -53,6 +53,14 @@ public interface EventRepository extends JpaRepository<Event, Integer> {
             LocalDateTime startDate
     );
 
+    Optional<Event> findFirstByLocationAndEventIDNotAndEventStatusInAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
+            String location,
+            Integer eventID,
+            Collection<EventStatus> eventStatuses,
+            LocalDateTime endDate,
+            LocalDateTime startDate
+    );
+
     List<Event> findByEndDateBeforeAndEventStatusInAndIsDeletedFalse(
             LocalDateTime endDate,
             Collection<EventStatus> eventStatuses
@@ -92,6 +100,8 @@ public interface EventRepository extends JpaRepository<Event, Integer> {
             FROM Event e
             WHERE e.isDeleted = false
               AND e.feedbackEnabled = true
+              AND e.endDate IS NOT NULL
+              AND e.endDate <= :now
               AND (e.feedbackOpensAt IS NULL OR e.feedbackOpensAt <= :now)
               AND (e.feedbackClosesAt IS NULL OR e.feedbackClosesAt > :now)
             """)

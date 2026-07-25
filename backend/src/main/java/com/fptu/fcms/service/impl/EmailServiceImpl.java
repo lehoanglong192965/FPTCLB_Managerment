@@ -227,6 +227,16 @@ public class EmailServiceImpl implements EmailService {
     @Override
     @Async
     public void sendSimpleEmail(String to, String subject, String content) {
+        sendSimpleEmailInternal(to, subject, content, null);
+    }
+
+    @Override
+    @Async
+    public void sendSimpleEmail(String to, String subject, String content, String secretToRedact) {
+        sendSimpleEmailInternal(to, subject, content, secretToRedact);
+    }
+
+    private void sendSimpleEmailInternal(String to, String subject, String content, String secretToRedact) {
         SimpleMailMessage message = new SimpleMailMessage();
         try {
             message.setFrom("FPTU Club <" + senderEmail + ">");
@@ -239,7 +249,7 @@ public class EmailServiceImpl implements EmailService {
         } catch (Exception e) {
             log.error("Error sending simple email to: {}", EmailMaskingUtil.maskEmail(to), e);
         } finally {
-            logEmailPreview(message, "simple", null);
+            logEmailPreview(message, "simple", secretToRedact);
         }
     }
 

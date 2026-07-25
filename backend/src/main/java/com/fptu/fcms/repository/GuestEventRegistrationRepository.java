@@ -38,6 +38,8 @@ public interface GuestEventRegistrationRepository extends JpaRepository<GuestEve
     List<GuestEventRegistration> findByEventIDAndIsDeletedFalse(Integer eventID);
     List<GuestEventRegistration> findByPaymentStatusAndPaymentExpiresAtBeforeAndIsDeletedFalse(
             PaymentStatus paymentStatus, LocalDateTime paymentExpiresAt);
+    List<GuestEventRegistration> findByPaymentStatusAndPaymentExpiresAtBetweenAndPaymentReminderSentAtIsNullAndIsDeletedFalse(
+            PaymentStatus paymentStatus, LocalDateTime from, LocalDateTime to);
     long countByEventIDAndGuestEmailNormalizedAndIsDeletedFalse(Integer eventID, String guestEmailNormalized);
     Optional<GuestEventRegistration> findTopByEventIDAndGuestEmailNormalizedAndRegistrationStatusAndIsDeletedFalseOrderByCancelledAtDesc(
             Integer eventID, String guestEmailNormalized, RegistrationStatus registrationStatus);

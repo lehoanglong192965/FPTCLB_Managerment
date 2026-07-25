@@ -1,6 +1,7 @@
 package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.dto.request.CancelEventRequest;
+import com.fptu.fcms.dto.request.EventApprovalRequest;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.enums.EventStatus;
 import com.fptu.fcms.exception.ApiErrorCode;
@@ -8,6 +9,7 @@ import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EventAssignmentAccessService;
+import com.fptu.fcms.service.event.EventStateMachineService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -38,6 +40,8 @@ class EventServiceImplLifecycleAuthorizationTest {
     private EventAssignmentAccessService eventAssignmentAccessService;
     @Mock
     private EventRepository eventRepository;
+    @Mock
+    private EventStateMachineService eventStateMachineService;
 
     @InjectMocks
     private EventServiceImpl service;
@@ -77,6 +81,25 @@ class EventServiceImplLifecycleAuthorizationTest {
 
         assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
         verify(eventAssignmentAccessService).ensureCanManageEvent(EVENT_ID, currentUser);
+        verify(eventRepository, never()).save(any(Event.class));
+    }
+
+    @Test
+    void payloadApprovalCannotBypassStateMachine() {
+        UserPrincipal currentUser = principal();
+        Event event = new Event();
+        event.setEventID(EVENT_ID);
+        event.setEventStatus(EventStatus.ONGOING);
+        EventApprovalRequest request = new EventApprovalRequest();
+        request.setDecision("APPROVED");
+        BusinessRuleException invalid = new BusinessRuleException(
+                ApiErrorCode.EVENT_STATE_INVALID.name(), "Invalid state", HttpStatus.UNPROCESSABLE_ENTITY);
+
+        when(eventRepository.findByEventIDAndIsDeletedFalseForUpdate(EVENT_ID)).thenReturn(Optional.of(event));
+        doThrow(invalid).when(eventStateMachineService).ensureCanApprove(event);
+
+        assertSame(invalid, assertThrows(BusinessRuleException.class,
+                () -> service.approveEvent(EVENT_ID, request, currentUser)));
         verify(eventRepository, never()).save(any(Event.class));
     }
 

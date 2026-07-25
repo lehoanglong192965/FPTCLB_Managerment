@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 
 @ExtendWith(MockitoExtension.class)
 class EventServiceImplScheduleConflictTest {
@@ -42,8 +44,8 @@ class EventServiceImplScheduleConflictTest {
                 LocalDateTime.of(2026, 7, 20, 11, 0),
                 "Workshop AI"
         );
-        when(eventRepository.findFirstByLocationAndEventIDNotAndEventStatusAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
-                "Hội trường A", 20, EventStatus.APPROVED, requestedEnd, requestedStart
+        when(eventRepository.findFirstByLocationAndEventIDNotAndEventStatusInAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
+                eq("Hội trường A"), eq(20), anyList(), eq(requestedEnd), eq(requestedStart)
         )).thenReturn(Optional.of(conflict));
 
         BusinessRuleException error = assertThrows(
@@ -67,8 +69,8 @@ class EventServiceImplScheduleConflictTest {
                 LocalDateTime.of(2026, 7, 20, 12, 0),
                 "Sự kiện mới"
         );
-        when(eventRepository.findFirstByLocationAndEventIDNotAndEventStatusAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
-                "Hội trường A", 20, EventStatus.APPROVED, requested.getEndDate(), requested.getStartDate()
+        when(eventRepository.findFirstByLocationAndEventIDNotAndEventStatusInAndStartDateBeforeAndEndDateAfterAndIsDeletedFalse(
+                eq("Hội trường A"), eq(20), anyList(), eq(requested.getEndDate()), eq(requested.getStartDate())
         )).thenReturn(Optional.empty());
 
         assertDoesNotThrow(() -> ReflectionTestUtils.invokeMethod(service, "validateScheduleConflict", requested));

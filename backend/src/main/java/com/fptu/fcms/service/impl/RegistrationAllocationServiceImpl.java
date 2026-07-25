@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.UUID;
 
 @Service
@@ -64,35 +66,69 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
             return 0;
         }
 
-        List<EventRegistration> waitlisted = registrationRepository
-                .findByEventIDAndRegistrationStatusAndIsDeletedFalseOrderByRegisteredAtAsc(eventId, RegistrationLifecycle.STATUS_WAITLISTED);
+        List<WaitlistEntry> waitlisted = new ArrayList<>();
+        registrationRepository
+                .findByEventIDAndRegistrationStatusAndIsDeletedFalseOrderByRegisteredAtAsc(
+                        eventId, RegistrationLifecycle.STATUS_WAITLISTED)
+                .forEach(item -> waitlisted.add(new WaitlistEntry(item.getRegisteredAt(), item, null)));
+        guestRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId).stream()
+                .filter(item -> RegistrationLifecycle.STATUS_WAITLISTED.equals(item.getRegistrationStatus()))
+                .forEach(item -> waitlisted.add(new WaitlistEntry(item.getRegisteredAt(), null, item)));
+        waitlisted.sort(Comparator.comparing(WaitlistEntry::registeredAt,
+                Comparator.nullsLast(Comparator.naturalOrder())));
 
         int promoted = 0;
-        for (EventRegistration registration : waitlisted) {
+        for (WaitlistEntry entry : waitlisted) {
             if (confirmedCount >= maxParticipants) {
                 break;
             }
-            registration.setStatus(RegistrationLifecycle.STATUS_CONFIRMED.name());
-            registration.setRegistrationStatus(RegistrationLifecycle.STATUS_CONFIRMED);
-            if (PaymentStatus.AWAITING_ELIGIBILITY.equals(registration.getPaymentStatus())) {
-                registration.setPaymentStatus(PaymentStatus.PENDING);
-                registration.setPaymentExpiresAt(LocalDateTime.now().plusMinutes(30));
-            }
-            boolean paymentAllowsTicket = registration.getPaymentStatus() == null
-                    || PaymentStatus.NOT_REQUIRED.equals(registration.getPaymentStatus())
-                    || PaymentStatus.PAID.equals(registration.getPaymentStatus());
-            if (paymentAllowsTicket) {
-                if (registration.getTicketCode() == null || registration.getTicketCode().isBlank()) {
-                    registration.setTicketCode(UUID.randomUUID().toString());
+            LocalDateTime now = LocalDateTime.now();
+            if (entry.member() != null) {
+                EventRegistration registration = entry.member();
+                registration.setStatus(RegistrationLifecycle.STATUS_CONFIRMED.name());
+                registration.setRegistrationStatus(RegistrationLifecycle.STATUS_CONFIRMED);
+                if (PaymentStatus.AWAITING_ELIGIBILITY.equals(registration.getPaymentStatus())) {
+                    registration.setPaymentStatus(PaymentStatus.PENDING);
+                    registration.setPaymentExpiresAt(now.plusMinutes(30));
                 }
-                if (registration.getTicketIssuedAt() == null) {
-                    registration.setTicketIssuedAt(LocalDateTime.now());
+                boolean paymentAllowsTicket = registration.getPaymentStatus() == null
+                        || PaymentStatus.NOT_REQUIRED.equals(registration.getPaymentStatus())
+                        || PaymentStatus.PAID.equals(registration.getPaymentStatus());
+                if (paymentAllowsTicket) {
+                    if (registration.getTicketCode() == null || registration.getTicketCode().isBlank()) {
+                        registration.setTicketCode(UUID.randomUUID().toString());
+                    }
+                    if (registration.getTicketIssuedAt() == null) registration.setTicketIssuedAt(now);
                 }
+                registration.setWaitlistPosition(null);
+                registration.setUpdatedAt(now);
+                registrationRepository.save(registration);
+                notifyPromotion(registration);
+            } else {
+                GuestEventRegistration registration = entry.guest();
+                registration.setStatus(RegistrationLifecycle.STATUS_CONFIRMED.name());
+                registration.setRegistrationStatus(RegistrationLifecycle.STATUS_CONFIRMED);
+                if (PaymentStatus.AWAITING_ELIGIBILITY.equals(registration.getPaymentStatus())) {
+                    registration.setPaymentStatus(PaymentStatus.PENDING);
+                    registration.setPaymentExpiresAt(now.plusMinutes(30));
+                    if (registration.getPaymentReference() == null || registration.getPaymentReference().isBlank()) {
+                        registration.setPaymentReference("GUEST"
+                                + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase());
+                    }
+                }
+                boolean paymentAllowsTicket = registration.getPaymentStatus() == null
+                        || PaymentStatus.NOT_REQUIRED.equals(registration.getPaymentStatus())
+                        || PaymentStatus.PAID.equals(registration.getPaymentStatus());
+                if (paymentAllowsTicket) {
+                    if (registration.getTicketCode() == null || registration.getTicketCode().isBlank()) {
+                        registration.setTicketCode(UUID.randomUUID().toString());
+                    }
+                    if (registration.getTicketIssuedAt() == null) registration.setTicketIssuedAt(now);
+                }
+                registration.setWaitlistPosition(null);
+                registration.setUpdatedAt(now);
+                guestRegistrationRepository.save(registration);
             }
-            registration.setWaitlistPosition(null);
-            registration.setUpdatedAt(LocalDateTime.now());
-            registrationRepository.save(registration);
-            notifyPromotion(registration);
             confirmedCount++;
             promoted++;
         }
@@ -149,5 +185,9 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
         if (maxParticipants < 0) {
             throw new IllegalArgumentException("maxParticipants cannot be negative.");
         }
+    }
+
+    private record WaitlistEntry(LocalDateTime registeredAt, EventRegistration member,
+                                 GuestEventRegistration guest) {
     }
 }

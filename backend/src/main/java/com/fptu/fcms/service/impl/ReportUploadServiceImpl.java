@@ -78,6 +78,13 @@ public class ReportUploadServiceImpl implements ReportUploadService {
             throw new IllegalArgumentException(
                     "Chỉ được nộp báo cáo khi sự kiện đã kết thúc (Completed) hoặc báo cáo trước đó bị từ chối (Report Rejected).");
         }
+        if (!EventStatus.REPORT_REJECTED.equals(event.getEventStatus())
+                && !Boolean.FALSE.equals(event.getFeedbackEnabled())
+                && event.getFeedbackClosesAt() != null
+                && LocalDateTime.now().isBefore(event.getFeedbackClosesAt())) {
+            throw new IllegalArgumentException(
+                    "Chưa thể nộp báo cáo khi thời gian thu thập đánh giá vẫn còn mở.");
+        }
 
         EventReportStatisticsResponse statistics =
                 eventReportStatisticsService.calculate(event.getEventID(), currentUser);

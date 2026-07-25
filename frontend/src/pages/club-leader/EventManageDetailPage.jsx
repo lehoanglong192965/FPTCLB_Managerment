@@ -916,7 +916,7 @@ export default function EventManageDetailPage() {
             <p style={{ margin: 0, fontSize: 13, color: "#9f1239", fontStyle: "italic" }}>Yêu cầu đã được rút và chỉ còn ở chế độ xem lịch sử.</p>
           )}
 
-          {["REGISTRATIONOPEN", "REGISTRATIONCLOSED"].includes(status) && (
+          {["APPROVED", "UPCOMING", "REGISTRATIONOPEN", "REGISTRATIONCLOSED"].includes(status) && (
             <button onClick={() => setCancelOpen(true)} style={secondaryBtnStyle("#dc2626")}>Hủy sự kiện</button>
           )}
           </>)}

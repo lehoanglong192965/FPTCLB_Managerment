@@ -250,4 +250,47 @@ public class EventRegistrationApiController {
         eventRegistrationService.rejectGuestPayment(eventId, guestRegistrationId, request, currentUser);
         return ResponseEntity.ok(Map.of("message", "Guest payment rejected."));
     }
+
+    @PostMapping("/api/events/{eventId}/registrations/{registrationId}/payment/approve")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
+    @Operation(summary = "Leader xac nhan chuyen khoan cua tai khoan")
+    public ResponseEntity<Map<String, String>> approveMemberPayment(
+            @PathVariable Integer eventId,
+            @PathVariable Integer registrationId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventRegistrationService.approveMemberPayment(eventId, registrationId, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Payment approved."));
+    }
+
+    @PostMapping("/api/events/{eventId}/registrations/{registrationId}/payment/reject")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
+    @Operation(summary = "Leader tu choi chuyen khoan cua tai khoan")
+    public ResponseEntity<Map<String, String>> rejectMemberPayment(
+            @PathVariable Integer eventId,
+            @PathVariable Integer registrationId,
+            @Valid @RequestBody RegistrationRejectRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventRegistrationService.rejectMemberPayment(eventId, registrationId, request, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Payment rejected."));
+    }
+
+    @PostMapping("/api/events/{eventId}/registrations/{registrationId}/refund/complete")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
+    public ResponseEntity<Map<String, String>> markMemberRefunded(
+            @PathVariable Integer eventId,
+            @PathVariable Integer registrationId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventRegistrationService.markMemberRefunded(eventId, registrationId, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Refund completed."));
+    }
+
+    @PostMapping("/api/events/{eventId}/registrations/guest/{guestRegistrationId}/refund/complete")
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
+    public ResponseEntity<Map<String, String>> markGuestRefunded(
+            @PathVariable Integer eventId,
+            @PathVariable Integer guestRegistrationId,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventRegistrationService.markGuestRefunded(eventId, guestRegistrationId, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Refund completed."));
+    }
 }

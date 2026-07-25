@@ -149,6 +149,24 @@ public class GuestEventRegistration {
     @Column(name = "paymentRejectionReason", length = 500)
     private String paymentRejectionReason;
 
+    @Column(name = "paymentInstructionSentAt")
+    private LocalDateTime paymentInstructionSentAt;
+
+    @Column(name = "paymentReminderSentAt")
+    private LocalDateTime paymentReminderSentAt;
+
+    @Column(name = "paymentVerificationEmailSentAt")
+    private LocalDateTime paymentVerificationEmailSentAt;
+
+    @Column(name = "paymentConfirmedEmailSentAt")
+    private LocalDateTime paymentConfirmedEmailSentAt;
+
+    @Column(name = "paymentRejectedEmailSentAt")
+    private LocalDateTime paymentRejectedEmailSentAt;
+
+    @Column(name = "paymentExpiredEmailSentAt")
+    private LocalDateTime paymentExpiredEmailSentAt;
+
     @Column(name = "verifiedAt")
     private LocalDateTime verifiedAt;
 

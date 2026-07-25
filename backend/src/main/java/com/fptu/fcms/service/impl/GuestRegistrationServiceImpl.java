@@ -25,6 +25,7 @@ import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.GuestVerificationOtpRepository;
 import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.GuestRegistrationService;
+import com.fptu.fcms.service.GuestPaymentEmailService;
 import com.fptu.fcms.service.RegistrationAllocationPort;
 import com.fptu.fcms.service.RegistrationNotificationService;
 import com.fptu.fcms.service.event.RegistrationAllocationService;
@@ -37,6 +38,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
@@ -69,6 +72,7 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
     private final RegistrationAllocationPort registrationAllocationPort;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final GuestPaymentEmailService guestPaymentEmailService;
     private final RegistrationNotificationService registrationNotificationService;
     private final RegistrationAllocationService registrationAllocationService;
     private final AttendanceSessionRepository attendanceSessionRepository;
@@ -79,9 +83,6 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
 
     @Value("${fcms.guest.otp-resend-cooldown-seconds:60}")
     private long otpResendCooldownSeconds;
-
-    @Value("${fcms.guest.status-base-url:http://localhost:5173/guest/status}")
-    private String guestStatusBaseUrl;
 
     @Override
     @Transactional
@@ -200,10 +201,16 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
             registration.setAmountPaid(BigDecimal.ZERO);
         }
         registration.setUpdatedAt(now);
-        guestEventRegistrationRepository.save(registration);
-        registrationNotificationService.notifyGuestRegistrationStatus(registration);
-        if (PaymentStatus.PENDING.equals(registration.getPaymentStatus())) {
-            sendPaymentContinuationEmail(registration, event, guestReference);
+        boolean sendPaymentInstruction = PaymentStatus.PENDING.equals(registration.getPaymentStatus())
+                && registration.getPaymentInstructionSentAt() == null;
+        if (sendPaymentInstruction) {
+            registration.setPaymentInstructionSentAt(now);
+        }
+        GuestEventRegistration savedRegistration = guestEventRegistrationRepository.save(registration);
+        registrationNotificationService.notifyGuestRegistrationStatus(savedRegistration);
+        if (sendPaymentInstruction) {
+            sendAfterCommit(() -> guestPaymentEmailService.sendPaymentInstruction(
+                    savedRegistration, event, guestReference));
         }
 
         return new GuestOtpVerifyResponse(
@@ -273,6 +280,9 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
         registration.setCancelledAt(now);
         registration.setTicketRevokedAt(now);
+        if (PaymentStatus.PAID.equals(registration.getPaymentStatus())) {
+            registration.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+        }
         registration.setCancellationReason(reason == null || reason.isBlank() ? null : reason.trim());
         registration.setCancellationSource("PARTICIPANT");
         registration.setUpdatedAt(now);
@@ -307,18 +317,27 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
             registration.setTicketRevokedAt(now);
             registration.setCancellationSource("PAYMENT_TIMEOUT");
             registration.setCancellationReason("Payment reservation expired.");
+            registration.setPaymentExpiredEmailSentAt(now);
             registration.setUpdatedAt(now);
             GuestEventRegistration expired = guestEventRegistrationRepository.save(registration);
             registrationAllocationService.promoteWaitlisted(event.getEventID(), event.getMaxParticipants());
             registrationNotificationService.notifyGuestRegistrationStatus(expired);
+            sendAfterCommit(() -> guestPaymentEmailService.sendPaymentExpired(expired, event));
             return toStatus(expired);
         }
         registration.setPaymentStatus(PaymentStatus.AWAITING_VERIFICATION);
         registration.setPaymentMethod(PaymentMethod.BANK_TRANSFER);
         registration.setPaymentSubmittedAt(now);
         registration.setPaymentRejectionReason(null);
+        boolean sendVerificationEmail = registration.getPaymentVerificationEmailSentAt() == null;
+        if (sendVerificationEmail) {
+            registration.setPaymentVerificationEmailSentAt(now);
+        }
         registration.setUpdatedAt(now);
         GuestEventRegistration saved = guestEventRegistrationRepository.save(registration);
+        if (sendVerificationEmail) {
+            sendAfterCommit(() -> guestPaymentEmailService.sendVerificationReceived(saved, event));
+        }
         return toStatus(saved);
     }
 
@@ -473,22 +492,22 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         );
     }
 
-    private void sendPaymentContinuationEmail(GuestEventRegistration registration, Event event, String guestReference) {
-        String base = guestStatusBaseUrl == null || guestStatusBaseUrl.isBlank()
-                ? "http://localhost:5173/guest/status" : guestStatusBaseUrl.replaceAll("/+$", "");
-        String link = base + "/" + guestReference;
-        emailService.sendSimpleEmail(
-                registration.getGuestEmail(),
-                "Tiep tuc thanh toan - " + event.getEventName(),
-                "Cho cua ban dang duoc giu den " + registration.getPaymentExpiresAt() + ".\n"
-                        + "Ma dang ky: " + registration.getRegistrationCode() + "\n"
-                        + "So tien: " + registration.getAmountDue() + " " + registration.getPaymentCurrency() + "\n"
-                        + "Tiep tuc thanh toan: " + link);
-    }
-
     private GuestEventRegistration findByReference(String guestReference) {
         return guestEventRegistrationRepository.findByGuestReferenceHashAndIsDeletedFalse(hash(guestReference))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "GUEST_REFERENCE_INVALID"));
+    }
+
+    private void sendAfterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
     }
 
     private GuestRegistrationStatusResponse toStatus(GuestEventRegistration registration) {

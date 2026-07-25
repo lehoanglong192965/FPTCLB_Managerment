@@ -34,6 +34,8 @@ public interface EmailService {
      */
     void sendSimpleEmail(String to, String subject, String content);
 
+    void sendSimpleEmail(String to, String subject, String content, String secretToRedact);
+
     void sendEventTicketConfirmationEmail(
             String email, String fullName, String eventName,
             LocalDateTime startDate, LocalDateTime endDate, String location,

@@ -39,7 +39,11 @@ public class RegistrationCloseScheduler extends BaseScheduler {
             List<Event> openEvents = eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_REGISTRATION_OPEN);
 
             for (Event event : openEvents) {
-                if (event.getRegistrationCloseAt() == null || event.getRegistrationCloseAt().isAfter(now)) {
+                boolean closeTimeReached = event.getRegistrationCloseAt() != null
+                        && !event.getRegistrationCloseAt().isAfter(now);
+                boolean eventStartReached = event.getStartDate() != null
+                        && !event.getStartDate().isAfter(now);
+                if (!closeTimeReached && !eventStartReached) {
                     continue;
                 }
                 try {
