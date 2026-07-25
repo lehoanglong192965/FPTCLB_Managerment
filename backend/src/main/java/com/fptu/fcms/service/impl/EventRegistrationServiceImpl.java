@@ -169,6 +169,9 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
         registration.setIsDeleted(false);
         EventRegistration saved = registrationRepo.save(registration);
+        if (StringUtils.hasText(saved.getTicketCode())) {
+            sendTicketEmailAfterCommit(saved, event);
+        }
         return new EventRegistrationResultResponse(
                 saved.getRegistrationID(), saved.getRegistrationStatus(), saved.getPaymentStatus(),
                 saved.getAmountDue(), saved.getPaymentCurrency(), saved.getPaymentReference(),
@@ -575,6 +578,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 event.getStartDate(),
                 event.getEndDate(),
                 event.getLocation(),
+                event.getVenueName(),
                 event.getBannerUrl(),
                 event.getEventStatus(),
                 status,

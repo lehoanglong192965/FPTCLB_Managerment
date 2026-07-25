@@ -11,7 +11,7 @@ export default function DashboardFilterBar({
   loading,
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end gap-3 rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
+    <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
       <label className="flex min-w-[220px] flex-1 flex-col gap-1 text-xs font-semibold text-gray-500">
         CLB
         <select

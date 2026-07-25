@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Save } from "lucide-react";
-import { translateDecision, translateDashboardText } from "../../utils/dashboardTranslations";
+import { decisionTone, translateDecision, translateDashboardText } from "../../utils/dashboardTranslations";
+import { toneClasses } from "./statusTone";
 
 const DECISIONS = [
   "Continue",
@@ -24,6 +25,7 @@ function initialForm(evaluation, suggestion) {
 
 export default function EvaluationPanel({ dashboard, canEdit, onSave, saving }) {
   const [form, setForm] = useState(() => initialForm(dashboard?.latestEvaluation, dashboard?.suggestedDecision));
+  const suggestionTone = toneClasses(decisionTone(dashboard?.suggestedDecision?.decision));
 
   const update = (field) => (event) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
@@ -36,9 +38,12 @@ export default function EvaluationPanel({ dashboard, canEdit, onSave, saving }) 
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-        <p className="m-0 text-xs font-semibold uppercase tracking-wide text-gray-500">Đề xuất hệ thống</p>
-        <p className="m-0 mt-1 text-xl font-bold text-gray-900">{translateDecision(dashboard?.suggestedDecision?.decision)}</p>
+      <div className={`rounded-xl border ${suggestionTone.border} ${suggestionTone.bg} p-4`}>
+        <p className={`m-0 text-[11px] font-semibold uppercase tracking-wide ${suggestionTone.text} opacity-80`}>Đề xuất hệ thống</p>
+        <p className={`m-0 mt-1 flex items-center gap-1.5 text-xl font-bold ${suggestionTone.text}`}>
+          <span className={`h-2 w-2 rounded-full ${suggestionTone.dot}`} />
+          {translateDecision(dashboard?.suggestedDecision?.decision)}
+        </p>
         <p className="m-0 mt-1 text-sm text-gray-500">{translateDashboardText(dashboard?.suggestedDecision?.confidenceNote)}</p>
       </div>
 

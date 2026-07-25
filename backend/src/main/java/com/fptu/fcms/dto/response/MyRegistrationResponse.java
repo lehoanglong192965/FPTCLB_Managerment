@@ -21,6 +21,7 @@ public class MyRegistrationResponse {
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private String location;
+    private String venueName;
     private String bannerUrl;
     private EventStatus eventStatus;
     private RegistrationStatus registrationStatus;
