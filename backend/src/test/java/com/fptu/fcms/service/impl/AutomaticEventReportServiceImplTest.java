@@ -34,6 +34,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+/**
+ * Lớp Unit Test cho AutomaticEventReportServiceImpl.
+ * Layer: Test (Unit Test).
+ * Trách nhiệm chính: Kiểm thử luồng xử lý nộp báo cáo sự kiện tự động (getAutoData, previewAuto, submitAuto), bao gồm phân quyền cán bộ CLB, tính toán chỉ số, xuất PDF/CSV, tải lên Cloudinary storage, đóng dấu SHA-256 mã băm minh chứng và khởi tạo đợt tính điểm đóng góp (ContributionBatch).
+ * 
+ * Đầu vào: Mock dependencies (EventRepository, EventReportRepository, EventReportingDatasetService, EventReportCalculationService, EventReportPdfRenderer, EventExportService, DocumentStorageService, EventAssignmentAccessService).
+ * Đầu ra: Kết quả xem trước PDF/Snapshot, kết quả nộp báo cáo hoàn chỉnh (EventReport entity) và kiểm tra tương tác mock (Mockito verify).
+ */
 @ExtendWith(MockitoExtension.class)
 class AutomaticEventReportServiceImplTest {
 

@@ -19,6 +19,14 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Lớp Unit Test cho EventReportPdfRendererImpl.
+ * Layer: Test (Unit Test).
+ * Trách nhiệm chính: Kiểm thử khả năng biên dịch mẫu HTML (Thymeleaf) và xuất ra file PDF hoàn chỉnh (OpenHTMLtoPDF), xác minh hỗ trợ hiển thị tiếng Việt Unicode, cấu trúc PDF hợp lệ và nội dung trích xuất chính xác.
+ * 
+ * Đầu vào: EventReportSnapshot, AutomaticEventReportRequest (nhận xét), EvidenceMetadata, tên người nộp.
+ * Đầu ra: Mảng byte PDF (%PDF-...) và nội dung văn bản trích xuất kiểm tra chứa đúng tiêu đề & thông tin sự kiện.
+ */
 class EventReportPdfRendererImplTest {
 
     private EventReportPdfRendererImpl pdfRenderer;

@@ -23,6 +23,14 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Lớp Unit Test cho EventReportCalculationServiceImpl.
+ * Layer: Test (Unit Test).
+ * Trách nhiệm chính: Kiểm thử toàn bộ logic tính toán chỉ số báo cáo sự kiện (RegistrationMetrics, TicketMetrics, PaymentMetrics, AttendanceMetrics, FeedbackMetrics, Warning & Readiness), đảm bảo tỷ lệ %, tổng doanh thu, tỷ lệ điểm danh và cảnh báo dữ liệu được tính toán chính xác theo công thức nghiệp vụ.
+ * 
+ * Đầu vào: EventReportingDataset (đã gom nhóm dữ liệu sự kiện, đăng ký, vé, điểm danh, thanh toán, feedback).
+ * Đầu ra: EventReportSnapshot chứa đầy đủ các nhóm chỉ số đã được tính toán và kiểm chứng qua các assertion JUnit 5.
+ */
 class EventReportCalculationServiceImplTest {
 
     private EventReportCalculationServiceImpl calculationService;
