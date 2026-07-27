@@ -1,3 +1,9 @@
+/**
+ * Trang / Component nộp báo cáo tổng kết sự kiện cho Trưởng/Phó CLB.
+ * Layer: Frontend Page Component.
+ * Trách nhiệm chính: Hỗ trợ 2 luồng nộp báo cáo (Tự động & Upload PDF thủ công). Hiển thị bảng tổng hợp chỉ số, cảnh báo độ sẵn sàng, cho phép nhập 6 mục nhận xét, xem trước PDF trực tiếp và nộp báo cáo chính thức.
+ * Gọi API: reportApi (getAutoData, previewAuto, submitAuto, getByEventId, submitReport) và eventApi (exportRegistrations, exportAttendance).
+ */
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FileText, Upload, ArrowLeft, CheckCircle2, AlertCircle, RefreshCw, Download, Eye, Sparkles, AlertTriangle, ShieldCheck, X } from 'lucide-react';

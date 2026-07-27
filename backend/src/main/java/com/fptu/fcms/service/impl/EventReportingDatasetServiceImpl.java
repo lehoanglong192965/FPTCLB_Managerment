@@ -30,6 +30,12 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * Lớp triển khai dịch vụ nạp bộ dữ liệu thô (dataset) của sự kiện từ CSDL.
+ * Layer: Service Implementation.
+ * Trách nhiệm chính: Thực hiện truy vấn CSDL 1 lần duy nhất để nạp đầy đủ thông tin sự kiện, danh sách đăng ký SV/Khách, phiên & bản ghi điểm danh, đánh giá feedback và map thông tin lịch sử người dùng.
+ * Phụ thuộc trong luồng báo cáo tự động: Được gọi đầu tiên bởi AutomaticEventReportServiceImpl. Bộ dữ liệu nạp ra (EventReportingDataset) sẽ được dùng chung cho cả EventReportCalculationService (tính snapshot) và EventExportService (xuất CSV) nhằm tối ưu hiệu năng và tránh n+1 query.
+ */
 @Service
 @RequiredArgsConstructor
 public class EventReportingDatasetServiceImpl implements EventReportingDatasetService {

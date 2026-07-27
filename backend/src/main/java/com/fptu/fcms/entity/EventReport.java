@@ -8,6 +8,12 @@ import org.hibernate.annotations.SQLRestriction;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
 
+/**
+ * Thực thể JPA đại diện cho bảng EventReport trong CSDL SQL Server.
+ * Layer: Entity.
+ * Trách nhiệm chính: Ánh xạ cấu trúc dữ liệu lưu trữ báo cáo tổng kết sự kiện (URL file PDF, Cloudinary Public ID, file minh chứng CSV đăng ký/điểm danh, hash mã băm, trạng thái UPLOADED/APPROVED/REJECTED, lý do từ chối, v.v.).
+ * Phụ thuộc/Sử dụng: Được quản lý bởi EventReportRepository, được truy vấn và lưu bởi AutomaticEventReportServiceImpl và ReportUploadServiceImpl.
+ */
 @Entity
 @SQLRestriction("isDeleted = false")
 @Table(name = "EventReport")

@@ -16,6 +16,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+/**
+ * Lớp triển khai dịch vụ dựng (render) file PDF báo cáo tổng kết sự kiện.
+ * Layer: Service Implementation.
+ * Trách nhiệm chính: Kết hợp dữ liệu snapshot, nội dung nhận xét của Ban tổ chức, thông tin minh chứng và font chữ tiếng Việt Arial (Unicode) để biên dịch Thymeleaf HTML template thành file PDF chuẩn hóa qua thư viện OpenHTMLtoPDF.
+ * Phụ thuộc trong luồng báo cáo tự động: Được gọi bởi AutomaticEventReportServiceImpl khi người dùng xem trước (preview) hoặc nộp chính thức (submit) báo cáo tự động.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j

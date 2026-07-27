@@ -22,6 +22,14 @@ import org.springframework.web.bind.annotation.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+/**
+ * Controller tiếp nhận các yêu cầu HTTP liên quan đến báo cáo sự kiện (tự động và thủ công).
+ * Layer: Controller.
+ * Trách nhiệm chính: Phân quyền truy cập bằng @PreAuthorize, tiếp nhận request từ Frontend, chuyển tiếp xuống AutomaticEventReportService hoặc ReportUploadService để xử lý nghiệp vụ, trả về kết quả JSON/PDF HTTP Response.
+ * 
+ * Đầu vào: Path variable (eventId), Request body (AutomaticEventReportRequest, CreateEventReportRequest), JWT token (UserPrincipal).
+ * Đầu ra: EventReportSnapshot, file PDF byte array, EventReportStatisticsResponse, hoặc Map thông báo kết quả.
+ */
 @RestController
 @RequestMapping("/api/v1/reports")
 @RequiredArgsConstructor
@@ -61,6 +69,12 @@ public class ReportController {
 
     // ── AUTOMATIC REPORTING ENDPOINTS ───────────────────────────────────
 
+    /**
+     * Lấy dữ liệu snapshot tự động của sự kiện để hiển thị giao diện nộp báo cáo.
+     * @param eventId ID của sự kiện
+     * @param currentUser Thông tin người dùng hiện tại từ JWT
+     * @return ResponseEntity chứa EventReportSnapshot
+     */
     @GetMapping("/event/{eventId}/auto-data")
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
     public ResponseEntity<EventReportSnapshot> getAutoData(
@@ -69,6 +83,13 @@ public class ReportController {
         return ResponseEntity.ok(automaticEventReportService.getAutoData(eventId, currentUser));
     }
 
+    /**
+     * Tạo file PDF báo cáo xem trước trực tiếp trên trình duyệt.
+     * @param eventId ID của sự kiện
+     * @param request Nhận xét của Ban tổ chức
+     * @param currentUser Thông tin người dùng hiện tại từ JWT
+     * @return ResponseEntity chứa mảng byte của file PDF
+     */
     @PostMapping(value = "/event/{eventId}/auto-preview", produces = MediaType.APPLICATION_PDF_VALUE)
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
     public ResponseEntity<byte[]> previewAuto(
@@ -87,6 +108,13 @@ public class ReportController {
         return ResponseEntity.ok().headers(headers).body(pdfBytes);
     }
 
+    /**
+     * Nộp chính thức báo cáo tự động cho sự kiện.
+     * @param eventId ID của sự kiện
+     * @param request Nhận xét của Ban tổ chức
+     * @param currentUser Thông tin người dùng hiện tại từ JWT
+     * @return ResponseEntity chứa thông báo kết quả nộp báo cáo
+     */
     @PostMapping("/event/{eventId}/auto-submit")
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
     public ResponseEntity<Map<String, String>> submitAuto(

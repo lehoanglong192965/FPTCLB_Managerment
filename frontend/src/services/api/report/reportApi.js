@@ -1,3 +1,9 @@
+/**
+ * Module API Client xử lý các cuộc gọi API liên quan tới Báo cáo sự kiện (thủ công & tự động).
+ * Layer: Frontend API Service.
+ * Trách nhiệm chính: Khai báo các hàm gọi HTTP Axios Client tới Backend ReportController (/api/v1/reports).
+ * Các phương thức chính: getByEventId, getStatistics, submit, resubmit, getAutoData, previewAuto, submitAuto.
+ */
 import axiosClient from "../axiosClient";
 
 // ReportController: /api/v1/reports

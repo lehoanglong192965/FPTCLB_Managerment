@@ -5,6 +5,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Data Transfer Object (DTO) đại diện cho toàn bộ số liệu snapshot tổng hợp của một sự kiện tại thời điểm lập báo cáo.
+ * Layer: DTO.
+ * Trách nhiệm chính: Đóng gói đầy đủ các chỉ số thống kê (thông tin sự kiện, đăng ký, vé, tài chính, điểm danh, đánh giá, cảnh báo và độ sẵn sàng nộp báo cáo).
+ * Phụ thuộc/Sử dụng: Được tính toán bởi EventReportCalculationService từ EventReportingDataset, sau đó được trả về cho Frontend hoặc truyền sang EventReportPdfRenderer để render file PDF.
+ */
 public record EventReportSnapshot(
         EventOverview event,
         RegistrationMetrics registrations,

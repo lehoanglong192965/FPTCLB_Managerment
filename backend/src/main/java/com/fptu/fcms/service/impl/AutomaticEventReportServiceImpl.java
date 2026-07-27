@@ -44,6 +44,17 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Lớp triển khai các dịch vụ báo cáo tổng kết sự kiện tự động.
+ * Layer: Service Implementation.
+ * Trách nhiệm chính: Điều phối luồng nghiệp vụ tạo báo cáo tự động (lấy snapshot dữ liệu, xem trước PDF, nộp chính thức báo cáo kèm 2 file CSV minh chứng, tính toán mã băm SHA-256, đẩy file lên Cloudinary và cập nhật CSDL).
+ * Phụ thuộc trong luồng báo cáo tự động:
+ * - Gọi EventReportingDatasetService để load bộ dữ liệu thô (dataset) 1 lần duy nhất từ CSDL.
+ * - Truyền dataset cho EventReportCalculationService để tính toán số liệu snapshot.
+ * - Truyền dataset cho EventExportService để xuất 2 file CSV minh chứng (đăng ký & điểm danh).
+ * - Truyền snapshot và thông tin minh chứng cho EventReportPdfRenderer để dựng file PDF.
+ * - Sử dụng DocumentStorageService để lưu các file lên Cloudinary.
+ */
 @Service
 @Slf4j
 public class AutomaticEventReportServiceImpl implements AutomaticEventReportService {
@@ -80,6 +91,12 @@ public class AutomaticEventReportServiceImpl implements AutomaticEventReportServ
         this.objectMapper = objectMapper != null ? objectMapper.copy().findAndRegisterModules() : new ObjectMapper().findAndRegisterModules();
     }
 
+    /**
+     * Lấy dữ liệu snapshot tự động của sự kiện sau khi kiểm tra quyền truy cập và trạng thái sự kiện hợp lệ.
+     * @param eventId ID của sự kiện
+     * @param currentUser Thông tin người dùng hiện tại
+     * @return EventReportSnapshot chứa các chỉ số thống kê
+     */
     @Override
     @Transactional(readOnly = true)
     public EventReportSnapshot getAutoData(Integer eventId, UserPrincipal currentUser) {
@@ -92,6 +109,13 @@ public class AutomaticEventReportServiceImpl implements AutomaticEventReportServ
         return calculationService.calculateSnapshot(dataset);
     }
 
+    /**
+     * Tạo mảng byte của file PDF xem trước báo cáo tự động mà không lưu vào CSDL hay Cloudinary.
+     * @param eventId ID của sự kiện
+     * @param request Nội dung nhận xét của Ban tổ chức
+     * @param currentUser Thông tin người dùng hiện tại
+     * @return Mảng byte đại diện cho file PDF
+     */
     @Override
     @Transactional(readOnly = true)
     public byte[] previewAuto(Integer eventId, AutomaticEventReportRequest request, UserPrincipal currentUser) {
@@ -127,6 +151,13 @@ public class AutomaticEventReportServiceImpl implements AutomaticEventReportServ
         return pdfRenderer.renderPdf(snapshot, request, evidenceMetadata, authorName);
     }
 
+    /**
+     * Nộp chính thức báo cáo tự động: xuất file PDF và 2 file CSV minh chứng, tính mã băm SHA-256, tải file lên Cloudinary và lưu thông tin vào bảng EventReport.
+     * @param eventId ID của sự kiện
+     * @param request Nội dung nhận xét của Ban tổ chức
+     * @param currentUser Thông tin người dùng hiện tại
+     * @return Map chứa thông báo thành công và URL của báo cáo
+     */
     @Override
     @Transactional
     public Map<String, String> submitAuto(Integer eventId, AutomaticEventReportRequest request, UserPrincipal currentUser) {

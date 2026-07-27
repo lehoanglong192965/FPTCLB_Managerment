@@ -32,6 +32,12 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * Lớp triển khai dịch vụ xuất dữ liệu đăng ký và điểm danh sự kiện sang CSV.
+ * Layer: Service Implementation.
+ * Trách nhiệm chính: Định dạng dữ liệu đăng ký (SV FPTU + Khách ngoài) và chi tiết các phiên điểm danh thành chuỗi CSV chuẩn UTF-8 (kèm BOM để mở Excel không lỗi font tiếng Việt).
+ * Phụ thuộc trong luồng báo cáo tự động: Tái sử dụng dữ liệu từ EventReportingDataset do EventReportingDatasetService nạp sẵn, không tự query lại CSDL khi tạo báo cáo tự động.
+ */
 @Service
 @RequiredArgsConstructor
 public class EventExportServiceImpl implements EventExportService {

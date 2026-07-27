@@ -31,6 +31,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Lớp triển khai dịch vụ tính toán số liệu snapshot cho báo cáo sự kiện.
+ * Layer: Service Implementation.
+ * Trách nhiệm chính: Thực hiện thuần túy các thuật toán tính toán thống kê (đăng ký, tham dự, tài chính, vé, đánh giá, phát hiện cảnh báo bất thường và đánh giá độ sẵn sàng nộp báo cáo).
+ * Phụ thuộc trong luồng báo cáo tự động: Nhận vào EventReportingDataset do EventReportingDatasetService nạp sẵn, hoàn toàn xử lý tính toán trên RAM mà không thực hiện bất kỳ truy vấn CSDL nào.
+ */
 @Service
 @RequiredArgsConstructor
 public class EventReportCalculationServiceImpl implements EventReportCalculationService {

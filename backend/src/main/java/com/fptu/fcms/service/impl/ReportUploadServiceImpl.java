@@ -41,6 +41,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Lớp triển khai dịch vụ tải lên báo cáo tổng kết sự kiện thủ công và tra cứu thống kê báo cáo.
+ * Layer: Service Implementation.
+ * Trách nhiệm chính: Xử lý upload file PDF báo cáo thủ công từ máy người dùng (quét virus bằng ClamAV, upload Cloudinary, tự động trích xuất minh chứng CSV đăng ký/điểm danh, lưu CSDL), tra cứu báo cáo theo eventId và thống kê báo cáo cho ICPDP/Leader.
+ * Phụ thuộc/Sử dụng: Được gọi bởi ReportController cho các luồng làm việc với báo cáo thủ công.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
