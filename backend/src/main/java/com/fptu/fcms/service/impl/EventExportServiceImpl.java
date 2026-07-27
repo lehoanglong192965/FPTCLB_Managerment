@@ -1,5 +1,6 @@
 package com.fptu.fcms.service.impl;
 
+import com.fptu.fcms.dto.reporting.EventReportingDataset;
 import com.fptu.fcms.dto.response.CsvExportResult;
 import com.fptu.fcms.entity.AttendanceRecord;
 import com.fptu.fcms.entity.AttendanceSession;
@@ -58,6 +59,93 @@ public class EventExportServiceImpl implements EventExportService {
                 guestEventRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId);
         Map<Integer, HistoricalUserView> usersById = historicalUsersById(collectUserIds(registrations));
 
+        List<RegistrationExportRow> rows = buildRegistrationExportRows(registrations, guestRegistrations, usersById, canViewGuestContact);
+        auditExport(currentUser, eventId, "EVENT_REGISTRATIONS_EXPORTED", rows.size());
+        return new CsvExportResult(toCsv(buildRegistrationCsvRows(rows)), rows.size());
+    }
+
+    @Override
+    public CsvExportResult exportRegistrations(EventReportingDataset dataset) {
+        return exportRegistrations(dataset, true);
+    }
+
+    @Override
+    public CsvExportResult exportRegistrations(EventReportingDataset dataset, boolean canViewGuestContact) {
+        List<EventRegistration> registrations = dataset.registrations() != null ? dataset.registrations() : List.of();
+        List<GuestEventRegistration> guestRegistrations = dataset.guestRegistrations() != null ? dataset.guestRegistrations() : List.of();
+        Map<Integer, HistoricalUserView> usersById = dataset.usersById() != null ? dataset.usersById() : Map.of();
+
+        List<RegistrationExportRow> rows = buildRegistrationExportRows(registrations, guestRegistrations, usersById, canViewGuestContact);
+        return new CsvExportResult(toCsv(buildRegistrationCsvRows(rows)), rows.size());
+    }
+
+    @Override
+    @Transactional
+    public CsvExportResult exportAttendance(Integer eventId, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+
+        List<AttendanceSession> sessions =
+                attendanceSessionRepository.findByEventIDAndIsDeletedFalseOrderByCheckInTimeAsc(eventId);
+        if (sessions.isEmpty()) {
+            auditExport(currentUser, eventId, "EVENT_ATTENDANCE_EXPORTED", 0);
+            return new CsvExportResult(toCsv(List.of(buildAttendanceHeaderRow())), 0);
+        }
+
+        Map<Integer, AttendanceSession> sessionsById = sessions.stream()
+                .filter(session -> session.getSessionID() != null)
+                .collect(Collectors.toMap(AttendanceSession::getSessionID, Function.identity(), (first, ignored) -> first));
+
+        List<AttendanceRecord> records = attendanceRecordRepository
+                .findBySessionIDInAndIsDeletedFalse(new ArrayList<>(sessionsById.keySet()));
+        Map<Integer, HistoricalUserView> usersById = historicalUsersById(collectAttendanceUserIds(records));
+        Map<Integer, EventRegistration> registrationsById = eventRegistrationRepository
+                .findByEventIDAndIsDeletedFalse(eventId)
+                .stream()
+                .filter(r -> r.getRegistrationID() != null)
+                .collect(Collectors.toMap(EventRegistration::getRegistrationID, Function.identity(), (first, ignored) -> first));
+        Map<Integer, GuestEventRegistration> guestRegistrationsById = guestEventRegistrationRepository
+                .findByEventIDAndIsDeletedFalse(eventId)
+                .stream()
+                .filter(g -> g.getGuestRegistrationID() != null)
+                .collect(Collectors.toMap(GuestEventRegistration::getGuestRegistrationID, Function.identity(), (first, ignored) -> first));
+
+        List<AttendanceExportRow> rows = buildAttendanceExportRows(records, sessionsById, usersById, registrationsById, guestRegistrationsById);
+        auditExport(currentUser, eventId, "EVENT_ATTENDANCE_EXPORTED", rows.size());
+        return new CsvExportResult(toCsv(buildAttendanceCsvRows(rows)), rows.size());
+    }
+
+    @Override
+    public CsvExportResult exportAttendance(EventReportingDataset dataset) {
+        List<AttendanceSession> sessions = dataset.attendanceSessions() != null ? dataset.attendanceSessions() : List.of();
+        List<AttendanceRecord> records = dataset.attendanceRecords() != null ? dataset.attendanceRecords() : List.of();
+        Map<Integer, HistoricalUserView> usersById = dataset.usersById() != null ? dataset.usersById() : Map.of();
+
+        if (sessions.isEmpty()) {
+            return new CsvExportResult(toCsv(List.of(buildAttendanceHeaderRow())), 0);
+        }
+
+        Map<Integer, AttendanceSession> sessionsById = sessions.stream()
+                .filter(s -> s.getSessionID() != null)
+                .collect(Collectors.toMap(AttendanceSession::getSessionID, Function.identity(), (first, ignored) -> first));
+
+        Map<Integer, EventRegistration> registrationsById = dataset.registrations() == null ? Map.of() :
+                dataset.registrations().stream().filter(r -> r.getRegistrationID() != null)
+                        .collect(Collectors.toMap(EventRegistration::getRegistrationID, Function.identity(), (first, ignored) -> first));
+
+        Map<Integer, GuestEventRegistration> guestRegistrationsById = dataset.guestRegistrations() == null ? Map.of() :
+                dataset.guestRegistrations().stream().filter(g -> g.getGuestRegistrationID() != null)
+                        .collect(Collectors.toMap(GuestEventRegistration::getGuestRegistrationID, Function.identity(), (first, ignored) -> first));
+
+        List<AttendanceExportRow> rows = buildAttendanceExportRows(records, sessionsById, usersById, registrationsById, guestRegistrationsById);
+        return new CsvExportResult(toCsv(buildAttendanceCsvRows(rows)), rows.size());
+    }
+
+    private List<RegistrationExportRow> buildRegistrationExportRows(
+            List<EventRegistration> registrations,
+            List<GuestEventRegistration> guestRegistrations,
+            Map<Integer, HistoricalUserView> usersById,
+            boolean canViewGuestContact
+    ) {
         List<RegistrationExportRow> rows = new ArrayList<>();
         int sortIndex = 0;
         for (EventRegistration registration : registrations) {
@@ -126,127 +214,48 @@ public class EventExportServiceImpl implements EventExportService {
                 .thenComparing(RegistrationExportRow::fullName)
                 .thenComparingInt(RegistrationExportRow::sortIndex));
 
+        return rows;
+    }
+
+    private List<List<String>> buildRegistrationCsvRows(List<RegistrationExportRow> rows) {
         List<List<String>> csvRows = new ArrayList<>();
         csvRows.add(List.of(
-                "MSSV",
-                "H\u1ecd t\u00ean",
-                "Email",
-                "Lo\u1ea1i ng\u01b0\u1eddi tham gia",
-                "Tr\u1ea1ng th\u00e1i",
-                "Th\u1eddi \u0111i\u1ec3m \u0111\u0103ng k\u00fd",
-                "K\u00eanh",
-                "Tr\u1ea1ng th\u00e1i thanh to\u00e1n",
-                "S\u1ed1 ti\u1ec1n ph\u1ea3i tr\u1ea3",
-                "S\u1ed1 ti\u1ec1n \u0111\u00e3 tr\u1ea3",
-                "Ti\u1ec1n t\u1ec7",
-                "Ph\u01b0\u01a1ng th\u1ee9c thanh to\u00e1n",
-                "M\u00e3 \u0111\u1ed1i chi\u1ebfu giao d\u1ecbch",
-                "Th\u1eddi \u0111i\u1ec3m thanh to\u00e1n",
-                "M\u00e3 v\u00e9",
-                "M\u00e3 \u0111\u01a1n v\u00e9",
-                "Email ng\u01b0\u1eddi mua",
-                "Th\u1eddi \u0111i\u1ec3m c\u1ea5p v\u00e9",
-                "Th\u1eddi \u0111i\u1ec3m thu h\u1ed3i v\u00e9",
-                "Tr\u01b0\u1eddng/T\u1ed5 ch\u1ee9c",
-                "Ngu\u1ed3n bi\u1ebft \u0111\u1ebfn",
-                "Th\u1eddi \u0111i\u1ec3m h\u1ee7y \u0111\u0103ng k\u00fd"
+                "MSSV", "Họ tên", "Email", "Loại người tham gia", "Trạng thái", "Thời điểm đăng ký",
+                "Kênh", "Trạng thái thanh toán", "Số tiền phải trả", "Số tiền đã trả", "Tiền tệ",
+                "Phương thức thanh toán", "Mã đối chiếu giao dịch", "Thời điểm thanh toán", "Mã vé",
+                "Mã đơn vé", "Email người mua", "Thời điểm cấp vé", "Thời điểm thu hồi vé",
+                "Trường/Tổ chức", "Nguồn biết đến", "Thời điểm hủy đăng ký"
         ));
         for (RegistrationExportRow row : rows) {
             csvRows.add(List.of(
-                    row.studentId(),
-                    row.fullName(),
-                    row.email(),
-                    row.participantType(),
-                    row.status(),
-                    formatDateTime(row.registeredAt()),
-                    row.registrationChannel(),
-                    row.paymentStatus(),
-                    row.amountDue(),
-                    row.amountPaid(),
-                    row.paymentCurrency(),
-                    row.paymentMethod(),
-                    row.paymentReference(),
-                    formatDateTime(row.paidAt()),
-                    row.ticketCode(),
-                    row.ticketOrderCode(),
-                    row.purchaserEmail(),
-                    formatDateTime(row.ticketIssuedAt()),
-                    formatDateTime(row.ticketRevokedAt()),
-                    row.schoolOrOrganization(),
-                    row.discoverySource(),
-                    formatDateTime(row.cancelledAt())
+                    row.studentId(), row.fullName(), row.email(), row.participantType(), row.status(),
+                    formatDateTime(row.registeredAt()), row.registrationChannel(), row.paymentStatus(),
+                    row.amountDue(), row.amountPaid(), row.paymentCurrency(), row.paymentMethod(),
+                    row.paymentReference(), formatDateTime(row.paidAt()), row.ticketCode(),
+                    row.ticketOrderCode(), row.purchaserEmail(), formatDateTime(row.ticketIssuedAt()),
+                    formatDateTime(row.ticketRevokedAt()), row.schoolOrOrganization(),
+                    row.discoverySource(), formatDateTime(row.cancelledAt())
             ));
         }
-
-        auditExport(currentUser, eventId, "EVENT_REGISTRATIONS_EXPORTED", rows.size());
-        return new CsvExportResult(toCsv(csvRows), rows.size());
+        return csvRows;
     }
 
-    @Override
-    @Transactional
-    public CsvExportResult exportAttendance(Integer eventId, UserPrincipal currentUser) {
-        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
-
-        List<AttendanceSession> sessions =
-                attendanceSessionRepository.findByEventIDAndIsDeletedFalseOrderByCheckInTimeAsc(eventId);
-        if (sessions.isEmpty()) {
-            auditExport(currentUser, eventId, "EVENT_ATTENDANCE_EXPORTED", 0);
-            return new CsvExportResult(toCsv(List.of(List.of(
-                    "Phi\u00ean \u0111i\u1ec3m danh",
-                    "MSSV",
-                    "H\u1ecd t\u00ean",
-                    "Lo\u1ea1i ng\u01b0\u1eddi tham gia",
-                    "Tr\u1ea1ng th\u00e1i \u0111i\u1ec3m danh",
-                    "Th\u1eddi \u0111i\u1ec3m check-in",
-                    "H\u00ecnh th\u1ee9c \u0111i\u1ec3m danh",
-                    "Ph\u01b0\u01a1ng th\u1ee9c x\u00e1c minh",
-                    "Ng\u01b0\u1eddi \u0111i\u1ec3m danh"
-            ))), 0);
-        }
-
-        Map<Integer, AttendanceSession> sessionsById = sessions.stream()
-                .filter(session -> session.getSessionID() != null)
-                .collect(Collectors.toMap(
-                        AttendanceSession::getSessionID,
-                        Function.identity(),
-                        (first, ignored) -> first
-                ));
-        List<AttendanceRecord> records = attendanceRecordRepository
-                .findBySessionIDInAndIsDeletedFalse(new ArrayList<>(sessionsById.keySet()));
-        Map<Integer, HistoricalUserView> usersById = historicalUsersById(collectAttendanceUserIds(records));
-        Map<Integer, EventRegistration> registrationsById = eventRegistrationRepository
-                .findByEventIDAndIsDeletedFalse(eventId)
-                .stream()
-                .filter(registration -> registration.getRegistrationID() != null)
-                .collect(Collectors.toMap(
-                        EventRegistration::getRegistrationID,
-                        Function.identity(),
-                        (first, ignored) -> first
-                ));
-        Map<Integer, GuestEventRegistration> guestRegistrationsById = guestEventRegistrationRepository
-                .findByEventIDAndIsDeletedFalse(eventId)
-                .stream()
-                .filter(registration -> registration.getGuestRegistrationID() != null)
-                .collect(Collectors.toMap(
-                        GuestEventRegistration::getGuestRegistrationID,
-                        Function.identity(),
-                        (first, ignored) -> first
-                ));
-
+    private List<AttendanceExportRow> buildAttendanceExportRows(
+            List<AttendanceRecord> records,
+            Map<Integer, AttendanceSession> sessionsById,
+            Map<Integer, HistoricalUserView> usersById,
+            Map<Integer, EventRegistration> registrationsById,
+            Map<Integer, GuestEventRegistration> guestRegistrationsById
+    ) {
         List<AttendanceExportRow> rows = new ArrayList<>();
         int sortIndex = 0;
         for (AttendanceRecord record : records) {
             AttendanceSession session = sessionsById.get(record.getSessionID());
-            if (session == null) {
-                continue;
-            }
-            AttendanceParticipant participant =
-                    resolveAttendanceParticipant(
-                            record,
-                            usersById,
-                            registrationsById,
-                            guestRegistrationsById
-                    );
+            if (session == null) continue;
+
+            AttendanceParticipant participant = resolveAttendanceParticipant(
+                    record, usersById, registrationsById, guestRegistrationsById
+            );
             HistoricalUserView checkedInBy = record.getCheckedInBy() == null ? null : usersById.get(record.getCheckedInBy());
             rows.add(new AttendanceExportRow(
                     value(session.getSessionName()),
@@ -269,45 +278,34 @@ public class EventExportServiceImpl implements EventExportService {
                 .thenComparing(AttendanceExportRow::sessionName)
                 .thenComparingInt(AttendanceExportRow::sortIndex));
 
+        return rows;
+    }
+
+    private List<List<String>> buildAttendanceCsvRows(List<AttendanceExportRow> rows) {
         List<List<String>> csvRows = new ArrayList<>();
-        csvRows.add(List.of(
-                "Phi\u00ean \u0111i\u1ec3m danh",
-                "MSSV",
-                "H\u1ecd t\u00ean",
-                "Lo\u1ea1i ng\u01b0\u1eddi tham gia",
-                "Tr\u1ea1ng th\u00e1i \u0111i\u1ec3m danh",
-                "Th\u1eddi \u0111i\u1ec3m check-in",
-                "H\u00ecnh th\u1ee9c \u0111i\u1ec3m danh",
-                "Ph\u01b0\u01a1ng th\u1ee9c x\u00e1c minh",
-                "Ng\u01b0\u1eddi \u0111i\u1ec3m danh"
-        ));
+        csvRows.add(buildAttendanceHeaderRow());
         for (AttendanceExportRow row : rows) {
             csvRows.add(List.of(
-                    row.sessionName(),
-                    row.studentId(),
-                    row.fullName(),
-                    row.participantType(),
-                    row.attendanceStatus(),
-                    formatDateTime(row.checkedInAt()),
-                    row.checkInMethod(),
-                    row.verificationMethod(),
-                    row.checkedInBy()
+                    row.sessionName(), row.studentId(), row.fullName(), row.participantType(),
+                    row.attendanceStatus(), formatDateTime(row.checkedInAt()), row.checkInMethod(),
+                    row.verificationMethod(), row.checkedInBy()
             ));
         }
+        return csvRows;
+    }
 
-        auditExport(currentUser, eventId, "EVENT_ATTENDANCE_EXPORTED", rows.size());
-        return new CsvExportResult(toCsv(csvRows), rows.size());
+    private List<String> buildAttendanceHeaderRow() {
+        return List.of(
+                "Phiên điểm danh", "MSSV", "Họ tên", "Loại người tham gia", "Trạng thái điểm danh",
+                "Thời điểm check-in", "Hình thức điểm danh", "Phương thức xác minh", "Người điểm danh"
+        );
     }
 
     private Set<Integer> collectUserIds(List<EventRegistration> registrations) {
         Set<Integer> userIds = new LinkedHashSet<>();
         for (EventRegistration registration : registrations) {
-            if (registration.getUserID() != null) {
-                userIds.add(registration.getUserID());
-            }
-            if (registration.getPurchaserUserID() != null) {
-                userIds.add(registration.getPurchaserUserID());
-            }
+            if (registration.getUserID() != null) userIds.add(registration.getUserID());
+            if (registration.getPurchaserUserID() != null) userIds.add(registration.getPurchaserUserID());
         }
         return userIds;
     }
@@ -315,27 +313,17 @@ public class EventExportServiceImpl implements EventExportService {
     private Set<Integer> collectAttendanceUserIds(List<AttendanceRecord> records) {
         Set<Integer> userIds = new LinkedHashSet<>();
         for (AttendanceRecord record : records) {
-            if (record.getUserID() != null) {
-                userIds.add(record.getUserID());
-            }
-            if (record.getCheckedInBy() != null) {
-                userIds.add(record.getCheckedInBy());
-            }
+            if (record.getUserID() != null) userIds.add(record.getUserID());
+            if (record.getCheckedInBy() != null) userIds.add(record.getCheckedInBy());
         }
         return userIds;
     }
 
     private Map<Integer, HistoricalUserView> historicalUsersById(Set<Integer> userIds) {
-        if (userIds.isEmpty()) {
-            return Map.of();
-        }
+        if (userIds.isEmpty()) return Map.of();
         return userRepository.findHistoricalUsersByIds(userIds).stream()
                 .filter(user -> user.getUserId() != null)
-                .collect(Collectors.toMap(
-                        HistoricalUserView::getUserId,
-                        Function.identity(),
-                        (first, ignored) -> first
-                ));
+                .collect(Collectors.toMap(HistoricalUserView::getUserId, Function.identity(), (first, ignored) -> first));
     }
 
     private AttendanceParticipant resolveAttendanceParticipant(
@@ -354,17 +342,14 @@ public class EventExportServiceImpl implements EventExportService {
             );
         }
 
-        GuestEventRegistration guestRegistration =
-                guestRegistrationsById.get(record.getGuestRegistrationID());
+        GuestEventRegistration guestRegistration = guestRegistrationsById.get(record.getGuestRegistrationID());
         if (guestRegistration == null && record.getRegistrationID() != null) {
             EventRegistration legacyGuestRegistration = registrationsById.get(record.getRegistrationID());
             if (legacyGuestRegistration != null) {
                 return new AttendanceParticipant(
                         "",
                         value(legacyGuestRegistration.getGuestFullName()),
-                        snapshotParticipantType.isBlank()
-                                ? registrationParticipantType(legacyGuestRegistration)
-                                : snapshotParticipantType
+                        snapshotParticipantType.isBlank() ? registrationParticipantType(legacyGuestRegistration) : snapshotParticipantType
                 );
             }
         }
@@ -372,18 +357,14 @@ public class EventExportServiceImpl implements EventExportService {
                 "",
                 value(guestRegistration == null ? null : guestRegistration.getGuestFullName()),
                 snapshotParticipantType.isBlank()
-                        ? (guestRegistration == null
-                                ? "GUEST"
-                                : enumName(guestRegistration.getParticipantType()))
+                        ? (guestRegistration == null ? "GUEST" : enumName(guestRegistration.getParticipantType()))
                         : snapshotParticipantType
         );
     }
 
     private String registrationParticipantType(EventRegistration registration) {
         String participantType = enumName(registration.getParticipantType());
-        if (!participantType.isBlank()) {
-            return participantType;
-        }
+        if (!participantType.isBlank()) return participantType;
         return registration.getUserID() == null ? "GUEST" : "PARTICIPANT";
     }
 
@@ -393,16 +374,8 @@ public class EventExportServiceImpl implements EventExportService {
 
     private void auditExport(UserPrincipal currentUser, Integer eventId, String actionType, int rowCount) {
         auditLogService.recordWithRefs(
-                currentUser.getUserId(),
-                "Event",
-                eventId,
-                actionType,
-                null,
-                "rows=" + rowCount,
-                eventId,
-                null,
-                null,
-                null
+                currentUser.getUserId(), "Event", eventId, actionType, null,
+                "rows=" + rowCount, eventId, null, null, null
         );
     }
 
@@ -416,9 +389,7 @@ public class EventExportServiceImpl implements EventExportService {
 
     private void appendCsvRow(StringBuilder csv, List<String> values) {
         for (int index = 0; index < values.size(); index++) {
-            if (index > 0) {
-                csv.append(',');
-            }
+            if (index > 0) csv.append(',');
             csv.append(csvField(values.get(index)));
         }
         csv.append("\r\n");
@@ -432,15 +403,10 @@ public class EventExportServiceImpl implements EventExportService {
     private String neutralizeSpreadsheetFormula(String value) {
         String rawValue = value(value);
         String leadingTrimmed = rawValue.stripLeading();
-        if (leadingTrimmed.isEmpty()) {
-            return rawValue;
-        }
+        if (leadingTrimmed.isEmpty()) return rawValue;
 
         char firstMeaningfulCharacter = leadingTrimmed.charAt(0);
-        if (firstMeaningfulCharacter == '='
-                || firstMeaningfulCharacter == '+'
-                || firstMeaningfulCharacter == '-'
-                || firstMeaningfulCharacter == '@') {
+        if (firstMeaningfulCharacter == '=' || firstMeaningfulCharacter == '+' || firstMeaningfulCharacter == '-' || firstMeaningfulCharacter == '@') {
             return "'" + rawValue;
         }
         return rawValue;
@@ -459,51 +425,19 @@ public class EventExportServiceImpl implements EventExportService {
     }
 
     private record RegistrationExportRow(
-            String studentId,
-            String fullName,
-            String email,
-            String participantType,
-            String status,
-            LocalDateTime registeredAt,
-            String registrationChannel,
-            String paymentStatus,
-            String amountDue,
-            String amountPaid,
-            String paymentCurrency,
-            String paymentMethod,
-            String paymentReference,
-            LocalDateTime paidAt,
-            String ticketCode,
-            String ticketOrderCode,
-            String purchaserEmail,
-            LocalDateTime ticketIssuedAt,
-            LocalDateTime ticketRevokedAt,
-            String schoolOrOrganization,
-            String discoverySource,
-            LocalDateTime cancelledAt,
-            int sortIndex
-    ) {
-    }
+            String studentId, String fullName, String email, String participantType, String status,
+            LocalDateTime registeredAt, String registrationChannel, String paymentStatus, String amountDue,
+            String amountPaid, String paymentCurrency, String paymentMethod, String paymentReference,
+            LocalDateTime paidAt, String ticketCode, String ticketOrderCode, String purchaserEmail,
+            LocalDateTime ticketIssuedAt, LocalDateTime ticketRevokedAt, String schoolOrOrganization,
+            String discoverySource, LocalDateTime cancelledAt, int sortIndex
+    ) {}
 
     private record AttendanceExportRow(
-            String sessionName,
-            String studentId,
-            String fullName,
-            String participantType,
-            String attendanceStatus,
-            LocalDateTime checkedInAt,
-            String checkInMethod,
-            String verificationMethod,
-            String checkedInBy,
-            LocalDateTime sessionCheckInTime,
-            int sortIndex
-    ) {
-    }
+            String sessionName, String studentId, String fullName, String participantType,
+            String attendanceStatus, LocalDateTime checkedInAt, String checkInMethod,
+            String verificationMethod, String checkedInBy, LocalDateTime sessionCheckInTime, int sortIndex
+    ) {}
 
-    private record AttendanceParticipant(
-            String studentId,
-            String fullName,
-            String participantType
-    ) {
-    }
+    private record AttendanceParticipant(String studentId, String fullName, String participantType) {}
 }
