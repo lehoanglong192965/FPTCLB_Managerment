@@ -77,6 +77,7 @@ const RecruitmentCycleMgmtPage = lazy(() => import("../pages/club-leader/Recruit
 const ClubBlacklist = lazy(() => import("../pages/club-leader/ClubBlacklist"));
 const CreateEventPage = lazy(() => import("../pages/club-leader/CreateEventPage"));
 const ClubInfoPage = lazy(() => import("../pages/club-leader/ClubInfoPage"));
+const ClubNotificationPage = lazy(() => import("../pages/club-leader/ClubNotificationPage"));
 const MemberLeaderboardPage = lazy(() => import("../pages/club-leader/MemberLeaderboardPage"));
 const ContributionManagementPage = lazy(() => import("../pages/club-leader/ContributionManagementPage"));
 const CheckInPage = lazy(() => import("../pages/club-leader/CheckInPage"));
@@ -242,6 +243,7 @@ export default function AppRoutes() {
             <Route path="recruitment" element={<RecruitmentCycleMgmtPage />} />
             <Route path="reports" element={<ClubReports />} />
             <Route path="blacklist" element={<ClubBlacklist />} />
+            <Route path="notifications" element={<ClubNotificationPage />} />
             <Route path="club-info" element={<ClubInfoPage />} />
           </Route>
         </Route>

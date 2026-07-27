@@ -15,7 +15,10 @@ function mapNotification(n) {
     type:        (n.type ?? n.notificationType ?? "general").toLowerCase(),
     title:       n.title ?? "",
     content:     n.content ?? n.message ?? n.body ?? "",
-    clubName:    n.senderName ?? n.fromClub ?? n.clubName ?? "Hệ thống",
+    clubId:      n.clubID ?? n.clubId ?? null,
+    clubName:    n.clubName ?? n.fromClub ?? n.senderClubName ?? "Hệ thống",
+    creatorName: n.createdByFullName ?? n.creatorName ?? n.createdByName ??
+                 n.senderFullName ?? n.createdBy?.fullName ?? n.senderName ?? null,
     actionUrl:   n.actionUrl ?? null,
     actionLabel: n.actionLabel ?? null,
     createdAt:   n.createdAt ?? new Date().toISOString(),

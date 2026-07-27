@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Bell, CheckCircle2, Settings, ArrowRight } from "lucide-react";
+import { Bell, CheckCircle2, Settings, ArrowRight, Building2, CalendarClock, UserRound, X } from "lucide-react";
 import { useNotifications } from "../../contexts/NotificationsContext";
 import { TYPE_META, relativeTime } from "../../utils/notificationUtils";
 
@@ -31,6 +31,7 @@ export default function MemberNotifications() {
   const location                                              = useLocation();
   const { notifications, isRead, markRead, markAllRead, unreadCount } = useNotifications();
   const [activeFilter, setActiveFilter]                       = useState("all");
+  const [selectedNotification, setSelectedNotification]       = useState(null);
 
   // Trang dùng chung cho member/club-leader/vice-leader — lấy base path theo role hiện tại
   // để nút "Cài đặt" trỏ đúng /member|/club-leader|/vice-leader + /notification-settings.
@@ -55,8 +56,13 @@ export default function MemberNotifications() {
 
   const handleClick = (n) => {
     markRead(n.id);
-    if (n.actionUrl) navigate(n.actionUrl);
+    setSelectedNotification(n);
   };
+
+  const formatDateTime = (dateStr) => new Intl.DateTimeFormat("vi-VN", {
+    dateStyle: "long",
+    timeStyle: "short",
+  }).format(new Date(dateStr));
 
   return (
     <div>
@@ -172,6 +178,11 @@ export default function MemberNotifications() {
                         {n.clubName && (
                           <span className="text-[11px] text-gray-400">{n.clubName}</span>
                         )}
+                        {n.creatorName && (
+                          <span className="text-[11px] text-gray-400">
+                            • Người gửi: {n.creatorName}{n.type === "club_announcement" ? " (Trưởng CLB)" : ""}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -183,10 +194,10 @@ export default function MemberNotifications() {
                       {unread && (
                         <span className="w-[9px] h-[9px] rounded-full bg-[#e6430a]" />
                       )}
-                      {n.actionLabel && (
+                      {n.actionLabel && n.actionUrl && (
                         <button
                           className="flex items-center gap-1 text-[12px] font-semibold text-[#E6430A] bg-transparent border-0 cursor-pointer p-0 font-[inherit] hover:underline"
-                          onClick={(e) => { e.stopPropagation(); handleClick(n); }}
+                          onClick={(e) => { e.stopPropagation(); markRead(n.id); navigate(n.actionUrl); }}
                         >
                           {n.actionLabel}
                           <ArrowRight size={12} />
@@ -200,6 +211,69 @@ export default function MemberNotifications() {
           </div>
         ))}
       </div>
+
+      {selectedNotification && (() => {
+        const n = selectedNotification;
+        const meta = TYPE_META[n.type] ?? TYPE_META.general;
+        const { Icon } = meta;
+        return (
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="notification-detail-title"
+            onClick={(event) => event.target === event.currentTarget && setSelectedNotification(null)}
+          >
+            <div className="w-full max-w-[620px] max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-2xl">
+              <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${meta.iconBg} ${meta.iconColor}`}>
+                    <Icon size={21} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-white ${meta.tagBg}`}>{meta.tagLabel}</span>
+                    <p className="mt-1.5 mb-0 text-[12px] text-gray-400">Chi tiết thông báo</p>
+                  </div>
+                </div>
+                <button type="button" aria-label="Đóng" onClick={() => setSelectedNotification(null)}
+                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border-0 bg-gray-50 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800">
+                  <X size={19} />
+                </button>
+              </div>
+
+              <div className="px-6 py-6">
+                <h2 id="notification-detail-title" className="m-0 text-[22px] font-bold leading-snug text-gray-900">{n.title}</h2>
+                <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[12.5px] text-gray-500">
+                  {n.clubName && <span className="flex items-center gap-1.5"><Building2 size={15} />{n.clubName}</span>}
+                  <span className="flex items-center gap-1.5">
+                    <UserRound size={15} />
+                    Người gửi: {n.creatorName || (n.type === "club_announcement" ? "Trưởng câu lạc bộ" : "Hệ thống")}
+                    {n.creatorName && n.type === "club_announcement" ? " — Trưởng CLB" : ""}
+                  </span>
+                  <span className="flex items-center gap-1.5"><CalendarClock size={15} />{formatDateTime(n.createdAt)}</span>
+                </div>
+
+                <div className="mt-6 rounded-xl border border-orange-100 bg-orange-50/60 px-5 py-4">
+                  <p className="m-0 whitespace-pre-wrap break-words text-[15px] leading-7 text-gray-700">{n.content}</p>
+                </div>
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <button type="button" onClick={() => setSelectedNotification(null)}
+                    className="cursor-pointer rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-gray-600 hover:bg-gray-50">
+                    Đóng
+                  </button>
+                  {n.actionUrl && (
+                    <button type="button" onClick={() => { setSelectedNotification(null); navigate(n.actionUrl); }}
+                      className="flex cursor-pointer items-center gap-1.5 rounded-lg border-0 bg-[#E6430A] px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-[#cf3b09]">
+                      {n.actionLabel || "Xem nội dung liên quan"}<ArrowRight size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
