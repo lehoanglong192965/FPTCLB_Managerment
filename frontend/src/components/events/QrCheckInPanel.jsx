@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Camera, CameraOff, Keyboard, QrCode, RefreshCcw } from "lucide-react";
 
 const DUPLICATE_WINDOW_MS = 5000;
@@ -25,7 +25,7 @@ function cameraErrorMessage(error) {
 }
 
 export default function QrCheckInPanel({ onTicketRead }) {
-  const readerIdRef = useRef(null);
+  const readerId = `qr-ticket-reader-${useId().replace(/:/g, "")}`;
   const scannerRef = useRef(null);
   const scannerTaskRef = useRef(Promise.resolve());
   const onTicketReadRef = useRef(onTicketRead);
@@ -41,10 +41,6 @@ export default function QrCheckInPanel({ onTicketRead }) {
   const [submitting, setSubmitting] = useState(false);
   const [availableCameras, setAvailableCameras] = useState([]);
   const [selectedCameraId, setSelectedCameraId] = useState("");
-
-  if (!readerIdRef.current) {
-    readerIdRef.current = "qr-ticket-reader-" + Math.random().toString(36).slice(2, 10);
-  }
 
   useEffect(() => {
     onTicketReadRef.current = onTicketRead;
@@ -140,7 +136,7 @@ export default function QrCheckInPanel({ onTicketRead }) {
           if (scannerRef.current) await disposeScanner(scannerRef.current);
           if (disposed) return;
 
-          const scanner = new Html5Qrcode(readerIdRef.current);
+          const scanner = new Html5Qrcode(readerId);
           localScanner = scanner;
           scannerRef.current = scanner;
 
@@ -176,7 +172,7 @@ export default function QrCheckInPanel({ onTicketRead }) {
       scanLockedRef.current = false;
       void enqueueScannerTask(() => disposeScanner(localScanner));
     };
-  }, [cameraEnabled, disposeScanner, enqueueScannerTask, scannerGeneration, selectedCameraId, submitTicket]);
+  }, [cameraEnabled, disposeScanner, enqueueScannerTask, readerId, scannerGeneration, selectedCameraId, submitTicket]);
 
   const submitManualCode = async (event) => {
     event.preventDefault();
@@ -219,7 +215,7 @@ export default function QrCheckInPanel({ onTicketRead }) {
         )}
       </div>
 
-      {cameraEnabled && <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950 p-2"><div id={readerIdRef.current} className="min-h-64 overflow-hidden rounded-lg bg-black" /></div>}
+      {cameraEnabled && <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950 p-2"><div id={readerId} className="min-h-64 overflow-hidden rounded-lg bg-black" /></div>}
       {cameraError && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{cameraError}</p>}
 
       <form onSubmit={submitManualCode} className="rounded-xl border border-slate-200 bg-white p-4">

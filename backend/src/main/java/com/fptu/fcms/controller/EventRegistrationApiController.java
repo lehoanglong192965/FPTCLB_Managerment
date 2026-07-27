@@ -1,20 +1,16 @@
 package com.fptu.fcms.controller;
 
-import com.fptu.fcms.dto.request.EventWalkInRegistrationRequest;
-import com.fptu.fcms.dto.request.EventGuestRegistrationRequest;
-import com.fptu.fcms.dto.request.GuestRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
 import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
 import com.fptu.fcms.dto.request.GroupTicketPurchaseRequest;
 import com.fptu.fcms.dto.request.RegistrationCancelRequest;
+import com.fptu.fcms.dto.request.CompleteRefundRequest;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
-import com.fptu.fcms.dto.response.GuestRegistrationResponse;
 import com.fptu.fcms.dto.response.MyRegistrationResponse;
 import com.fptu.fcms.dto.response.EventRegistrationResultResponse;
 import com.fptu.fcms.security.UserPrincipal;
 import com.fptu.fcms.service.EventRegistrationService;
-import com.fptu.fcms.service.GuestRegistrationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,7 +35,6 @@ import java.util.Map;
 public class EventRegistrationApiController {
 
     private final EventRegistrationService eventRegistrationService;
-    private final GuestRegistrationService guestRegistrationService;
 
     @PostMapping({"/api/events/{eventId}/registrations/me"})
     @PreAuthorize("isAuthenticated()")
@@ -86,40 +81,6 @@ public class EventRegistrationApiController {
             @AuthenticationPrincipal UserPrincipal currentUser
     ) {
         return ResponseEntity.ok(eventRegistrationService.getMyRegistrationDetails(currentUser.getUserId()));
-    }
-
-    @PostMapping({"/api/events/{eventId}/registrations/guest"})
-    @PreAuthorize("permitAll()")
-    @Operation(summary = "Dang ky khach moi")
-    public ResponseEntity<GuestRegistrationResponse> registerGuest(
-            @PathVariable Integer eventId,
-            @Valid @RequestBody EventGuestRegistrationRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(
-                guestRegistrationService.createGuestRegistration(eventId, toGuestRegistrationRequest(request))
-        );
-    }
-
-    private GuestRegistrationRequest toGuestRegistrationRequest(EventGuestRegistrationRequest request) {
-        GuestRegistrationRequest guestRequest = new GuestRegistrationRequest();
-        guestRequest.setFullName(request.getFullName());
-        guestRequest.setEmail(request.getEmail());
-        guestRequest.setPhone(request.getPhone());
-        guestRequest.setConsent(true);
-        guestRequest.setDiscoverySource("EVENT_PAGE");
-        return guestRequest;
-    }
-
-    @PostMapping({"/api/events/{eventId}/registrations/walk-in"})
-    @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Tao dang ky walk-in")
-    public ResponseEntity<Map<String, String>> registerWalkIn(
-            @PathVariable Integer eventId,
-            @Valid @RequestBody EventWalkInRegistrationRequest request,
-            @AuthenticationPrincipal UserPrincipal currentUser) {
-        return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
-                "message",
-                "Walk-in guest registration now uses /api/attendance-sessions/{sessionId}/walk-ins/guest."
-        ));
     }
 
     @GetMapping({"/api/events/{eventId}/registrations"})
@@ -217,14 +178,26 @@ public class EventRegistrationApiController {
         return ResponseEntity.ok(Map.of("message", "Ticket order cancelled."));
     }
 
+    @PostMapping("/api/registrations/{registrationId}/refund-recipient")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Cung cap hoac cap nhat tai khoan nhan hoan tien")
+    public ResponseEntity<Map<String, String>> updateRefundRecipient(
+            @PathVariable Integer registrationId,
+            @Valid @RequestBody RegistrationCancelRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventRegistrationService.updateRefundRecipient(registrationId, request, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Refund recipient updated."));
+    }
+
     @PostMapping({"/api/events/{eventId}/registrations/guest/{guestRegistrationId}/cancel"})
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP', 'Admin')")
     @Operation(summary = "Leader huy dang ky cua khach")
     public ResponseEntity<Map<String, String>> cancelGuestRegistration(
             @PathVariable Integer eventId,
             @PathVariable Integer guestRegistrationId,
+            @Valid @RequestBody RegistrationCancelRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventRegistrationService.cancelGuestRegistration(eventId, guestRegistrationId, currentUser);
+        eventRegistrationService.cancelGuestRegistration(eventId, guestRegistrationId, request, currentUser);
         return ResponseEntity.ok(Map.of("message", "Guest registration cancelled."));
     }
 
@@ -279,8 +252,9 @@ public class EventRegistrationApiController {
     public ResponseEntity<Map<String, String>> markMemberRefunded(
             @PathVariable Integer eventId,
             @PathVariable Integer registrationId,
+            @Valid @RequestBody CompleteRefundRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventRegistrationService.markMemberRefunded(eventId, registrationId, currentUser);
+        eventRegistrationService.markMemberRefunded(eventId, registrationId, request, currentUser);
         return ResponseEntity.ok(Map.of("message", "Refund completed."));
     }
 
@@ -289,8 +263,9 @@ public class EventRegistrationApiController {
     public ResponseEntity<Map<String, String>> markGuestRefunded(
             @PathVariable Integer eventId,
             @PathVariable Integer guestRegistrationId,
+            @Valid @RequestBody CompleteRefundRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventRegistrationService.markGuestRefunded(eventId, guestRegistrationId, currentUser);
+        eventRegistrationService.markGuestRefunded(eventId, guestRegistrationId, request, currentUser);
         return ResponseEntity.ok(Map.of("message", "Refund completed."));
     }
 }

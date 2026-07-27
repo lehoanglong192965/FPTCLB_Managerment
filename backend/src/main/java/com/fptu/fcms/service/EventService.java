@@ -7,14 +7,12 @@ import com.fptu.fcms.dto.request.EventAssignmentRequest;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
 import com.fptu.fcms.dto.response.EventDetailResponse;
 import com.fptu.fcms.dto.response.EventSubmissionResponse;
-import com.fptu.fcms.dto.response.ContributionDTO;
 import com.fptu.fcms.dto.response.EventRegistrationPolicyResponse;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventAssignment;
 import com.fptu.fcms.security.UserPrincipal;
 
 import java.util.List;
-import java.util.Map;
 
 public interface EventService {
     void createEventProposal(CreateEventProposalRequest request, UserPrincipal currentUser);
@@ -33,7 +31,6 @@ public interface EventService {
     List<Event> getIcpdpApprovedEvents();
     List<Event> getIcpdpAllEvents();
     List<Event> getRejectedEvents();
-    Event getEventById(Integer eventId);
     EventDetailResponse getPublicEventDetail(Integer eventId, UserPrincipal currentUser);
     List<Event> getInternalEventsForMember(UserPrincipal currentUser);
     EventDetailResponse getManagedEventDetail(Integer eventId, UserPrincipal currentUser);
@@ -41,10 +38,6 @@ public interface EventService {
     void startEvent(Integer eventId, UserPrincipal currentUser);
     void finishEvent(Integer eventId, UserPrincipal currentUser);
     void closeEvent(Integer eventId, UserPrincipal currentUser);
-    List<ContributionDTO> getEventContributions(Integer eventId);
-    void saveEventContributions(Integer eventId, List<ContributionDTO> contributions);
-    void approveEvent(Integer eventId, UserPrincipal currentUser);
-    void rejectEvent(Integer eventId, String reason, UserPrincipal currentUser);
     void openRegistration(Integer eventId, UserPrincipal currentUser);
     void openRegistrationAutomatically(Integer eventId);
     void closeRegistration(Integer eventId, UserPrincipal currentUser);
@@ -59,6 +52,5 @@ public interface EventService {
     List<Event> getEventsByUserAssigned(Integer userId);
     List<Event> getReportUploadedEvents();
     List<Event> getReportReviewedEvents();
-    List<Map<String, Object>> getCheckedInAttendees(Integer eventId, UserPrincipal currentUser);
     List<EventRegistrationPolicyResponse> getRegistrationPolicies(Integer eventId, UserPrincipal currentUser);
 }

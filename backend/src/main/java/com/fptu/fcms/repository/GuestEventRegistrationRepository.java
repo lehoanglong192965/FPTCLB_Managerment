@@ -3,8 +3,10 @@ package com.fptu.fcms.repository;
 import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.enums.PaymentStatus;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -47,6 +49,15 @@ public interface GuestEventRegistrationRepository extends JpaRepository<GuestEve
     Optional<GuestEventRegistration> findByGuestRegistrationIDAndIsDeletedFalse(Integer guestRegistrationID);
 
     Optional<GuestEventRegistration> findByGuestReferenceHashAndIsDeletedFalse(String hash);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        SELECT gr
+        FROM GuestEventRegistration gr
+        WHERE gr.guestReferenceHash = :hash
+          AND gr.isDeleted = false
+    """)
+    Optional<GuestEventRegistration> findByGuestReferenceHashAndIsDeletedFalseForUpdate(@Param("hash") String hash);
     Optional<GuestEventRegistration> findByEventIDAndTicketCodeAndIsDeletedFalse(Integer eventID, String ticketCode);
     Optional<GuestEventRegistration> findByRegistrationCodeAndGuestEmailNormalizedAndIsDeletedFalse(
             String registrationCode, String guestEmailNormalized);

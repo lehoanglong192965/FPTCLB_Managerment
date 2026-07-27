@@ -1,9 +1,8 @@
 package com.fptu.fcms.service;
 
-import com.fptu.fcms.dto.request.EventGuestRegistrationRequest;
-import com.fptu.fcms.dto.request.EventWalkInRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
 import com.fptu.fcms.dto.request.RegistrationCancelRequest;
+import com.fptu.fcms.dto.request.CompleteRefundRequest;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
 import com.fptu.fcms.dto.response.MyRegistrationResponse;
 import com.fptu.fcms.dto.response.EventRegistrationResultResponse;
@@ -18,10 +17,6 @@ public interface EventRegistrationService {
     EventRegistrationResultResponse registerEvent(Integer eventID, Integer userID);
     EventRegistrationResultResponse registerGroupTickets(Integer eventID, Integer userID, GroupTicketPurchaseRequest request);
     MyRegistrationResponse confirmPayment(Integer registrationId, Integer userId, ConfirmEventPaymentRequest request);
-    void registerGuestEvent(Integer eventID, EventGuestRegistrationRequest request);
-    void registerWalkInEvent(Integer eventID, EventWalkInRegistrationRequest request, UserPrincipal currentUser);
-    void unregisterEvent(Integer eventID, Integer userID);
-    boolean isUserRegistered(Integer eventId, Integer userId);
     long countActiveTicketsPurchased(Integer eventId, Integer userId);
     Integer getActiveRegistrationId(Integer eventId, Integer userId);
     Map<String, Object> getRegistrationStatus(Integer eventId, Integer userId);
@@ -53,7 +48,10 @@ public interface EventRegistrationService {
 
     void cancelTicketOrder(String ticketOrderCode, RegistrationCancelRequest request, UserPrincipal currentUser);
 
-    void cancelGuestRegistration(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser);
+    void updateRefundRecipient(Integer registrationId, RegistrationCancelRequest request, UserPrincipal currentUser);
+
+    void cancelGuestRegistration(Integer eventId, Integer guestRegistrationId, RegistrationCancelRequest request,
+                                 UserPrincipal currentUser);
 
     void approveGuestPayment(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser);
 
@@ -63,7 +61,7 @@ public interface EventRegistrationService {
 
     void rejectMemberPayment(Integer eventId, Integer registrationId, RegistrationRejectRequest request, UserPrincipal currentUser);
 
-    void markMemberRefunded(Integer eventId, Integer registrationId, UserPrincipal currentUser);
+    void markMemberRefunded(Integer eventId, Integer registrationId, CompleteRefundRequest request, UserPrincipal currentUser);
 
-    void markGuestRefunded(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser);
+    void markGuestRefunded(Integer eventId, Integer guestRegistrationId, CompleteRefundRequest request, UserPrincipal currentUser);
 }

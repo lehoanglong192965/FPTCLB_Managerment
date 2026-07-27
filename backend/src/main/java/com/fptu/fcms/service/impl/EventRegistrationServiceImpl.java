@@ -1,12 +1,11 @@
 package com.fptu.fcms.service.impl;
 
-import com.fptu.fcms.dto.request.EventGuestRegistrationRequest;
-import com.fptu.fcms.dto.request.EventWalkInRegistrationRequest;
 import com.fptu.fcms.dto.request.RegistrationRejectRequest;
 import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
 import com.fptu.fcms.dto.request.GroupTicketPurchaseRequest;
 import com.fptu.fcms.dto.response.EventRegistrationResultResponse;
 import com.fptu.fcms.dto.request.RegistrationCancelRequest;
+import com.fptu.fcms.dto.request.CompleteRefundRequest;
 import com.fptu.fcms.dto.response.RegistrationListItemResponse;
 import com.fptu.fcms.dto.response.RegistrationPageResponse;
 import com.fptu.fcms.dto.response.MyRegistrationResponse;
@@ -50,6 +49,7 @@ import com.fptu.fcms.service.event.EventStateMachineService;
 import com.fptu.fcms.service.event.RegistrationAllocationResult;
 import com.fptu.fcms.service.event.RegistrationAllocationService;
 import com.fptu.fcms.service.event.RegistrationLifecycle;
+import com.fptu.fcms.service.event.RefundPolicyCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.PageRequest;
@@ -500,42 +500,6 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     }
 
     @Override
-    @Transactional
-    @CacheEvict(value = "memberRanking", allEntries = true)
-    public void registerGuestEvent(Integer eventID, EventGuestRegistrationRequest request) {
-        throw new UnsupportedOperationException("Guest registration uses GuestRegistrationService and GuestEventRegistration.");
-    }
-
-    @Override
-    @Transactional
-    @CacheEvict(value = "memberRanking", allEntries = true)
-    public void registerWalkInEvent(Integer eventID, EventWalkInRegistrationRequest request, UserPrincipal currentUser) {
-        throw new UnsupportedOperationException("Walk-in guest registration uses WalkInService and GuestEventRegistration.");
-    }
-
-    @Override
-    @Transactional
-    @CacheEvict(value = "memberRanking", allEntries = true)
-    public void unregisterEvent(Integer eventID, Integer userID) {
-        EventRegistration registration = registrationRepo
-                .findTopByEventIDAndUserIDAndIsDeletedFalseAndRegistrationStatusInOrderByRegisteredAtDesc(
-                        eventID,
-                        userID,
-                        RegistrationLifecycle.ACTIVE_STATUSES
-                )
-                .orElseThrow(() -> new IllegalArgumentException("Ban chua dang ky su kien nay."));
-        cancelRegistrationInternal(registration, userID, null, true, false);
-    }
-
-    @Override
-    public boolean isUserRegistered(Integer eventId, Integer userId) {
-        return registrationRepo.findByEventIDAndIsDeletedFalse(eventId).stream()
-                .anyMatch(registration -> (Objects.equals(registration.getUserID(), userId)
-                        || Objects.equals(registration.getPurchaserUserID(), userId))
-                        && RegistrationLifecycle.ACTIVE_STATUSES.contains(currentRegistrationStatus(registration)));
-    }
-
-    @Override
     public List<Event> getEventsByUserRegistered(Integer userId) {
         return registrationsOwnedOrHeldBy(userId).stream()
                 .filter(reg -> RegistrationLifecycle.ACTIVE_STATUSES.contains(reg.getRegistrationStatus()))
@@ -553,7 +517,11 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             throw new IllegalArgumentException("Authenticated user is required.");
         }
         return registrationsOwnedOrHeldBy(userId).stream()
-                .filter(registration -> RegistrationLifecycle.ACTIVE_STATUSES.contains(currentRegistrationStatus(registration)))
+                .filter(registration -> {
+                    RegistrationStatus status = currentRegistrationStatus(registration);
+                    return RegistrationLifecycle.ACTIVE_STATUSES.contains(status)
+                            || RegistrationStatus.CANCELLED.equals(status);
+                })
                 .map(registration -> eventRepository.findByEventIDAndIsDeletedFalse(registration.getEventID())
                         .map(event -> toMyRegistrationResponse(registration, event))
                         .orElse(null))
@@ -598,7 +566,16 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 registration.getTicketOrderCode(),
                 ticketHolderName(registration),
                 ticketHolderEmail(registration),
-                registration.getGuestPhone()
+                registration.getGuestPhone(),
+                registration.getRefundAmount(),
+                registration.getRefundRate(),
+                registration.getRefundPolicySnapshot(),
+                registration.getRefundCalculationNote(),
+                registration.getRefundRequestedAt(),
+                registration.getRefundProcessedAt(),
+                registration.getRefundTransactionReference(),
+                registration.getCancelledAt(),
+                registration.getCancellationReason()
         );
     }
 
@@ -784,9 +761,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setUpdatedAt(LocalDateTime.now());
         registration.setUpdatedBy(currentUser.getUserId());
         registration.setTicketRevokedAt(LocalDateTime.now());
-        if (PaymentStatus.PAID.equals(registration.getPaymentStatus())) {
-            registration.setPaymentStatus(PaymentStatus.REFUND_PENDING);
-        }
+        applyCancellationPaymentState(registration, LocalDateTime.now());
         registration.setIsDeleted(false);
         registrationRepo.save(registration);
         saveAudit(currentUser.getUserId(), registration, "REGISTRATION_REJECTED", oldStatus == null ? null : oldStatus.name(), RegistrationLifecycle.STATUS_REJECTED.name(), request.getReason());
@@ -821,6 +796,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 throw exception;
             }
         }
+        applyRefundBankDetails(registration, request, !privilegedActor);
         cancelRegistrationInternal(registration, currentUser.getUserId(),
                 request == null ? null : request.getReason(), false, privilegedActor);
     }
@@ -836,9 +812,45 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 .findByTicketOrderCodeAndPurchaserUserIDAndIsDeletedFalse(ticketOrderCode, currentUser.getUserId());
         if (registrations.isEmpty()) throw new IllegalArgumentException("Không tìm thấy đơn vé.");
         for (EventRegistration registration : registrations) {
+            applyRefundBankDetails(registration, request, true);
             cancelRegistrationInternal(registration, currentUser.getUserId(),
                     request == null ? null : request.getReason(), false, false);
         }
+    }
+
+    @Override
+    @Transactional
+    public void updateRefundRecipient(Integer registrationId, RegistrationCancelRequest request,
+                                      UserPrincipal currentUser) {
+        if (currentUser == null || currentUser.getUserId() == null) {
+            throw new BusinessRuleException(ApiErrorCode.UNAUTHORIZED.name(), "You are not authenticated.",
+                    org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
+        EventRegistration registration = registrationRepo.findById(registrationId)
+                .orElseThrow(() -> new IllegalArgumentException("Registration not found."));
+        boolean isHolder = Objects.equals(registration.getUserID(), currentUser.getUserId());
+        boolean isPurchaser = Objects.equals(registration.getPurchaserUserID(), currentUser.getUserId());
+        if (!isHolder && !isPurchaser) {
+            throw new BusinessRuleException(ApiErrorCode.FORBIDDEN.name(), "You do not own this ticket.",
+                    org.springframework.http.HttpStatus.FORBIDDEN);
+        }
+
+        List<EventRegistration> targets = isPurchaser ? memberPaymentOrder(registration) : List.of(registration);
+        List<EventRegistration> pendingRefunds = targets.stream()
+                .filter(item -> PaymentStatus.REFUND_PENDING.equals(item.getPaymentStatus()))
+                .toList();
+        if (pendingRefunds.isEmpty()) {
+            throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
+                    "Refund recipient can only be updated while a refund is pending.",
+                    org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        for (EventRegistration item : pendingRefunds) {
+            applyRequiredRefundBankDetails(item, request);
+            item.setUpdatedAt(now);
+            item.setUpdatedBy(currentUser.getUserId());
+        }
+        registrationRepo.saveAll(pendingRefunds);
     }
 
     /**
@@ -848,7 +860,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
      */
     @Override
     @Transactional
-    public void cancelGuestRegistration(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser) {
+    public void cancelGuestRegistration(Integer eventId, Integer guestRegistrationId, RegistrationCancelRequest request,
+                                        UserPrincipal currentUser) {
         eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         Event event = loadEventForUpdate(eventId);
         GuestEventRegistration registration = guestRegistrationRepository
@@ -857,6 +870,10 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         if (!Objects.equals(registration.getEventID(), eventId)) {
             throw new IllegalArgumentException("Registration does not belong to the event.");
         }
+        if (request == null || !StringUtils.hasText(request.getReason())) {
+            throw new IllegalArgumentException("Ban tổ chức phải nhập lý do hủy vé của khách.");
+        }
+        applyRefundBankDetails(registration, request, false);
 
         RegistrationStatus oldStatus = registration.getRegistrationStatus();
         if (RegistrationStatus.CANCELLED.equals(oldStatus)) {
@@ -865,10 +882,11 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setStatus(RegistrationStatus.CANCELLED.name());
         registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
         registration.setCancelledAt(LocalDateTime.now());
+        registration.setCancellationReason(request.getReason().trim());
+        registration.setCancellationSource("ORGANIZER");
         registration.setTicketRevokedAt(LocalDateTime.now());
-        if (PaymentStatus.PAID.equals(registration.getPaymentStatus())) {
-            registration.setPaymentStatus(PaymentStatus.REFUND_PENDING);
-        }
+        applyRefundPolicy(registration, event, registration.getCancelledAt(), true);
+        applyCancellationPaymentState(registration, registration.getCancelledAt());
         registration.setUpdatedAt(LocalDateTime.now());
         guestRegistrationRepository.save(registration);
 
@@ -892,18 +910,25 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         LocalDateTime now = LocalDateTime.now();
         for (EventRegistration item : order) {
             if (!PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus())) continue;
-            item.setPaymentStatus(PaymentStatus.PAID);
             item.setAmountPaid(item.getAmountDue());
             item.setPaidAt(now);
             item.setUpdatedAt(now);
             item.setUpdatedBy(currentUser.getUserId());
-            if (RegistrationLifecycle.CONFIRMED_STATUSES.contains(currentRegistrationStatus(item))) {
+            if (RegistrationStatus.CANCELLED.equals(currentRegistrationStatus(item))) {
+                markRefundPending(item, now);
+            } else {
+                item.setPaymentStatus(PaymentStatus.PAID);
+            }
+            if (PaymentStatus.PAID.equals(item.getPaymentStatus())
+                    && RegistrationLifecycle.CONFIRMED_STATUSES.contains(currentRegistrationStatus(item))) {
                 if (!StringUtils.hasText(item.getTicketCode())) item.setTicketCode(UUID.randomUUID().toString());
                 if (item.getTicketIssuedAt() == null) item.setTicketIssuedAt(now);
                 item.setTicketRevokedAt(null);
             }
         }
-        registrationRepo.saveAll(order).forEach(item -> sendTicketEmailAfterCommit(item, event));
+        registrationRepo.saveAll(order).stream()
+                .filter(item -> PaymentStatus.PAID.equals(item.getPaymentStatus()))
+                .forEach(item -> sendTicketEmailAfterCommit(item, event));
     }
 
     @Override
@@ -951,38 +976,56 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
     @Override
     @Transactional
-    public void markMemberRefunded(Integer eventId, Integer registrationId, UserPrincipal currentUser) {
+    public void markMemberRefunded(Integer eventId, Integer registrationId, CompleteRefundRequest request,
+                                   UserPrincipal currentUser) {
         eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         loadEventForUpdate(eventId);
         EventRegistration registration = loadRegistrationForEvent(eventId, registrationId);
-        List<EventRegistration> order = memberPaymentOrder(registration);
-        if (order.stream().noneMatch(item -> PaymentStatus.REFUND_PENDING.equals(item.getPaymentStatus()))) {
+        mergeAndRequireRefundBankDetails(registration, request);
+        if (!PaymentStatus.REFUND_PENDING.equals(registration.getPaymentStatus())) {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
                     "Refund must be pending.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
         LocalDateTime now = LocalDateTime.now();
-        order.stream().filter(item -> PaymentStatus.REFUND_PENDING.equals(item.getPaymentStatus())).forEach(item -> {
-            item.setPaymentStatus(PaymentStatus.REFUNDED);
-            item.setUpdatedAt(now);
-            item.setUpdatedBy(currentUser.getUserId());
-        });
-        registrationRepo.saveAll(order);
+        registration.setPaymentStatus(PaymentStatus.REFUNDED);
+        registration.setRefundProcessedAt(now);
+        registration.setRefundProcessedBy(currentUser.getUserId());
+        registration.setRefundTransactionReference(request.getTransactionReference().trim());
+        registration.setRefundNote(normalizeReason(request.getNote()));
+        registration.setUpdatedAt(now);
+        registration.setUpdatedBy(currentUser.getUserId());
+        EventRegistration saved = registrationRepo.save(registration);
+        String email = ticketHolderEmail(saved);
+        if (StringUtils.hasText(email)) {
+            sendAfterCommit(() -> emailService.sendSimpleEmail(email, "Hoàn tiền vé sự kiện thành công",
+                    "Khoản hoàn " + refundAmount(saved) + " " + refundCurrency(saved)
+                            + " đã được ghi nhận. Mã giao dịch: " + request.getTransactionReference().trim()));
+        }
     }
 
     @Override
     @Transactional
-    public void markGuestRefunded(Integer eventId, Integer guestRegistrationId, UserPrincipal currentUser) {
+    public void markGuestRefunded(Integer eventId, Integer guestRegistrationId, CompleteRefundRequest request,
+                                  UserPrincipal currentUser) {
         eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
         loadEventForUpdate(eventId);
         GuestEventRegistration registration = loadGuestRegistrationForPayment(eventId, guestRegistrationId);
+        mergeAndRequireRefundBankDetails(registration, request);
         if (!PaymentStatus.REFUND_PENDING.equals(registration.getPaymentStatus())) {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
                     "Refund must be pending.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
         registration.setPaymentStatus(PaymentStatus.REFUNDED);
-        registration.setUpdatedAt(LocalDateTime.now());
+        registration.setRefundProcessedAt(LocalDateTime.now());
+        registration.setRefundProcessedBy(currentUser.getUserId());
+        registration.setRefundTransactionReference(request.getTransactionReference().trim());
+        registration.setRefundNote(normalizeReason(request.getNote()));
+        registration.setUpdatedAt(registration.getRefundProcessedAt());
         registration.setUpdatedBy(currentUser.getUserId());
-        guestRegistrationRepository.save(registration);
+        GuestEventRegistration saved = guestRegistrationRepository.save(registration);
+        sendAfterCommit(() -> emailService.sendSimpleEmail(saved.getGuestEmail(), "Hoàn tiền vé sự kiện thành công",
+                "Khoản hoàn " + refundAmount(saved) + " " + refundCurrency(saved)
+                        + " đã được ghi nhận. Mã giao dịch: " + request.getTransactionReference().trim()));
     }
 
     @Override
@@ -997,25 +1040,31 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        registration.setPaymentStatus(PaymentStatus.PAID);
         registration.setAmountPaid(registration.getAmountDue());
         registration.setPaidAt(now);
         registration.setPaymentReviewedAt(now);
         registration.setPaymentReviewedBy(currentUser.getUserId());
         registration.setPaymentRejectionReason(null);
-        registration.setPaymentConfirmedEmailSentAt(now);
-        if (!StringUtils.hasText(registration.getTicketCode())) {
-            registration.setTicketCode(UUID.randomUUID().toString());
+        if (RegistrationStatus.CANCELLED.equals(currentGuestRegistrationStatus(registration))) {
+            markRefundPending(registration, now);
+        } else {
+            registration.setPaymentStatus(PaymentStatus.PAID);
+            registration.setPaymentConfirmedEmailSentAt(now);
+            if (!StringUtils.hasText(registration.getTicketCode())) {
+                registration.setTicketCode(UUID.randomUUID().toString());
+            }
+            registration.setTicketIssuedAt(now);
+            registration.setTicketRevokedAt(null);
         }
-        registration.setTicketIssuedAt(now);
-        registration.setTicketRevokedAt(null);
         registration.setUpdatedAt(now);
         registration.setUpdatedBy(currentUser.getUserId());
         GuestEventRegistration saved = guestRegistrationRepository.save(registration);
 
-        sendAfterCommit(() -> emailService.sendEventTicketConfirmationEmail(
-                saved.getGuestEmail(), saved.getGuestFullName(), event.getEventName(), event.getStartDate(), event.getEndDate(),
-                event.getLocation(), saved.getTicketCode(), saved.getAmountPaid(), saved.getPaymentCurrency()));
+        if (PaymentStatus.PAID.equals(saved.getPaymentStatus())) {
+            sendAfterCommit(() -> emailService.sendEventTicketConfirmationEmail(
+                    saved.getGuestEmail(), saved.getGuestFullName(), event.getEventName(), event.getStartDate(), event.getEndDate(),
+                    event.getLocation(), saved.getTicketCode(), saved.getAmountPaid(), saved.getPaymentCurrency()));
+        }
     }
 
     @Override
@@ -1113,6 +1162,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setCancelledAt(LocalDateTime.now());
         registration.setCancellationReason(normalizeReason(reason));
         registration.setCancellationSource(privilegedActor ? "ORGANIZER" : "PARTICIPANT");
+        applyRefundPolicy(registration, event, registration.getCancelledAt(), privilegedActor);
+        applyCancellationPaymentState(registration, registration.getCancelledAt());
         registration.setIsDeleted(false);
         registrationRepo.save(registration);
 
@@ -1253,6 +1304,193 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
     private String normalizeReason(String reason) {
         return StringUtils.hasText(reason) ? reason.trim() : null;
+    }
+
+    private void applyRefundBankDetails(EventRegistration registration, RegistrationCancelRequest request,
+                                        boolean requireForParticipant) {
+        boolean mayNeedRefund = PaymentStatus.PAID.equals(registration.getPaymentStatus())
+                || PaymentStatus.AWAITING_VERIFICATION.equals(registration.getPaymentStatus());
+        if (!mayNeedRefund) return;
+        if (request != null) {
+            if (StringUtils.hasText(request.getRefundBankCode())) registration.setRefundBankCode(request.getRefundBankCode().trim().toUpperCase());
+            if (StringUtils.hasText(request.getRefundBankName())) registration.setRefundBankName(request.getRefundBankName().trim());
+            if (StringUtils.hasText(request.getRefundAccountNumber())) registration.setRefundAccountNumber(request.getRefundAccountNumber().trim());
+            if (StringUtils.hasText(request.getRefundAccountHolder())) registration.setRefundAccountHolder(request.getRefundAccountHolder().trim());
+        }
+        if (requireForParticipant && participantRefundRate(registration.getEventID()).signum() > 0) requireValidRefundBankDetails(
+                registration.getRefundBankName(), registration.getRefundAccountNumber(), registration.getRefundAccountHolder());
+    }
+
+    private void applyRefundBankDetails(GuestEventRegistration registration, RegistrationCancelRequest request,
+                                        boolean requireForParticipant) {
+        boolean mayNeedRefund = PaymentStatus.PAID.equals(registration.getPaymentStatus())
+                || PaymentStatus.AWAITING_VERIFICATION.equals(registration.getPaymentStatus());
+        if (!mayNeedRefund) return;
+        if (request != null) {
+            if (StringUtils.hasText(request.getRefundBankCode())) registration.setRefundBankCode(request.getRefundBankCode().trim().toUpperCase());
+            if (StringUtils.hasText(request.getRefundBankName())) registration.setRefundBankName(request.getRefundBankName().trim());
+            if (StringUtils.hasText(request.getRefundAccountNumber())) registration.setRefundAccountNumber(request.getRefundAccountNumber().trim());
+            if (StringUtils.hasText(request.getRefundAccountHolder())) registration.setRefundAccountHolder(request.getRefundAccountHolder().trim());
+        }
+        if (requireForParticipant && participantRefundRate(registration.getEventID()).signum() > 0) requireValidRefundBankDetails(
+                registration.getRefundBankName(), registration.getRefundAccountNumber(), registration.getRefundAccountHolder());
+    }
+
+    private BigDecimal participantRefundRate(Integer eventId) {
+        return eventRepository.findByEventIDAndIsDeletedFalse(eventId)
+                .map(event -> RefundPolicyCalculator.quote(BigDecimal.ZERO, event.getStartDate(), LocalDateTime.now(), false).rate())
+                .orElse(BigDecimal.ZERO);
+    }
+
+    private void mergeAndRequireRefundBankDetails(EventRegistration registration, CompleteRefundRequest request) {
+        if (StringUtils.hasText(request.getRefundBankCode())) registration.setRefundBankCode(request.getRefundBankCode().trim().toUpperCase());
+        if (StringUtils.hasText(request.getRefundBankName())) registration.setRefundBankName(request.getRefundBankName().trim());
+        if (StringUtils.hasText(request.getRefundAccountNumber())) registration.setRefundAccountNumber(request.getRefundAccountNumber().trim());
+        if (StringUtils.hasText(request.getRefundAccountHolder())) registration.setRefundAccountHolder(request.getRefundAccountHolder().trim());
+        requireValidRefundBankDetails(registration.getRefundBankName(), registration.getRefundAccountNumber(), registration.getRefundAccountHolder());
+    }
+
+    private void applyRequiredRefundBankDetails(EventRegistration registration, RegistrationCancelRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Vui lòng cung cấp thông tin tài khoản nhận hoàn.");
+        }
+        if (StringUtils.hasText(request.getRefundBankCode())) registration.setRefundBankCode(request.getRefundBankCode().trim().toUpperCase());
+        if (StringUtils.hasText(request.getRefundBankName())) registration.setRefundBankName(request.getRefundBankName().trim());
+        if (StringUtils.hasText(request.getRefundAccountNumber())) registration.setRefundAccountNumber(request.getRefundAccountNumber().trim());
+        if (StringUtils.hasText(request.getRefundAccountHolder())) registration.setRefundAccountHolder(request.getRefundAccountHolder().trim());
+        requireValidRefundBankDetails(registration.getRefundBankName(), registration.getRefundAccountNumber(), registration.getRefundAccountHolder());
+    }
+
+    private void mergeAndRequireRefundBankDetails(GuestEventRegistration registration, CompleteRefundRequest request) {
+        if (StringUtils.hasText(request.getRefundBankCode())) registration.setRefundBankCode(request.getRefundBankCode().trim().toUpperCase());
+        if (StringUtils.hasText(request.getRefundBankName())) registration.setRefundBankName(request.getRefundBankName().trim());
+        if (StringUtils.hasText(request.getRefundAccountNumber())) registration.setRefundAccountNumber(request.getRefundAccountNumber().trim());
+        if (StringUtils.hasText(request.getRefundAccountHolder())) registration.setRefundAccountHolder(request.getRefundAccountHolder().trim());
+        requireValidRefundBankDetails(registration.getRefundBankName(), registration.getRefundAccountNumber(), registration.getRefundAccountHolder());
+    }
+
+    private void requireValidRefundBankDetails(String bankName, String accountNumber, String accountHolder) {
+        if (!StringUtils.hasText(bankName) || !StringUtils.hasText(accountNumber) || !StringUtils.hasText(accountHolder)) {
+            throw new IllegalArgumentException("Vui lòng cung cấp đầy đủ ngân hàng, số tài khoản và tên chủ tài khoản nhận hoàn.");
+        }
+        if (!accountNumber.matches("[0-9]{6,30}")) {
+            throw new IllegalArgumentException("Số tài khoản nhận hoàn phải gồm từ 6 đến 30 chữ số.");
+        }
+    }
+
+    private void applyCancellationPaymentState(EventRegistration registration, LocalDateTime now) {
+        if (PaymentStatus.PAID.equals(registration.getPaymentStatus())) {
+            markRefundPending(registration, now);
+        } else if (PaymentStatus.PENDING.equals(registration.getPaymentStatus())
+                || PaymentStatus.AWAITING_ELIGIBILITY.equals(registration.getPaymentStatus())) {
+            registration.setPaymentStatus(PaymentStatus.FAILED);
+        }
+        // AWAITING_VERIFICATION remains pending review. If the transfer is
+        // approved after cancellation, approveMemberPayment moves it directly
+        // to REFUND_PENDING instead of issuing a new QR ticket.
+    }
+
+    private void applyCancellationPaymentState(GuestEventRegistration registration, LocalDateTime now) {
+        if (PaymentStatus.PAID.equals(registration.getPaymentStatus())) {
+            markRefundPending(registration, now);
+        } else if (PaymentStatus.PENDING.equals(registration.getPaymentStatus())
+                || PaymentStatus.AWAITING_ELIGIBILITY.equals(registration.getPaymentStatus())) {
+            registration.setPaymentStatus(PaymentStatus.FAILED);
+        }
+    }
+
+    private void markRefundPending(EventRegistration registration, LocalDateTime now) {
+        registration.setRefundAmount(RefundPolicyCalculator.calculateAmount(
+                paidAmount(registration), registration.getRefundRate()));
+        refreshRefundCalculationNote(registration);
+        if (registration.getRefundAmount().signum() == 0) {
+            registration.setPaymentStatus(PaymentStatus.REFUNDED);
+            registration.setRefundProcessedAt(now);
+            registration.setRefundNote("Không phát sinh tiền hoàn theo chính sách tại thời điểm hủy.");
+        } else {
+            registration.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+            if (registration.getRefundRequestedAt() == null) registration.setRefundRequestedAt(now);
+        }
+    }
+
+    private void markRefundPending(GuestEventRegistration registration, LocalDateTime now) {
+        registration.setRefundAmount(RefundPolicyCalculator.calculateAmount(
+                paidAmount(registration), registration.getRefundRate()));
+        refreshRefundCalculationNote(registration);
+        if (registration.getRefundAmount().signum() == 0) {
+            registration.setPaymentStatus(PaymentStatus.REFUNDED);
+            registration.setRefundProcessedAt(now);
+            registration.setRefundNote("Không phát sinh tiền hoàn theo chính sách tại thời điểm hủy.");
+        } else {
+            registration.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+            if (registration.getRefundRequestedAt() == null) registration.setRefundRequestedAt(now);
+        }
+    }
+
+    private void applyRefundPolicy(EventRegistration registration, Event event, LocalDateTime cancelledAt,
+                                   boolean organizerCancelled) {
+        RefundPolicyCalculator.RefundQuote quote = RefundPolicyCalculator.quote(
+                paidAmount(registration), event == null ? null : event.getStartDate(), cancelledAt, organizerCancelled);
+        registration.setRefundRate(quote.rate());
+        registration.setRefundAmount(quote.amount());
+        registration.setRefundPolicySnapshot(quote.policySnapshot());
+        registration.setRefundCalculationNote(quote.calculationNote());
+    }
+
+    private void applyRefundPolicy(GuestEventRegistration registration, Event event, LocalDateTime cancelledAt,
+                                   boolean organizerCancelled) {
+        RefundPolicyCalculator.RefundQuote quote = RefundPolicyCalculator.quote(
+                paidAmount(registration), event == null ? null : event.getStartDate(), cancelledAt, organizerCancelled);
+        registration.setRefundRate(quote.rate());
+        registration.setRefundAmount(quote.amount());
+        registration.setRefundPolicySnapshot(quote.policySnapshot());
+        registration.setRefundCalculationNote(quote.calculationNote());
+    }
+
+    private BigDecimal paidAmount(EventRegistration registration) {
+        return registration.getAmountPaid() != null && registration.getAmountPaid().signum() > 0
+                ? registration.getAmountPaid()
+                : registration.getAmountDue() != null ? registration.getAmountDue() : BigDecimal.ZERO;
+    }
+
+    private BigDecimal paidAmount(GuestEventRegistration registration) {
+        return registration.getAmountPaid() != null && registration.getAmountPaid().signum() > 0
+                ? registration.getAmountPaid()
+                : registration.getAmountDue() != null ? registration.getAmountDue() : BigDecimal.ZERO;
+    }
+
+    private void refreshRefundCalculationNote(EventRegistration registration) {
+        BigDecimal rate = registration.getRefundRate() == null ? new BigDecimal("100.00") : registration.getRefundRate();
+        registration.setRefundCalculationNote("Số tiền gốc " + paidAmount(registration).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
+                + " x " + rate.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
+                + "% = " + registration.getRefundAmount().toPlainString());
+    }
+
+    private void refreshRefundCalculationNote(GuestEventRegistration registration) {
+        BigDecimal rate = registration.getRefundRate() == null ? new BigDecimal("100.00") : registration.getRefundRate();
+        registration.setRefundCalculationNote("Số tiền gốc " + paidAmount(registration).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
+                + " x " + rate.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
+                + "% = " + registration.getRefundAmount().toPlainString());
+    }
+
+    private BigDecimal refundAmount(EventRegistration registration) {
+        return registration.getRefundAmount() != null ? registration.getRefundAmount()
+                : registration.getAmountPaid() != null ? registration.getAmountPaid()
+                : registration.getAmountDue() != null ? registration.getAmountDue() : BigDecimal.ZERO;
+    }
+
+    private BigDecimal refundAmount(GuestEventRegistration registration) {
+        return registration.getRefundAmount() != null ? registration.getRefundAmount()
+                : registration.getAmountPaid() != null ? registration.getAmountPaid()
+                : registration.getAmountDue() != null ? registration.getAmountDue() : BigDecimal.ZERO;
+    }
+
+    private String refundCurrency(EventRegistration registration) {
+        return StringUtils.hasText(registration.getPaymentCurrency()) ? registration.getPaymentCurrency() : "VND";
+    }
+
+    private String refundCurrency(GuestEventRegistration registration) {
+        return StringUtils.hasText(registration.getPaymentCurrency()) ? registration.getPaymentCurrency() : "VND";
     }
 
     private Event loadEventForUpdate(Integer eventId) {
@@ -1434,7 +1672,20 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 registration.getPaymentCurrency(),
                 paymentReferenceForOrder(registration),
                 registration.getPaymentMethod(),
-                null
+                null,
+                registration.getRefundAmount(),
+                registration.getRefundRate(),
+                registration.getRefundPolicySnapshot(),
+                registration.getRefundCalculationNote(),
+                registration.getRefundRequestedAt(),
+                registration.getRefundProcessedAt(),
+                registration.getRefundProcessedBy(),
+                registration.getRefundTransactionReference(),
+                registration.getRefundNote(),
+                registration.getRefundBankCode(),
+                registration.getRefundBankName(),
+                registration.getRefundAccountNumber(),
+                registration.getRefundAccountHolder()
         );
     }
 
@@ -1460,7 +1711,20 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 registration.getPaymentCurrency(),
                 registration.getPaymentReference(),
                 registration.getPaymentMethod(),
-                registration.getPaymentSubmittedAt()
+                registration.getPaymentSubmittedAt(),
+                registration.getRefundAmount(),
+                registration.getRefundRate(),
+                registration.getRefundPolicySnapshot(),
+                registration.getRefundCalculationNote(),
+                registration.getRefundRequestedAt(),
+                registration.getRefundProcessedAt(),
+                registration.getRefundProcessedBy(),
+                registration.getRefundTransactionReference(),
+                registration.getRefundNote(),
+                registration.getRefundBankCode(),
+                registration.getRefundBankName(),
+                registration.getRefundAccountNumber(),
+                registration.getRefundAccountHolder()
         );
     }
     private boolean matchesParticipantType(RegistrationListItemResponse view, String participantType) {

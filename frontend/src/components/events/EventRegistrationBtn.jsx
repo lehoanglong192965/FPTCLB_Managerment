@@ -75,7 +75,6 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
     const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
     const [paying, setPaying] = useState(false);
     const [ticketLoading, setTicketLoading] = useState(false);
-    const [cancelling, setCancelling] = useState(false);
     const [purchasedTicketCount, setPurchasedTicketCount] = useState(0);
     const [showTicketOrder, setShowTicketOrder] = useState(false);
     const [participants, setParticipants] = useState([{
@@ -223,42 +222,6 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
         }
     };
 
-    const handleCancelTicket = async (reason) => {
-        setCancelling(true);
-        try {
-            let registrationId = registrationResult?.registrationId;
-            if (!registrationId) {
-                const response = await eventApi.getMyRegistrationDetails();
-                const registrations = Array.isArray(response) ? response : (response?.data ?? []);
-                const activeRegistration = registrations
-                    .filter((item) => Number(item.eventId) === Number(eventId) && item.registrationStatus !== 'CANCELLED')
-                    .sort((a, b) => Number(b.registrationId ?? 0) - Number(a.registrationId ?? 0))[0];
-                registrationId = activeRegistration?.registrationId;
-            }
-            if (!registrationId) {
-                toast.error('Không tìm thấy đăng ký đang hoạt động để hủy.');
-                return;
-            }
-
-            if (registrationResult?.ticketOrderCode) {
-                await eventApi.cancelTicketOrder(registrationResult.ticketOrderCode, reason);
-            } else {
-                await eventApi.cancelRegistration(registrationId, reason);
-            }
-            setIsRegistered(false);
-            setCanReregister(false);
-            setReregistrationBlockReason('REREGISTRATION_COOLDOWN');
-            setCanReregisterAt(new Date(Date.now() + 30 * 60 * 1000).toISOString());
-            setRegistrationResult(null);
-            toast.success('Đã hủy vé và thu hồi mã QR.');
-            if (onRegisterSuccess) onRegisterSuccess();
-        } catch (error) {
-            toast.error(error.response?.data?.message || 'Không thể hủy vé.');
-        } finally {
-            setCancelling(false);
-        }
-    };
-
     if (isRegistered && registrationResult?.paymentStatus !== 'PENDING'
         && registrationResult?.paymentStatus !== 'AWAITING_VERIFICATION'
         && !(isPaidEvent && !paymentExempt && purchasedTicketCount < 4)) {
@@ -272,7 +235,7 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
                 </button>
                 <button
                     onClick={openCurrentTicket}
-                    disabled={ticketLoading || cancelling}
+                    disabled={ticketLoading}
                     className="w-full px-6 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 cursor-pointer border border-green-300 bg-white text-green-700 hover:bg-green-50 transition-colors"
                 >
                     <i className={`fas ${ticketLoading ? 'fa-spinner fa-spin' : 'fa-ticket-alt'}`}></i> {ticketLoading ? 'Đang tải vé...' : 'Xem vé của tôi'}
@@ -426,11 +389,11 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
                 </button>
                 <button
                     type="button"
-                    onClick={handleCancelTicket}
-                    disabled={cancelling || paying}
+                    onClick={openCurrentTicket}
+                    disabled={ticketLoading || paying}
                     className="w-full rounded-lg border border-red-300 bg-white px-3 py-2 font-bold text-red-600 disabled:opacity-50"
                 >
-                    {cancelling ? 'Đang hủy vé...' : 'Hủy vé'}
+                    {ticketLoading ? 'Đang mở...' : 'Mở trang hủy vé'}
                 </button>
             </div>
         );

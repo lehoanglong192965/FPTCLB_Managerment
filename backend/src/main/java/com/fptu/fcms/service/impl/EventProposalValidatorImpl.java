@@ -10,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -25,6 +27,7 @@ public class EventProposalValidatorImpl implements EventProposalValidator {
             throw new BusinessRuleException("Event not found.", HttpStatus.NOT_FOUND);
         }
         validateEventWindow(event);
+        validateCoreFields(event);
         validateCapacity(event);
         validatePolicies(event, policies);
     }
@@ -33,8 +36,8 @@ public class EventProposalValidatorImpl implements EventProposalValidator {
         if (event.getStartDate() == null || event.getEndDate() == null) {
             throw new BusinessRuleException("startDate and endDate are required.", HttpStatus.BAD_REQUEST);
         }
-        if (!event.getEndDate().isAfter(event.getStartDate())) {
-            throw new BusinessRuleException("endDate must be after startDate.", HttpStatus.BAD_REQUEST);
+        if (Duration.between(event.getStartDate(), event.getEndDate()).toMinutes() < 30) {
+            throw new BusinessRuleException("Giờ kết thúc phải cách giờ bắt đầu ít nhất 30 phút.", HttpStatus.BAD_REQUEST);
         }
         if (!event.getStartDate().isAfter(LocalDateTime.now())) {
             throw new BusinessRuleException("startDate must be in the future.", HttpStatus.BAD_REQUEST);
@@ -43,18 +46,53 @@ public class EventProposalValidatorImpl implements EventProposalValidator {
                 && !event.getRegistrationOpenAt().isBefore(event.getRegistrationCloseAt())) {
             throw new BusinessRuleException("registrationOpenAt must be before registrationCloseAt.", HttpStatus.BAD_REQUEST);
         }
+        if (event.getRegistrationOpenAt() != null && !event.getRegistrationOpenAt().isBefore(event.getStartDate())) {
+            throw new BusinessRuleException("registrationOpenAt must be before startDate.", HttpStatus.BAD_REQUEST);
+        }
+        if (event.getRegistrationCloseAt() != null && event.getRegistrationCloseAt().isAfter(event.getStartDate())) {
+            throw new BusinessRuleException("registrationCloseAt must be on or before startDate.", HttpStatus.BAD_REQUEST);
+        }
         if (event.getCheckInOpenAt() != null && event.getCheckInCloseAt() != null
                 && !event.getCheckInOpenAt().isBefore(event.getCheckInCloseAt())) {
             throw new BusinessRuleException("checkInOpenAt must be before checkInCloseAt.", HttpStatus.BAD_REQUEST);
         }
+        if (event.getCheckInOpenAt() != null && event.getCheckInOpenAt().isAfter(event.getEndDate())) {
+            throw new BusinessRuleException("checkInOpenAt must be on or before endDate.", HttpStatus.BAD_REQUEST);
+        }
+        if (event.getCheckInCloseAt() != null && event.getCheckInCloseAt().isAfter(event.getEndDate())) {
+            throw new BusinessRuleException("checkInCloseAt must be on or before endDate.", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void validateCoreFields(Event event) {
+        String name = event.getEventName() == null ? "" : event.getEventName().trim();
+        if (name.length() < 5 || name.length() > 150) {
+            throw new BusinessRuleException("eventName must be between 5 and 150 characters.", HttpStatus.BAD_REQUEST);
+        }
+        String plainDescription = event.getDescription() == null
+                ? "" : org.jsoup.Jsoup.parse(event.getDescription()).text().trim();
+        if (plainDescription.length() < 30 || plainDescription.length() > 1000) {
+            throw new BusinessRuleException("description must be between 30 and 1000 characters.", HttpStatus.BAD_REQUEST);
+        }
+        if (event.getBudget() == null || event.getBudget().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessRuleException("budget must be greater than or equal to 0.", HttpStatus.BAD_REQUEST);
+        }
+        if (Boolean.TRUE.equals(event.getIsPaidEvent())) {
+            if (event.getTicketPrice() == null || event.getTicketPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BusinessRuleException("ticketPrice must be greater than 0 for a paid event.", HttpStatus.BAD_REQUEST);
+            }
+            if (event.getTicketCurrency() == null || event.getTicketCurrency().isBlank()) {
+                throw new BusinessRuleException("ticketCurrency is required for a paid event.", HttpStatus.BAD_REQUEST);
+            }
+        }
     }
 
     private void validateCapacity(Event event) {
-        if (event.getTotalCapacity() != null && event.getTotalCapacity() < 0) {
-            throw new BusinessRuleException("totalCapacity cannot be negative.", HttpStatus.BAD_REQUEST);
+        if (event.getTotalCapacity() == null || event.getTotalCapacity() <= 0) {
+            throw new BusinessRuleException("totalCapacity must be greater than 0.", HttpStatus.BAD_REQUEST);
         }
-        if (event.getMaxParticipants() != null && event.getMaxParticipants() < 0) {
-            throw new BusinessRuleException("maxParticipants cannot be negative.", HttpStatus.BAD_REQUEST);
+        if (event.getMaxParticipants() == null || event.getMaxParticipants() <= 0) {
+            throw new BusinessRuleException("maxParticipants must be greater than 0.", HttpStatus.BAD_REQUEST);
         }
     }
 

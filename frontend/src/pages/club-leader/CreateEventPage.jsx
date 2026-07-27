@@ -34,11 +34,7 @@ const EMPTY_FORM = {
 };
 
 const BUDGET_LIMIT = 5_000_000;
-const DESCRIPTION_WORD_LIMIT = 1000;
-const countWords = (value) => {
-  const normalized = stripHtml(value);
-  return normalized ? normalized.split(/\s+/u).length : 0;
-};
+const DESCRIPTION_CHARACTER_LIMIT = 1000;
 const fmtVND = (val) => {
   const n = Number(String(val).replace(/\D/g, ""));
   return isNaN(n) ? "" : n.toLocaleString("vi-VN");
@@ -336,6 +332,7 @@ function Step1({ form, onChange, errors }) {
           onChange={(html) => onChange("desc", html)}
           placeholder="Giới thiệu mục tiêu, đối tượng tham gia, nội dung chính của sự kiện..."
           error={errors.desc}
+          maxLength={DESCRIPTION_CHARACTER_LIMIT}
         />
         <FieldError msg={errors.desc} />
       </div>
@@ -602,9 +599,14 @@ function validateDateTime(form) {
 
   if (!form.endTime) {
     e.endTime = "Vui lòng chọn giờ kết thúc.";
-  } else if (form.startTime && form.endTime <= form.startTime) {
-    e.endTime = "Giờ kết thúc phải sau giờ bắt đầu.";
-  } else if (form.date && new Date(`${form.date}T${form.endTime}:00`) <= now) {
+  } else if (form.startTime) {
+    const startMinutes = form.startTime.split(":").reduce((hours, minutes) => Number(hours) * 60 + Number(minutes));
+    const endMinutes = form.endTime.split(":").reduce((hours, minutes) => Number(hours) * 60 + Number(minutes));
+    if (endMinutes - startMinutes < 30) {
+      e.endTime = "Giờ kết thúc phải cách giờ bắt đầu ít nhất 30 phút.";
+    }
+  }
+  if (!e.endTime && form.date && form.endTime && new Date(`${form.date}T${form.endTime}:00`) <= now) {
     e.endTime = "Giờ kết thúc phải ở thời điểm trong tương lai.";
   }
 
@@ -631,8 +633,8 @@ function validate(step, form) {
       const plainDesc = stripHtml(form.desc);
       if (!plainDesc || plainDesc.length < 30)
         e.desc = "Nội dung của bạn quá ngắn (< 30 ký tự), vui lòng kiểm tra và nhập đầy đủ hơn.";
-      else if (countWords(form.desc) > DESCRIPTION_WORD_LIMIT)
-        e.desc = "Nội dung quá dài (> 1000 từ), vui lòng kiểm tra và rút gọn nội dung của bạn.";
+      else if (plainDesc.length > DESCRIPTION_CHARACTER_LIMIT)
+        e.desc = "Mô tả sự kiện không được vượt quá 1.000 ký tự.";
     }
   }
   if (step === 2) {

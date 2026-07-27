@@ -8,12 +8,14 @@ import com.fptu.fcms.entity.GuestEventRegistration;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.enums.PaymentMethod;
 import com.fptu.fcms.enums.PaymentStatus;
+import com.fptu.fcms.enums.RegistrationStatus;
 import com.fptu.fcms.repository.BankPaymentTransactionRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
 import com.fptu.fcms.repository.UserRepository;
 import com.fptu.fcms.service.EmailService;
+import com.fptu.fcms.service.event.RefundPolicyCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -131,7 +133,6 @@ public class SePayWebhookService {
 
         Event event = eventRepository.findByEventIDAndIsDeletedFalseForUpdate(registration.getEventID())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "EVENT_NOT_FOUND"));
-        registration.setPaymentStatus(PaymentStatus.PAID);
         registration.setPaymentMethod(PaymentMethod.BANK_TRANSFER);
         registration.setAmountPaid(registration.getAmountDue());
         registration.setPaidAt(now);
@@ -139,10 +140,30 @@ public class SePayWebhookService {
         registration.setPaymentReviewedAt(now);
         registration.setPaymentReviewedBy(null);
         registration.setPaymentRejectionReason(null);
-        registration.setPaymentConfirmedEmailSentAt(now);
-        if (!StringUtils.hasText(registration.getTicketCode())) registration.setTicketCode(UUID.randomUUID().toString());
-        registration.setTicketIssuedAt(now);
-        registration.setTicketRevokedAt(null);
+        if (RegistrationStatus.CANCELLED.equals(registration.getRegistrationStatus())) {
+            BigDecimal rate = registration.getRefundRate() == null ? new BigDecimal("100.00") : registration.getRefundRate();
+            registration.setRefundRate(rate);
+            registration.setRefundAmount(RefundPolicyCalculator.calculateAmount(registration.getAmountPaid(), rate));
+            if (!StringUtils.hasText(registration.getRefundPolicySnapshot())) {
+                registration.setRefundPolicySnapshot("LEGACY_FULL_REFUND");
+            }
+            registration.setRefundCalculationNote("Số tiền gốc " + registration.getAmountPaid().setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
+                    + " x " + rate.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() + "% = " + registration.getRefundAmount().toPlainString());
+            if (registration.getRefundAmount().signum() == 0) {
+                registration.setPaymentStatus(PaymentStatus.REFUNDED);
+                registration.setRefundProcessedAt(now);
+                registration.setRefundNote("Không phát sinh tiền hoàn theo chính sách tại thời điểm hủy.");
+            } else {
+                registration.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+                registration.setRefundRequestedAt(now);
+            }
+        } else {
+            registration.setPaymentStatus(PaymentStatus.PAID);
+            registration.setPaymentConfirmedEmailSentAt(now);
+            if (!StringUtils.hasText(registration.getTicketCode())) registration.setTicketCode(UUID.randomUUID().toString());
+            registration.setTicketIssuedAt(now);
+            registration.setTicketRevokedAt(null);
+        }
         registration.setUpdatedAt(now);
         GuestEventRegistration savedRegistration = guestRegistrationRepository.save(registration);
 
@@ -151,10 +172,12 @@ public class SePayWebhookService {
         transaction.setProcessedAt(now);
         bankPaymentTransactionRepository.save(transaction);
 
-        sendAfterCommit(() -> emailService.sendEventTicketConfirmationEmail(
-                savedRegistration.getGuestEmail(), savedRegistration.getGuestFullName(), event.getEventName(),
-                event.getStartDate(), event.getEndDate(), event.getLocation(), savedRegistration.getTicketCode(),
-                savedRegistration.getAmountPaid(), savedRegistration.getPaymentCurrency()));
+        if (PaymentStatus.PAID.equals(savedRegistration.getPaymentStatus())) {
+            sendAfterCommit(() -> emailService.sendEventTicketConfirmationEmail(
+                    savedRegistration.getGuestEmail(), savedRegistration.getGuestFullName(), event.getEventName(),
+                    event.getStartDate(), event.getEndDate(), event.getLocation(), savedRegistration.getTicketCode(),
+                    savedRegistration.getAmountPaid(), savedRegistration.getPaymentCurrency()));
+        }
     }
 
     private void processMemberPayment(BankPaymentTransaction transaction, EventRegistration primary,
@@ -164,6 +187,18 @@ public class SePayWebhookService {
                         primary.getTicketOrderCode(), primary.getPurchaserUserID())
                 : List.of(primary);
         if (order.isEmpty()) order = List.of(primary);
+        // A holder may cancel one unpaid ticket from a group order. Keep the
+        // shared transfer reference usable for the remaining active tickets,
+        // while still reconciling a cancelled ticket whose transfer had already
+        // been submitted for verification.
+        order = order.stream()
+                .filter(item -> !RegistrationStatus.CANCELLED.equals(item.getRegistrationStatus())
+                        || PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus()))
+                .toList();
+        if (order.isEmpty()) {
+            saveForReview(transaction, "NEEDS_REVIEW", "All tickets in the order were cancelled.");
+            return;
+        }
 
         if (order.stream().allMatch(item -> PaymentStatus.PAID.equals(item.getPaymentStatus())
                 || PaymentStatus.NOT_REQUIRED.equals(item.getPaymentStatus()))) {
@@ -197,13 +232,32 @@ public class SePayWebhookService {
         for (EventRegistration item : order) {
             if (!PaymentStatus.PENDING.equals(item.getPaymentStatus())
                     && !PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus())) continue;
-            item.setPaymentStatus(PaymentStatus.PAID);
             item.setPaymentMethod(PaymentMethod.BANK_TRANSFER);
             item.setAmountPaid(item.getAmountDue());
             item.setPaidAt(now);
-            if (!StringUtils.hasText(item.getTicketCode())) item.setTicketCode(UUID.randomUUID().toString());
-            item.setTicketIssuedAt(now);
-            item.setTicketRevokedAt(null);
+            if (RegistrationStatus.CANCELLED.equals(item.getRegistrationStatus())) {
+                BigDecimal rate = item.getRefundRate() == null ? new BigDecimal("100.00") : item.getRefundRate();
+                item.setRefundRate(rate);
+                item.setRefundAmount(RefundPolicyCalculator.calculateAmount(item.getAmountPaid(), rate));
+                if (!StringUtils.hasText(item.getRefundPolicySnapshot())) {
+                    item.setRefundPolicySnapshot("LEGACY_FULL_REFUND");
+                }
+                item.setRefundCalculationNote("Số tiền gốc " + item.getAmountPaid().setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
+                        + " x " + rate.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() + "% = " + item.getRefundAmount().toPlainString());
+                if (item.getRefundAmount().signum() == 0) {
+                    item.setPaymentStatus(PaymentStatus.REFUNDED);
+                    item.setRefundProcessedAt(now);
+                    item.setRefundNote("Không phát sinh tiền hoàn theo chính sách tại thời điểm hủy.");
+                } else {
+                    item.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+                    item.setRefundRequestedAt(now);
+                }
+            } else {
+                item.setPaymentStatus(PaymentStatus.PAID);
+                if (!StringUtils.hasText(item.getTicketCode())) item.setTicketCode(UUID.randomUUID().toString());
+                item.setTicketIssuedAt(now);
+                item.setTicketRevokedAt(null);
+            }
             item.setUpdatedAt(now);
         }
         List<EventRegistration> savedOrder = eventRegistrationRepository.saveAll(order);

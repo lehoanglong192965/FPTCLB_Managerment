@@ -10,10 +10,14 @@ import com.fptu.fcms.repository.NotificationRecipientRepository;
 import com.fptu.fcms.service.event.RegistrationAllocationResult;
 import com.fptu.fcms.service.event.RegistrationAllocationService;
 import com.fptu.fcms.service.event.RegistrationLifecycle;
+import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.enums.PaymentStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,6 +35,7 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
     private final UserRepository userRepository;
     private final NotificationRepository notificationRepository;
     private final NotificationRecipientRepository notificationRecipientRepository;
+    private final EmailService emailService;
 
     @Override
     @Transactional(readOnly = true)
@@ -104,6 +109,7 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
                 registration.setUpdatedAt(now);
                 registrationRepository.save(registration);
                 notifyPromotion(registration);
+                notifyMemberPromotionByEmail(registration);
             } else {
                 GuestEventRegistration registration = entry.guest();
                 registration.setStatus(RegistrationLifecycle.STATUS_CONFIRMED.name());
@@ -127,7 +133,11 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
                 }
                 registration.setWaitlistPosition(null);
                 registration.setUpdatedAt(now);
-                guestRegistrationRepository.save(registration);
+                if (PaymentStatus.PENDING.equals(registration.getPaymentStatus())) {
+                    registration.setPaymentInstructionSentAt(now);
+                }
+                GuestEventRegistration saved = guestRegistrationRepository.save(registration);
+                notifyGuestPromotionByEmail(saved);
             }
             confirmedCount++;
             promoted++;
@@ -155,6 +165,70 @@ public class RegistrationAllocationServiceImpl implements RegistrationAllocation
         recipient.setIsRead(false);
         recipient.setCreatedAt(LocalDateTime.now());
         notificationRecipientRepository.save(recipient);
+    }
+
+    private void notifyMemberPromotionByEmail(EventRegistration registration) {
+        Event event = eventRepository.findById(registration.getEventID()).orElse(null);
+        if (event == null) return;
+        String email = registration.getGuestEmail();
+        String name = registration.getGuestFullName();
+        if (registration.getUserID() != null) {
+            UserAccount user = userRepository.findByUserIDAndIsDeletedFalse(registration.getUserID()).orElse(null);
+            if (user != null) {
+                email = user.getEmail();
+                name = user.getFullName();
+            }
+        }
+        if (!StringUtils.hasText(email)) return;
+        String recipient = email;
+        String recipientName = name;
+        if (PaymentStatus.PENDING.equals(registration.getPaymentStatus())) {
+            sendAfterCommit(() -> emailService.sendSimpleEmail(recipient,
+                    "Đã có suất tham gia - cần thanh toán vé",
+                    "Bạn đã được chuyển từ danh sách chờ sang danh sách xác nhận cho sự kiện \""
+                            + event.getEventName() + "\". Số tiền: " + registration.getAmountDue() + " "
+                            + registration.getPaymentCurrency() + ". Mã chuyển khoản: "
+                            + registration.getPaymentReference() + ". Hạn thanh toán: "
+                            + registration.getPaymentExpiresAt() + "."));
+        } else if (StringUtils.hasText(registration.getTicketCode())) {
+            sendAfterCommit(() -> emailService.sendEventTicketConfirmationEmail(
+                    recipient, recipientName, event.getEventName(), event.getStartDate(), event.getEndDate(),
+                    event.getLocation(), registration.getTicketCode(), registration.getAmountPaid(),
+                    registration.getPaymentCurrency()));
+        }
+    }
+
+    private void notifyGuestPromotionByEmail(GuestEventRegistration registration) {
+        Event event = eventRepository.findById(registration.getEventID()).orElse(null);
+        if (event == null || !StringUtils.hasText(registration.getGuestEmail())) return;
+        if (PaymentStatus.PENDING.equals(registration.getPaymentStatus())) {
+            sendAfterCommit(() -> emailService.sendSimpleEmail(registration.getGuestEmail(),
+                    "Đã có suất tham gia - cần thanh toán vé",
+                    "Bạn đã được chuyển từ danh sách chờ sang danh sách xác nhận cho sự kiện \""
+                            + event.getEventName() + "\". Số tiền: " + registration.getAmountDue() + " "
+                            + registration.getPaymentCurrency() + ". Mã chuyển khoản: "
+                            + registration.getPaymentReference() + ". Hạn thanh toán: "
+                            + registration.getPaymentExpiresAt() + ". Dùng mã đăng ký "
+                            + registration.getRegistrationCode() + " tại trang tra cứu vé khách để tiếp tục."));
+        } else if (StringUtils.hasText(registration.getTicketCode())) {
+            sendAfterCommit(() -> emailService.sendEventTicketConfirmationEmail(
+                    registration.getGuestEmail(), registration.getGuestFullName(), event.getEventName(),
+                    event.getStartDate(), event.getEndDate(), event.getLocation(), registration.getTicketCode(),
+                    registration.getAmountPaid(), registration.getPaymentCurrency()));
+        }
+    }
+
+    private void sendAfterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
     }
 
     private boolean hasAvailableSeat(Integer eventId, Integer maxParticipants) {

@@ -34,13 +34,25 @@ public class EventLifecycleScheduler {
             LocalDateTime openAt = event.getRegistrationOpenAt() != null
                     ? event.getRegistrationOpenAt()
                     : (event.getStartDate() == null ? null : event.getStartDate().minusDays(7));
-            boolean beforeClose = event.getRegistrationCloseAt() == null || now.isBefore(event.getRegistrationCloseAt());
-            if (openAt != null && !now.isBefore(openAt) && beforeClose) {
+            if (openAt != null && !now.isBefore(openAt)) {
                 try {
+                    // Always perform the missing transition first. This also
+                    // recovers an APPROVED event when the application was down
+                    // across both its registration-open and registration-close times.
                     eventService.openRegistrationAutomatically(event.getEventID());
                     eventCapacityService.resetCapacity(event.getEventID(), event.getMaxParticipants());
+                    boolean closeReached = event.getRegistrationCloseAt() != null
+                            && !now.isBefore(event.getRegistrationCloseAt());
+                    boolean startReached = event.getStartDate() != null
+                            && !now.isBefore(event.getStartDate());
+                    if (closeReached || startReached) {
+                        eventService.closeRegistrationAutomatically(event.getEventID());
+                    }
+                    if (startReached) {
+                        eventService.startEventAutomatically(event.getEventID());
+                    }
                 } catch (RuntimeException exception) {
-                    log.warn("Could not automatically open registration for event {}", event.getEventID(), exception);
+                    log.warn("Could not recover registration lifecycle for event {}", event.getEventID(), exception);
                 }
             }
         }

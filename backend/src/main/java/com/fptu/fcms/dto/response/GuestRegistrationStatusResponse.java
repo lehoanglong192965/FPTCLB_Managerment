@@ -31,4 +31,14 @@ public class GuestRegistrationStatusResponse {
     private LocalDateTime paymentExpiresAt;
     private LocalDateTime paymentSubmittedAt;
     private String paymentRejectionReason;
+    private BigDecimal refundAmount;
+    private BigDecimal refundRate;
+    private String refundPolicySnapshot;
+    private String refundCalculationNote;
+    private LocalDateTime refundRequestedAt;
+    private LocalDateTime refundProcessedAt;
+    private String refundTransactionReference;
+    private String eventName;
+    private LocalDateTime eventStart;
+    private String eventLocation;
 }

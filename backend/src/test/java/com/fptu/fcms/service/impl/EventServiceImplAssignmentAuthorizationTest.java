@@ -4,7 +4,6 @@ import com.fptu.fcms.dto.request.EventAssignmentRequest;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventAssignment;
 import com.fptu.fcms.entity.EventRole;
-import com.fptu.fcms.repository.AttendanceSessionRepository;
 import com.fptu.fcms.repository.EventAssignmentRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.EventRegistrationRepository;
@@ -24,7 +23,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.when;
@@ -39,8 +37,6 @@ class EventServiceImplAssignmentAuthorizationTest {
     private EventAssignmentAccessService eventAssignmentAccessService;
     @Mock
     private EventAssignmentRepository eventAssignmentRepository;
-    @Mock
-    private AttendanceSessionRepository attendanceSessionRepository;
     @Mock
     private EventRepository eventRepository;
     @Mock
@@ -98,18 +94,6 @@ class EventServiceImplAssignmentAuthorizationTest {
         InOrder order = inOrder(eventAssignmentAccessService, eventAssignmentRepository);
         order.verify(eventAssignmentAccessService).ensureCanManageEvent(EVENT_ID, currentUser);
         order.verify(eventAssignmentRepository).findByEventIDAndIsDeletedFalse(EVENT_ID);
-    }
-
-    @Test
-    void getCheckedInAttendeesAuthorizesBeforeReadingSession() {
-        UserPrincipal currentUser = principal();
-        when(attendanceSessionRepository.findByEventID(EVENT_ID)).thenReturn(Optional.empty());
-
-        assertTrue(service.getCheckedInAttendees(EVENT_ID, currentUser).isEmpty());
-
-        InOrder order = inOrder(eventAssignmentAccessService, attendanceSessionRepository);
-        order.verify(eventAssignmentAccessService).ensureCanManageCheckIn(EVENT_ID, currentUser);
-        order.verify(attendanceSessionRepository).findByEventID(EVENT_ID);
     }
 
     private UserPrincipal principal() {

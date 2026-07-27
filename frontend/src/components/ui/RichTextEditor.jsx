@@ -1,5 +1,6 @@
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
+import { stripHtml } from "../../utils/sanitizeHtml";
 
 const MODULES = {
   toolbar: [
@@ -15,17 +16,27 @@ const FORMATS = ["bold", "italic", "underline", "color", "font"];
 /* Ô soạn thảo mô tả có định dạng (in đậm/nghiêng/gạch chân, màu chữ, phông chữ).
    Value/onChange trả về chuỗi HTML — nơi hiển thị lại phải sanitize bằng sanitizeHtml()
    trước khi dangerouslySetInnerHTML để tránh XSS lưu trữ. */
-export default function RichTextEditor({ value, onChange, placeholder, error }) {
+export default function RichTextEditor({ value, onChange, placeholder, error, maxLength }) {
+  const characterCount = stripHtml(value).length;
+  const handleChange = (html) => {
+    if (!maxLength || stripHtml(html).length <= maxLength) onChange(html);
+  };
+
   return (
     <div className={`rte-wrap${error ? " rte-error" : ""}`}>
       <ReactQuill
         theme="snow"
         value={value}
-        onChange={onChange}
+        onChange={handleChange}
         modules={MODULES}
         formats={FORMATS}
         placeholder={placeholder}
       />
+      {maxLength && (
+        <div className={`rte-counter${characterCount >= maxLength ? " rte-counter-limit" : ""}`}>
+          {characterCount}/{maxLength} ký tự
+        </div>
+      )}
       <style>{`
         .rte-wrap .ql-toolbar.ql-snow {
           border-color: #e5e7eb;
@@ -48,6 +59,8 @@ export default function RichTextEditor({ value, onChange, placeholder, error }) 
         .rte-wrap.rte-error .ql-container.ql-snow {
           border-color: #f87171;
         }
+        .rte-counter { margin-top: 5px; text-align: right; font-size: 12px; color: #6b7280; }
+        .rte-counter-limit { color: #dc2626; font-weight: 600; }
       `}</style>
     </div>
   );

@@ -8,6 +8,7 @@ import { useConfirm } from "../../contexts/ConfirmContext";
 import LocationPicker from "../../components/events/LocationPicker";
 import RichTextEditor from "../../components/ui/RichTextEditor";
 import RichTextView from "../../components/ui/RichTextView";
+import { stripHtml } from "../../utils/sanitizeHtml";
 import FinishEventModal from "../../components/events/FinishEventModal";
 import CloseEventButton from "../../components/events/CloseEventButton";
 import RegistrationMgmtPage from "./RegistrationMgmtPage";
@@ -367,13 +368,18 @@ export default function EventManageDetailPage() {
     try {
       const startDate = editForm.date && editForm.time ? `${editForm.date}T${editForm.time}:00` : null;
       const endDate = editForm.date && editForm.endTime ? `${editForm.date}T${editForm.endTime}:00` : null;
-      if (startDate && endDate && endDate <= startDate) {
-        toast.error("Giờ kết thúc phải sau giờ bắt đầu.");
+      if (startDate && endDate && new Date(endDate) - new Date(startDate) < 30 * 60 * 1000) {
+        toast.error("Giờ kết thúc phải cách giờ bắt đầu ít nhất 30 phút.");
         setSaving(false);
         return;
       }
       if (isFullEdit && editForm.isPaidEvent && Number(editForm.ticketPrice) <= 0) {
         toast.error("Sự kiện bán vé phải có giá vé lớn hơn 0.");
+        setSaving(false);
+        return;
+      }
+      if (isFullEdit && stripHtml(editForm.description).length > 1000) {
+        toast.error("Mô tả sự kiện không được vượt quá 1.000 ký tự.");
         setSaving(false);
         return;
       }
@@ -629,7 +635,7 @@ export default function EventManageDetailPage() {
               <div>
                 <label style={labelStyle}>Mô tả sự kiện</label>
                 {isEditing && isFullEdit ? (
-                  <RichTextEditor value={editForm.description} onChange={(html) => setEditForm((f) => ({ ...f, description: html }))} />
+                  <RichTextEditor value={editForm.description} onChange={(html) => setEditForm((f) => ({ ...f, description: html }))} maxLength={1000} />
                 ) : <RichTextView html={ev.description} />}
               </div>
               <div style={{ display: "flex", gap: 10 }}>
