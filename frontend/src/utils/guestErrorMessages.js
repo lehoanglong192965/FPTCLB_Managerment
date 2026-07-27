@@ -10,6 +10,11 @@ const GUEST_ERROR_MESSAGES = {
   OTP_LOCKED: 'Bạn đã nhập sai quá số lần cho phép. Vui lòng gửi lại mã mới.',
   OTP_RESEND_COOLDOWN: 'Bạn vừa yêu cầu mã OTP. Vui lòng đợi một lát rồi thử gửi lại.',
   GUEST_REFERENCE_INVALID: 'Liên kết đăng ký không hợp lệ hoặc đã hết hạn.',
+  GUEST_PAYMENT_NOT_PENDING: 'Đăng ký không còn ở trạng thái chờ thanh toán. Vui lòng tải lại để xem trạng thái mới nhất.',
+  GUEST_PAYMENT_METHOD_NOT_SUPPORTED: 'Phương thức thanh toán này chưa được hỗ trợ.',
+  REFUND_BANK_DETAILS_REQUIRED: 'Vui lòng nhập đầy đủ ngân hàng, số tài khoản và tên chủ tài khoản nhận hoàn.',
+  REFUND_ACCOUNT_NUMBER_INVALID: 'Số tài khoản nhận hoàn phải gồm từ 6 đến 19 chữ số.',
+  CONFLICT: 'Trạng thái đăng ký vừa thay đổi. Hệ thống đã tải lại thông tin mới nhất cho bạn.',
 };
 
 const ERROR_CODE_PATTERN = /^[A-Z0-9_]+$/;
@@ -21,6 +26,8 @@ const ERROR_CODE_PATTERN = /^[A-Z0-9_]+$/;
  * - Backend trả message dạng câu chữ bình thường → hiển thị nguyên văn.
  */
 export function guestErrorMessage(err, fallback) {
+  const responseCode = String(err?.response?.data?.code ?? '').trim().toUpperCase();
+  if (GUEST_ERROR_MESSAGES[responseCode]) return GUEST_ERROR_MESSAGES[responseCode];
   const raw = String(err?.response?.data?.message ?? '').trim();
   if (!raw) return fallback;
   const mapped = GUEST_ERROR_MESSAGES[raw.toUpperCase()];

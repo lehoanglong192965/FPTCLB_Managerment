@@ -25,8 +25,6 @@ const eventApi = {
   closeRegistration: (eventId) => axiosClient.patch(`/v1/events/${eventId}/close-registration`),
   cancel: (clubId, eventId, reason) =>
     axiosClient.patch(`/v1/events/${clubId}/${eventId}/cancel`, { reason }),
-  checkIn: (eventId, studentId) => axiosClient.post(`/v1/events/${eventId}/check-in/${studentId}`),
-  getCheckedInAttendees: (eventId) => axiosClient.get(`/v1/events/${eventId}/check-in`),
   getContributions: (eventId) => axiosClient.get(`/v1/events/${eventId}/contributions`),
   saveContributions: (eventId, contributions) =>
     axiosClient.post(`/v1/events/${eventId}/contributions`, contributions),
@@ -71,8 +69,6 @@ const eventApi = {
     axiosClient.post(`/events/${eventId}/ticket-orders`, { participants }),
   confirmPayment: (registrationId, payload) =>
     axiosClient.post(`/registrations/${registrationId}/payment/confirm`, payload),
-  registerGuest: (eventId, payload) => axiosClient.post(`/events/${eventId}/registrations/guest`, payload),
-  registerWalkIn: (eventId, payload) => axiosClient.post(`/events/${eventId}/registrations/walk-in`, payload),
   // Member ticket details, including the static ticket eligibility flag.
   getMyRegistrationDetails: () => axiosClient.get("/registrations/me"),
   getMyRegistrations: () => axiosClient.get("/registrations/me/events"),
@@ -92,12 +88,14 @@ const eventApi = {
     axiosClient.post(`/events/${eventId}/registrations/${registrationId}/approve`),
   rejectRegistration: (eventId, registrationId, reason) =>
     axiosClient.post(`/events/${eventId}/registrations/${registrationId}/reject`, { reason }),
-  cancelRegistration: (registrationId, reason) =>
-    axiosClient.post(`/registrations/${registrationId}/cancel`, { reason }),
-  cancelTicketOrder: (ticketOrderCode, reason) =>
-    axiosClient.post(`/ticket-orders/${ticketOrderCode}/cancel`, { reason }),
-  cancelGuestRegistration: (eventId, guestRegistrationId) =>
-    axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/cancel`),
+  cancelRegistration: (registrationId, request = {}) =>
+    axiosClient.post(`/registrations/${registrationId}/cancel`, typeof request === 'string' ? { reason: request } : request),
+  cancelTicketOrder: (ticketOrderCode, request = {}) =>
+    axiosClient.post(`/ticket-orders/${ticketOrderCode}/cancel`, typeof request === 'string' ? { reason: request } : request),
+  updateRefundRecipient: (registrationId, request) =>
+    axiosClient.post(`/registrations/${registrationId}/refund-recipient`, request),
+  cancelGuestRegistration: (eventId, guestRegistrationId, reason) =>
+    axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/cancel`, { reason }),
   approveGuestPayment: (eventId, guestRegistrationId) =>
     axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/payment/approve`),
   rejectGuestPayment: (eventId, guestRegistrationId, reason) =>
@@ -106,10 +104,10 @@ const eventApi = {
     axiosClient.post(`/events/${eventId}/registrations/${registrationId}/payment/approve`),
   rejectMemberPayment: (eventId, registrationId, reason) =>
     axiosClient.post(`/events/${eventId}/registrations/${registrationId}/payment/reject`, { reason }),
-  markMemberRefunded: (eventId, registrationId) =>
-    axiosClient.post(`/events/${eventId}/registrations/${registrationId}/refund/complete`),
-  markGuestRefunded: (eventId, guestRegistrationId) =>
-    axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/refund/complete`),
+  markMemberRefunded: (eventId, registrationId, payload) =>
+    axiosClient.post(`/events/${eventId}/registrations/${registrationId}/refund/complete`, payload),
+  markGuestRefunded: (eventId, guestRegistrationId, payload) =>
+    axiosClient.post(`/events/${eventId}/registrations/guest/${guestRegistrationId}/refund/complete`, payload),
 };
 
 export default eventApi;

@@ -4,6 +4,7 @@ import { ArrowLeft, Users, Search, CheckCircle2, XCircle, Trash2, X, Download } 
 import eventApi from '../../services/api/events/eventApi';
 import { buildEventCsvFileName, downloadCsvFile, getDownloadErrorMessage } from '../../utils/csvDownload';
 import { useToast } from '../../contexts/ToastContext';
+import { buildRefundVietQrUrl } from '../../utils/refundBanks';
 
 const STATUS_CFG = {
   PENDING:   { label: 'Chờ duyệt',  color: 'text-yellow-700', bg: 'bg-yellow-100' },
@@ -31,6 +32,7 @@ const TABS = [
   { id: '',          label: 'Tất cả'    },
   { id: 'PENDING_APPROVAL', label: 'Chờ duyệt' },
   { id: 'PAYMENT_VERIFICATION', label: 'Chờ xác minh CK' },
+  { id: 'REFUND_PENDING', label: 'Chờ hoàn tiền' },
   { id: 'CONFIRMED', label: 'Đã duyệt'  },
   { id: 'REJECTED',  label: 'Từ chối'   },
 ];
@@ -79,6 +81,88 @@ function RejectModal({ name, onConfirm, onClose, payment = false }) {
   );
 }
 
+function RefundModal({ registration, onConfirm, onClose }) {
+  const [transactionReference, setTransactionReference] = useState('');
+  const [note, setNote] = useState('');
+  const amount = registration.refundAmount ?? registration.amountDue ?? 0;
+  const originalAmount = Number(registration.amountPaid) > 0 ? registration.amountPaid : registration.amountDue;
+  const hasRecipientDetails = Boolean(
+    registration.refundBankName
+    && /^\d{6,30}$/.test(registration.refundAccountNumber || '')
+    && registration.refundAccountHolder
+  );
+  const qrUrl = buildRefundVietQrUrl({
+    bankCode: registration.refundBankCode,
+    bankName: registration.refundBankName,
+    accountNumber: registration.refundAccountNumber,
+    accountName: registration.refundAccountHolder,
+    amount,
+    reference: `HOAN VE ${registration.paymentReference || registration.registrationId || registration.guestRegistrationId || ''}`,
+  });
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.4)' }}>
+      <div className="max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl mx-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-gray-900">Xác nhận đã hoàn tiền</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <p className="text-sm text-gray-600 mb-4">
+          Người nhận: <strong>{registration.fullName || registration.name}</strong><br />
+          Tiền vé đã trả: <strong>{Number(originalAmount || 0).toLocaleString('vi-VN')} {registration.paymentCurrency || 'VND'}</strong><br />
+          Tỷ lệ hoàn: <strong>{Number(registration.refundRate ?? 100)}%</strong><br />
+          Cần hoàn: <strong className="text-orange-600">{Number(amount).toLocaleString('vi-VN')} {registration.paymentCurrency || 'VND'}</strong>
+        </p>
+        {registration.refundCalculationNote && (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+            Cách tính: {registration.refundCalculationNote}
+          </div>
+        )}
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
+          Đối chiếu thông tin khách đã cung cấp, quét QR bằng ứng dụng ngân hàng rồi nhập mã giao dịch. Chỉ xác nhận sau khi chuyển đúng người nhận và đúng số tiền.
+        </div>
+        {hasRecipientDetails ? (
+          <div className="mb-5 grid gap-5 md:grid-cols-[1fr_220px]">
+            <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm">
+              <p className="m-0 text-xs font-semibold uppercase tracking-wide text-gray-500">Thông tin khách cung cấp</p>
+              <div><span className="block text-gray-500">Ngân hàng</span><strong className="text-gray-900">{registration.refundBankName}</strong></div>
+              <div><span className="block text-gray-500">Số tài khoản</span><strong className="font-mono text-base text-gray-900">{registration.refundAccountNumber}</strong></div>
+              <div><span className="block text-gray-500">Chủ tài khoản</span><strong className="uppercase text-gray-900">{registration.refundAccountHolder}</strong></div>
+              <div><span className="block text-gray-500">Số tiền hoàn</span><strong className="text-orange-600">{Number(amount).toLocaleString('vi-VN')} {registration.paymentCurrency || 'VND'}</strong></div>
+              <div><span className="block text-gray-500">Tỷ lệ chính sách</span><strong className="text-gray-900">{Number(registration.refundRate ?? 100)}%</strong></div>
+            </div>
+            <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-gray-200 bg-white p-2 text-center">
+              {qrUrl ? (
+                <div>
+                  <img src={qrUrl} alt="VietQR hoàn tiền" className="mx-auto h-[200px] w-[200px] object-contain" />
+                  <p className="mt-1 text-xs text-gray-500">Quét để chuyển đúng số tiền</p>
+                </div>
+              ) : (
+                <p className="px-3 text-sm text-red-600">Chưa tạo được QR vì ngân hàng không nằm trong danh sách VietQR hỗ trợ.</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            Khách chưa cung cấp đủ thông tin nhận hoàn tiền. Chưa thể xử lý khoản hoàn này.
+          </div>
+        )}
+        <label className="block text-sm font-medium text-gray-700 mb-1">Mã giao dịch ngân hàng *</label>
+        <input value={transactionReference} onChange={(e) => setTransactionReference(e.target.value)} maxLength={100}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3" placeholder="VD: FT261234567890" />
+        <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={3}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none" placeholder="Thông tin đối soát bổ sung..." />
+        <div className="flex gap-3 justify-end mt-5">
+          <button onClick={onClose} className="px-4 py-2 text-sm border border-gray-200 rounded-lg">Hủy</button>
+          <button disabled={!hasRecipientDetails || !transactionReference.trim()}
+            onClick={() => onConfirm({ transactionReference: transactionReference.trim(), note: note.trim() || null })}
+            className="px-4 py-2 text-sm text-white bg-teal-600 rounded-lg font-medium disabled:opacity-50">Xác nhận đã chuyển</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = false, maxParticipants } = {}) {
   const { eventId: eventIdParam } = useParams();
   const eventId = eventIdProp ?? eventIdParam;
@@ -94,6 +178,7 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
   const [exportLoading, setExportLoading] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null); // { id, name }
   const [paymentRejectTarget, setPaymentRejectTarget] = useState(null);
+  const [refundTarget, setRefundTarget] = useState(null);
 
   const fetchRegistrations = useCallback(async () => {
     setLoading(true);
@@ -152,6 +237,8 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
   };
 
   const handleCancel = async (reg) => {
+    const reason = window.prompt(`Nhập lý do hủy vé của ${reg.fullName || reg.name || 'người tham gia'}:`)?.trim();
+    if (!reason) return;
     const isGuest = reg.type === 'GUEST';
     const loadingKey = isGuest
       ? 'guest-' + (reg.guestRegistrationId ?? reg.registrationId)
@@ -159,9 +246,9 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
     setActionLoading(loadingKey);
     try {
       if (isGuest) {
-        await eventApi.cancelGuestRegistration(eventId, reg.guestRegistrationId ?? reg.registrationId);
+        await eventApi.cancelGuestRegistration(eventId, reg.guestRegistrationId ?? reg.registrationId, reason);
       } else {
-        await eventApi.cancelRegistration(reg.registrationId ?? reg.id);
+        await eventApi.cancelRegistration(reg.registrationId ?? reg.id, reason);
       }
       toast.success('Đã huỷ đăng ký.');
       fetchRegistrations();
@@ -210,15 +297,17 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
     }
   };
 
-  const handleMarkRefunded = async (reg) => {
+  const handleMarkRefunded = async (payload) => {
+    const reg = refundTarget;
+    if (!reg) return;
     const isGuest = reg.type === 'GUEST';
     const registrationId = isGuest ? (reg.guestRegistrationId ?? reg.registrationId) : (reg.registrationId ?? reg.id);
-    if (!window.confirm(`Xác nhận đã hoàn tiền cho ${reg.fullName || reg.name || 'người tham gia'}?`)) return;
+    setRefundTarget(null);
     const loadingKey = `${isGuest ? 'guest' : 'fptu'}-${registrationId}`;
     setActionLoading(loadingKey);
     try {
-      if (isGuest) await eventApi.markGuestRefunded(eventId, registrationId);
-      else await eventApi.markMemberRefunded(eventId, registrationId);
+      if (isGuest) await eventApi.markGuestRefunded(eventId, registrationId, payload);
+      else await eventApi.markMemberRefunded(eventId, registrationId, payload);
       toast.success('Đã ghi nhận hoàn tiền thành công.');
       fetchRegistrations();
     } catch (err) {
@@ -259,6 +348,8 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
         ? isPendingApproval(r.status)
         : tab === 'PAYMENT_VERIFICATION'
           ? r.paymentStatus === 'AWAITING_VERIFICATION'
+          : tab === 'REFUND_PENDING'
+            ? r.paymentStatus === 'REFUND_PENDING'
           : r.status === tab;
       if (!matchTab) return false;
     }
@@ -275,6 +366,7 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
     '': registrations.length,
     PENDING_APPROVAL: registrations.filter((r) => isPendingApproval(r.status)).length,
     PAYMENT_VERIFICATION: registrations.filter((r) => r.paymentStatus === 'AWAITING_VERIFICATION').length,
+    REFUND_PENDING: registrations.filter((r) => r.paymentStatus === 'REFUND_PENDING').length,
     // Vé Ban tổ chức là vé miễn phí và không chiếm quota người tham gia.
     CONFIRMED: registrations.filter((r) => r.status === 'CONFIRMED' && !r.capacityExempt).length,
     REJECTED:  registrations.filter((r) => r.status === 'REJECTED').length,
@@ -441,6 +533,7 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
                           </span>
                           {r.paymentReference && <p className="mt-1 text-[11px] text-gray-500">{r.paymentReference}</p>}
                           {r.amountDue != null && <p className="text-[11px] text-gray-500">{Number(r.amountDue).toLocaleString('vi-VN')} {r.paymentCurrency || 'VND'}</p>}
+                          {r.refundTransactionReference && <p className="text-[11px] text-teal-700">Mã hoàn: {r.refundTransactionReference}</p>}
                         </div>
                       ) : <span className="text-gray-400">—</span>}
                     </td>
@@ -492,12 +585,12 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
                         )}
                         {r.paymentStatus === 'REFUND_PENDING' && (
                           <button
-                            onClick={() => handleMarkRefunded(r)}
+                            onClick={() => setRefundTarget(r)}
                             disabled={isLoading}
                             title="Xác nhận đã hoàn tiền"
                             className="rounded-lg border border-amber-300 px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
                           >
-                            Đã hoàn
+            Xử lý hoàn
                           </button>
                         )}
                         {(isGuest
@@ -540,6 +633,9 @@ export default function RegistrationMgmtPage({ eventId: eventIdProp, embedded = 
           onConfirm={handleRejectPayment}
           onClose={() => setPaymentRejectTarget(null)}
         />
+      )}
+      {refundTarget && (
+        <RefundModal registration={refundTarget} onConfirm={handleMarkRefunded} onClose={() => setRefundTarget(null)} />
       )}
     </div>
   );

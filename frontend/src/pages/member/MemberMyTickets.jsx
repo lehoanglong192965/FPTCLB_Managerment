@@ -9,6 +9,7 @@ import contributionApi from "../../services/api/contribution/contributionApi";
 const FILTER_TABS = [
   { key: "all",        label: "Tất cả"       },
   { key: "registered", label: "Đã đăng ký"   },
+  { key: "cancelled",  label: "Đã hủy"       },
   { key: "ongoing",    label: "Đang làm BTC" },
 ];
 
@@ -58,7 +59,7 @@ export default function MemberMyTickets() {
             time: e.startDate ? new Date(e.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "",
             location: e.location || "Chưa xếp phòng",
             bannerUrl: e.bannerUrl ?? null,
-            ticketStatus: "registered",
+            ticketStatus: e.registrationStatus === "CANCELLED" ? "cancelled" : "registered",
             registrationId: e.registrationId,
             eventId: e.eventId,
             clubId: e.clubId,
@@ -85,6 +86,15 @@ export default function MemberMyTickets() {
             ticketHolderName: e.ticketHolderName,
             ticketHolderEmail: e.ticketHolderEmail,
             ticketHolderPhone: e.ticketHolderPhone,
+            refundAmount: e.refundAmount,
+            refundRate: e.refundRate,
+            refundPolicySnapshot: e.refundPolicySnapshot,
+            refundCalculationNote: e.refundCalculationNote,
+            refundRequestedAt: e.refundRequestedAt,
+            refundProcessedAt: e.refundProcessedAt,
+            refundTransactionReference: e.refundTransactionReference,
+            cancelledAt: e.cancelledAt,
+            cancellationReason: e.cancellationReason,
           };
         });
 

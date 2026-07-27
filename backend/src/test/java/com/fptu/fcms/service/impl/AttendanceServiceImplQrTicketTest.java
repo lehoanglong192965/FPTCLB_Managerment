@@ -208,6 +208,51 @@ class AttendanceServiceImplQrTicketTest {
         verify(attendanceRecordRepository, never())
                 .findBySessionIDAndGuestRegistrationID(any(), any());
     }
+
+    @Test
+    void unpaidMemberManualLookupIsRejected() {
+        AttendanceSession session = openSession(101, 201);
+        Event event = ongoingEvent(201);
+        EventRegistration registration = confirmedRegistration(301, 201, 401, null);
+        registration.setPaymentStatus(PaymentStatus.PENDING);
+        AttendanceCheckInRequest request = new AttendanceCheckInRequest();
+        request.setRegistrationId(301);
+        request.setVerificationMethod(VerificationMethod.STUDENT_CARD.name());
+
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
+        when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
+        when(eventRegistrationRepository.findByRegistrationIDAndIsDeletedFalse(301))
+                .thenReturn(Optional.of(registration));
+
+        BusinessRuleException error = assertThrows(
+                BusinessRuleException.class,
+                () -> service.checkIn(101, request, 901));
+
+        assertEquals("TICKET_PAYMENT_REQUIRED", error.getErrorCode());
+        verify(attendanceRecordRepository, never()).save(any(AttendanceRecord.class));
+    }
+
+    @Test
+    void unpaidGuestManualLookupIsRejected() {
+        AttendanceSession session = openSession(101, 201);
+        Event event = ongoingEvent(201);
+        GuestEventRegistration guest = confirmedGuestRegistration(601, 201, null, PaymentStatus.PENDING);
+        AttendanceCheckInRequest request = new AttendanceCheckInRequest();
+        request.setGuestRegistrationId(601);
+        request.setVerificationMethod(VerificationMethod.PHONE_LAST4.name());
+
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
+        when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
+        when(guestEventRegistrationRepository.findByGuestRegistrationIDAndIsDeletedFalse(601))
+                .thenReturn(Optional.of(guest));
+
+        BusinessRuleException error = assertThrows(
+                BusinessRuleException.class,
+                () -> service.checkIn(101, request, 901));
+
+        assertEquals("TICKET_PAYMENT_REQUIRED", error.getErrorCode());
+        verify(attendanceRecordRepository, never()).save(any(AttendanceRecord.class));
+    }
     @Test
     void qrTicketFromAnotherEventReturnsGenericInvalidTicketError() {
         AttendanceSession session = openSession(101, 201);

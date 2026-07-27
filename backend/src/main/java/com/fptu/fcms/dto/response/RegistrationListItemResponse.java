@@ -33,4 +33,17 @@ public class RegistrationListItemResponse {
     private String paymentReference;
     private PaymentMethod paymentMethod;
     private LocalDateTime paymentSubmittedAt;
+    private BigDecimal refundAmount;
+    private BigDecimal refundRate;
+    private String refundPolicySnapshot;
+    private String refundCalculationNote;
+    private LocalDateTime refundRequestedAt;
+    private LocalDateTime refundProcessedAt;
+    private Integer refundProcessedBy;
+    private String refundTransactionReference;
+    private String refundNote;
+    private String refundBankCode;
+    private String refundBankName;
+    private String refundAccountNumber;
+    private String refundAccountHolder;
 }

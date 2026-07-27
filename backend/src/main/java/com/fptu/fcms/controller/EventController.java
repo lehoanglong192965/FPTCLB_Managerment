@@ -258,23 +258,6 @@ public class EventController {
         return ResponseEntity.ok(Map.of("message", "Event cancelled successfully."));
     }
 
-    @PostMapping("/{eventId}/check-in/{studentId}")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Map<String, String>> checkIn(
-            @PathVariable Integer eventId,
-            @PathVariable String studentId,
-            @AuthenticationPrincipal UserPrincipal currentUser) {
-        return ResponseEntity.status(HttpStatus.GONE).body(Map.of("message", "This endpoint is retired. Use POST /api/v1/attendance-sessions/{sessionId}/check-ins."));
-    }
-
-    @GetMapping("/{eventId}/check-in")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<Map<String, Object>>> getCheckedInAttendees(
-            @PathVariable Integer eventId,
-            @AuthenticationPrincipal UserPrincipal currentUser) {
-        return ResponseEntity.ok(eventService.getCheckedInAttendees(eventId, currentUser));
-    }
-
     @GetMapping("/{eventId}/contributions")
     @PreAuthorize("hasAnyRole('Leader', 'ViceLeader')")
     public ResponseEntity<List<com.fptu.fcms.dto.response.ContributionDTO>> getContributions(

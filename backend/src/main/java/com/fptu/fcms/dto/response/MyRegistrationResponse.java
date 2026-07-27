@@ -43,4 +43,13 @@ public class MyRegistrationResponse {
     private String ticketHolderName;
     private String ticketHolderEmail;
     private String ticketHolderPhone;
+    private BigDecimal refundAmount;
+    private BigDecimal refundRate;
+    private String refundPolicySnapshot;
+    private String refundCalculationNote;
+    private LocalDateTime refundRequestedAt;
+    private LocalDateTime refundProcessedAt;
+    private String refundTransactionReference;
+    private LocalDateTime cancelledAt;
+    private String cancellationReason;
 }

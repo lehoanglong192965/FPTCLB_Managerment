@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { CheckCircle2, Clock, XCircle, Calendar, MapPin, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, Calendar, MapPin, RefreshCw, X } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import guestApi from '../../services/api/guest/guestApi';
 import { guestErrorMessage } from '../../utils/guestErrorMessages';
+import { REFUND_BANKS } from '../../utils/refundBanks';
+import { getRefundPolicyPreview } from '../../utils/refundPolicy';
 
 const PAYMENT_BANK = {
   id: import.meta.env.VITE_PAYMENT_BANK_ID || 'MB',
@@ -62,12 +64,20 @@ export default function GuestStatusPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [loadErrorStatus, setLoadErrorStatus] = useState(null);
+  const [actionError, setActionError] = useState(null);
+  const [actionNotice, setActionNotice] = useState(null);
   const [paying, setPaying] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
+  const [paymentMethod] = useState('BANK_TRANSFER');
   const [cancelReason, setCancelReason] = useState('');
+  const [refundBankCode, setRefundBankCode] = useState('');
+  const [refundBankName, setRefundBankName] = useState('');
+  const [refundAccountNumber, setRefundAccountNumber] = useState('');
+  const [refundAccountHolder, setRefundAccountHolder] = useState('');
   const [cancelling, setCancelling] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [leaveOpen, setLeaveOpen] = useState(false);
+  const [refundFormOpen, setRefundFormOpen] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -80,9 +90,14 @@ export default function GuestStatusPage() {
     try {
       const res = await guestApi.getStatus(ref);
       setData(res?.data ?? res);
+      setError(null);
+      setLoadErrorStatus(null);
     } catch (err) {
       if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
-      if (!silent) setError(guestErrorMessage(err, 'Không tìm thấy thông tin đăng ký.'));
+      if (!silent) {
+        setLoadErrorStatus(err?.response?.status ?? null);
+        setError(guestErrorMessage(err, 'Không thể tải thông tin đăng ký.'));
+      }
     } finally {
       if (!silent) setLoading(false);
     }
@@ -112,7 +127,9 @@ export default function GuestStatusPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full max-w-md p-8 text-center">
           <XCircle size={40} className="text-red-400 mx-auto mb-3" />
-          <p className="text-gray-700 font-medium mb-1">Không tìm thấy đăng ký</p>
+          <p className="text-gray-700 font-medium mb-1">
+            {loadErrorStatus === 404 ? 'Không tìm thấy đăng ký' : 'Không thể tải đăng ký'}
+          </p>
           <p className="text-sm text-gray-500 mb-5">{error}</p>
           <button
             onClick={() => fetchStatus(false)}
@@ -127,6 +144,44 @@ export default function GuestStatusPage() {
 
   const paymentPending = data.paymentStatus === 'PENDING';
   const awaitingPaymentVerification = data.paymentStatus === 'AWAITING_VERIFICATION';
+  const refundPreview = getRefundPolicyPreview(
+    data.eventStart ?? data.event?.startDate,
+    Number(data.amountPaid) > 0 ? data.amountPaid : data.amountDue,
+  );
+  const refundDetailsRequired = ['PAID', 'AWAITING_VERIFICATION'].includes(data.paymentStatus)
+    && refundPreview.rate > 0;
+
+  const submitCancellation = async (payload) => {
+    setCancelling(true);
+    setActionError(null);
+    setActionNotice(null);
+    try {
+      const res = await guestApi.cancel(ref, payload);
+      setData(res?.data ?? res);
+      setRefundFormOpen(false);
+      setActionNotice('Đăng ký đã được huỷ và slot đã được giải phóng.');
+    } catch (err) {
+      setActionError(guestErrorMessage(err, 'Không thể hủy đăng ký.'));
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const submitRefundRecipient = async (payload) => {
+    setCancelling(true);
+    setActionError(null);
+    setActionNotice(null);
+    try {
+      const res = await guestApi.updateRefundRecipient(ref, payload);
+      setData(res?.data ?? res);
+      setRefundFormOpen(false);
+      setActionNotice('Đã lưu thông tin tài khoản nhận hoàn tiền.');
+    } catch (err) {
+      setActionError(guestErrorMessage(err, 'Không thể cập nhật tài khoản nhận hoàn tiền.'));
+    } finally {
+      setCancelling(false);
+    }
+  };
   const cfg = awaitingPaymentVerification ? {
     icon: <Clock size={40} className="text-blue-500" />,
     bg: 'bg-blue-50',
@@ -142,7 +197,11 @@ export default function GuestStatusPage() {
     badge: 'Chờ thanh toán',
     badgeColor: 'bg-orange-100 text-orange-700',
   } : (STATUS_CONFIG[data.status] ?? STATUS_CONFIG.CONFIRMED);
-  const ev = data.event ?? {};
+  const ev = data.event ?? {
+    eventName: data.eventName,
+    startDate: data.eventStart,
+    location: data.eventLocation,
+  };
   const paymentDeadline = data.paymentExpiresAt ? new Date(data.paymentExpiresAt) : null;
   const remainingMs = paymentDeadline ? Math.max(0, paymentDeadline.getTime() - now) : 0;
   const remainingMinutes = Math.floor(remainingMs / 60000);
@@ -159,15 +218,35 @@ export default function GuestStatusPage() {
   const handlePayment = async () => {
     if (paying) return;
     setPaying(true);
-    setError(null);
+    setActionError(null);
+    setActionNotice(null);
     try {
-      await guestApi.confirmPayment(ref, {
+      const response = await guestApi.confirmPayment(ref, {
         paymentMethod,
         transactionReference: data.paymentReference,
       });
-      await fetchStatus();
+      const updated = response?.data ?? response;
+      setData(updated);
+      setActionNotice(updated?.paymentStatus === 'PAID'
+        ? 'Thanh toán đã được xác nhận. Vé của bạn đã được phát hành.'
+        : 'Yêu cầu xác minh chuyển khoản đã được gửi.');
     } catch (err) {
-      setError(guestErrorMessage(err, 'Không thể xác nhận thanh toán vé.'));
+      try {
+        const latestResponse = await guestApi.getStatus(ref);
+        const latest = latestResponse?.data ?? latestResponse;
+        setData(latest);
+        if (latest?.paymentStatus === 'AWAITING_VERIFICATION') {
+          setActionNotice('Yêu cầu xác minh đã được gửi trước đó. Ban tổ chức đang đối chiếu giao dịch.');
+        } else if (latest?.paymentStatus === 'PAID') {
+          setActionNotice('Thanh toán đã được xác nhận. Vé của bạn đã được phát hành.');
+        } else if (latest?.paymentStatus === 'EXPIRED' || latest?.status === 'CANCELLED') {
+          setActionError('Đăng ký đã hết hạn hoặc bị huỷ, slot đã được giải phóng.');
+        } else {
+          setActionError(guestErrorMessage(err, 'Không thể xác nhận thanh toán vé.'));
+        }
+      } catch {
+        setActionError(guestErrorMessage(err, 'Không thể xác nhận thanh toán vé.'));
+      }
     } finally {
       setPaying(false);
     }
@@ -185,6 +264,17 @@ export default function GuestStatusPage() {
             {cfg.badge}
           </span>
         </div>
+
+        {actionNotice && (
+          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {actionNotice}
+          </div>
+        )}
+        {actionError && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {actionError}
+          </div>
+        )}
 
         {data.paymentStatus === 'PENDING' && (
           <div className="mb-6 rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm">
@@ -251,6 +341,32 @@ export default function GuestStatusPage() {
           </div>
         )}
 
+        {data.paymentStatus === 'REFUND_PENDING' && (
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <p className="font-bold">Đang chờ hoàn tiền</p>
+            <p className="mt-1">Vé và mã QR đã bị thu hồi. Ban tổ chức đang xử lý khoản hoàn của bạn.</p>
+            <p className="mt-2 font-semibold">Tỷ lệ: {Number(data.refundRate || 0)}% · Số tiền: {Number(data.refundAmount || 0).toLocaleString('vi-VN')} {data.paymentCurrency || 'VND'}</p>
+            <button
+              type="button"
+              onClick={() => { setActionError(null); setRefundFormOpen(true); }}
+              className="mt-3 w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+            >
+              Cung cấp / cập nhật tài khoản nhận hoàn
+            </button>
+          </div>
+        )}
+
+        {data.paymentStatus === 'REFUNDED' && (
+          <div className="mb-6 rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-800">
+            <p className="font-bold">{Number(data.refundAmount || 0) > 0 ? 'Đã hoàn tiền' : 'Đã áp dụng chính sách hoàn'}</p>
+            <p className="mt-1">{Number(data.refundAmount || 0) > 0
+              ? 'Khoản hoàn đã được ban tổ chức xác nhận. Vui lòng kiểm tra tài khoản nhận tiền và email.'
+              : 'Tỷ lệ hoàn tại thời điểm hủy là 0%, vì vậy không phát sinh giao dịch chuyển tiền.'}</p>
+            <p className="mt-2 font-semibold">Tỷ lệ: {Number(data.refundRate || 0)}% · Số tiền: {Number(data.refundAmount || 0).toLocaleString('vi-VN')} {data.paymentCurrency || 'VND'}</p>
+            {data.refundTransactionReference && <p className="mt-1 text-xs">Mã giao dịch: {data.refundTransactionReference}</p>}
+          </div>
+        )}
+
         {data.ticketCode && data.status === 'CONFIRMED' && (
           <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-5 text-center">
             <p className="mb-3 font-bold text-green-800">Vé QR của khách</p>
@@ -300,21 +416,12 @@ export default function GuestStatusPage() {
             />
             <button
               disabled={cancelling || (!paymentPending && !cancelReason.trim())}
-              onClick={async () => {
-                setCancelling(true);
-                setError(null);
-                try {
-                  const res = await guestApi.cancel(ref, cancelReason.trim());
-                  setData(res?.data ?? res);
-                } catch (err) {
-                  setError(guestErrorMessage(err, 'Không thể hủy đăng ký.'));
-                } finally {
-                  setCancelling(false);
-                }
-              }}
+              onClick={() => refundDetailsRequired
+                ? setRefundFormOpen(true)
+                : submitCancellation({ reason: cancelReason.trim() })}
               className="mt-2 w-full rounded-lg border border-red-200 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
             >
-              {cancelling ? 'Đang xử lý...' : (paymentPending ? 'Hủy và trả chỗ' : 'Hủy đăng ký')}
+              {cancelling ? 'Đang xử lý...' : (refundDetailsRequired ? 'Tiếp tục hủy và nhận hoàn tiền' : (refundPreview.rate === 0 && data.paymentStatus === 'PAID' ? 'Hủy vé — không hoàn tiền' : (paymentPending ? 'Hủy và trả chỗ' : 'Hủy đăng ký')))}
             </button>
           </div>
         )}
@@ -332,6 +439,61 @@ export default function GuestStatusPage() {
           {paymentPending ? 'Thanh toán sau — về trang chủ' : 'Về trang chủ'}
         </Link>
       </div>
+
+      {refundFormOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 p-4" onClick={(e) => e.target === e.currentTarget && setRefundFormOpen(false)}>
+          <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="m-0 text-xl font-bold text-gray-900">Thông tin nhận hoàn tiền</h2>
+              <button type="button" onClick={() => setRefundFormOpen(false)} className="text-gray-400 hover:text-gray-700" aria-label="Đóng">
+                <X size={22} />
+              </button>
+            </div>
+            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
+              Vé sẽ bị thu hồi sau khi xác nhận. Ban tổ chức sẽ dùng đúng thông tin dưới đây để chuyển khoản hoàn tiền.
+              <p className="mt-2 font-semibold">{refundPreview.label}: hoàn {refundPreview.rate}% — {refundPreview.amount.toLocaleString('vi-VN')} {data.paymentCurrency || 'VND'}</p>
+            </div>
+            <label className="mb-1 block text-sm font-semibold text-gray-700">Ngân hàng nhận hoàn *</label>
+            <select
+              value={refundBankCode}
+              onChange={(e) => {
+                const bank = REFUND_BANKS.find((item) => item.code === e.target.value);
+                setRefundBankCode(bank?.code || '');
+                setRefundBankName(bank?.name || '');
+              }}
+              className="mb-4 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-orange-400"
+            >
+              <option value="">Chọn ngân hàng</option>
+              {REFUND_BANKS.map((bank) => <option key={bank.code} value={bank.code}>{bank.name}</option>)}
+            </select>
+            <label className="mb-1 block text-sm font-semibold text-gray-700">Số tài khoản nhận hoàn *</label>
+            <input value={refundAccountNumber} onChange={(e) => setRefundAccountNumber(e.target.value.replace(/\D/g, ''))} maxLength={19}
+              placeholder="Chỉ nhập chữ số" className="mb-4 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-orange-400" />
+            <label className="mb-1 block text-sm font-semibold text-gray-700">Tên chủ tài khoản *</label>
+            <input value={refundAccountHolder} onChange={(e) => setRefundAccountHolder(e.target.value.toUpperCase())} maxLength={150}
+              placeholder="NGUYEN VAN A" className="mb-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm uppercase outline-none focus:border-orange-400" />
+            <p className="mb-5 text-xs leading-5 text-red-600">Không cung cấp mật khẩu, OTP, PIN hoặc thông tin đăng nhập ngân hàng.</p>
+            <div className="flex justify-end gap-3">
+              <button type="button" onClick={() => setRefundFormOpen(false)} className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-700">Quay lại</button>
+              <button
+                type="button"
+                disabled={cancelling || !refundBankCode || !/^\d{6,19}$/.test(refundAccountNumber) || !refundAccountHolder.trim()}
+                onClick={() => {
+                  const payload = {
+                    reason: cancelReason.trim(), refundBankCode, refundBankName,
+                    refundAccountNumber, refundAccountHolder: refundAccountHolder.trim(),
+                  };
+                  if (data.paymentStatus === 'REFUND_PENDING') submitRefundRecipient(payload);
+                  else submitCancellation(payload);
+                }}
+                className="rounded-xl bg-red-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
+              >
+                {cancelling ? 'Đang xử lý...' : (data.paymentStatus === 'REFUND_PENDING' ? 'Lưu thông tin nhận hoàn' : 'Xác nhận hủy vé')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {leaveOpen && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 p-4" onClick={(e) => e.target === e.currentTarget && setLeaveOpen(false)}>

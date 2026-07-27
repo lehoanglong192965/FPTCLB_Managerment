@@ -7,6 +7,8 @@ import clubApi from "../../services/api/clubs/clubApi";
 import { getServerOrigin } from "../../services/api/axiosClient";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
+import { REFUND_BANKS } from "../../utils/refundBanks";
+import { getRefundPolicyPreview } from "../../utils/refundPolicy";
 
 const getImageUrl = (url) => {
   if (!url) return "";
@@ -65,12 +67,19 @@ export default function TicketDetailPage() {
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("BANK_TRANSFER");
+  const paymentMethod = "BANK_TRANSFER";
   const [paying, setPaying] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [actionError, setActionError] = useState("");
   const [copied, setCopied] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [refundBankCode, setRefundBankCode] = useState("");
+  const [refundBankName, setRefundBankName] = useState("");
+  const [refundAccountNumber, setRefundAccountNumber] = useState("");
+  const [refundAccountHolder, setRefundAccountHolder] = useState("");
+  const [showCancellationForm, setShowCancellationForm] = useState(false);
+  const [showRefundRecipientForm, setShowRefundRecipientForm] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,15 +148,78 @@ export default function TicketDetailPage() {
   };
 
   const cancelTicket = async () => {
-    if (!window.confirm(`Hủy vé của ${ticket.ticketHolderName || "người tham gia này"}? Mã QR sẽ bị thu hồi.`)) return;
+    const request = { reason: cancelReason.trim() };
+    if (["PAID", "AWAITING_VERIFICATION"].includes(ticket.paymentStatus)) {
+      Object.assign(request, {
+        refundBankCode,
+        refundBankName,
+        refundAccountNumber,
+        refundAccountHolder: refundAccountHolder.trim(),
+      });
+    }
     setCancelling(true);
     setActionError("");
     try {
-      await eventApi.cancelRegistration(ticket.registrationId);
+      await eventApi.cancelRegistration(ticket.registrationId, request);
       toast.success("Đã hủy vé và thu hồi mã QR.");
-      navigate(ticketsBasePath, { replace: true });
+      try {
+        const response = await eventApi.getMyRegistrationDetails();
+        const registrations = Array.isArray(response) ? response : (response?.data ?? []);
+        const updated = registrations.find((item) => String(item.registrationId) === String(ticket.registrationId));
+        if (updated) {
+          setTicket((current) => ({ ...current, ...updated }));
+        } else {
+          setTicket((current) => ({
+            ...current,
+            registrationStatus: "CANCELLED",
+            ticketCode: null,
+            ticketEligible: false,
+            paymentStatus: current.paymentStatus === "PAID"
+              ? (refundPreview.rate > 0 ? "REFUND_PENDING" : "REFUNDED")
+              : current.paymentStatus,
+            refundRate: refundPreview.rate,
+            refundAmount: refundPreview.amount,
+            cancellationReason: request.reason,
+            cancelledAt: new Date().toISOString(),
+          }));
+        }
+      } catch {
+        setTicket((current) => ({
+          ...current,
+          registrationStatus: "CANCELLED",
+          ticketCode: null,
+          ticketEligible: false,
+          paymentStatus: current.paymentStatus === "PAID"
+            ? (refundPreview.rate > 0 ? "REFUND_PENDING" : "REFUNDED")
+            : current.paymentStatus,
+          refundRate: refundPreview.rate,
+          refundAmount: refundPreview.amount,
+          cancellationReason: request.reason,
+          cancelledAt: new Date().toISOString(),
+        }));
+      }
+      setShowCancellationForm(false);
     } catch (err) {
       setActionError(err?.response?.data?.message || "Không thể hủy vé.");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const saveRefundRecipient = async () => {
+    setCancelling(true);
+    setActionError("");
+    try {
+      await eventApi.updateRefundRecipient(ticket.registrationId, {
+        refundBankCode,
+        refundBankName,
+        refundAccountNumber,
+        refundAccountHolder: refundAccountHolder.trim(),
+      });
+      setShowRefundRecipientForm(false);
+      toast.success("Đã lưu thông tin tài khoản nhận hoàn tiền.");
+    } catch (err) {
+      setActionError(err?.response?.data?.message || "Không thể cập nhật tài khoản nhận hoàn tiền.");
     } finally {
       setCancelling(false);
     }
@@ -176,6 +248,20 @@ export default function TicketDetailPage() {
 
   const ticketEligible = ticket.ticketEligible === true && Boolean(ticket.ticketCode);
   const isCancelled = ticket.registrationStatus === "CANCELLED";
+  const refundPreview = getRefundPolicyPreview(
+    ticket.startDate,
+    Number(ticket.amountPaid) > 0 ? ticket.amountPaid : ticket.amountDue,
+  );
+  const refundDetailsRequired = ["PAID", "AWAITING_VERIFICATION"].includes(ticket.paymentStatus)
+    && refundPreview.rate > 0;
+  const cancellationFormValid = Boolean(cancelReason.trim()) && (!refundDetailsRequired || (
+    refundBankCode
+    && refundBankName
+    && /^\d{6,19}$/.test(refundAccountNumber)
+    && refundAccountHolder.trim()
+  ));
+  const refundRecipientValid = Boolean(refundBankCode && refundBankName
+    && /^\d{6,19}$/.test(refundAccountNumber) && refundAccountHolder.trim());
   const startDateTime = formatDateTime(ticket.startDate);
 
   return (
@@ -277,33 +363,219 @@ export default function TicketDetailPage() {
             </dl>
           </div>
 
+          {isCancelled && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              <p className="m-0 font-bold">Vé đã được hủy</p>
+              {ticket.cancellationReason && (
+                <p className="m-0 mt-1"><span className="font-semibold">Lý do:</span> {ticket.cancellationReason}</p>
+              )}
+              {ticket.cancelledAt && (
+                <p className="m-0 mt-1 text-xs text-red-600">
+                  Thời gian hủy: {new Date(ticket.cancelledAt).toLocaleString("vi-VN")}
+                </p>
+              )}
+            </div>
+          )}
+
           {ticket.paymentStatus === "PENDING" && (
             <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
               <p className="m-0 mb-1 font-bold text-orange-800">Thanh toán đang chờ</p>
               <p className="m-0 mb-2 text-sm text-orange-700">{Number(ticket.amountDue || 0).toLocaleString("vi-VN")} {ticket.paymentCurrency || "VND"}</p>
               <p className="m-0 mb-3 break-all text-xs text-gray-600">Mã đối chiếu: {ticket.paymentReference}</p>
-              <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className="mb-2 w-full rounded-lg border border-orange-200 bg-white p-2 text-sm">
-                <option value="BANK_TRANSFER">Chuyển khoản ngân hàng</option>
-                <option value="VNPAY">VNPay</option>
-                <option value="MOMO">MoMo</option>
-              </select>
+              <div className="mb-2 w-full rounded-lg border border-orange-200 bg-white p-2 text-sm">Chuyển khoản ngân hàng</div>
               <button type="button" onClick={confirmPayment} disabled={paying} className="w-full rounded-lg border-0 bg-orange-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">
                 {paying ? "Đang xác nhận..." : "Xác nhận thanh toán"}
               </button>
             </div>
           )}
 
-          {actionError && <p className="m-0 text-xs text-red-600">{actionError}</p>}
+          {ticket.paymentStatus === "REFUND_PENDING" && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <p className="m-0 mb-1 font-bold">Đang chờ hoàn tiền</p>
+              <p className="m-0">Vé đã bị thu hồi và đang chờ ban tổ chức chuyển khoản hoàn tiền.</p>
+              {ticket.refundAmount != null && (
+                <p className="m-0 mt-1 font-semibold">Số tiền: {Number(ticket.refundAmount).toLocaleString("vi-VN")} {ticket.paymentCurrency || "VND"}</p>
+              )}
+              {ticket.refundRate != null && <p className="m-0 mt-1 text-xs">Tỷ lệ áp dụng: {Number(ticket.refundRate)}%</p>}
+              <button
+                type="button"
+                onClick={() => { setActionError(""); setShowRefundRecipientForm((visible) => !visible); }}
+                className="mt-3 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+              >
+                {showRefundRecipientForm ? "Đóng biểu mẫu" : "Cung cấp / cập nhật tài khoản nhận hoàn"}
+              </button>
+            </div>
+          )}
+
+          {ticket.paymentStatus === "REFUND_PENDING" && showRefundRecipientForm && (
+            <section className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="m-0 mb-3 text-sm font-bold text-amber-800">Thông tin nhận hoàn tiền</p>
+              <label className="mb-1 block text-xs font-semibold text-gray-600">Ngân hàng *</label>
+              <select
+                value={refundBankCode}
+                onChange={(event) => {
+                  const bank = REFUND_BANKS.find((item) => item.code === event.target.value);
+                  setRefundBankCode(bank?.code || "");
+                  setRefundBankName(bank?.name || "");
+                }}
+                className="mb-3 w-full rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-sm"
+              >
+                <option value="">Chọn ngân hàng nhận hoàn</option>
+                {REFUND_BANKS.map((bank) => <option key={bank.code} value={bank.code}>{bank.name}</option>)}
+              </select>
+              <label className="mb-1 block text-xs font-semibold text-gray-600">Số tài khoản *</label>
+              <input
+                value={refundAccountNumber}
+                onChange={(event) => setRefundAccountNumber(event.target.value.replace(/\D/g, ""))}
+                maxLength={19}
+                inputMode="numeric"
+                className="mb-3 w-full rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-sm"
+                placeholder="Từ 6 đến 19 chữ số"
+              />
+              <label className="mb-1 block text-xs font-semibold text-gray-600">Tên chủ tài khoản *</label>
+              <input
+                value={refundAccountHolder}
+                onChange={(event) => setRefundAccountHolder(event.target.value.toUpperCase())}
+                maxLength={150}
+                className="mb-3 w-full rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-sm uppercase"
+                placeholder="NGUYEN VAN A"
+              />
+              {actionError && <p className="mb-3 text-xs font-medium text-red-600">{actionError}</p>}
+              <button
+                type="button"
+                onClick={saveRefundRecipient}
+                disabled={cancelling || !refundRecipientValid}
+                className="w-full rounded-lg bg-amber-600 px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {cancelling ? "Đang lưu..." : "Lưu thông tin nhận hoàn"}
+              </button>
+              <p className="m-0 mt-2 text-[11px] text-amber-700">Không cung cấp mật khẩu, OTP hoặc mã PIN ngân hàng.</p>
+            </section>
+          )}
+
+          {ticket.paymentStatus === "REFUNDED" && (
+            <div className="rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-800">
+              <p className="m-0 mb-1 font-bold">{Number(ticket.refundAmount || 0) > 0 ? "Đã hoàn tiền" : "Đã áp dụng chính sách hoàn"}</p>
+              <p className="m-0">{Number(ticket.refundAmount || 0) > 0
+                ? "Vui lòng kiểm tra tài khoản nhận tiền và email xác nhận."
+                : "Tỷ lệ hoàn tại thời điểm hủy là 0%, vì vậy không phát sinh giao dịch chuyển tiền."}</p>
+              {ticket.refundRate != null && (
+                <p className="m-0 mt-1">Tỷ lệ hoàn: <strong>{Number(ticket.refundRate)}%</strong> · Số tiền: <strong>{Number(ticket.refundAmount || 0).toLocaleString("vi-VN")} {ticket.paymentCurrency || "VND"}</strong></p>
+              )}
+              {ticket.refundTransactionReference && (
+                <p className="m-0 mt-1 text-xs">Mã giao dịch: {ticket.refundTransactionReference}</p>
+              )}
+            </div>
+          )}
 
           {!isCancelled && (
-            <button
-              type="button"
-              onClick={cancelTicket}
-              disabled={cancelling || paying}
-              className="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
-            >
-              {cancelling ? "Đang hủy vé..." : "Hủy vé này"}
-            </button>
+            !showCancellationForm ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setActionError("");
+                  setShowCancellationForm(true);
+                }}
+                disabled={paying}
+                className="w-full rounded-lg border border-red-300 bg-white px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                Hủy vé này
+              </button>
+            ) : (
+            <section className="rounded-xl border border-red-200 bg-red-50/50 p-4">
+              <div className="mb-3">
+                <p className="m-0 font-bold text-red-700">Hủy vé</p>
+                <p className="m-0 mt-1 text-xs leading-5 text-red-600">
+                  Sau khi xác nhận, mã QR sẽ bị thu hồi và không thể dùng để check-in.
+                </p>
+              </div>
+
+              <label className="mb-1 block text-sm font-semibold text-gray-700">Lý do hủy vé *</label>
+              <textarea
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="Nhập lý do không thể tham gia..."
+                className="mb-3 w-full resize-none rounded-lg border border-red-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-400"
+              />
+
+              {refundDetailsRequired && (
+                <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <p className="m-0 mb-3 text-sm font-bold text-amber-800">Thông tin nhận hoàn tiền</p>
+                  <div className="mb-3 rounded-lg border border-amber-200 bg-white p-3 text-sm text-amber-800">
+                    <p className="m-0">Mức áp dụng: <strong>{refundPreview.label}</strong></p>
+                    <p className="m-0 mt-1">Tỷ lệ hoàn: <strong>{refundPreview.rate}%</strong></p>
+                    <p className="m-0 mt-1">Số tiền dự kiến: <strong>{refundPreview.amount.toLocaleString("vi-VN")} {ticket.paymentCurrency || "VND"}</strong></p>
+                  </div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Ngân hàng *</label>
+                  <select
+                    value={refundBankCode}
+                    onChange={(event) => {
+                      const bank = REFUND_BANKS.find((item) => item.code === event.target.value);
+                      setRefundBankCode(bank?.code || "");
+                      setRefundBankName(bank?.name || "");
+                    }}
+                    className="mb-3 w-full rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-400"
+                  >
+                    <option value="">Chọn ngân hàng nhận hoàn</option>
+                    {REFUND_BANKS.map((bank) => <option key={bank.code} value={bank.code}>{bank.name}</option>)}
+                  </select>
+
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Số tài khoản *</label>
+                  <input
+                    value={refundAccountNumber}
+                    onChange={(event) => setRefundAccountNumber(event.target.value.replace(/\D/g, ""))}
+                    maxLength={19}
+                    inputMode="numeric"
+                    placeholder="Từ 6 đến 19 chữ số"
+                    className="mb-3 w-full rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-400"
+                  />
+
+                  <label className="mb-1 block text-xs font-semibold text-gray-600">Tên chủ tài khoản *</label>
+                  <input
+                    value={refundAccountHolder}
+                    onChange={(event) => setRefundAccountHolder(event.target.value.toUpperCase())}
+                    maxLength={150}
+                    placeholder="NGUYEN VAN A"
+                    className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-sm uppercase outline-none focus:border-amber-400"
+                  />
+                  <p className="m-0 mt-2 text-[11px] leading-5 text-amber-700">
+                    Chỉ cung cấp thông tin nhận tiền; không nhập mật khẩu, OTP hoặc mã PIN ngân hàng.
+                  </p>
+                </div>
+              )}
+
+              {["PAID", "AWAITING_VERIFICATION"].includes(ticket.paymentStatus) && refundPreview.rate === 0 && (
+                <div className="mb-3 rounded-lg border border-gray-200 bg-gray-100 p-3 text-sm text-gray-700">
+                  Hủy dưới 24 giờ trước sự kiện: tỷ lệ hoàn <strong>0%</strong>. Vé vẫn bị thu hồi nhưng không phát sinh khoản chuyển hoàn.
+                </div>
+              )}
+
+              {actionError && <p className="mb-3 text-xs font-medium text-red-600">{actionError}</p>}
+              <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionError("");
+                    setShowCancellationForm(false);
+                  }}
+                  disabled={cancelling}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Không hủy nữa
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelTicket}
+                  disabled={cancelling || paying || !cancellationFormValid}
+                  className="w-full rounded-lg border border-red-400 bg-red-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {cancelling ? "Đang hủy vé..." : (refundDetailsRequired ? "Xác nhận hủy và yêu cầu hoàn tiền" : "Xác nhận hủy vé")}
+                </button>
+              </div>
+            </section>
+            )
           )}
         </div>
       </div>

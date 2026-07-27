@@ -1,6 +1,7 @@
 package com.fptu.fcms.controller;
 
 import com.fptu.fcms.dto.request.EventRejectRequest;
+import com.fptu.fcms.dto.request.EventApprovalRequest;
 import com.fptu.fcms.dto.response.EventDetailResponse;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.security.UserPrincipal;
@@ -103,7 +104,10 @@ public class ICPDPEventController {
     public ResponseEntity<Map<String, String>> approveEvent(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventService.approveEvent(eventId, currentUser);
+        EventApprovalRequest request = new EventApprovalRequest();
+        request.setDecision("APPROVED");
+        request.setPdpFeedback("Approved by ICPDP.");
+        eventService.approveEvent(eventId, request, currentUser);
         return ResponseEntity.ok(Map.of("message", "Su kien da duoc phe duyet."));
     }
 
@@ -120,7 +124,10 @@ public class ICPDPEventController {
             @PathVariable Integer eventId,
             @Valid @RequestBody EventRejectRequest request,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        eventService.rejectEvent(eventId, request.getReason(), currentUser);
+        EventApprovalRequest approvalRequest = new EventApprovalRequest();
+        approvalRequest.setDecision("REJECTED");
+        approvalRequest.setPdpFeedback(request.getReason());
+        eventService.approveEvent(eventId, approvalRequest, currentUser);
         return ResponseEntity.ok(Map.of("message", "Su kien da bi tu choi."));
     }
 }

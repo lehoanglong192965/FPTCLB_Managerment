@@ -93,6 +93,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (!RegistrationLifecycle.CONFIRMED_STATUSES.contains(registrationStatus)) {
             throw new IllegalArgumentException("Registration is not confirmed for check-in.");
         }
+        ensureTicketEligibleForManualCheckIn(registration.getTicketRevokedAt(), registration.getPaymentStatus());
         UserAccount user = registration.getUserID() == null
                 ? null
                 : userRepository.findByUserIDAndIsDeletedFalse(registration.getUserID()).orElse(null);
@@ -184,6 +185,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (!RegistrationLifecycle.CONFIRMED_STATUSES.contains(registrationStatus)) {
             throw new IllegalArgumentException("Registration is not confirmed for check-in.");
         }
+        ensureTicketEligibleForManualCheckIn(registration.getTicketRevokedAt(), registration.getPaymentStatus());
 
         VerificationMethod verificationMethod = parseVerificationMethod(request.getVerificationMethod());
         var existingRecord = attendanceRecordRepository.findBySessionIDAndGuestRegistrationID(sessionId, registration.getGuestRegistrationID());
@@ -530,6 +532,21 @@ public class AttendanceServiceImpl implements AttendanceService {
         return paymentStatus == null
                 || PaymentStatus.NOT_REQUIRED.equals(paymentStatus)
                 || PaymentStatus.PAID.equals(paymentStatus);
+    }
+
+    private void ensureTicketEligibleForManualCheckIn(LocalDateTime ticketRevokedAt, PaymentStatus paymentStatus) {
+        if (ticketRevokedAt != null) {
+            throw new BusinessRuleException(
+                    "TICKET_REVOKED",
+                    "Vé đã bị thu hồi và không thể check-in.",
+                    HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        if (!isPaymentEligibleForCheckIn(paymentStatus)) {
+            throw new BusinessRuleException(
+                    "TICKET_PAYMENT_REQUIRED",
+                    "Vé trả phí chưa được thanh toán hoặc xác nhận thanh toán.",
+                    HttpStatus.UNPROCESSABLE_ENTITY);
+        }
     }
     private EventRegistration resolveQrTicket(Integer eventId, String ticketCode) {
         if (!StringUtils.hasText(ticketCode)) {

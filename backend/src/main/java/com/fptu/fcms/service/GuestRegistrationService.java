@@ -7,6 +7,7 @@ import com.fptu.fcms.dto.response.GuestRegistrationResponse;
 import com.fptu.fcms.dto.response.GuestRegistrationStatusResponse;
 import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
 import com.fptu.fcms.dto.request.GuestRecoveryRequest;
+import com.fptu.fcms.dto.request.RegistrationCancelRequest;
 import com.fptu.fcms.dto.response.GuestRecoveryChallengeResponse;
 import com.fptu.fcms.dto.response.GuestRecoveryVerifyResponse;
 
@@ -19,7 +20,8 @@ public interface GuestRegistrationService {
 
     GuestRegistrationStatusResponse getStatus(String guestReference);
 
-    GuestRegistrationStatusResponse cancel(String guestReference, String reason);
+    GuestRegistrationStatusResponse cancel(String guestReference, RegistrationCancelRequest request);
+    GuestRegistrationStatusResponse updateRefundRecipient(String guestReference, RegistrationCancelRequest request);
     GuestRegistrationStatusResponse confirmPayment(String guestReference, ConfirmEventPaymentRequest request);
     GuestRecoveryChallengeResponse requestRecovery(GuestRecoveryRequest request);
     GuestRecoveryVerifyResponse verifyRecovery(String challenge, GuestOtpVerifyRequest request);

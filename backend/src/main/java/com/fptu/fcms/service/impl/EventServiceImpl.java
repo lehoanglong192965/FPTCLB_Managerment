@@ -1,12 +1,10 @@
 package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.dto.request.*;
-import com.fptu.fcms.dto.response.ContributionDTO;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
 import com.fptu.fcms.dto.response.EventDetailResponse;
 import com.fptu.fcms.dto.response.EventRegistrationPolicyResponse;
 import com.fptu.fcms.dto.response.EventSubmissionResponse;
-import com.fptu.fcms.entity.AttendanceRecord;
 import com.fptu.fcms.entity.AttendanceSession;
 import com.fptu.fcms.entity.AuditLog;
 import com.fptu.fcms.entity.Event;
@@ -14,10 +12,8 @@ import com.fptu.fcms.entity.EventAssignment;
 import com.fptu.fcms.entity.EventRegistration;
 import com.fptu.fcms.entity.EventRegistrationPolicy;
 import com.fptu.fcms.entity.EventRole;
-import com.fptu.fcms.entity.MemberPerformance;
 import com.fptu.fcms.entity.Semester;
 import com.fptu.fcms.entity.UserAccount;
-import com.fptu.fcms.enums.AttendanceStatus;
 import com.fptu.fcms.enums.AttendanceSessionStatus;
 import com.fptu.fcms.enums.CheckInMethod;
 import com.fptu.fcms.enums.ContributionBatchStatus;
@@ -43,8 +39,10 @@ import com.fptu.fcms.service.AttendanceSessionService;
 import com.fptu.fcms.service.event.EventPermissionService;
 import com.fptu.fcms.service.event.EventStateMachineService;
 import com.fptu.fcms.service.event.RegistrationLifecycle;
+import com.fptu.fcms.service.event.RefundPolicyCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
 import org.springframework.http.HttpStatus;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -123,10 +121,6 @@ public class EventServiceImpl implements EventService {
             "SUPPORT_ORGANIZER",
             "PARTICIPANT"
     );
-    private static final String CONTRIBUTION_TYPE_ABSENT = "ABSENT";
-    private static final String LEADER_EVALUATION_GOOD = "GOOD";
-    private static final String LEADER_EVALUATION_NOT_GOOD = "NOT_GOOD";
-    private static final int NOT_GOOD_PENALTY_POINTS = 10;
     private static final BigDecimal HIGH_BUDGET_THRESHOLD = new BigDecimal("5000000");
     private static final String SUBMISSION_MAX_ATTEMPTS_CONFIG = "EVENT_SUBMISSION_MAX_ATTEMPTS";
     private static final String SUBMISSION_COOLDOWN_HOURS_CONFIG = "EVENT_SUBMISSION_COOLDOWN_HOURS";
@@ -150,9 +144,7 @@ public class EventServiceImpl implements EventService {
     private final EventRegistrationPolicyService eventRegistrationPolicyService;
     private final EventPermissionService eventPermissionService;
     private final EventStateMachineService stateMachineService;
-    private final AttendanceRecordRepository attendanceRecordRepository;
     private final AttendanceSessionRepository attendanceSessionRepository;
-    private final MemberPerformanceRepository memberPerformanceRepository;
     private final ClubMembershipRepository clubMembershipRepository;
     private final ClubRoleRepository clubRoleRepository;
     private final EventReportRepository eventReportRepository;
@@ -455,20 +447,35 @@ public class EventServiceImpl implements EventService {
 
         List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(eventId);
         LocalDateTime cancelledAt = LocalDateTime.now();
-        registrations.stream()
-                .filter(registration -> !RegistrationStatus.CANCELLED.equals(registration.getRegistrationStatus()))
-                .forEach(registration -> {
-                    registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
-                    registration.setStatus(RegistrationStatus.CANCELLED.name());
-                    registration.setCancelledAt(cancelledAt);
-                    registration.setCancellationReason(request.getReason());
-                    registration.setCancellationSource("ORGANIZER");
+        registrations.forEach(registration -> {
+                    if (!RegistrationStatus.CANCELLED.equals(registration.getRegistrationStatus())) {
+                        registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
+                        registration.setStatus(RegistrationStatus.CANCELLED.name());
+                        registration.setCancelledAt(cancelledAt);
+                        registration.setCancellationReason(request.getReason());
+                        registration.setCancellationSource("ORGANIZER");
+                    }
                     if (StringUtils.hasText(registration.getTicketCode())
                             && registration.getTicketRevokedAt() == null) {
                         registration.setTicketRevokedAt(cancelledAt);
                     }
+                    if (PaymentStatus.PAID.equals(registration.getPaymentStatus())
+                            || PaymentStatus.AWAITING_VERIFICATION.equals(registration.getPaymentStatus())) {
+                        BigDecimal refundBase = registration.getAmountPaid() != null
+                                ? registration.getAmountPaid() : registration.getAmountDue();
+                        RefundPolicyCalculator.RefundQuote quote = RefundPolicyCalculator.quote(
+                                refundBase, event.getStartDate(), cancelledAt, true);
+                        registration.setRefundRate(quote.rate());
+                        registration.setRefundAmount(quote.amount());
+                        registration.setRefundPolicySnapshot(quote.policySnapshot());
+                        registration.setRefundCalculationNote(quote.calculationNote());
+                    }
                     if (PaymentStatus.PAID.equals(registration.getPaymentStatus())) {
                         registration.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+                        registration.setRefundRequestedAt(cancelledAt);
+                    } else if (PaymentStatus.PENDING.equals(registration.getPaymentStatus())
+                            || PaymentStatus.AWAITING_ELIGIBILITY.equals(registration.getPaymentStatus())) {
+                        registration.setPaymentStatus(PaymentStatus.FAILED);
                     }
                     registration.setUpdatedAt(cancelledAt);
                     registration.setUpdatedBy(currentUser == null ? null : currentUser.getUserId());
@@ -477,29 +484,45 @@ public class EventServiceImpl implements EventService {
 
         List<com.fptu.fcms.entity.GuestEventRegistration> guestRegistrations =
                 guestRegistrationRepository.findByEventIDAndIsDeletedFalse(eventId);
-        guestRegistrations.stream()
-                .filter(registration -> !RegistrationStatus.CANCELLED.equals(registration.getRegistrationStatus()))
-                .forEach(registration -> {
-                    registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
-                    registration.setStatus(RegistrationStatus.CANCELLED.name());
-                    registration.setCancelledAt(cancelledAt);
-                    registration.setCancellationReason(request.getReason());
-                    registration.setCancellationSource("ORGANIZER");
-                    registration.setTicketRevokedAt(cancelledAt);
+        guestRegistrations.forEach(registration -> {
+                    if (!RegistrationStatus.CANCELLED.equals(registration.getRegistrationStatus())) {
+                        registration.setRegistrationStatus(RegistrationStatus.CANCELLED);
+                        registration.setStatus(RegistrationStatus.CANCELLED.name());
+                        registration.setCancelledAt(cancelledAt);
+                        registration.setCancellationReason(request.getReason());
+                        registration.setCancellationSource("ORGANIZER");
+                        registration.setTicketRevokedAt(cancelledAt);
+                    }
+                    if (PaymentStatus.PAID.equals(registration.getPaymentStatus())
+                            || PaymentStatus.AWAITING_VERIFICATION.equals(registration.getPaymentStatus())) {
+                        BigDecimal refundBase = registration.getAmountPaid() != null
+                                ? registration.getAmountPaid() : registration.getAmountDue();
+                        RefundPolicyCalculator.RefundQuote quote = RefundPolicyCalculator.quote(
+                                refundBase, event.getStartDate(), cancelledAt, true);
+                        registration.setRefundRate(quote.rate());
+                        registration.setRefundAmount(quote.amount());
+                        registration.setRefundPolicySnapshot(quote.policySnapshot());
+                        registration.setRefundCalculationNote(quote.calculationNote());
+                    }
                     if (PaymentStatus.PAID.equals(registration.getPaymentStatus())) {
                         registration.setPaymentStatus(PaymentStatus.REFUND_PENDING);
+                        registration.setRefundRequestedAt(cancelledAt);
+                    } else if (PaymentStatus.PENDING.equals(registration.getPaymentStatus())
+                            || PaymentStatus.AWAITING_ELIGIBILITY.equals(registration.getPaymentStatus())) {
+                        registration.setPaymentStatus(PaymentStatus.FAILED);
                     }
                     registration.setUpdatedAt(cancelledAt);
                     registration.setUpdatedBy(currentUser == null ? null : currentUser.getUserId());
                 });
         if (!guestRegistrations.isEmpty()) guestRegistrationRepository.saveAll(guestRegistrations);
         if (!registrations.isEmpty()) {
-            List<Integer> userIds = registrations.stream().map(EventRegistration::getUserID).collect(Collectors.toList());
+            List<Integer> userIds = registrations.stream().map(EventRegistration::getUserID)
+                    .filter(Objects::nonNull).distinct().collect(Collectors.toList());
             List<UserAccount> users = userRepository.findAllByUserIDIn(userIds);
             String subject = "Sự kiện đã bị hủy: " + event.getEventName();
             String content = "Sự kiện \"" + event.getEventName() + "\" đã bị hủy.\n"
                     + "Lý do: " + request.getReason() + "\n\n"
-                    + "Toàn bộ vé và mã QR đã bị thu hồi. Nếu bạn đã thanh toán, vui lòng liên hệ ban tổ chức về chính sách hoàn tiền.";
+                    + "Toàn bộ vé và mã QR đã bị thu hồi. Nếu vé đã thanh toán, hệ thống đã tạo yêu cầu hoàn tiền để ban tổ chức xử lý.";
             for (UserAccount user : users) {
                 String recipientEmail = user.getEmail();
                 sendAfterCommit(() -> {
@@ -507,11 +530,24 @@ public class EventServiceImpl implements EventService {
                     emailService.sendSimpleEmail(recipientEmail, subject, content);
                 });
             }
+            registrations.stream()
+                    .filter(registration -> registration.getUserID() == null)
+                    .filter(registration -> StringUtils.hasText(registration.getGuestEmail()))
+                    .collect(Collectors.toMap(
+                            registration -> registration.getGuestEmail().trim().toLowerCase(),
+                            EventRegistration::getGuestEmail,
+                            (first, ignored) -> first))
+                    .values().forEach(recipientEmail -> sendAfterCommit(() -> {
+                        log.info("Sending group guest-holder cancellation email: eventId={}, recipient={}",
+                                eventId, maskEmail(recipientEmail));
+                        emailService.sendSimpleEmail(recipientEmail, subject, content);
+                    }));
         }
         for (com.fptu.fcms.entity.GuestEventRegistration guest : guestRegistrations) {
             String recipientEmail = guest.getGuestEmail();
             String guestSubject = "Sự kiện đã bị hủy: " + event.getEventName();
-            String guestContent = "Sự kiện \"" + event.getEventName() + "\" đã bị hủy.\nLý do: " + request.getReason();
+            String guestContent = "Sự kiện \"" + event.getEventName() + "\" đã bị hủy.\nLý do: " + request.getReason()
+                    + "\nToàn bộ vé và mã QR đã bị thu hồi. Vé đã thanh toán sẽ được đưa vào danh sách chờ hoàn tiền.";
             sendAfterCommit(() -> {
                 log.info("Sending guest event cancellation email: eventId={}, recipient={}", eventId, maskEmail(recipientEmail));
                 emailService.sendSimpleEmail(recipientEmail, guestSubject, guestContent);
@@ -692,14 +728,6 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional(readOnly = true)
-    public Event getEventById(Integer eventId) {
-        Event event = getActiveEventOrThrow(eventId);
-        attachCurrentParticipants(List.of(event));
-        return event;
-    }
-
-    @Override
-    @Transactional(readOnly = true)
     public List<Event> getEventsByClubId(Integer clubId) {
         return eventRepository.findByClubIDAndIsDeletedFalse(clubId);
     }
@@ -869,120 +897,6 @@ public class EventServiceImpl implements EventService {
     @Transactional(readOnly = true)
     public List<EventRegistrationPolicyResponse> getRegistrationPolicies(Integer eventId, UserPrincipal currentUser) {
         return eventRegistrationPolicyService.getPolicies(eventId, currentUser);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<Map<String, Object>> getCheckedInAttendees(Integer eventId, UserPrincipal currentUser) {
-        eventAssignmentAccessService.ensureCanManageCheckIn(eventId, currentUser);
-        AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElse(null);
-        if (session == null) return List.of();
-
-        List<AttendanceRecord> records = attendanceRecordRepository.findBySessionID(session.getSessionID());
-        List<Integer> userIds = records.stream().map(AttendanceRecord::getUserID).collect(Collectors.toList());
-        List<UserAccount> users = userRepository.findAllByUserIDIn(userIds);
-        Map<Integer, UserAccount> userMap = users.stream()
-                .collect(Collectors.toMap(UserAccount::getUserID, u -> u));
-
-        return records.stream().map(r -> {
-            UserAccount u = userMap.get(r.getUserID());
-            Map<String, Object> row = new HashMap<>();
-            row.put("userId", r.getUserID());
-            row.put("fullName", u != null && u.getFullName() != null ? u.getFullName() : "");
-            row.put("studentId", u != null && u.getStudentId() != null ? u.getStudentId() : "");
-            row.put("markedAt", r.getMarkedAt() != null ? r.getMarkedAt().toString() : "");
-            return row;
-        }).collect(Collectors.toList());
-    }
-
-    @Override
-    public List<ContributionDTO> getEventContributions(Integer eventId) {
-        Event event = getActiveEventOrThrow(eventId);
-        List<EventRegistration> registrations = registrationRepository.findByEventIDAndIsDeletedFalse(eventId);
-        List<EventAssignment> assignments = eventAssignmentRepository.findByEventIDAndIsDeletedFalse(eventId);
-        AttendanceSession session = attendanceSessionRepository.findByEventID(eventId).orElse(null);
-        List<AttendanceRecord> attendanceRecords = session == null
-                ? List.of()
-                : attendanceRecordRepository.findBySessionID(session.getSessionID());
-
-        return registrations.stream().map(reg -> {
-            Integer userId = reg.getUserID();
-            String userName = userRepository.findById(userId).map(UserAccount::getFullName).orElse("Unknown");
-
-            String contributionType = assignments.stream()
-                    .filter(a -> a.getUserID().equals(userId))
-                    .findFirst()
-                    .map(a -> a.getEventRoleID() != null && a.getEventRoleID() == 1 ? "CORE_TEAM" : "SUPPORT_ORGANIZER")
-                    .orElseGet(() -> {
-                        boolean present = attendanceRecords.stream()
-                                .anyMatch(ar -> ar.getUserID().equals(userId) && AttendanceStatus.PRESENT.equals(ar.getAttendanceStatus()));
-                        return present ? "PARTICIPANT" : "ABSENT";
-                    });
-
-            String leaderEvaluation = memberPerformanceRepository
-                    .findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
-                    .map(MemberPerformance::getLeaderEvaluation)
-                    .filter(StringUtils::hasText)
-                    .orElse(LEADER_EVALUATION_GOOD);
-
-            return new ContributionDTO(userId, userName, contributionType, leaderEvaluation);
-        }).collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional
-    public void saveEventContributions(Integer eventId, List<ContributionDTO> contributions) {
-        Event event = getActiveEventOrThrow(eventId);
-        if (STATUS_CLOSED.equals(event.getEventStatus())) {
-            throw new IllegalArgumentException("Event is closed and cannot be modified.");
-        }
-
-        AttendanceSession session = attendanceSessionRepository.findByEventID(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Attendance session not found."));
-
-        for (ContributionDTO dto : contributions) {
-            Integer userId = dto.getUserID();
-            String type = dto.getContributionType();
-            EventRegistration registration = registrationRepository.findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId).orElse(null);
-
-            MemberPerformance performance = memberPerformanceRepository
-                    .findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
-                    .orElse(new MemberPerformance());
-            performance.setClubID(event.getClubID());
-            performance.setEventID(eventId);
-            performance.setUserID(userId);
-            String leaderEvaluation = normalizeLeaderEvaluation(dto.getLeaderEvaluation());
-            performance.setBonusPoints(calculateScore(type));
-            performance.setLeaderEvaluation(leaderEvaluation);
-            performance.setPenaltyPoints(LEADER_EVALUATION_NOT_GOOD.equals(leaderEvaluation) ? NOT_GOOD_PENALTY_POINTS : 0);
-            performance.setSourceContributionID(null);
-            performance.setIndividualRankingEligible(isRegularMemberForRanking(event, userId));
-            performance.setUpdatedAt(LocalDateTime.now());
-            performance.setIsDeleted(false);
-            memberPerformanceRepository.save(performance);
-
-            EventAssignment assignment = eventAssignmentRepository
-                    .findByEventIDAndUserIDAndIsDeletedFalse(eventId, userId)
-                    .orElse(new EventAssignment());
-            assignment.setEventID(eventId);
-            assignment.setUserID(userId);
-            assignment.setEventRoleID("CORE_TEAM".equals(type) ? 1 : ("SUPPORT_ORGANIZER".equals(type) ? 2 : null));
-            assignment.setAssignedAt(LocalDateTime.now());
-            assignment.setIsDeleted(!"CORE_TEAM".equals(type) && !"SUPPORT_ORGANIZER".equals(type));
-            eventAssignmentRepository.save(assignment);
-
-            AttendanceRecord record = attendanceRecordRepository
-                    .findBySessionIDAndUserID(session.getSessionID(), userId)
-                    .orElse(new AttendanceRecord());
-            record.setSessionID(session.getSessionID());
-            record.setUserID(userId);
-            if (registration != null) {
-                record.setRegistrationID(registration.getRegistrationID());
-                record.setParticipantTypeSnapshotAt(registration.getParticipantTypeSnapshotAt());
-            }
-            record.setAttendanceStatus("PARTICIPANT".equals(type) ? AttendanceStatus.PRESENT : (CONTRIBUTION_TYPE_ABSENT.equals(type) ? AttendanceStatus.ABSENT : AttendanceStatus.PRESENT));
-            attendanceRecordRepository.save(record);
-        }
     }
 
     @Override
@@ -1159,7 +1073,12 @@ public class EventServiceImpl implements EventService {
         }
         String oldBannerPublicId = event.getBannerPublicId();
         boolean bannerTouched = request.getBannerUrl() != null;
-        validateDescriptionWordLimit(request.getDescription());
+        validateDescriptionLength(request.getDescription());
+        if (request.getStartDate() != null || request.getEndDate() != null) {
+            validateEventDuration(
+                    request.getStartDate() != null ? request.getStartDate() : event.getStartDate(),
+                    request.getEndDate() != null ? request.getEndDate() : event.getEndDate());
+        }
         if (request.getEventName() != null)     event.setEventName(request.getEventName());
         if (request.getDescription() != null)   event.setDescription(request.getDescription());
         if (request.getVenueName() != null)     event.setVenueName(request.getVenueName());
@@ -1191,6 +1110,10 @@ public class EventServiceImpl implements EventService {
             event.setBannerUrl(request.getBannerUrl().isBlank() ? null : request.getBannerUrl());
             event.setBannerPublicId(normalizePublicId(request.getBannerPublicId()));
         }
+        if (isProposalEditable) {
+            validateEditableEventConfiguration(event);
+        }
+        validateCapacityNotBelowConfirmed(event);
         Event saved = eventRepository.saveAndFlush(event);
         if (bannerTouched && !Objects.equals(oldBannerPublicId, saved.getBannerPublicId())) {
             imageCleanupService.deleteAfterCommit(oldBannerPublicId);
@@ -1250,54 +1173,6 @@ public class EventServiceImpl implements EventService {
         publishLifecycleEvent(saved, oldStatus, saved.getEventStatus(), null, "Closed registration window");
     }
 
-    @Override
-    @Transactional
-    public void approveEvent(Integer eventId, UserPrincipal currentUser) {
-        Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sự kiện."));
-        EventStatus oldStatus = event.getEventStatus();
-
-        stateMachineService.ensureCanApprove(event);
-
-        validateEventBeforeSemesterSettlement(event);
-        validateScheduleConflict(event);
-        event.setEventStatus(STATUS_APPROVED);
-        event.setApprovedAt(LocalDateTime.now());
-        event.setRejectionReason(null);
-        Event savedEvent = eventRepository.save(event);
-        auditLogService.record(currentUser.getUserId(), "Event", savedEvent.getEventID(), "EVENT_APPROVED", oldStatus.name(), STATUS_APPROVED.name(), null);
-    }
-
-    @Override
-    @Transactional
-    public void rejectEvent(Integer eventId, String reason, UserPrincipal currentUser) {
-        Event event = eventRepository.findByEventIDAndIsDeletedFalse(eventId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy sự kiện."));
-        EventStatus oldStatus = event.getEventStatus();
-
-        stateMachineService.ensureCanReject(event);
-
-        event.setEventStatus(STATUS_REJECTED);
-        event.setPdpFeedback(reason);
-        event.setRejectionReason(reason);
-        Event savedEvent = eventRepository.save(event);
-        auditLogService.record(currentUser.getUserId(), "Event", savedEvent.getEventID(), "EVENT_REJECTED", oldStatus.name(), STATUS_REJECTED.name(), reason);
-        publishLifecycleEvent(savedEvent, oldStatus, STATUS_REJECTED, null, reason);
-    }
-
-
-
-    private String normalizeLeaderEvaluation(String leaderEvaluation) {
-        if (!StringUtils.hasText(leaderEvaluation)) {
-            return LEADER_EVALUATION_GOOD;
-        }
-        String normalized = leaderEvaluation.trim().toUpperCase();
-        if (!LEADER_EVALUATION_GOOD.equals(normalized) && !LEADER_EVALUATION_NOT_GOOD.equals(normalized)) {
-            throw new IllegalArgumentException("leaderEvaluation must be GOOD or NOT_GOOD.");
-        }
-        return normalized;
-    }
-
     private boolean isRegularMemberForRanking(Event event, Integer userId) {
         if (event == null || event.getClubID() == null || event.getSemesterID() == null || userId == null) {
             return false;
@@ -1327,16 +1202,118 @@ public class EventServiceImpl implements EventService {
         if (!request.getStartDate().isAfter(LocalDateTime.now())) {
             throw new IllegalArgumentException("startDate must be in the future.");
         }
-        validateDescriptionWordLimit(request.getDescription());
+        validateEventDuration(request.getStartDate(), request.getEndDate());
+        validateDescriptionLength(request.getDescription());
+        String plainDescription = request.getDescription() == null
+                ? "" : Jsoup.parse(request.getDescription()).text().trim();
+        if (plainDescription.length() < 30) {
+            throw new IllegalArgumentException("description must contain at least 30 characters.");
+        }
+        if (request.getBudget() == null || request.getBudget().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("budget must be greater than or equal to 0.");
+        }
+        Integer capacity = request.getMaxParticipants() != null
+                ? request.getMaxParticipants() : request.getTotalCapacity();
+        if (capacity == null || capacity <= 0) {
+            throw new IllegalArgumentException("maxParticipants must be greater than 0.");
+        }
+        if (Boolean.TRUE.equals(request.getIsPaidEvent())) {
+            if (request.getTicketPrice() == null || request.getTicketPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("ticketPrice must be greater than 0 for a paid event.");
+            }
+            if (!StringUtils.hasText(request.getTicketCurrency())) {
+                throw new IllegalArgumentException("ticketCurrency is required for a paid event.");
+            }
+        } else if (request.getTicketPrice() != null && request.getTicketPrice().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("ticketPrice cannot be negative.");
+        }
+        validateEventWindows(request.getRegistrationOpenAt(), request.getRegistrationCloseAt(),
+                request.getCheckInOpenAt(), request.getCheckInCloseAt(), request.getStartDate(), request.getEndDate());
     }
 
-    private void validateDescriptionWordLimit(String description) {
+    private void validateEditableEventConfiguration(Event event) {
+        String name = event.getEventName() == null ? "" : event.getEventName().trim();
+        if (name.length() < 5 || name.length() > 150) {
+            throw new IllegalArgumentException("eventName must be between 5 and 150 characters.");
+        }
+        validateDescriptionLength(event.getDescription());
+        String plainDescription = event.getDescription() == null
+                ? "" : Jsoup.parse(event.getDescription()).text().trim();
+        if (plainDescription.length() < 30) {
+            throw new IllegalArgumentException("description must contain at least 30 characters.");
+        }
+        if (event.getBudget() == null || event.getBudget().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("budget must be greater than or equal to 0.");
+        }
+        if (event.getMaxParticipants() == null || event.getMaxParticipants() <= 0) {
+            throw new IllegalArgumentException("maxParticipants must be greater than 0.");
+        }
+        if (Boolean.TRUE.equals(event.getIsPaidEvent())) {
+            if (event.getTicketPrice() == null || event.getTicketPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("ticketPrice must be greater than 0 for a paid event.");
+            }
+            if (!StringUtils.hasText(event.getTicketCurrency())) {
+                throw new IllegalArgumentException("ticketCurrency is required for a paid event.");
+            }
+        }
+        validateEventDuration(event.getStartDate(), event.getEndDate());
+        validateEventWindows(event.getRegistrationOpenAt(), event.getRegistrationCloseAt(),
+                event.getCheckInOpenAt(), event.getCheckInCloseAt(), event.getStartDate(), event.getEndDate());
+    }
+
+    private void validateEventWindows(LocalDateTime registrationOpenAt, LocalDateTime registrationCloseAt,
+                                      LocalDateTime checkInOpenAt, LocalDateTime checkInCloseAt,
+                                      LocalDateTime startDate, LocalDateTime endDate) {
+        if (registrationOpenAt != null && registrationCloseAt != null
+                && !registrationOpenAt.isBefore(registrationCloseAt)) {
+            throw new IllegalArgumentException("registrationOpenAt must be before registrationCloseAt.");
+        }
+        if (registrationOpenAt != null && startDate != null && !registrationOpenAt.isBefore(startDate)) {
+            throw new IllegalArgumentException("registrationOpenAt must be before startDate.");
+        }
+        if (registrationCloseAt != null && startDate != null && registrationCloseAt.isAfter(startDate)) {
+            throw new IllegalArgumentException("registrationCloseAt must be on or before startDate.");
+        }
+        if (checkInOpenAt != null && checkInCloseAt != null && !checkInOpenAt.isBefore(checkInCloseAt)) {
+            throw new IllegalArgumentException("checkInOpenAt must be before checkInCloseAt.");
+        }
+        if (checkInOpenAt != null && endDate != null && checkInOpenAt.isAfter(endDate)) {
+            throw new IllegalArgumentException("checkInOpenAt must be on or before endDate.");
+        }
+        if (checkInCloseAt != null && endDate != null && checkInCloseAt.isAfter(endDate)) {
+            throw new IllegalArgumentException("checkInCloseAt must be on or before endDate.");
+        }
+    }
+
+    private void validateCapacityNotBelowConfirmed(Event event) {
+        if (event.getMaxParticipants() == null || event.getMaxParticipants() <= 0) {
+            throw new IllegalArgumentException("maxParticipants must be greater than 0.");
+        }
+        long confirmed = registrationRepository
+                .countByEventIDAndRegistrationStatusInAndCapacityExemptFalseAndIsDeletedFalse(
+                        event.getEventID(), RegistrationLifecycle.CONFIRMED_STATUSES)
+                + guestRegistrationRepository.countByEventIDAndRegistrationStatusInAndIsDeletedFalse(
+                        event.getEventID(), RegistrationLifecycle.CONFIRMED_STATUSES);
+        if (event.getMaxParticipants() < confirmed) {
+            throw new IllegalArgumentException(
+                    "maxParticipants cannot be lower than the current confirmed participant count (" + confirmed + ").");
+        }
+    }
+
+    private void validateEventDuration(LocalDateTime startDate, LocalDateTime endDate) {
+        if (startDate != null && endDate != null
+                && ChronoUnit.MINUTES.between(startDate, endDate) < 30) {
+            throw new IllegalArgumentException("Giờ kết thúc phải cách giờ bắt đầu ít nhất 30 phút.");
+        }
+    }
+
+    private void validateDescriptionLength(String description) {
         if (description == null || description.isBlank()) {
             return;
         }
-        int wordCount = description.trim().split("\\s+").length;
-        if (wordCount > 1000) {
-            throw new IllegalArgumentException("Mô tả sự kiện không được vượt quá 1000 từ.");
+        int characterCount = Jsoup.parse(description).text().length();
+        if (characterCount > 1000) {
+            throw new IllegalArgumentException("Mô tả sự kiện không được vượt quá 1.000 ký tự.");
         }
     }
 
@@ -1375,9 +1352,7 @@ public class EventServiceImpl implements EventService {
         if (event.getStartDate() == null || event.getEndDate() == null) {
             throw new IllegalArgumentException("Event dates are required before submit.");
         }
-        if (!event.getEndDate().isAfter(event.getStartDate())) {
-            throw new IllegalArgumentException("endDate must be after startDate.");
-        }
+        validateEventDuration(event.getStartDate(), event.getEndDate());
         if (!event.getStartDate().isAfter(LocalDateTime.now().plusDays(7))) {
             throw new IllegalArgumentException("startDate must be at least 7 days from now before submit.");
         }
@@ -1647,12 +1622,4 @@ public class EventServiceImpl implements EventService {
         return StringUtils.hasText(publicId) ? publicId.trim() : null;
     }
 
-    private int calculateScore(String type) {
-        return switch (type) {
-            case "CORE_TEAM" -> 50;
-            case "SUPPORT_ORGANIZER" -> 30;
-            case "PARTICIPANT" -> 20;
-            default -> 0;
-        };
-    }
 }

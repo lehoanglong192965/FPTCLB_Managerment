@@ -59,8 +59,16 @@ public class GuestRegistrationController {
     public ResponseEntity<GuestRegistrationStatusResponse> cancel(
             @PathVariable String guestReference,
             @Valid @RequestBody(required = false) RegistrationCancelRequest request) {
-        return ResponseEntity.ok(guestRegistrationService.cancel(guestReference, request == null ? null : request.getReason()));
+        return ResponseEntity.ok(guestRegistrationService.cancel(guestReference, request));
     }
+
+    @PostMapping("/guest-registrations/{guestReference}/refund-recipient")
+    public ResponseEntity<GuestRegistrationStatusResponse> updateRefundRecipient(
+            @PathVariable String guestReference,
+            @Valid @RequestBody RegistrationCancelRequest request) {
+        return ResponseEntity.ok(guestRegistrationService.updateRefundRecipient(guestReference, request));
+    }
+
     @PostMapping("/guest-registrations/{guestReference}/confirm-payment")
     public ResponseEntity<GuestRegistrationStatusResponse> confirmPayment(
             @PathVariable String guestReference,

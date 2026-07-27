@@ -163,6 +163,45 @@ public class EventRegistration {
     @Column(name = "cancellationSource", length = 30)
     private String cancellationSource;
 
+    @Column(name = "refundAmount")
+    private BigDecimal refundAmount;
+
+    @Column(name = "refundRate", precision = 5, scale = 2)
+    private BigDecimal refundRate;
+
+    @Column(name = "refundPolicySnapshot", length = 500)
+    private String refundPolicySnapshot;
+
+    @Column(name = "refundCalculationNote", length = 500)
+    private String refundCalculationNote;
+
+    @Column(name = "refundRequestedAt")
+    private LocalDateTime refundRequestedAt;
+
+    @Column(name = "refundProcessedAt")
+    private LocalDateTime refundProcessedAt;
+
+    @Column(name = "refundProcessedBy")
+    private Integer refundProcessedBy;
+
+    @Column(name = "refundTransactionReference", length = 100)
+    private String refundTransactionReference;
+
+    @Column(name = "refundNote", length = 500)
+    private String refundNote;
+
+    @Column(name = "refundBankCode", length = 20)
+    private String refundBankCode;
+
+    @Column(name = "refundBankName", length = 100)
+    private String refundBankName;
+
+    @Column(name = "refundAccountNumber", length = 50)
+    private String refundAccountNumber;
+
+    @Column(name = "refundAccountHolder", length = 150)
+    private String refundAccountHolder;
+
     @Column(name = "createdAt")
     private LocalDateTime createdAt;
 

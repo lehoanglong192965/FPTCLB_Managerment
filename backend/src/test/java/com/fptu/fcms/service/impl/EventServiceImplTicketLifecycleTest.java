@@ -4,6 +4,7 @@ import com.fptu.fcms.dto.request.CancelEventRequest;
 import com.fptu.fcms.entity.Event;
 import com.fptu.fcms.entity.EventRegistration;
 import com.fptu.fcms.enums.EventStatus;
+import com.fptu.fcms.enums.PaymentStatus;
 import com.fptu.fcms.repository.EventRegistrationRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.GuestEventRegistrationRepository;
@@ -21,6 +22,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -63,6 +65,8 @@ class EventServiceImplTicketLifecycleTest {
         event.setEventStatus(EventStatus.APPROVED);
 
         EventRegistration activeTicket = registration(201, "active-ticket", null);
+        activeTicket.setPaymentStatus(PaymentStatus.PAID);
+        activeTicket.setAmountPaid(new BigDecimal("75000"));
         EventRegistration withoutTicket = registration(202, null, null);
         LocalDateTime alreadyRevokedAt = LocalDateTime.now().minusDays(1);
         EventRegistration alreadyRevoked = registration(203, "old-ticket", alreadyRevokedAt);
@@ -80,6 +84,11 @@ class EventServiceImplTicketLifecycleTest {
 
         assertEquals(EventStatus.CANCELLED, event.getEventStatus());
         assertNotNull(activeTicket.getTicketRevokedAt());
+        assertEquals(PaymentStatus.REFUND_PENDING, activeTicket.getPaymentStatus());
+        assertEquals(new BigDecimal("100.00"), activeTicket.getRefundRate());
+        assertEquals(new BigDecimal("75000.00"), activeTicket.getRefundAmount());
+        assertEquals("TIME_BASED_REFUND_V1:ORGANIZER_CANCELLED_100", activeTicket.getRefundPolicySnapshot());
+        assertNotNull(activeTicket.getRefundRequestedAt());
         assertNull(withoutTicket.getTicketRevokedAt());
         assertEquals(alreadyRevokedAt, alreadyRevoked.getTicketRevokedAt());
 
