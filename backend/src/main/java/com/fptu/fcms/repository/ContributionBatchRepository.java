@@ -11,6 +11,8 @@ import java.util.Optional;
 
 @Repository
 public interface ContributionBatchRepository extends JpaRepository<ContributionBatch, Integer> {
+    Optional<ContributionBatch> findFirstByEventIDAndIsDeletedFalseOrderByCreatedAtDesc(Integer eventID);
+
     Optional<ContributionBatch> findByEventIDAndIsDeletedFalse(Integer eventID);
 
     Optional<ContributionBatch> findByBatchIDAndIsDeletedFalse(Integer batchID);
