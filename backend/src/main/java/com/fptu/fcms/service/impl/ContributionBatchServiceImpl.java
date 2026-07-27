@@ -105,7 +105,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "EVENT_REPORT_NOT_FOUND"));
 
         LocalDateTime now = LocalDateTime.now();
-        ContributionBatch batch = contributionBatchRepository.findByEventIDAndIsDeletedFalse(eventId).orElse(null);
+        ContributionBatch batch = contributionBatchRepository.findFirstByEventIDAndIsDeletedFalseOrderByCreatedAtDesc(eventId).orElse(null);
         if (batch == null) {
             batch = new ContributionBatch();
             batch.setEventID(eventId);
@@ -214,7 +214,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     @Transactional
     public ContributionBatchResponse getBatchByEvent(Integer eventId) {
         ContributionBatch existingBatch = contributionBatchRepository
-                .findByEventIDAndIsDeletedFalse(eventId)
+                .findFirstByEventIDAndIsDeletedFalseOrderByCreatedAtDesc(eventId)
                 .orElse(null);
         if (existingBatch != null) {
             if (isDraftStatus(existingBatch.getStatus())
@@ -236,7 +236,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     @Transactional
     public List<ContributionDTO> getContributionScores(Integer eventId) {
         ContributionBatch batch = contributionBatchRepository
-                .findByEventIDAndIsDeletedFalse(eventId)
+                .findFirstByEventIDAndIsDeletedFalseOrderByCreatedAtDesc(eventId)
                 .orElse(null);
         if (batch == null) {
             Event event = findEventForRead(eventId);
@@ -686,7 +686,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     }
 
     private ContributionBatch getOrCreateDraftBatch(Event event, Integer actorId, LocalDateTime now) {
-        ContributionBatch batch = contributionBatchRepository.findByEventIDAndIsDeletedFalse(event.getEventID()).orElse(null);
+        ContributionBatch batch = contributionBatchRepository.findFirstByEventIDAndIsDeletedFalseOrderByCreatedAtDesc(event.getEventID()).orElse(null);
         if (batch != null) {
             return batch;
         }
@@ -828,7 +828,7 @@ public class ContributionBatchServiceImpl implements ContributionBatchService {
     }
 
     private ContributionBatch findBatchByEvent(Integer eventId) {
-        return contributionBatchRepository.findByEventIDAndIsDeletedFalse(eventId)
+        return contributionBatchRepository.findFirstByEventIDAndIsDeletedFalseOrderByCreatedAtDesc(eventId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "CONTRIBUTION_BATCH_NOT_FOUND"));
     }
 
