@@ -1,8 +1,9 @@
-package com.fptu.fcms.service;
+package com.fptu.fcms.service.impl;
 
 import com.fptu.fcms.entity.RecruitmentCycle;
 import com.fptu.fcms.entity.RecruitmentReminder;
 import com.fptu.fcms.repository.RecruitmentReminderRepository;
+import com.fptu.fcms.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

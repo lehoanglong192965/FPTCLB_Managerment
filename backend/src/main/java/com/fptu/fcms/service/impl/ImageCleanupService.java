@@ -1,5 +1,6 @@
-package com.fptu.fcms.service;
+package com.fptu.fcms.service.impl;
 
+import com.fptu.fcms.service.ImageStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

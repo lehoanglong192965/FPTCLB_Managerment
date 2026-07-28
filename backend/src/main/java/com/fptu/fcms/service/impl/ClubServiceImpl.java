@@ -9,7 +9,6 @@ import com.fptu.fcms.repository.ClubRepository;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.RecruitmentCycleRepository;
 import com.fptu.fcms.service.ClubService;
-import com.fptu.fcms.service.ImageCleanupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
