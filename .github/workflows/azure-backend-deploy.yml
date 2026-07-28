@@ -1,0 +1,66 @@
+name: Build and deploy FCMS backend
+
+on:
+  push:
+    branches:
+      - deploy
+    paths:
+      - "backend/**"
+      - ".github/workflows/azure-backend-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Make Maven Wrapper executable
+        run: chmod +x backend/mvnw
+
+      - name: Package backend
+        working-directory: backend
+        run: ./mvnw -B clean package -DskipTests
+
+      - name: Upload backend JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: fcms-backend-jar
+          path: backend/target/backend-1.0.0.jar
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    if: ${{ vars.AZURE_WEBAPP_NAME != '' && github.ref == 'refs/heads/deploy' }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download backend JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: fcms-backend-jar
+          path: backend-package
+
+      - name: Deploy JAR to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: backend-package/backend-1.0.0.jar
+          type: JAR

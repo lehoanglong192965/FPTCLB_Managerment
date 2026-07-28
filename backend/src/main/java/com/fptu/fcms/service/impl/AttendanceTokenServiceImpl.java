@@ -16,7 +16,7 @@ import java.util.UUID;
 @Service
 public class AttendanceTokenServiceImpl implements AttendanceTokenService {
 
-    @Value("${jwt.secret:day-la-mot-chuoi-bi-mat-rat-dai-de-ky-jwt-token-fptu-2026}")
+    @Value("${jwt.secret}")
     private String jwtSecret;
 
     private Key getSigningKey() {

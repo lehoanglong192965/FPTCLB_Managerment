@@ -1,0 +1,15 @@
+target/
+.git/
+.idea/
+.vscode/
+*.iml
+node_modules/
+uploads/
+reports/
+.env
+.env.*
+!.env.example
+
+# application-local.yml is intentionally untracked and may contain real local
+# credentials. It must never enter the Docker build context or image layers.
+src/main/resources/application-local.yml

@@ -1,7 +1,17 @@
-ALTER TABLE dbo.Event ADD
-    withdrawalReason NVARCHAR(MAX) NULL,
-    withdrawnBy INT NULL,
-    withdrawnAt DATETIME2 NULL;
+IF COL_LENGTH(N'dbo.Event', N'withdrawalReason') IS NULL
+BEGIN
+    ALTER TABLE dbo.Event ADD withdrawalReason NVARCHAR(MAX) NULL;
+END;
+
+IF COL_LENGTH(N'dbo.Event', N'withdrawnBy') IS NULL
+BEGIN
+    ALTER TABLE dbo.Event ADD withdrawnBy INT NULL;
+END;
+
+IF COL_LENGTH(N'dbo.Event', N'withdrawnAt') IS NULL
+BEGIN
+    ALTER TABLE dbo.Event ADD withdrawnAt DATETIME2 NULL;
+END;
 
 DECLARE @constraintName SYSNAME;
 DECLARE @sql NVARCHAR(MAX);

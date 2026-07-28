@@ -9,6 +9,7 @@ import com.fptu.fcms.service.UserService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -24,13 +25,16 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final JwtTokenProvider tokenProvider;
     private final UserService userService;
     private final SystemRoleRepository systemRoleRepository;
+    private final String frontendUrl;
 
     public OAuth2SuccessHandler(JwtTokenProvider tokenProvider,
                                 UserService userService,
-                                SystemRoleRepository systemRoleRepository) {
+                                SystemRoleRepository systemRoleRepository,
+                                @Value("${fcms.frontend-url:http://localhost:5173}") String frontendUrl) {
         this.tokenProvider = tokenProvider;
         this.userService = userService;
         this.systemRoleRepository = systemRoleRepository;
+        this.frontendUrl = normalizeFrontendUrl(frontendUrl);
     }
 
     @Override
@@ -61,15 +65,20 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         // 5. Nhờ JwtTokenProvider phát hành một Token mới dựa trên thông tin này
         String token = tokenProvider.generateToken(email, userId, roleId, roleName, clubRoleClaim, clubIdClaim);
 
-        // 6. Chuyển hướng về trang Frontend kèm theo Token trên URL
-        // GIẢ SỬ FRONTEND CỦA BẠN ĐANG CHẠY Ở CỔNG 5173 (Vite)
-        // Nếu Frontend của bạn chạy ở cổng khác, hãy sửa lại đường dẫn này nhé!
-        String targetUrl = "http://localhost:5173/oauth2/redirect?token=" + token;
+        // 6. Chuyển hướng về Frontend đã cấu hình kèm theo token.
+        String targetUrl = frontendUrl + "/oauth2/redirect?token=" + token;
 
         // Xóa các thuộc tính rác trong phiên đăng nhập để tiết kiệm bộ nhớ
         clearAuthenticationAttributes(request);
 
         // Bắn URL về cho trình duyệt
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
+    }
+
+    private static String normalizeFrontendUrl(String configuredUrl) {
+        String resolvedUrl = configuredUrl == null || configuredUrl.isBlank()
+                ? "http://localhost:5173"
+                : configuredUrl.trim();
+        return resolvedUrl.replaceAll("/+$", "");
     }
 }
