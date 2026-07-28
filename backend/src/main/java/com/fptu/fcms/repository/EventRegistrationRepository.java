@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -42,7 +43,7 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     Optional<EventRegistration> findByPaymentReferenceAndIsDeletedFalse(String paymentReference);
     List<EventRegistration> findByPaymentStatusAndPaymentExpiresAtBeforeAndIsDeletedFalse(
             com.fptu.fcms.enums.PaymentStatus paymentStatus,
-            java.time.LocalDateTime paymentExpiresAt);
+            LocalDateTime paymentExpiresAt);
     long countByEventIDAndUserIDAndIsDeletedFalse(Integer eventID, Integer userID);
     Optional<EventRegistration> findTopByEventIDAndUserIDAndRegistrationStatusAndIsDeletedFalseOrderByCancelledAtDesc(
             Integer eventID, Integer userID, RegistrationStatus registrationStatus);
@@ -116,7 +117,7 @@ public interface EventRegistrationRepository extends JpaRepository<EventRegistra
     @Query("SELECT r FROM EventRegistration r WHERE r.registrationStatus = :status AND r.createdAt < :threshold AND r.isDeleted = false")
     List<EventRegistration> findByRegistrationStatusAndCreatedAtBeforeAndIsDeletedFalse(
             @Param("status") RegistrationStatus status,
-            @Param("threshold") java.time.LocalDateTime threshold
+            @Param("threshold") LocalDateTime threshold
     );
 
 }

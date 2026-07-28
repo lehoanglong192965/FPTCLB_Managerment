@@ -67,7 +67,7 @@ public class TicketPaymentExpiryScheduler {
         }
         registrationRepository.saveAll(expired);
 
-        List<GuestEventRegistration> expiredGuestNotifications = new java.util.ArrayList<>();
+        List<GuestEventRegistration> expiredGuestNotifications = new ArrayList<>();
         for (GuestEventRegistration registration : expiredGuests) {
             RegistrationStatus status = registration.getRegistrationStatus();
             if (!RegistrationLifecycle.CONFIRMED_STATUSES.contains(status)) continue;

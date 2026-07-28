@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -296,7 +297,7 @@ public class KnowledgeArchiveServiceImpl implements KnowledgeArchiveService {
                 if (tempPdf != null) Files.deleteIfExists(tempPdf);
                 if (tempOutputDir != null) {
                     try (var walk = Files.walk(tempOutputDir)) {
-                        walk.sorted(java.util.Comparator.reverseOrder())
+                        walk.sorted(Comparator.reverseOrder())
                                 .forEach(p -> {
                                     try { Files.deleteIfExists(p); } catch (IOException ignored) {}
                                 });

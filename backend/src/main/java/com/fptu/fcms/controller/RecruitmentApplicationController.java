@@ -19,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
+import java.util.Map;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,7 +45,7 @@ public class RecruitmentApplicationController {
     @PostMapping(value = "/cv", consumes = "multipart/form-data")
     @PreAuthorize("hasAnyRole('Student', 'Admin', 'ICPDP')")
     @Operation(summary = "Upload file CV (PDF)", description = "Upload CV trước khi nộp đơn; trả về url để gắn vào cvUrl khi gọi /apply. Chỉ nhận PDF, tối đa 10MB.")
-    public ResponseEntity<java.util.Map<String, String>> uploadCv(
+    public ResponseEntity<Map<String, String>> uploadCv(
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
         return ResponseEntity.ok(recruitmentService.uploadCv(file));
     }

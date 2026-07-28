@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -112,7 +113,7 @@ public class EventController {
     public ResponseEntity<Map<String, Object>> getMyStatus(
             @PathVariable Integer eventId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        Map<String, Object> status = new java.util.HashMap<>(
+        Map<String, Object> status = new HashMap<>(
                 eventRegistrationService.getRegistrationStatus(eventId, currentUser.getUserId()));
         boolean assigned = eventService.isUserAssigned(eventId, currentUser.getUserId());
         boolean paymentExempt = assigned

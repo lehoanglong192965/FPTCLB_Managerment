@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -82,7 +83,7 @@ public class ClubPostServiceImpl implements ClubPostService {
 
         List<Integer> boardRoleIds = List.of("Leader", "ViceLeader").stream()
                 .map(clubRoleRepository::findByRoleNameAndIsDeletedFalse)
-                .filter(java.util.Optional::isPresent)
+                .filter(Optional::isPresent)
                 .map(opt -> opt.get().getClubRoleID())
                 .toList();
 

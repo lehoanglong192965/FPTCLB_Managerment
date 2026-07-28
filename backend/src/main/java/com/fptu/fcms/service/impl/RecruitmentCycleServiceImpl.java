@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -161,8 +162,8 @@ public class RecruitmentCycleServiceImpl implements RecruitmentCycleService {
         RecruitmentCycle season = cycleRepository
                 .findFirstByClubIDIsNullAndSemesterIDAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
                         activeSemester.getSemesterID(), "Open")
-                .filter(item -> !item.getStartDate().isAfter(java.time.LocalDate.now()))
-                .filter(item -> item.getEndDate() == null || !item.getEndDate().isBefore(java.time.LocalDate.now()))
+                .filter(item -> !item.getStartDate().isAfter(LocalDate.now()))
+                .filter(item -> item.getEndDate() == null || !item.getEndDate().isBefore(LocalDate.now()))
                 .orElseThrow(() -> new BusinessRuleException(
                         "ICPDP chưa mở mùa tuyển dụng cho học kỳ hiện tại.", HttpStatus.CONFLICT));
         if (cycleRepository.existsByParentCycleIDAndClubIDAndIsDeletedFalse(season.getCycleID(), clubId)) {
@@ -241,7 +242,7 @@ public class RecruitmentCycleServiceImpl implements RecruitmentCycleService {
                 .orElseThrow(() -> new BusinessRuleException("Không tìm thấy học kỳ đang hoạt động.", HttpStatus.CONFLICT));
     }
 
-    private void validateDates(java.time.LocalDate startDate, java.time.LocalDate endDate) {
+    private void validateDates(LocalDate startDate, LocalDate endDate) {
         if (endDate != null && endDate.isBefore(startDate)) {
             throw new BusinessRuleException("Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.", HttpStatus.BAD_REQUEST);
         }
@@ -269,7 +270,7 @@ public class RecruitmentCycleServiceImpl implements RecruitmentCycleService {
             throw new BusinessRuleException("Bạn cần đăng nhập.", HttpStatus.UNAUTHORIZED);
         }
         Set<String> authorities = currentUser.getAuthorities().stream()
-                .map(authority -> authority.getAuthority()).collect(java.util.stream.Collectors.toSet());
+                .map(authority -> authority.getAuthority()).collect(Collectors.toSet());
         if (authorities.contains("ROLE_Admin") || authorities.contains("ROLE_ICPDP")) return;
         boolean boardMember = membershipRepository.existsActiveMembershipByClubUserAndRoleNames(
                 clubId, currentUser.getUserId(), List.of("Leader", "ViceLeader"));

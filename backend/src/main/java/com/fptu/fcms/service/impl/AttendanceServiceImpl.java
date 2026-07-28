@@ -38,6 +38,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -406,7 +407,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         String ticketCode = request.getVerificationValue();
         var guestTicket = StringUtils.hasText(ticketCode)
                 ? guestEventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(event.getEventID(), ticketCode.trim())
-                : java.util.Optional.<GuestEventRegistration>empty();
+                : Optional.<GuestEventRegistration>empty();
         if (guestTicket.isPresent()) {
             GuestEventRegistration guest = guestTicket.get();
             if (guest.getTicketRevokedAt() != null
