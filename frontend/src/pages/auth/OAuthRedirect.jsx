@@ -3,8 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { TokenService } from "../../services/api/axiosClient";
 import { decodeJwtPayload } from "../../utils/tokenGuard";
 import { useAuth } from "../../contexts/AuthContext";
-import authApi from "../../services/api/auth/authApi";
-import { ROLE_MAP, ROLE_REDIRECT } from "../../constants/roles";
+import { ROLE_REDIRECT, resolveRoleFromClaims } from "../../constants/roles";
 
 export default function OAuthRedirect() {
   const [searchParams] = useSearchParams();
@@ -26,26 +25,12 @@ export default function OAuthRedirect() {
 
     const handleOAuthRedirect = async () => {
       try {
+        // OAuth2SuccessHandler cũng đính claim clubRole/clubId vào token giống
+        // luồng đăng nhập thường ⇒ đọc thẳng từ token, không gọi thêm API.
         const payload = decodeJwtPayload(token);
-        let role = ROLE_MAP[payload?.roleID] ?? "MEMBER";
+        const { role, clubId } = resolveRoleFromClaims(payload);
 
-        TokenService.save({ access_token: token, refresh_token: null, role });
-
-        if (role === "MEMBER") {
-          try {
-            const res = await authApi.getMyClubRole();
-            let clubId = null;
-            if (res?.clubID) {
-              // clubRoleID: 1=Leader, 2=ViceLeader, 3=Member (thường)
-              if (res.clubRoleID === 1) { role = "CLUB_LEADER";  clubId = res.clubID; }
-              else if (res.clubRoleID === 2) { role = "VICE_LEADER"; clubId = res.clubID; }
-              // clubRoleID === 3 = Member thường → giữ nguyên role "MEMBER"
-            }
-            TokenService.save({ access_token: token, refresh_token: null, role, clubId });
-          } catch (e) {
-            console.error("Lỗi lấy quyền CLB khi OAuth2", e);
-          }
-        }
+        TokenService.save({ access_token: token, refresh_token: null, role, clubId });
 
         login({ email: payload?.sub, role });
 

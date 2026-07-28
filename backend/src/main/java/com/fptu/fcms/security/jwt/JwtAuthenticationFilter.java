@@ -119,7 +119,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             case "ADMIN", "ADMINISTRATOR" -> authorities.add(new SimpleGrantedAuthority("ROLE_Admin"));
             case "STUDENT" -> authorities.add(new SimpleGrantedAuthority("ROLE_Student"));
             case "MEMBER" -> authorities.add(new SimpleGrantedAuthority("ROLE_Member"));
-            case "ALUMNI" -> authorities.add(new SimpleGrantedAuthority("ROLE_Alumni"));
             case "LEADER" -> authorities.add(new SimpleGrantedAuthority("ROLE_Leader"));
             case "VICELEADER" -> authorities.add(new SimpleGrantedAuthority("ROLE_ViceLeader"));
             default -> {

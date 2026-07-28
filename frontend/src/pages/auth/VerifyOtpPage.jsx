@@ -5,7 +5,7 @@ import authService from "../../services/api/auth/authService";
 
 const RESEND_SECONDS = 60;
 
-export default function VerifyOTP() {
+export default function VerifyOtpPage() {
   const navigate = useNavigate();
   const { state } = useLocation();
 
