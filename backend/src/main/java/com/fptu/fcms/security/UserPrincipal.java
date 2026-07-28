@@ -6,6 +6,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.oauth2.core.user.OAuth2User; // <--- Import mới
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Map; // <--- Import mới
 
@@ -29,6 +30,10 @@ public class UserPrincipal implements OAuth2User, UserDetails {
 
     // BỔ SUNG: Biến này dùng để chứa toàn bộ dữ liệu Google trả về
     private Map<String, Object> attributes;
+
+    // Thời điểm phát hành token (claim iat). AccountStatusFilter đối chiếu giá trị này với
+    // UserAccount.tokenInvalidatedAt để chặn token cấp trước lúc quyền bị thay đổi.
+    private Instant issuedAt;
 
     // Constructor 1: Dùng cho đăng nhập JWT thông thường (giữ nguyên backward-compatible)
     public UserPrincipal(Integer userId, String email, Integer roleId, Collection<? extends GrantedAuthority> authorities) {

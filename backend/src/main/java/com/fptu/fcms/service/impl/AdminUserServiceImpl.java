@@ -11,6 +11,7 @@ import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.AllowedEmailRepository;
 import com.fptu.fcms.repository.SystemRoleRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.security.TokenInvalidationService;
 import com.fptu.fcms.service.AdminUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final UserRepository userRepository;
     private final SystemRoleRepository systemRoleRepository;
     private final AllowedEmailRepository allowedEmailRepository;
+    private final TokenInvalidationService tokenInvalidationService;
 
     @Override
     @Transactional
@@ -104,6 +106,8 @@ public class AdminUserServiceImpl implements AdminUserService {
                 targetUser.setRoleID(icpdpRole.getRoleID());
                 targetUser.setFullName(fullName);
                 targetUser = userRepository.save(targetUser);
+                // Token cũ vẫn mang roleID/roleName cũ — thu hồi để quyền ICPDP có hiệu lực ngay
+                tokenInvalidationService.invalidateFor(targetUser.getUserID());
                 action = ProvisionIcpdpAction.UPGRADED;
                 message = "Đã nâng cấp tài khoản hiện có lên ICPDP.";
             }

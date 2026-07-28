@@ -103,12 +103,19 @@ public class AuthServiceImpl implements AuthService {
     // Đầu ra: Kiểm tra tính hợp lệ của Refresh Token, truy vấn lại các phân quyền mới nhất (Role, Club Role) và trả về bộ JWT + Refresh Token mới.
     @Override
     public AuthResponse refreshToken(String refreshToken) {
-        if (jwtTokenProvider.validateToken(refreshToken)) {
+        if (jwtTokenProvider.validateToken(refreshToken)
+                && jwtTokenProvider.isRefreshToken(jwtTokenProvider.parseClaims(refreshToken))) {
+            // Bắt buộc đúng loại: nếu không, access token cũng đổi được token mới, kéo dài
+            // phiên vô hạn và bỏ qua mọi lần thu hồi quyền.
             String email = jwtTokenProvider.getEmailFromJwt(refreshToken);
             Optional<UserAccount> userOptional = userRepository.findByEmailAndIsDeletedFalse(email);
-            
+
             if (userOptional.isPresent()) {
                 UserAccount user = userOptional.get();
+
+                if (!"Active".equalsIgnoreCase(user.getAccountStatus())) {
+                    throw new IllegalArgumentException("Tài khoản không còn hoạt động. Vui lòng liên hệ Admin.");
+                }
 
                 // [Batch 2] Resolve roleName từ SystemRole
                 String roleName = systemRoleRepository.findById(user.getRoleID())

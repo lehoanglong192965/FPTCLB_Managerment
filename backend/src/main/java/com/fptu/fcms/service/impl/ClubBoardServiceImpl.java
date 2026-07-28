@@ -8,6 +8,7 @@ import com.fptu.fcms.dto.response.ClubMemberResponse;
 import com.fptu.fcms.entity.*;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.*;
+import com.fptu.fcms.security.TokenInvalidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,7 @@ public class ClubBoardServiceImpl implements ClubBoardService {
     private final SemesterRepository semesterRepo;
     private final ClubRoleRepository clubRoleRepo;
     private final AuditLogRepository auditRepo;
+    private final TokenInvalidationService tokenInvalidationService;
 
     @Override
     @Transactional
@@ -210,6 +212,8 @@ public class ClubBoardServiceImpl implements ClubBoardService {
 
         membership.setIsDeleted(true);
         membershipRepo.save(membership);
+        // Token cũ vẫn mang clubRole=Leader/ViceLeader + clubId — thu hồi để mất quyền ngay
+        tokenInvalidationService.invalidateFor(targetUser.getUserID());
 
         return buildResponse(membership, targetUser, currentRole, activeSemester);
     }
@@ -313,6 +317,7 @@ public class ClubBoardServiceImpl implements ClubBoardService {
 
         membership.setIsDeleted(true);
         membershipRepo.save(membership);
+        tokenInvalidationService.invalidateFor(membership.getUserID());
     }
 
     @Override
@@ -446,6 +451,7 @@ public class ClubBoardServiceImpl implements ClubBoardService {
 
             currentLeader.setIsDeleted(true);
             membershipRepo.save(currentLeader);
+            tokenInvalidationService.invalidateFor(currentLeader.getUserID());
         });
     }
 
