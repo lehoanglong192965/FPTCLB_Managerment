@@ -1,4 +1,4 @@
-﻿import { useEffect } from "react";
+﻿import { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { TokenService } from "../../services/api/axiosClient";
 import { decodeJwtPayload } from "../../utils/tokenGuard";
@@ -9,6 +9,7 @@ export default function OAuthRedirect() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { login } = useAuth();
+  const processedTokenRef = useRef(null);
 
   useEffect(() => {
     const token = searchParams.get("token");
@@ -22,6 +23,12 @@ export default function OAuthRedirect() {
       navigate(`/login?ssoError=${encodeURIComponent(msg)}`, { replace: true });
       return;
     }
+
+    // React StrictMode có thể chạy effect hai lần trong môi trường dev.
+    // Không xử lý lại cùng một token vì login() sẽ cập nhật AuthContext
+    // và kéo theo các request profile/thông báo không cần thiết.
+    if (processedTokenRef.current === token) return;
+    processedTokenRef.current = token;
 
     const handleOAuthRedirect = async () => {
       try {

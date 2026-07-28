@@ -144,11 +144,11 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener("auth:logout", handleAuthLogout);
   }, []);
 
-  const login = (userData) => {
+  const login = useCallback((userData) => {
     setUser(userData);
     saveUserToStorage(userData);
     fetchProfile();
-  };
+  }, [fetchProfile]);
 
   const logout = async () => {
     setUser(null);
