@@ -6,6 +6,7 @@ import com.fptu.fcms.dto.response.MemberRankingDTO;
 import com.fptu.fcms.dto.response.SemesterCloseResponse;
 import com.fptu.fcms.entity.AuditLog;
 import com.fptu.fcms.entity.Club;
+import com.fptu.fcms.entity.ClubMembership;
 import com.fptu.fcms.entity.MemberRankingSnapshot;
 import com.fptu.fcms.entity.Notification;
 import com.fptu.fcms.entity.NotificationRecipient;
@@ -17,6 +18,7 @@ import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.exception.SemesterClosureBlockedException;
 import com.fptu.fcms.repository.AuditLogRepository;
 import com.fptu.fcms.repository.ClubRepository;
+import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.MemberRankingSnapshotRepository;
 import com.fptu.fcms.repository.NotificationRecipientRepository;
@@ -29,6 +31,7 @@ import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.MemberRankingService;
 import com.fptu.fcms.service.SemesterService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,7 +52,18 @@ public class SemesterServiceImpl implements SemesterService {
     private static final List<EventStatus> FINISHED_EVENT_STATUSES = List.of(
             EventStatus.COMPLETED,
             EventStatus.CANCELLED,
-            EventStatus.REJECTED
+            EventStatus.REJECTED,
+            EventStatus.CLOSED,
+            EventStatus.REPORT_UPLOADED,
+            EventStatus.REPORT_PENDING_APPROVAL,
+            EventStatus.REPORT_APPROVED,
+            EventStatus.REPORT_REJECTED,
+            EventStatus.CONTRIBUTION_CALCULATED,
+            EventStatus.CONTRIBUTION_DRAFT,
+            EventStatus.CONTRIBUTION_PENDING_APPROVAL,
+            EventStatus.CONTRIBUTION_APPROVED,
+            EventStatus.CONTRIBUTION_SCORING,
+            EventStatus.CONTRIBUTION_FINALIZED
     );
     private static final String FORCE_CLOSE_ACTION = "FORCE_CLOSE_SEMESTER";
     private static final String SYSTEM_ROLE_ADMIN = "Admin";
@@ -61,6 +75,7 @@ public class SemesterServiceImpl implements SemesterService {
     private static final String NOTIFICATION_TYPE_RANKING_REWARD = "SEMESTER_RANKING_REWARD";
 
     private final SemesterRepository semesterRepository;
+    private final ClubMembershipRepository clubMembershipRepository;
     private final ClubRepository clubRepository;
     private final EventRepository eventRepository;
     private final MemberRankingSnapshotRepository rankingSnapshotRepository;
@@ -86,6 +101,7 @@ public class SemesterServiceImpl implements SemesterService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "memberRanking", allEntries = true)
     public SemesterDTO createSemester(SemesterDTO dto) {
         validateDates(dto.getStartDate(), dto.getEndDate());
         
@@ -102,17 +118,22 @@ public class SemesterServiceImpl implements SemesterService {
         boolean isActivating = dto.getIsActive() != null && dto.getIsActive();
         semester.setIsActive(isActivating);
         
+        Semester sourceSemester = isActivating ? findMembershipRolloverSource(dto.getStartDate()) : null;
         if (isActivating) {
             deactivateOtherSemesters();
             semesterRepository.flush();
         }
 
         semester = semesterRepository.save(semester);
+        if (isActivating) {
+            rolloverMemberships(sourceSemester, semester);
+        }
         return mapToDTO(semester);
     }
 
     @Override
     @Transactional
+    @CacheEvict(value = "memberRanking", allEntries = true)
     public SemesterDTO updateSemester(Integer id, SemesterDTO dto) {
         Semester semester = semesterRepository.findById(id)
                 .orElseThrow(() -> new BusinessRuleException("Semester not found", HttpStatus.NOT_FOUND));
@@ -133,13 +154,18 @@ public class SemesterServiceImpl implements SemesterService {
         semester.setEndDate(dto.getEndDate());
         
         boolean isActivating = dto.getIsActive() != null && dto.getIsActive();
-        if (isActivating && !Boolean.TRUE.equals(semester.getIsActive())) {
+        boolean newlyActivated = isActivating && !Boolean.TRUE.equals(semester.getIsActive());
+        Semester sourceSemester = newlyActivated ? findMembershipRolloverSource(dto.getStartDate()) : null;
+        if (newlyActivated) {
             deactivateOtherSemesters();
             semesterRepository.flush();
         }
         semester.setIsActive(isActivating);
 
         semester = semesterRepository.save(semester);
+        if (newlyActivated) {
+            rolloverMemberships(sourceSemester, semester);
+        }
         return mapToDTO(semester);
     }
 
@@ -174,8 +200,8 @@ public class SemesterServiceImpl implements SemesterService {
             );
         }
 
-        updateSemesterToClosed(semester);
         finalizeSemesterRankingSnapshots(semester);
+        updateSemesterToClosed(semester);
         return buildResponse(
                 true,
                 "Đóng học kỳ thành công",
@@ -202,6 +228,7 @@ public class SemesterServiceImpl implements SemesterService {
         SemesterClosureValidationResult validationResult = validateSemesterCanClose(semester);
         String oldValue = formatActiveState(semester.getIsActive());
 
+        finalizeSemesterRankingSnapshots(semester);
         updateSemesterToClosed(semester);
         createForceCloseAuditLog(
                 semester,
@@ -276,8 +303,8 @@ public class SemesterServiceImpl implements SemesterService {
                 continue;
             }
 
-            updateSemesterToClosed(semester);
             finalizeSemesterRankingSnapshots(semester);
+            updateSemesterToClosed(semester);
             sendAutoCloseSuccessEmail(semester, adminEmails);
         }
     }
@@ -297,7 +324,10 @@ public class SemesterServiceImpl implements SemesterService {
                 semester.getSemesterID(),
                 FINISHED_EVENT_STATUSES
         );
-        long lockedScoreCount = eventRepository.countLockedScoreEventsBySemesterId(semester.getSemesterID());
+        long lockedScoreCount = eventRepository.countLockedScoreEventsBySemesterId(
+                semester.getSemesterID(),
+                FINISHED_EVENT_STATUSES
+        );
 
         List<String> blockers = new ArrayList<>();
         if (unfinishedEventCount > 0) {
@@ -507,6 +537,48 @@ public class SemesterServiceImpl implements SemesterService {
         for (Club club : activeClubs) {
             finalizeClubRankingSnapshot(semester, club);
         }
+    }
+
+    private Semester findMembershipRolloverSource(LocalDate targetStartDate) {
+        return semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
+                .filter(active -> active.getStartDate().isBefore(targetStartDate))
+                .orElseGet(() -> semesterRepository
+                        .findFirstByIsDeletedFalseAndStartDateLessThanOrderByStartDateDescSemesterIDDesc(targetStartDate)
+                        .orElse(null));
+    }
+
+    private void rolloverMemberships(Semester sourceSemester, Semester targetSemester) {
+        if (sourceSemester == null || Objects.equals(sourceSemester.getSemesterID(), targetSemester.getSemesterID())) {
+            return;
+        }
+
+        var existingKeys = clubMembershipRepository
+                .findBySemesterIDAndIsDeletedFalse(targetSemester.getSemesterID())
+                .stream()
+                .map(membership -> membership.getClubID() + ":" + membership.getUserID())
+                .collect(Collectors.toSet());
+
+        List<ClubMembership> carriedMemberships = clubMembershipRepository
+                .findBySemesterIDAndIsDeletedFalse(sourceSemester.getSemesterID())
+                .stream()
+                .filter(membership -> !existingKeys.contains(membership.getClubID() + ":" + membership.getUserID()))
+                .map(membership -> copyMembershipToSemester(membership, targetSemester.getSemesterID()))
+                .toList();
+
+        if (!carriedMemberships.isEmpty()) {
+            clubMembershipRepository.saveAll(carriedMemberships);
+        }
+    }
+
+    private ClubMembership copyMembershipToSemester(ClubMembership source, Integer targetSemesterId) {
+        ClubMembership copy = new ClubMembership();
+        copy.setClubID(source.getClubID());
+        copy.setUserID(source.getUserID());
+        copy.setSemesterID(targetSemesterId);
+        copy.setClubRoleID(source.getClubRoleID());
+        copy.setJoinedDate(source.getJoinedDate());
+        copy.setIsDeleted(false);
+        return copy;
     }
 
     private List<MemberRankingSnapshot> finalizeClubRankingSnapshot(Semester semester, Club club) {
