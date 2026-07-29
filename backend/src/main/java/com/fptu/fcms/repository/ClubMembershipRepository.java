@@ -152,6 +152,8 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
             Integer semesterID
     );
 
+    List<ClubMembership> findBySemesterIDAndIsDeletedFalse(Integer semesterID);
+
     boolean existsByClubIDAndUserIDAndIsDeletedFalse(
             Integer clubID,
             Integer userID
@@ -191,6 +193,8 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
     );
 
     int countByClubIDAndIsDeletedFalse(Integer clubID);
+
+    int countByClubIDAndSemesterIDAndIsDeletedFalse(Integer clubID, Integer semesterID);
 
     @Query("SELECT COUNT(m) > 0 FROM ClubMembership m, UserAccount u " +
             "WHERE m.userID = u.userID " +

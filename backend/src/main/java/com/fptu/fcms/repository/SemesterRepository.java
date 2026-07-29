@@ -41,6 +41,10 @@ public interface SemesterRepository extends JpaRepository<Semester, Integer> {
 
     List<Semester> findByEndDateAndIsActiveTrueAndIsDeletedFalse(LocalDate endDate);
 
+    Optional<Semester> findFirstByIsDeletedFalseAndStartDateLessThanOrderByStartDateDescSemesterIDDesc(
+            LocalDate startDate
+    );
+
     @Query("SELECT CASE WHEN COUNT(s) > 0 THEN true ELSE false END FROM Semester s " +
            "WHERE s.startDate <= :endDate AND s.endDate >= :startDate " +
            "AND (:excludeId IS NULL OR s.semesterID <> :excludeId) " +
