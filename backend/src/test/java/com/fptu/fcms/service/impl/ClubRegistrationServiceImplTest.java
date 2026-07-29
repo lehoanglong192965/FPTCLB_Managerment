@@ -21,6 +21,7 @@ import com.fptu.fcms.repository.DisciplineLogRepository;
 import com.fptu.fcms.repository.SemesterRepository;
 import com.fptu.fcms.repository.SystemRoleRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.security.TokenInvalidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -70,6 +71,9 @@ class ClubRegistrationServiceImplTest {
     @Mock
     private DisciplineLogRepository disciplineLogRepository;
 
+    @Mock
+    private TokenInvalidationService tokenInvalidationService;
+
     private ClubRegistrationServiceImpl service;
 
     @BeforeEach
@@ -82,7 +86,8 @@ class ClubRegistrationServiceImplTest {
                 clubRoleRepository,
                 semesterRepository,
                 systemRoleRepository,
-                disciplineLogRepository
+                disciplineLogRepository,
+                tokenInvalidationService
         );
         mockActiveSemester();
         mockClubRoles();
@@ -117,6 +122,12 @@ class ClubRegistrationServiceImplTest {
         assertEquals("FCODE", clubCaptor.getValue().getClubCode());
 
         verify(clubMembershipRepository, times(5)).save(any(ClubMembership.class));
+        verify(tokenInvalidationService).invalidateFor(1);
+        verify(tokenInvalidationService).invalidateFor(2);
+        verify(tokenInvalidationService, times(2)).invalidateFor(any(Integer.class));
+        verify(tokenInvalidationService, never()).invalidateFor(3);
+        verify(tokenInvalidationService, never()).invalidateFor(4);
+        verify(tokenInvalidationService, never()).invalidateFor(5);
     }
 
     @Test

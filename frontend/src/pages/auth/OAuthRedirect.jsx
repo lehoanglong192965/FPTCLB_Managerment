@@ -12,8 +12,26 @@ export default function OAuthRedirect() {
   const processedTokenRef = useRef(null);
 
   useEffect(() => {
-    const token = searchParams.get("token");
-    const backendError = searchParams.get("error");
+    const fragmentParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const fragmentToken = fragmentParams.get("token");
+    const token = fragmentToken ?? searchParams.get("token");
+    const backendError = searchParams.get("ssoError") ?? searchParams.get("error");
+
+    // OAuth2SuccessHandler sends the JWT in the fragment so it is not sent in
+    // HTTP requests/referrers. Remove it from browser history before doing any
+    // asynchronous work. Query-token fallback keeps older deployments usable.
+    if (fragmentToken) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
+
+    // StrictMode runs the effect setup twice in development. The first run
+    // removes the fragment, so the second one must not treat its absence as
+    // a failed OAuth callback after that token has already started processing.
+    if (!token && processedTokenRef.current) return;
 
     if (!token) {
       sessionStorage.removeItem("oauth_return_to");

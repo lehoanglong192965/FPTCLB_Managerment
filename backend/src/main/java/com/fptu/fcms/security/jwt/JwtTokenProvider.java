@@ -13,7 +13,7 @@ import java.util.Date;
 @Slf4j
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret:day-la-mot-chuoi-bi-mat-rat-dai-de-ky-jwt-token-fptu-2026}")
+    @Value("${jwt.secret}")
     private String jwtSecret;
 
     @Value("${jwt.expiration:86400000}")

@@ -12,6 +12,15 @@
 
 -- 1) Không tự quyết được: nhiều batch active cùng eventID mà đều đã có dữ liệu chấm điểm/phúc khảo.
 --    Gộp chúng là quyết định nghiệp vụ, migration dừng lại để người phụ trách xử lý tay.
+SET ANSI_NULLS ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET QUOTED_IDENTIFIER ON;
+SET NUMERIC_ROUNDABORT OFF;
+SET XACT_ABORT ON;
+
 IF EXISTS (
     SELECT 1
     FROM dbo.ContributionBatch b
