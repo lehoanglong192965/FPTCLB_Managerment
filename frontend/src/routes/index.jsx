@@ -35,10 +35,6 @@ const FeedbackPage = lazy(() => import("../pages/feedback/FeedbackPage"));
 const GuestFeedbackPage = lazy(() => import("../pages/feedback/GuestFeedbackPage"));
 const FeedbackSummaryPage = lazy(() => import("../pages/feedback/FeedbackSummaryPage"));
 
-// Competition pages (Sprint 8)
-const CompetitionRankingPage = lazy(() => import("../pages/competitions/CompetitionRankingPage"));
-const CompetitionAwardsPage = lazy(() => import("../pages/competitions/CompetitionAwardsPage"));
-
 // Member pages (Sprint 6)
 const MemberAppealPage = lazy(() => import("../pages/member/MemberAppealPage"));
 const MemberPendingFeedbackPage = lazy(() => import("../pages/member/MemberPendingFeedbackPage"));
@@ -57,8 +53,6 @@ const IcpdpDisciplineLogPage = lazy(() => import("../pages/icpdp/IcpdpDiscipline
 const IcpdpClubManagementPage = lazy(() => import("../pages/icpdp/IcpdpClubManagementPage"));
 const IcpdpRecruitmentPage = lazy(() => import("../pages/icpdp/IcpdpRecruitmentPage"));
 const IcpdpReportReviewPage = lazy(() => import("../pages/icpdp/IcpdpReportReviewPage"));
-const IcpdpCompetitionListPage = lazy(() => import("../pages/icpdp/IcpdpCompetitionListPage"));
-const IcpdpCompetitionDetailPage = lazy(() => import("../pages/icpdp/IcpdpCompetitionDetailPage"));
 const IcpdpContributionPage = lazy(() => import("../pages/icpdp/IcpdpContributionPage"));
 
 // Admin pages
@@ -154,10 +148,6 @@ export default function AppRoutes() {
       {/* Guest feedback — truy cập qua token trong email, không cần đăng nhập */}
       <Route path="/feedback/guest/:token" element={<GuestFeedbackPage />} />
 
-      {/* Competition public pages (Sprint 8) */}
-      <Route path="/competitions/:competitionId/ranking" element={<CompetitionRankingPage />} />
-      <Route path="/competitions/:competitionId/awards" element={<CompetitionAwardsPage />} />
-
       {/* ── ICPDP dashboard ─────────────────────────────────── */}
       <Route
         path="/icpdp"
@@ -177,8 +167,6 @@ export default function AppRoutes() {
         <Route path="personnel-reassign" element={<IcpdpPersonnelReassignPage />} />
         <Route path="discipline-log" element={<IcpdpDisciplineLogPage />} />
         <Route path="recruitment" element={<IcpdpRecruitmentPage />} />
-        <Route path="competition" element={<IcpdpCompetitionListPage />} />
-        <Route path="competition/:competitionId" element={<IcpdpCompetitionDetailPage />} />
         <Route path="events/:eventId/manage" element={<IcpdpEventDetailPage />} />
         <Route path="events/:eventId/checkin" element={<CheckInPage />} />
         <Route path="events/:eventId/attendance/:sessionId/correct" element={<AttendanceCorrectionPage />} />
