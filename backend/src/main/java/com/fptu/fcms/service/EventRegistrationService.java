@@ -9,6 +9,7 @@ import com.fptu.fcms.dto.response.EventRegistrationResultResponse;
 import com.fptu.fcms.dto.request.ConfirmEventPaymentRequest;
 import com.fptu.fcms.dto.request.GroupTicketPurchaseRequest;
 import com.fptu.fcms.security.UserPrincipal;
+import com.fptu.fcms.entity.Event;
 
 import java.util.List;
 import java.util.Map;
@@ -20,7 +21,7 @@ public interface EventRegistrationService {
     long countActiveTicketsPurchased(Integer eventId, Integer userId);
     Integer getActiveRegistrationId(Integer eventId, Integer userId);
     Map<String, Object> getRegistrationStatus(Integer eventId, Integer userId);
-    List<com.fptu.fcms.entity.Event> getEventsByUserRegistered(Integer userId);
+    List<Event> getEventsByUserRegistered(Integer userId);
 
     List<MyRegistrationResponse> getMyRegistrationDetails(Integer userId);
 

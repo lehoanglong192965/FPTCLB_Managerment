@@ -283,8 +283,8 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
         BigDecimal refundBase = registration.getAmountPaid() != null && registration.getAmountPaid().signum() > 0
                 ? registration.getAmountPaid()
                 : registration.getAmountDue() != null ? registration.getAmountDue() : BigDecimal.ZERO;
-        RefundPolicyCalculator.RefundQuote refundQuote = RefundPolicyCalculator.quote(
-                refundBase, event.getStartDate(), now, false);
+        RefundPolicyCalculator.RefundQuote refundQuote = RefundPolicyCalculator.quoteFor(
+                event, refundBase, now, false);
         registration.setRefundRate(refundQuote.rate());
         registration.setRefundAmount(refundQuote.amount());
         registration.setRefundPolicySnapshot(refundQuote.policySnapshot());
@@ -607,6 +607,8 @@ public class GuestRegistrationServiceImpl implements GuestRegistrationService {
                 registration.getRefundTransactionReference(),
                 event == null ? null : event.getEventName(),
                 event == null ? null : event.getStartDate(),
+                event == null ? null : event.getRegistrationCloseAt(),
+                event == null || event.getEventStatus() == null ? null : event.getEventStatus().name(),
                 event == null ? null : event.getLocation()
         );
     }

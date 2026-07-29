@@ -23,6 +23,7 @@ const eventApi = {
   close: (eventId) => axiosClient.patch(`/v1/events/${eventId}/close`),
   openRegistration: (eventId) => axiosClient.patch(`/v1/events/${eventId}/open-registration`),
   closeRegistration: (eventId) => axiosClient.patch(`/v1/events/${eventId}/close-registration`),
+  reopenRegistration: (eventId, payload) => axiosClient.patch(`/v1/events/${eventId}/reopen-registration`, payload),
   cancel: (clubId, eventId, reason) =>
     axiosClient.patch(`/v1/events/${clubId}/${eventId}/cancel`, { reason }),
   getContributions: (eventId) => axiosClient.get(`/v1/events/${eventId}/contributions`),

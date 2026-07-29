@@ -20,6 +20,7 @@ public class MyRegistrationResponse {
     private String eventName;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
+    private LocalDateTime registrationCloseAt;
     private String location;
     private String venueName;
     private String bannerUrl;

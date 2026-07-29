@@ -43,14 +43,18 @@ public class EventProposalValidatorImpl implements EventProposalValidator {
         if (!event.getStartDate().isAfter(LocalDateTime.now())) {
             throw new BusinessRuleException("startDate must be in the future.", HttpStatus.BAD_REQUEST);
         }
-        if (event.getRegistrationOpenAt() != null && event.getRegistrationCloseAt() != null
-                && !event.getRegistrationOpenAt().isBefore(event.getRegistrationCloseAt())) {
+        if (event.getRegistrationOpenAt() == null || event.getRegistrationCloseAt() == null) {
+            throw new BusinessRuleException(
+                    "Vui lòng nhập thời gian mở và thời gian đóng đăng ký sự kiện (bắt buộc để áp dụng chính sách hoàn tiền).",
+                    HttpStatus.BAD_REQUEST);
+        }
+        if (!event.getRegistrationOpenAt().isBefore(event.getRegistrationCloseAt())) {
             throw new BusinessRuleException("registrationOpenAt must be before registrationCloseAt.", HttpStatus.BAD_REQUEST);
         }
-        if (event.getRegistrationOpenAt() != null && !event.getRegistrationOpenAt().isBefore(event.getStartDate())) {
+        if (!event.getRegistrationOpenAt().isBefore(event.getStartDate())) {
             throw new BusinessRuleException("registrationOpenAt must be before startDate.", HttpStatus.BAD_REQUEST);
         }
-        if (event.getRegistrationCloseAt() != null && event.getRegistrationCloseAt().isAfter(event.getStartDate())) {
+        if (event.getRegistrationCloseAt().isAfter(event.getStartDate())) {
             throw new BusinessRuleException("registrationCloseAt must be on or before startDate.", HttpStatus.BAD_REQUEST);
         }
         if (event.getCheckInOpenAt() != null && event.getCheckInCloseAt() != null

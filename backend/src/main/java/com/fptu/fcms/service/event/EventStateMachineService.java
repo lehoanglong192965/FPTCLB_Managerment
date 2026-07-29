@@ -5,6 +5,7 @@ import com.fptu.fcms.entity.Event;
 public interface EventStateMachineService {
     void ensureCanOpenRegistration(Event event);
     void ensureCanCloseRegistration(Event event);
+    void ensureCanReopenRegistration(Event event);
     void ensureCanApprove(Event event);
     void ensureCanReject(Event event);
     void ensureCanStart(Event event);

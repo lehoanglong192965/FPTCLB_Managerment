@@ -8,7 +8,7 @@ import { getServerOrigin } from "../../services/api/axiosClient";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { REFUND_BANKS } from "../../utils/refundBanks";
-import { getRefundPolicyPreview } from "../../utils/refundPolicy";
+import { getRefundPolicyHint, getRefundPolicyPreview } from "../../utils/refundPolicy";
 
 const getImageUrl = (url) => {
   if (!url) return "";
@@ -251,7 +251,9 @@ export default function TicketDetailPage() {
   const refundPreview = getRefundPolicyPreview(
     ticket.startDate,
     Number(ticket.amountPaid) > 0 ? ticket.amountPaid : ticket.amountDue,
+    ticket.eventStatus,
   );
+  const refundHint = getRefundPolicyHint(ticket.eventStatus, ticket.registrationCloseAt);
   const refundDetailsRequired = ["PAID", "AWAITING_VERIFICATION"].includes(ticket.paymentStatus)
     && refundPreview.rate > 0;
   const cancellationFormValid = Boolean(cancelReason.trim()) && (!refundDetailsRequired || (
@@ -507,6 +509,7 @@ export default function TicketDetailPage() {
                     <p className="m-0">Mức áp dụng: <strong>{refundPreview.label}</strong></p>
                     <p className="m-0 mt-1">Tỷ lệ hoàn: <strong>{refundPreview.rate}%</strong></p>
                     <p className="m-0 mt-1">Số tiền dự kiến: <strong>{refundPreview.amount.toLocaleString("vi-VN")} {ticket.paymentCurrency || "VND"}</strong></p>
+                    <p className="m-0 mt-2 text-xs leading-5 text-amber-700">{refundHint}</p>
                   </div>
                   <label className="mb-1 block text-xs font-semibold text-gray-600">Ngân hàng *</label>
                   <select

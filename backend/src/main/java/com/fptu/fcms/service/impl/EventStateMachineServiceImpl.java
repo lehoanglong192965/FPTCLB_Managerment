@@ -8,6 +8,9 @@ import com.fptu.fcms.service.event.EventStateMachineService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 @Service
 public class EventStateMachineServiceImpl implements EventStateMachineService {
 
@@ -22,6 +25,13 @@ public class EventStateMachineServiceImpl implements EventStateMachineService {
     public void ensureCanCloseRegistration(Event event) {
         if (event == null || !isAnyStatus(event.getEventStatus(), EventStatus.REGISTRATION_OPEN)) {
             throw invalidState("Event must be RegistrationOpen to close registration.");
+        }
+    }
+
+    @Override
+    public void ensureCanReopenRegistration(Event event) {
+        if (event == null || !isAnyStatus(event.getEventStatus(), EventStatus.REGISTRATION_CLOSED)) {
+            throw invalidState("Chỉ có thể mở lại đăng ký khi sự kiện đang ở trạng thái Đóng đăng ký.");
         }
     }
 
@@ -74,6 +84,17 @@ public class EventStateMachineServiceImpl implements EventStateMachineService {
     public void ensureRegistrationWindowOpen(Event event) {
         if (event == null || !isAnyStatus(event.getEventStatus(), EventStatus.REGISTRATION_OPEN)) {
             throw invalidState("Su kien hien khong mo dang ky.");
+        }
+        // Chan theo moc thoi gian thuc te, khong doi RegistrationCloseScheduler chay xong.
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+        if (event.getRegistrationOpenAt() != null && now.isBefore(event.getRegistrationOpenAt())) {
+            throw invalidState("Sự kiện chưa mở đăng ký. Đăng ký mở từ "
+                    + event.getRegistrationOpenAt().format(fmt) + ".");
+        }
+        if (event.getRegistrationCloseAt() != null && now.isAfter(event.getRegistrationCloseAt())) {
+            throw invalidState("Đã hết hạn đăng ký sự kiện (đóng lúc "
+                    + event.getRegistrationCloseAt().format(fmt) + ").");
         }
     }
 

@@ -6,6 +6,7 @@ import com.fptu.fcms.dto.request.ContributionEmergencyOverrideRequest;
 import com.fptu.fcms.dto.request.CreateEventProposalRequest;
 import com.fptu.fcms.dto.request.EventApprovalRequest;
 import com.fptu.fcms.dto.request.EventAssignmentRequest;
+import com.fptu.fcms.dto.request.ReopenRegistrationRequest;
 import com.fptu.fcms.dto.request.ReportRejectRequest;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
 import com.fptu.fcms.dto.response.EventDetailResponse;
@@ -210,6 +211,17 @@ public class EventController {
             @AuthenticationPrincipal UserPrincipal currentUser) {
         eventService.closeRegistration(eventId, currentUser);
         return ResponseEntity.ok(Map.of("message", "Registration closed successfully."));
+    }
+
+    @RequestMapping(value = {"/{eventId}/registration/reopen", "/{eventId}/reopen-registration"}, method = {RequestMethod.POST, RequestMethod.PATCH})
+    @PreAuthorize("hasAnyRole('Leader', 'ViceLeader', 'ICPDP')")
+    @Operation(summary = "Mo lai dang ky event da dong dang ky")
+    public ResponseEntity<Map<String, String>> reopenRegistration(
+            @PathVariable Integer eventId,
+            @Valid @RequestBody ReopenRegistrationRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        eventService.reopenRegistration(eventId, request, currentUser);
+        return ResponseEntity.ok(Map.of("message", "Registration reopened successfully."));
     }
 
     @PatchMapping("/{eventId}/start")

@@ -5,7 +5,7 @@ import QRCode from 'react-qr-code';
 import guestApi from '../../services/api/guest/guestApi';
 import { guestErrorMessage } from '../../utils/guestErrorMessages';
 import { REFUND_BANKS } from '../../utils/refundBanks';
-import { getRefundPolicyPreview } from '../../utils/refundPolicy';
+import { getRefundPolicyHint, getRefundPolicyPreview } from '../../utils/refundPolicy';
 
 const PAYMENT_BANK = {
   id: import.meta.env.VITE_PAYMENT_BANK_ID || 'MB',
@@ -147,6 +147,11 @@ export default function GuestStatusPage() {
   const refundPreview = getRefundPolicyPreview(
     data.eventStart ?? data.event?.startDate,
     Number(data.amountPaid) > 0 ? data.amountPaid : data.amountDue,
+    data.eventStatus ?? data.event?.eventStatus,
+  );
+  const refundHint = getRefundPolicyHint(
+    data.eventStatus ?? data.event?.eventStatus,
+    data.registrationCloseAt ?? data.event?.registrationCloseAt,
   );
   const refundDetailsRequired = ['PAID', 'AWAITING_VERIFICATION'].includes(data.paymentStatus)
     && refundPreview.rate > 0;
@@ -452,6 +457,7 @@ export default function GuestStatusPage() {
             <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
               Vé sẽ bị thu hồi sau khi xác nhận. Ban tổ chức sẽ dùng đúng thông tin dưới đây để chuyển khoản hoàn tiền.
               <p className="mt-2 font-semibold">{refundPreview.label}: hoàn {refundPreview.rate}% — {refundPreview.amount.toLocaleString('vi-VN')} {data.paymentCurrency || 'VND'}</p>
+              <p className="mt-1 text-xs leading-5 text-amber-700">{refundHint}</p>
             </div>
             <label className="mb-1 block text-sm font-semibold text-gray-700">Ngân hàng nhận hoàn *</label>
             <select

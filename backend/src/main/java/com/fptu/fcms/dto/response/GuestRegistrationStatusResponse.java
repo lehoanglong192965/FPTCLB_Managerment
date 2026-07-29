@@ -40,5 +40,7 @@ public class GuestRegistrationStatusResponse {
     private String refundTransactionReference;
     private String eventName;
     private LocalDateTime eventStart;
+    private LocalDateTime registrationCloseAt;
+    private String eventStatus;
     private String eventLocation;
 }

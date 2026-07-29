@@ -1,5 +1,8 @@
 package com.fptu.fcms.service.event;
 
+import com.fptu.fcms.entity.Event;
+import com.fptu.fcms.enums.EventStatus;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
@@ -7,7 +10,7 @@ import java.time.LocalDateTime;
 
 public final class RefundPolicyCalculator {
 
-    public static final String POLICY_VERSION = "TIME_BASED_REFUND_V1";
+    public static final String POLICY_VERSION = "TIME_BASED_REFUND_V2";
     private static final BigDecimal FULL = new BigDecimal("100.00");
     private static final BigDecimal SEVENTY_FIVE = new BigDecimal("75.00");
     private static final BigDecimal FIFTY = new BigDecimal("50.00");
@@ -16,11 +19,30 @@ public final class RefundPolicyCalculator {
     private RefundPolicyCalculator() {
     }
 
-    public static RefundQuote quote(BigDecimal paidAmount, LocalDateTime eventStart,
+    /**
+     * Mức hoàn được quyết định bởi TRẠNG THÁI sự kiện tại thời điểm huỷ, không phải bởi so sánh
+     * với một mốc thời gian sửa được. Còn đang mở đăng ký nghĩa là ghế vẫn bán lại được
+     * (waitlist sẽ được đôn lên) nên hoàn đủ; đóng rồi thì áp bậc thang theo giờ bắt đầu vì
+     * thiệt hại của CLB tăng dần theo mức độ đã cam kết chi.
+     */
+    public static RefundQuote quoteFor(Event event, BigDecimal paidAmount, LocalDateTime cancelledAt,
+                                       boolean organizerCancelled) {
+        return quote(paidAmount,
+                event == null ? null : event.getStartDate(),
+                isRegistrationOpen(event),
+                cancelledAt,
+                organizerCancelled);
+    }
+
+    public static boolean isRegistrationOpen(Event event) {
+        return event != null && EventStatus.REGISTRATION_OPEN.equals(event.getEventStatus());
+    }
+
+    public static RefundQuote quote(BigDecimal paidAmount, LocalDateTime eventStart, boolean registrationOpen,
                                     LocalDateTime cancelledAt, boolean organizerCancelled) {
-        BigDecimal rate = organizerCancelled ? FULL : participantRate(eventStart, cancelledAt);
         String tier = organizerCancelled ? "ORGANIZER_CANCELLED_100"
-                : participantTier(eventStart, cancelledAt);
+                : participantTier(eventStart, registrationOpen, cancelledAt);
+        BigDecimal rate = rateOf(tier);
         BigDecimal baseAmount = paidAmount == null ? BigDecimal.ZERO : paidAmount.max(BigDecimal.ZERO);
         BigDecimal refundAmount = calculateAmount(baseAmount, rate);
         String snapshot = POLICY_VERSION + ":" + tier;
@@ -37,17 +59,20 @@ public final class RefundPolicyCalculator {
                 .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
     }
 
-    private static BigDecimal participantRate(LocalDateTime eventStart, LocalDateTime cancelledAt) {
-        String tier = participantTier(eventStart, cancelledAt);
+    private static BigDecimal rateOf(String tier) {
         return switch (tier) {
-            case "AT_LEAST_7_DAYS_100" -> FULL;
+            case "ORGANIZER_CANCELLED_100", "REGISTRATION_OPEN_100", "AT_LEAST_7_DAYS_100" -> FULL;
             case "AT_LEAST_3_DAYS_75" -> SEVENTY_FIVE;
             case "AT_LEAST_24_HOURS_50" -> FIFTY;
             default -> ZERO;
         };
     }
 
-    private static String participantTier(LocalDateTime eventStart, LocalDateTime cancelledAt) {
+    private static String participantTier(LocalDateTime eventStart, boolean registrationOpen,
+                                          LocalDateTime cancelledAt) {
+        if (registrationOpen) {
+            return "REGISTRATION_OPEN_100";
+        }
         if (eventStart == null || cancelledAt == null || !cancelledAt.isBefore(eventStart)) {
             return "LESS_THAN_24_HOURS_0";
         }
