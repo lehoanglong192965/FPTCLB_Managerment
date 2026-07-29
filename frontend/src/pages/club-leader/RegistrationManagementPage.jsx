@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Users, Search, CheckCircle2, XCircle, Trash2, X, Download } from 'lucide-react';
 import eventApi from '../../services/api/events/eventApi';
@@ -37,29 +37,41 @@ const TABS = [
   { id: 'REJECTED',  label: 'Từ chối'   },
 ];
 
-function RejectModal({ name, onConfirm, onClose, payment = false }) {
+/** Modal nhập lý do dùng chung cho từ chối đăng ký / từ chối thanh toán / huỷ vé. */
+function ReasonModal({ title, description, placeholder, confirmLabel, onConfirm, onClose }) {
   const [reason, setReason] = useState('');
+  const textareaRef = useRef(null);
+  const trimmed = reason.trim();
+
+  useEffect(() => { textareaRef.current?.focus(); }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.4)' }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
+      <div role="dialog" aria-modal="true" className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-gray-900">{payment ? 'Từ chối thanh toán' : 'Từ chối đăng ký'}</h3>
+          <h3 className="font-bold text-gray-900">{title}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={18} />
           </button>
         </div>
-        <p className="text-sm text-gray-600 mb-3">
-          {payment ? 'Không xác nhận chuyển khoản của ' : 'Từ chối đăng ký của '}<strong>{name}</strong>?
-        </p>
+        <p className="text-sm text-gray-600 mb-3">{description}</p>
         <textarea
+          ref={textareaRef}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder={payment ? 'Lý do không xác nhận thanh toán...' : 'Lý do từ chối...'}
+          placeholder={placeholder}
           rows={3}
+          maxLength={500}
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-300 mb-4"
         />
         <div className="flex gap-3 justify-end">
@@ -70,10 +82,11 @@ function RejectModal({ name, onConfirm, onClose, payment = false }) {
             Huỷ
           </button>
           <button
-            onClick={() => onConfirm(reason.trim())}
-            className="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-lg font-medium"
+            onClick={() => onConfirm(trimmed)}
+            disabled={!trimmed}
+            className="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {payment ? 'Từ chối thanh toán' : 'Xác nhận từ chối'}
+            {confirmLabel}
           </button>
         </div>
       </div>
@@ -178,6 +191,7 @@ export default function RegistrationManagementPage({ eventId: eventIdProp, embed
   const [exportLoading, setExportLoading] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null); // { id, name }
   const [paymentRejectTarget, setPaymentRejectTarget] = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);
   const [refundTarget, setRefundTarget] = useState(null);
 
   const fetchRegistrations = useCallback(async () => {
@@ -236,9 +250,10 @@ export default function RegistrationManagementPage({ eventId: eventIdProp, embed
     }
   };
 
-  const handleCancel = async (reg) => {
-    const reason = window.prompt(`Nhập lý do hủy vé của ${reg.fullName || reg.name || 'người tham gia'}:`)?.trim();
-    if (!reason) return;
+  const handleCancelConfirm = async (reason) => {
+    const reg = cancelTarget;
+    setCancelTarget(null);
+    if (!reg || !reason) return;
     const isGuest = reg.type === 'GUEST';
     const loadingKey = isGuest
       ? 'guest-' + (reg.guestRegistrationId ?? reg.registrationId)
@@ -597,7 +612,7 @@ export default function RegistrationManagementPage({ eventId: eventIdProp, embed
                           ? r.status !== 'CANCELLED' && r.status !== 'REJECTED'
                           : (r.status === 'CONFIRMED' || isPendingApproval(r.status))) && (
                           <button
-                            onClick={() => handleCancel(r)}
+                            onClick={() => setCancelTarget(r)}
                             disabled={isLoading}
                             title="Huỷ đăng ký"
                             className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 disabled:opacity-50"
@@ -620,18 +635,33 @@ export default function RegistrationManagementPage({ eventId: eventIdProp, embed
 
       {/* Reject modal */}
       {rejectTarget && (
-        <RejectModal
-          name={rejectTarget.name}
+        <ReasonModal
+          title="Từ chối đăng ký"
+          description={<>Từ chối đăng ký của <strong>{rejectTarget.name}</strong>?</>}
+          placeholder="Lý do từ chối..."
+          confirmLabel="Xác nhận từ chối"
           onConfirm={handleRejectConfirm}
           onClose={() => setRejectTarget(null)}
         />
       )}
       {paymentRejectTarget && (
-        <RejectModal
-          payment
-          name={paymentRejectTarget.name}
+        <ReasonModal
+          title="Từ chối thanh toán"
+          description={<>Không xác nhận chuyển khoản của <strong>{paymentRejectTarget.name}</strong>?</>}
+          placeholder="Lý do không xác nhận thanh toán..."
+          confirmLabel="Từ chối thanh toán"
           onConfirm={handleRejectPayment}
           onClose={() => setPaymentRejectTarget(null)}
+        />
+      )}
+      {cancelTarget && (
+        <ReasonModal
+          title="Huỷ vé tham gia"
+          description={<>Huỷ vé của <strong>{cancelTarget.fullName || cancelTarget.name || 'người tham gia'}</strong>?</>}
+          placeholder="Lý do huỷ vé..."
+          confirmLabel="Xác nhận huỷ vé"
+          onConfirm={handleCancelConfirm}
+          onClose={() => setCancelTarget(null)}
         />
       )}
       {refundTarget && (

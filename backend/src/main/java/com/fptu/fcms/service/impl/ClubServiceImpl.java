@@ -8,6 +8,7 @@ import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.ClubRepository;
 import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.RecruitmentCycleRepository;
+import com.fptu.fcms.repository.SemesterRepository;
 import com.fptu.fcms.service.ClubService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class ClubServiceImpl implements ClubService {
     private final ClubRepository clubRepository;
     private final ClubMembershipRepository clubMembershipRepository;
     private final RecruitmentCycleRepository recruitmentCycleRepository;
+    private final SemesterRepository semesterRepository;
     private final ImageCleanupService imageCleanupService;
 
     @Override
@@ -129,7 +131,12 @@ public class ClubServiceImpl implements ClubService {
         dto.setColor(getColorForCategory(category));
         
         // Get actual membership count
-        int membersCount = clubMembershipRepository.countByClubIDAndIsDeletedFalse(club.getClubID());
+        int membersCount = semesterRepository.findByIsActiveTrueAndIsDeletedFalse()
+                .map(semester -> clubMembershipRepository.countByClubIDAndSemesterIDAndIsDeletedFalse(
+                        club.getClubID(),
+                        semester.getSemesterID()
+                ))
+                .orElse(0);
         dto.setMembers(membersCount);
         
         dto.setRecruiting(recruitmentCycleRepository.isRecruitmentOpenForClub(

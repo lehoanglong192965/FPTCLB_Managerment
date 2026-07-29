@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import authService from "../../services/api/auth/authService";
+import PasswordRuleHint from "../../components/auth/PasswordRuleHint";
+import { isPasswordValid, WEAK_PASSWORD_ERROR } from "../../utils/passwordRules";
 
 function Logo() {
   return (
@@ -58,12 +60,12 @@ export default function ResetPasswordPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp.");
+    if (!isPasswordValid(newPassword)) {
+      setError(WEAK_PASSWORD_ERROR);
       return;
     }
-    if (newPassword.length < 8) {
-      setError("Mật khẩu phải có ít nhất 8 ký tự.");
+    if (newPassword !== confirmPassword) {
+      setError("Mật khẩu xác nhận không khớp.");
       return;
     }
     setLoading(true);
@@ -110,31 +112,38 @@ export default function ResetPasswordPage() {
         </div>
 
         <form className="w-full flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
-          <div className="relative">
-            <input
-              className={[
-                "w-full pl-[14px] pr-[42px] py-[11px] border-0 border-b-[1.5px] bg-transparent text-[14px] text-[#1A1A1A] outline-none transition-colors duration-150 box-border placeholder-[#ABABAB]",
-                error ? "border-b-[#D0453A]" : "border-b-[#E4E4E4] focus:border-b-[#4A90D9]",
-                loading ? "opacity-60 cursor-not-allowed" : "",
-              ].join(" ")}
-              type={showNew ? "text" : "password"}
-              placeholder="Mật khẩu mới"
+          <div className="flex flex-col">
+            <div className="relative">
+              <input
+                className={[
+                  "w-full pl-[14px] pr-[42px] py-[11px] border-0 border-b-[1.5px] bg-transparent text-[14px] text-[#1A1A1A] outline-none transition-colors duration-150 box-border placeholder-[#ABABAB]",
+                  error ? "border-b-[#D0453A]" : "border-b-[#E4E4E4] focus:border-b-[#4A90D9]",
+                  loading ? "opacity-60 cursor-not-allowed" : "",
+                ].join(" ")}
+                type={showNew ? "text" : "password"}
+                placeholder="Mật khẩu mới"
+                value={newPassword}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  if (error) setError("");
+                }}
+                disabled={loading}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                className="absolute right-[10px] top-1/2 -translate-y-1/2 bg-none border-0 cursor-pointer text-[#ABABAB] flex items-center p-[2px] transition-colors duration-150 hover:text-[#6B6B6B]"
+                onClick={() => setShowNew((v) => !v)}
+                aria-label={showNew ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              >
+                <EyeIcon open={showNew} />
+              </button>
+            </div>
+            <PasswordRuleHint
               value={newPassword}
-              onChange={(e) => {
-                setNewPassword(e.target.value);
-                if (error) setError("");
-              }}
-              disabled={loading}
-              autoComplete="new-password"
+              invalid={error === WEAK_PASSWORD_ERROR}
+              className="mt-[6px] px-[2px]"
             />
-            <button
-              type="button"
-              className="absolute right-[10px] top-1/2 -translate-y-1/2 bg-none border-0 cursor-pointer text-[#ABABAB] flex items-center p-[2px] transition-colors duration-150 hover:text-[#6B6B6B]"
-              onClick={() => setShowNew((v) => !v)}
-              aria-label={showNew ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-            >
-              <EyeIcon open={showNew} />
-            </button>
           </div>
 
           <div className="relative">
@@ -164,7 +173,7 @@ export default function ResetPasswordPage() {
             </button>
           </div>
 
-          {error && (
+          {error && error !== WEAK_PASSWORD_ERROR && (
             <p className="text-[12px] text-[#D0453A] pl-[2px] leading-[1.4] -mt-2">{error}</p>
           )}
           {success && (
