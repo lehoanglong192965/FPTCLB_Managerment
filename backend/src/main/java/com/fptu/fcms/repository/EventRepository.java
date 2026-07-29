@@ -93,8 +93,12 @@ public interface EventRepository extends JpaRepository<Event, Integer> {
             WHERE e.semesterID = :semesterId
               AND e.isDeleted = false
               AND e.isScoreLocked = true
+              AND (e.eventStatus IS NULL OR e.eventStatus NOT IN :finishedStatuses)
             """)
-    long countLockedScoreEventsBySemesterId(@Param("semesterId") Integer semesterId);
+    long countLockedScoreEventsBySemesterId(
+            @Param("semesterId") Integer semesterId,
+            @Param("finishedStatuses") Collection<EventStatus> finishedStatuses
+    );
     @Query("""
             SELECT e
             FROM Event e

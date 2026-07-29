@@ -15,6 +15,7 @@ import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.exception.SemesterClosureBlockedException;
 import com.fptu.fcms.repository.AuditLogRepository;
 import com.fptu.fcms.repository.ClubRepository;
+import com.fptu.fcms.repository.ClubMembershipRepository;
 import com.fptu.fcms.repository.EventRepository;
 import com.fptu.fcms.repository.MemberRankingSnapshotRepository;
 import com.fptu.fcms.repository.NotificationRecipientRepository;
@@ -57,6 +58,9 @@ class SemesterServiceImplTest {
     private SemesterRepository semesterRepository;
 
     @Mock
+    private ClubMembershipRepository clubMembershipRepository;
+
+    @Mock
     private ClubRepository clubRepository;
 
     @Mock
@@ -93,6 +97,7 @@ class SemesterServiceImplTest {
     void setUp() {
         semesterService = new SemesterServiceImpl(
                 semesterRepository,
+                clubMembershipRepository,
                 clubRepository,
                 eventRepository,
                 rankingSnapshotRepository,
@@ -418,7 +423,7 @@ class SemesterServiceImplTest {
     private void mockClosureCounts(long unfinishedEventCount, long lockedScoreCount) {
         when(eventRepository.countUnfinishedEventsBySemesterId(eq(1), any(Collection.class)))
                 .thenReturn(unfinishedEventCount);
-        when(eventRepository.countLockedScoreEventsBySemesterId(1)).thenReturn(lockedScoreCount);
+        when(eventRepository.countLockedScoreEventsBySemesterId(eq(1), any())).thenReturn(lockedScoreCount);
     }
 
     private SystemRole systemRole(Integer roleId, String roleName) {

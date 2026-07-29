@@ -162,10 +162,17 @@ export default function SemesterManagementPage() {
   async function handleEnd(sem) {
     if (!(await confirm(`Kết thúc học kỳ "${sem.semesterCode}"?`, { danger: true }))) return;
     try {
-      await semesterApi.update(sem.semesterID, { ...sem, isActive: false });
+      await semesterApi.close(sem.semesterID);
       await fetchSemesters();
-    } catch {
-      toast.error("Kết thúc học kỳ thất bại. Vui lòng thử lại.");
+      toast.success("Đã kết thúc học kỳ, chốt BXH và gửi thông báo Top 3.");
+    } catch (err) {
+      const data = err?.response?.data;
+      const details = Array.isArray(data?.blockers) && data.blockers.length > 0
+        ? `\n${data.blockers.join("\n")}`
+        : "";
+      toast.error(
+        `${data?.message || "Kết thúc học kỳ thất bại. Vui lòng thử lại."}${details}`
+      );
     }
   }
 
