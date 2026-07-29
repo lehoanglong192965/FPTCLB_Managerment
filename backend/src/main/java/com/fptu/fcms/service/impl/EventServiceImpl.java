@@ -1304,6 +1304,10 @@ public class EventServiceImpl implements EventService {
             if (request.getTicketPrice() == null || request.getTicketPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("ticketPrice must be greater than 0 for a paid event.");
             }
+            if (request.getTicketPrice().stripTrailingZeros().scale() > 0) {
+                throw new IllegalArgumentException(
+                        "Giá vé phải là số tiền chẵn (không có phần thập phân) để khách chuyển khoản khớp tuyệt đối.");
+            }
             if (!StringUtils.hasText(request.getTicketCurrency())) {
                 throw new IllegalArgumentException("ticketCurrency is required for a paid event.");
             }
@@ -1334,6 +1338,10 @@ public class EventServiceImpl implements EventService {
         if (Boolean.TRUE.equals(event.getIsPaidEvent())) {
             if (event.getTicketPrice() == null || event.getTicketPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("ticketPrice must be greater than 0 for a paid event.");
+            }
+            if (event.getTicketPrice().stripTrailingZeros().scale() > 0) {
+                throw new IllegalArgumentException(
+                        "Giá vé phải là số tiền chẵn (không có phần thập phân) để khách chuyển khoản khớp tuyệt đối.");
             }
             if (!StringUtils.hasText(event.getTicketCurrency())) {
                 throw new IllegalArgumentException("ticketCurrency is required for a paid event.");

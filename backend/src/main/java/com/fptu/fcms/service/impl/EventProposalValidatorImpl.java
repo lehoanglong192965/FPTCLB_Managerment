@@ -86,6 +86,11 @@ public class EventProposalValidatorImpl implements EventProposalValidator {
             if (event.getTicketPrice() == null || event.getTicketPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new BusinessRuleException("ticketPrice must be greater than 0 for a paid event.", HttpStatus.BAD_REQUEST);
             }
+            if (event.getTicketPrice().stripTrailingZeros().scale() > 0) {
+                throw new BusinessRuleException(
+                        "Giá vé phải là số tiền chẵn (không có phần thập phân) để khách chuyển khoản khớp tuyệt đối.",
+                        HttpStatus.BAD_REQUEST);
+            }
             if (event.getTicketCurrency() == null || event.getTicketCurrency().isBlank()) {
                 throw new BusinessRuleException("ticketCurrency is required for a paid event.", HttpStatus.BAD_REQUEST);
             }

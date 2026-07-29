@@ -381,6 +381,11 @@ export default function EventManageDetailPage() {
         setSaving(false);
         return;
       }
+      if (isFullEdit && editForm.isPaidEvent && !Number.isInteger(Number(editForm.ticketPrice))) {
+        toast.error("Giá vé phải là số tiền chẵn, không có phần thập phân.");
+        setSaving(false);
+        return;
+      }
       if (isFullEdit && stripHtml(editForm.description).length > 1000) {
         toast.error("Mô tả sự kiện không được vượt quá 1.000 ký tự.");
         setSaving(false);

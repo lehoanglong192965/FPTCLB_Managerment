@@ -55,8 +55,11 @@ public final class RefundPolicyCalculator {
     public static BigDecimal calculateAmount(BigDecimal paidAmount, BigDecimal rate) {
         BigDecimal safeAmount = paidAmount == null ? BigDecimal.ZERO : paidAmount.max(BigDecimal.ZERO);
         BigDecimal safeRate = rate == null ? FULL : rate.max(ZERO).min(FULL);
+        // Làm tròn về đồng chẵn: không thể chuyển khoản phần lẻ xu, để lại số lẻ thì khoản hoàn
+        // vĩnh viễn không khớp được khi đối soát.
         return safeAmount.multiply(safeRate)
-                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+                .divide(new BigDecimal("100"), 0, RoundingMode.HALF_UP)
+                .setScale(2, RoundingMode.UNNECESSARY);
     }
 
     private static BigDecimal rateOf(String tier) {

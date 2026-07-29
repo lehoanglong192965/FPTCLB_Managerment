@@ -703,8 +703,13 @@ function validate(step, form) {
   if (step === 2) {
     if (!form.budget || Number(form.budget) < 0)
       e.budget = "Vui lòng nhập ngân sách dự kiến (nhập 0 nếu không có).";
-    if (form.isPaidEvent && (!form.ticketPrice || Number(form.ticketPrice) <= 0))
-      e.ticketPrice = "Sự kiện bán vé phải có giá vé lớn hơn 0.";
+    if (form.isPaidEvent) {
+      if (!form.ticketPrice || Number(form.ticketPrice) <= 0)
+        e.ticketPrice = "Sự kiện bán vé phải có giá vé lớn hơn 0.";
+      else if (!Number.isInteger(Number(form.ticketPrice)))
+        // Giá lẻ khiến mã QR (làm tròn) lệch số tiền phải thu, mọi giao dịch sẽ rơi vào đối soát tay.
+        e.ticketPrice = "Giá vé phải là số tiền chẵn, không có phần thập phân.";
+    }
     if (!form.maxParticipants || Number(form.maxParticipants) < 1)
       e.maxParticipants = "Vui lòng nhập số người tham gia tối đa (ít nhất 1 người).";
   }
