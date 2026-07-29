@@ -10,8 +10,10 @@ const clubApi = {
   getById: (clubId) => axiosClient.get(`/clubs/id/${clubId}`),
   getPublicEvents: (clubId, params) =>
     axiosClient.get(`/clubs/${clubId}/events/public`, { params }),
-  getMemberRankings: (clubId) =>
-    axiosClient.get(`/clubs/${clubId}/rankings/members`),
+  getMemberRankings: (clubId, semesterId) =>
+    axiosClient.get(`/clubs/${clubId}/rankings/members`, {
+      params: semesterId ? { semesterId } : undefined,
+    }),
 
   // ── MEMBER ──────────────────────────────────────────────────────
   join: (clubId) => axiosClient.post(`/clubs/${clubId}/join`),

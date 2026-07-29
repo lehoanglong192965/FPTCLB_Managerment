@@ -7,5 +7,7 @@ import java.util.List;
 
 public interface MemberRankingService {
     void validateActiveClubMember(Integer clubId, UserPrincipal currentUser);
+    void validateClubMember(Integer clubId, Integer semesterId, UserPrincipal currentUser);
     List<MemberRankingDTO> getMemberRankings(Integer clubId);
+    List<MemberRankingDTO> getMemberRankings(Integer clubId, Integer semesterId);
 }
