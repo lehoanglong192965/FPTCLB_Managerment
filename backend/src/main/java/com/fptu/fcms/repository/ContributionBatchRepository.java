@@ -11,7 +11,15 @@ import java.util.Optional;
 
 @Repository
 public interface ContributionBatchRepository extends JpaRepository<ContributionBatch, Integer> {
-    Optional<ContributionBatch> findByEventIDAndIsDeletedFalse(Integer eventID);
+    /**
+     * Luôn dùng bản findFirst...OrderByCreatedAtDesc này để tra batch theo event.
+     *
+     * Cố tình KHÔNG có findByEventIDAndIsDeletedFalse: nó trả Optional nên Spring Data ném
+     * IncorrectResultSizeDataAccessException (HTTP 500) ngay khi một event có 2 batch active.
+     * Unique index UX_ContributionBatch_Event_Active (V2026072902) đã chặn từ DB, nhưng giữ
+     * truy vấn an toàn ở đây để dữ liệu cũ không làm sập luồng đóng sự kiện.
+     */
+    Optional<ContributionBatch> findFirstByEventIDAndIsDeletedFalseOrderByCreatedAtDesc(Integer eventID);
 
     Optional<ContributionBatch> findByBatchIDAndIsDeletedFalse(Integer batchID);
 

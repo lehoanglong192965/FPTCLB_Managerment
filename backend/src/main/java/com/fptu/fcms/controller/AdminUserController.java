@@ -4,6 +4,7 @@ import com.fptu.fcms.dto.response.AdminUserResponse;
 import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.security.TokenInvalidationService;
 import com.fptu.fcms.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -45,6 +46,7 @@ public class AdminUserController {
 
     private final UserRepository userRepository;
     private final AdminUserService adminUserService;
+    private final TokenInvalidationService tokenInvalidationService;
 
     @PostMapping("/icpdp")
     @PreAuthorize("hasRole('Admin')")
@@ -97,6 +99,7 @@ public class AdminUserController {
 
         user.setAccountStatus(STATUS_SUSPENDED);
         userRepository.save(user);
+        tokenInvalidationService.invalidateFor(user.getUserID());
         return ResponseEntity.ok(Map.of("message", "Đã tạm khóa tài khoản."));
     }
 
@@ -107,6 +110,7 @@ public class AdminUserController {
         UserAccount user = findUserOrThrow(userId);
         user.setAccountStatus(STATUS_ACTIVE);
         userRepository.save(user);
+        tokenInvalidationService.invalidateFor(user.getUserID());
         return ResponseEntity.ok(Map.of("message", "Đã mở khóa tài khoản."));
     }
 

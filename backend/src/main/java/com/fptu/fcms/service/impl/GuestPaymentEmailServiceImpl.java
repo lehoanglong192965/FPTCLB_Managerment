@@ -25,22 +25,22 @@ public class GuestPaymentEmailServiceImpl implements GuestPaymentEmailService {
 
     private final EmailService emailService;
 
-    @Value("${fcms.payment.bank-name:MB Bank}")
+    @Value("${fcms.payment.bank-name}")
     private String bankName;
 
-    @Value("${fcms.payment.sepay.account-number:0796578863}")
+    @Value("${fcms.payment.sepay.account-number}")
     private String accountNumber;
 
-    @Value("${fcms.payment.account-name:LE HOANG LONG}")
+    @Value("${fcms.payment.account-name}")
     private String accountName;
 
-    @Value("${fcms.payment.bank-branch:MB Bank}")
+    @Value("${fcms.payment.bank-branch}")
     private String bankBranch;
 
-    @Value("${fcms.guest.status-base-url:http://localhost:5173/guest/status}")
+    @Value("${fcms.guest.status-base-url}")
     private String guestStatusBaseUrl;
 
-    @Value("${fcms.guest.lookup-url:http://localhost:5173/guest/lookup}")
+    @Value("${fcms.guest.lookup-url}")
     private String guestLookupUrl;
 
     @Override
@@ -162,7 +162,7 @@ public class GuestPaymentEmailServiceImpl implements GuestPaymentEmailService {
 
     private String trimTrailingSlash(String value) {
         if (value == null || value.isBlank()) {
-            return "http://localhost:5173";
+            throw new IllegalStateException("Configured guest URL must not be blank");
         }
         return value.replaceAll("/+$", "");
     }

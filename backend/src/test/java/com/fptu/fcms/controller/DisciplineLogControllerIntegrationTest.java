@@ -3,6 +3,10 @@ package com.fptu.fcms.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fptu.fcms.dto.DisciplineLogDTO;
+import com.fptu.fcms.entity.Semester;
+import com.fptu.fcms.entity.UserAccount;
+import com.fptu.fcms.repository.SemesterRepository;
+import com.fptu.fcms.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +17,9 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -27,10 +34,8 @@ import static org.hamcrest.Matchers.*;
  *   3. Validation: Request body thiếu trường bắt buộc trả về HTTP 400.
  *   4. Not found: GET/PUT/DELETE ID không tồn tại trả về HTTP 400.
  *
- * Lưu ý:
- *   - Test này phụ thuộc vào dữ liệu seed trong DB (cần có ít nhất 1 UserAccount
- *     và 1 Semester tồn tại để tạo DisciplineLog thành công).
- *   - @Transactional đảm bảo rollback sau mỗi test method.
+ * Lưu ý: Test tự tạo UserAccount và Semester fixture; @Transactional đảm bảo rollback sau mỗi test method,
+ * nên không phụ thuộc dữ liệu seed của môi trường.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -40,12 +45,38 @@ public class DisciplineLogControllerIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private SemesterRepository semesterRepository;
+
     private ObjectMapper objectMapper;
+    private Integer fixtureUserId;
+    private Integer fixtureSemesterId;
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
+
+        UserAccount user = UserAccount.builder()
+                .roleID(3)
+                .email("discipline-controller-test@fpt.edu.vn")
+                .fullName("Discipline Controller Test User")
+                .accountStatus("Active")
+                .createdAt(LocalDateTime.now())
+                .isDeleted(false)
+                .build();
+        fixtureUserId = userRepository.saveAndFlush(user).getUserID();
+
+        Semester semester = new Semester();
+        semester.setSemesterCode("DCT26");
+        semester.setStartDate(LocalDate.of(2026, 1, 1));
+        semester.setEndDate(LocalDate.of(2026, 4, 30));
+        semester.setIsActive(false);
+        semester.setIsDeleted(false);
+        fixtureSemesterId = semesterRepository.saveAndFlush(semester).getSemesterID();
     }
 
     // =========================================================================
@@ -57,8 +88,8 @@ public class DisciplineLogControllerIntegrationTest {
     void testFullCrudFlowAsAdmin() throws Exception {
         // ----- 1. POST /api/discipline-logs (Create) -----
         DisciplineLogDTO newLog = new DisciplineLogDTO();
-        newLog.setUserID(1);      // Giả sử userID=1 tồn tại trong DB seed
-        newLog.setSemesterID(1);  // Giả sử semesterID=1 tồn tại trong DB seed
+        newLog.setUserID(fixtureUserId);
+        newLog.setSemesterID(fixtureSemesterId);
         newLog.setReason("Vi phạm nội quy CLB - Test");
         newLog.setDisciplineStatus("Active");
 

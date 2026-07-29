@@ -27,6 +27,13 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
+    private static final String INVALID_CREDENTIALS =
+            "Email ho\u1eb7c m\u1eadt kh\u1ea9u kh\u00f4ng h\u1ee3p l\u1ec7.";
+    private static final String INVALID_OTP =
+            "M\u00e3 OTP kh\u00f4ng h\u1ee3p l\u1ec7 ho\u1eb7c \u0111\u00e3 h\u1ebft h\u1ea1n.";
+    private static final String DUMMY_PASSWORD_HASH =
+            "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
     private final AllowedEmailRepository allowedEmailRepository;
@@ -43,19 +50,25 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse login(LoginRequest request) {
         String email = request.getEmail();
 
+        Optional<UserAccount> loginCandidate = userRepository.findByEmailAndIsDeletedFalse(email);
+        if (loginCandidate.isEmpty()) {
+            passwordEncoder.matches(request.getPassword(), DUMMY_PASSWORD_HASH);
+            throw new IllegalArgumentException(INVALID_CREDENTIALS);
+        }
+
+        boolean passwordMatches = passwordEncoder.matches(
+                request.getPassword(), loginCandidate.get().getPassword());
+        if (!passwordMatches) {
+            throw new IllegalArgumentException(INVALID_CREDENTIALS);
+        }
+
         if (!email.endsWith("@fpt.edu.vn") && !email.endsWith("@fe.edu.vn")){
             if (!allowedEmailRepository.existsByEmail(email)) {
                 throw new IllegalArgumentException("Tài khoản email này chưa được cấp phép trong hệ thống.");
             }
         }
 
-        Optional<UserAccount> userOptional = userRepository.findByEmailAndIsDeletedFalse(email);
-
-        if (userOptional.isEmpty()) {
-            throw new IllegalArgumentException("Không tìm thấy tài khoản với email này!");
-        }
-
-        UserAccount userEntity = userOptional.get();
+        UserAccount userEntity = loginCandidate.get();
 
         if ("PENDING".equalsIgnoreCase(userEntity.getAccountStatus())) {
             throw new IllegalArgumentException("Tài khoản của bạn chưa được xác thực OTP. Vui lòng kiểm tra email để nhận mã xác thực.");
@@ -65,9 +78,6 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Tài khoản của bạn đã bị khóa (Suspended). Vui lòng liên hệ Admin.");
         }
 
-        if (!passwordEncoder.matches(request.getPassword(), userEntity.getPassword())) {
-            throw new IllegalArgumentException("Sai mật khẩu!");
-        }
 
         Integer roleId = userEntity.getRoleID();
 
@@ -103,12 +113,19 @@ public class AuthServiceImpl implements AuthService {
     // Đầu ra: Kiểm tra tính hợp lệ của Refresh Token, truy vấn lại các phân quyền mới nhất (Role, Club Role) và trả về bộ JWT + Refresh Token mới.
     @Override
     public AuthResponse refreshToken(String refreshToken) {
-        if (jwtTokenProvider.validateToken(refreshToken)) {
+        if (jwtTokenProvider.validateToken(refreshToken)
+                && jwtTokenProvider.isRefreshToken(jwtTokenProvider.parseClaims(refreshToken))) {
+            // Bắt buộc đúng loại: nếu không, access token cũng đổi được token mới, kéo dài
+            // phiên vô hạn và bỏ qua mọi lần thu hồi quyền.
             String email = jwtTokenProvider.getEmailFromJwt(refreshToken);
             Optional<UserAccount> userOptional = userRepository.findByEmailAndIsDeletedFalse(email);
-            
+
             if (userOptional.isPresent()) {
                 UserAccount user = userOptional.get();
+
+                if (!"Active".equalsIgnoreCase(user.getAccountStatus())) {
+                    throw new IllegalArgumentException("Tài khoản không còn hoạt động. Vui lòng liên hệ Admin.");
+                }
 
                 // [Batch 2] Resolve roleName từ SystemRole
                 String roleName = systemRoleRepository.findById(user.getRoleID())
@@ -201,13 +218,13 @@ public class AuthServiceImpl implements AuthService {
 
         // Xác minh mã OTP qua OTPService
         if (!otpService.verifyOTP(email, otpCode)) {
-            throw new IllegalArgumentException("Mã OTP không hợp lệ!");
+            throw new IllegalArgumentException(INVALID_OTP);
         }
 
         // Tìm kiếm thông tin tài khoản người dùng
         Optional<UserAccount> userOptional = userRepository.findByEmailAndIsDeletedFalse(email);
         if (userOptional.isEmpty()) {
-            throw new IllegalArgumentException("Không tìm thấy tài khoản người dùng tương ứng!");
+            throw new IllegalArgumentException(INVALID_OTP);
         }
 
         UserAccount user = userOptional.get();
@@ -228,37 +245,21 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void resendOTP(String email) {
-        Optional<UserAccount> userOptional = userRepository.findByEmailAndIsDeletedFalse(email);
-        if (userOptional.isEmpty()) {
-            throw new IllegalArgumentException("Không tìm thấy tài khoản tương ứng với email này!");
-        }
-
-        UserAccount user = userOptional.get();
-
-        // Chỉ gửi lại OTP nếu tài khoản vẫn ở trạng thái PENDING
-        if (!"PENDING".equalsIgnoreCase(user.getAccountStatus())) {
-            throw new IllegalArgumentException("Tài khoản này đã được kích hoạt thành công!");
-        }
-
-        // Tạo mã OTP mới và gửi lại
-        otpService.generateAndSendOTP(email);
+        userRepository.findByEmailAndIsDeletedFalse(email)
+                .filter(user -> "PENDING".equalsIgnoreCase(user.getAccountStatus()))
+                .ifPresent(user -> otpService.generateAndSendOTP(email));
     }
 
     @Override
     public void forgotPassword(String email) {
-        if (!userRepository.findByEmailAndIsDeletedFalse(email).isPresent()) {
-            throw new IllegalArgumentException("Không tìm thấy tài khoản với email này.");
-        }
-        otpService.generateAndSendOTP(email);
+        userRepository.findByEmailAndIsDeletedFalse(email)
+                .ifPresent(user -> otpService.generateAndSendOTP(email));
     }
 
     @Override
     public void resendForgotPasswordOTP(String email) {
-        if (!userRepository.findByEmailAndIsDeletedFalse(email).isPresent()) {
-            throw new IllegalArgumentException("Không tìm thấy tài khoản với email này.");
-        }
-        // Gọi lại service để gửi OTP mới
-        otpService.generateAndSendOTP(email);
+        userRepository.findByEmailAndIsDeletedFalse(email)
+                .ifPresent(user -> otpService.generateAndSendOTP(email));
     }
 
     @Override

@@ -20,7 +20,7 @@ frontend/playwright-report/
 frontend/test-results/
 
 uploads/
-reports/
+/reports/
 
 .env
 .env.*

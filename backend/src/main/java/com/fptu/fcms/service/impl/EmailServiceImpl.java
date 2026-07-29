@@ -35,8 +35,11 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username:baoduy214365@gmail.com}")
+    @Value("${spring.mail.username}")
     private String senderEmail;
+
+    @Value("${fcms.frontend-url}")
+    private String frontendUrl;
 
     @Override
     @Async
@@ -144,7 +147,7 @@ public class EmailServiceImpl implements EmailService {
                         <table role="presentation" align="center" style="margin:0 auto;border-collapse:collapse">
                           <tr>
                             <td style="border-radius:8px;background:linear-gradient(135deg,#FF6B00,#FF8C33)">
-                              <a href="http://localhost:5173/login" style="display:inline-block;padding:12px 32px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none">Khám phá ngay!</a>
+                              <a href="%s" style="display:inline-block;padding:12px 32px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none">Khám phá ngay!</a>
                             </td>
                           </tr>
                         </table>
@@ -152,7 +155,17 @@ public class EmailServiceImpl implements EmailService {
                     </tr>
                   </table>
                 </div>
-                """.formatted(escape(fullName));
+                """.formatted(
+                        escape(fullName),
+                        escape(normalizeFrontendUrl(frontendUrl) + "/login")
+                );
+    }
+
+    private String normalizeFrontendUrl(String configuredUrl) {
+        if (configuredUrl == null || configuredUrl.isBlank()) {
+            throw new IllegalStateException("fcms.frontend-url must not be blank");
+        }
+        return configuredUrl.trim().replaceAll("/+$", "");
     }
 
     @Override

@@ -1,3 +1,9 @@
+/**
+ * Module API Client xử lý các cuộc gọi API liên quan tới Báo cáo sự kiện (thủ công & tự động).
+ * Layer: Frontend API Service.
+ * Trách nhiệm chính: Khai báo các hàm gọi HTTP Axios Client tới Backend ReportController (/api/v1/reports).
+ * Các phương thức chính: getByEventId, getStatistics, submit, resubmit, getAutoData, previewAuto, submitAuto.
+ */
 import axiosClient from "../axiosClient";
 
 // ReportController: /api/v1/reports
@@ -14,7 +20,6 @@ const reportApi = {
     axiosClient.get(`/v1/reports/event/${eventId}/statistics`),
 
   // POST /api/v1/reports  (multipart/form-data)
-  // CreateEventReportRequest: eventID (Integer @NotNull), summary (@NotBlank, max 1000), file (MultipartFile @NotNull)
   submit: (eventId, { file, summary }) => {
     const form = new FormData();
     form.append('eventID', eventId);
@@ -35,6 +40,21 @@ const reportApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+
+  // ── AUTOMATIC REPORTING ──────────────────────────────────────────
+  // GET /api/v1/reports/event/{eventId}/auto-data
+  getAutoData: (eventId) =>
+    axiosClient.get(`/v1/reports/event/${eventId}/auto-data`),
+
+  // POST /api/v1/reports/event/{eventId}/auto-preview
+  previewAuto: (eventId, payload) =>
+    axiosClient.post(`/v1/reports/event/${eventId}/auto-preview`, payload, {
+      responseType: 'blob',
+    }),
+
+  // POST /api/v1/reports/event/{eventId}/auto-submit
+  submitAuto: (eventId, payload) =>
+    axiosClient.post(`/v1/reports/event/${eventId}/auto-submit`, payload),
 
   // ── ICPDP ─────────────────────────────────────────────────────────
   // PATCH /api/v1/events/{eventId}/report/approve

@@ -55,6 +55,12 @@ public class UserAccount {
     @Column(name = "isDeleted")
     private Boolean isDeleted;
 
-
+    /**
+     * Mốc vô hiệu hoá token: mọi JWT cấp trước thời điểm này đều bị từ chối.
+     * Được dập lại mỗi khi quyền của user thay đổi (đổi system role, bãi nhiệm
+     * Leader/BĐH, khai trừ khỏi CLB) để token cũ không giữ quyền cũ tới 24h.
+     */
+    @Column(name = "tokenInvalidatedAt")
+    private LocalDateTime tokenInvalidatedAt;
 
 }

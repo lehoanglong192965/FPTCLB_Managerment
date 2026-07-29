@@ -177,4 +177,47 @@ class JwtAuthenticationFilterTest {
                 .toList();
         assertThat(authorityNames).contains("ROLE_Club Manager", "ROLE_ICPDP");
     }
+
+    @Test
+    @DisplayName("P0-BE-4: refresh token gửi qua header Authorization KHÔNG tạo được phiên đăng nhập")
+    void refreshTokenIsRejectedAsSessionCredential() throws Exception {
+        // Refresh token ký cùng khoá, cùng thuật toán nên validateToken() vẫn trả true.
+        String refreshToken = tokenProvider.generateRefreshToken("victim@fpt.edu.vn");
+        assertThat(tokenProvider.validateToken(refreshToken)).isTrue();
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRequestURI("/api/notifications");
+        request.addHeader("Authorization", "Bearer " + refreshToken);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain filterChain = mock(FilterChain.class);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        // Trước khi vá: context được set với principal rỗng (userId/roleId null, authorities rỗng)
+        // ⇒ lọt mọi @PreAuthorize("isAuthenticated()") rồi NPE ở tầng service.
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        // Request vẫn đi tiếp để Spring Security trả 401 như một request ẩn danh
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("P0-BE-4: access token mang claim typ=access và vẫn qua bình thường")
+    void accessTokenCarriesTypeClaim() throws Exception {
+        String token = tokenProvider.generateToken(
+                "student@fpt.edu.vn", 5, 3, "Student", null, null);
+
+        assertThat(tokenProvider.isAccessToken(tokenProvider.parseClaims(token))).isTrue();
+        assertThat(tokenProvider.isRefreshToken(tokenProvider.parseClaims(token))).isFalse();
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
+        FilterChain filterChain = mock(FilterChain.class);
+
+        filter.doFilterInternal(request, new MockHttpServletResponse(), filterChain);
+
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        assertThat(auth).isNotNull();
+        // iat được đẩy vào principal để AccountStatusFilter khỏi giải mã token lần nữa
+        assertThat(((UserPrincipal) auth.getPrincipal()).getIssuedAt()).isNotNull();
+    }
 }

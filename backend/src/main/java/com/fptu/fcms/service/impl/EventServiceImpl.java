@@ -33,7 +33,6 @@ import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.EventRegistrationPolicyService;
 import com.fptu.fcms.service.EventService;
-import com.fptu.fcms.service.ImageCleanupService;
 import com.fptu.fcms.service.SystemConfigService;
 import com.fptu.fcms.service.AttendanceSessionService;
 import com.fptu.fcms.service.event.EventPermissionService;
@@ -867,7 +866,11 @@ public class EventServiceImpl implements EventService {
                 .isEmpty()) {
             throw new BusinessRuleException("EVENT_REPORT_NOT_APPROVED");
         }
-        if (contributionBatchRepository.findByEventIDAndIsDeletedFalse(eventId)
+        // findFirstBy...OrderByCreatedAtDesc chứ không phải findByEventIDAndIsDeletedFalse: bản
+        // trả Optional ném IncorrectResultSizeDataAccessException khi event có 2 batch active,
+        // khiến closeEvent trả 500 và sự kiện không bao giờ đóng được. V2026072902 đã thêm
+        // unique index chặn từ DB, đây là lớp phòng thủ cho dữ liệu phát sinh trước migration.
+        if (contributionBatchRepository.findFirstByEventIDAndIsDeletedFalseOrderByCreatedAtDesc(eventId)
                 .filter(batch -> ContributionBatchStatus.FINALIZED.equals(batch.getStatus()))
                 .isEmpty()) {
             throw new BusinessRuleException("CONTRIBUTION_BATCH_NOT_FINALIZED");

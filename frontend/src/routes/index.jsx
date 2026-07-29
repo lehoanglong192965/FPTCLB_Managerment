@@ -41,75 +41,70 @@ const CompetitionAwardsPage = lazy(() => import("../pages/competitions/Competiti
 
 // Member pages (Sprint 6)
 const MemberAppealPage = lazy(() => import("../pages/member/MemberAppealPage"));
-const MemberPendingFeedback = lazy(() => import("../pages/member/MemberPendingFeedback"));
+const MemberPendingFeedbackPage = lazy(() => import("../pages/member/MemberPendingFeedbackPage"));
 const MemberMyContributionsPage = lazy(() => import("../pages/member/MemberMyContributionsPage"));
 
 // Dashboard layout (shared sidebar + outlet)
 const DashboardLayout = lazy(() => import("../components/layout/DashboardLayout"));
-const ClubDashboardPage = lazy(() => import("../pages/dashboard/ClubDashboardPage"));
+const ClubDashboardPage = lazy(() => import("../pages/club-leader/ClubDashboardPage"));
 
 // ICPDP pages
-const IcpdpEventApproval = lazy(() => import("../pages/icpdp/IcpdpEventApproval"));
-const IcpdpEventManagement = lazy(() => import("../pages/icpdp/IcpdpEventManagement"));
+const IcpdpEventApprovalPage = lazy(() => import("../pages/icpdp/IcpdpEventApprovalPage"));
+const IcpdpEventManagementPage = lazy(() => import("../pages/icpdp/IcpdpEventManagementPage"));
 const IcpdpEventDetailPage = lazy(() => import("../pages/icpdp/IcpdpEventDetailPage"));
-const IcpdpPersonnelReassign = lazy(() => import("../pages/icpdp/IcpdpPersonnelReassign"));
-const IcpdpDisciplineLog = lazy(() => import("../pages/icpdp/IcpdpDisciplineLog"));
-const IcpdpClubManagement = lazy(() => import("../pages/icpdp/IcpdpClubManagement"));
-const IcpdpRecruitment = lazy(() => import("../pages/icpdp/IcpdpRecruitment"));
-const IcpdpReportReview = lazy(() => import("../pages/icpdp/IcpdpReportReview"));
-const IcpdpCompetitionList = lazy(() => import("../pages/icpdp/IcpdpCompetitionList"));
-const IcpdpCompetitionDetail = lazy(() => import("../pages/icpdp/IcpdpCompetitionDetail"));
+const IcpdpPersonnelReassignPage = lazy(() => import("../pages/icpdp/IcpdpPersonnelReassignPage"));
+const IcpdpDisciplineLogPage = lazy(() => import("../pages/icpdp/IcpdpDisciplineLogPage"));
+const IcpdpClubManagementPage = lazy(() => import("../pages/icpdp/IcpdpClubManagementPage"));
+const IcpdpRecruitmentPage = lazy(() => import("../pages/icpdp/IcpdpRecruitmentPage"));
+const IcpdpReportReviewPage = lazy(() => import("../pages/icpdp/IcpdpReportReviewPage"));
+const IcpdpCompetitionListPage = lazy(() => import("../pages/icpdp/IcpdpCompetitionListPage"));
+const IcpdpCompetitionDetailPage = lazy(() => import("../pages/icpdp/IcpdpCompetitionDetailPage"));
 const IcpdpContributionPage = lazy(() => import("../pages/icpdp/IcpdpContributionPage"));
 
 // Admin pages
-const SemesterManagement = lazy(() => import("../pages/admin/SemesterManagement"));
-const UserManagement = lazy(() => import("../pages/admin/UserManagement"));
+const SemesterManagementPage = lazy(() => import("../pages/admin/SemesterManagementPage"));
+const UserManagementPage = lazy(() => import("../pages/admin/UserManagementPage"));
 const SystemConfigPage = lazy(() => import("../pages/admin/SystemConfigPage"));
 
 // Club Leader pages
-const ClubMemberMgmt = lazy(() => import("../pages/club-leader/ClubMemberMgmt"));
-const ClubEventsMgmt = lazy(() => import("../pages/club-leader/ClubEventsMgmt"));
+const ClubMemberManagementPage = lazy(() => import("../pages/club-leader/ClubMemberManagementPage"));
+const ClubEventsManagementPage = lazy(() => import("../pages/club-leader/ClubEventsManagementPage"));
 const EventManageDetailPage = lazy(() => import("../pages/club-leader/EventManageDetailPage"));
 const PersonnelAssignmentPage = lazy(() => import("../pages/club-leader/PersonnelAssignmentPage"));
-const ClubReports = lazy(() => import("../pages/club-leader/ClubReports"));
-const ClubApplicationsMgmt = lazy(() => import("../pages/club-leader/ClubApplicationsMgmt"));
-const RecruitmentCycleMgmtPage = lazy(() => import("../pages/club-leader/RecruitmentCycleMgmtPage"));
-const ClubBlacklist = lazy(() => import("../pages/club-leader/ClubBlacklist"));
+const ClubReportsPage = lazy(() => import("../pages/club-leader/ClubReportsPage"));
+const ClubApplicationsManagementPage = lazy(() => import("../pages/club-leader/ClubApplicationsManagementPage"));
+const RecruitmentCycleManagementPage = lazy(() => import("../pages/club-leader/RecruitmentCycleManagementPage"));
+const ClubBlacklistPage = lazy(() => import("../pages/club-leader/ClubBlacklistPage"));
 const CreateEventPage = lazy(() => import("../pages/club-leader/CreateEventPage"));
 const ClubInfoPage = lazy(() => import("../pages/club-leader/ClubInfoPage"));
+const ClubNotificationPage = lazy(() => import("../pages/club-leader/ClubNotificationPage"));
 const MemberLeaderboardPage = lazy(() => import("../pages/club-leader/MemberLeaderboardPage"));
 const ContributionManagementPage = lazy(() => import("../pages/club-leader/ContributionManagementPage"));
 const CheckInPage = lazy(() => import("../pages/club-leader/CheckInPage"));
 const ReportSubmitPage = lazy(() => import("../pages/club-leader/ReportSubmitPage"));
 const WalkInPage = lazy(() => import("../pages/club-leader/WalkInPage"));
-const RegistrationMgmtPage = lazy(() => import("../pages/club-leader/RegistrationMgmtPage"));
+const RegistrationManagementPage = lazy(() => import("../pages/club-leader/RegistrationManagementPage"));
 const AttendanceDashboardPage = lazy(() => import("../pages/club-leader/AttendanceDashboardPage"));
 const AttendanceCorrectionPage = lazy(() => import("../pages/club-leader/AttendanceCorrectionPage"));
-const KnowledgeArchiveMgmt = lazy(() => import("../pages/shared/KnowledgeArchiveMgmt"));
+const KnowledgeArchiveManagementPage = lazy(() => import("../pages/shared/KnowledgeArchiveManagementPage"));
 const ClubManagementLayout = lazy(() => import("../components/layout/ClubManagementLayout"));
 const ClubSpace = lazy(() => import("../components/clubs/ClubSpace"));
-const ClubLeaderMyClubs = lazy(() => import("../pages/club-leader/ClubLeaderMyClubs"));
+const ClubLeaderMyClubsPage = lazy(() => import("../pages/club-leader/ClubLeaderMyClubsPage"));
 
 // Member pages
-const MemberEvents = lazy(() => import("../pages/member/MemberEvents"));
-const MemberClubs = lazy(() => import("../pages/member/MemberClubs"));
-const MemberMyClubs = lazy(() => import("../pages/member/MemberMyClubs"));
-const MemberNotifications = lazy(() => import("../pages/member/MemberNotifications"));
-const MemberMyTickets = lazy(() => import("../pages/member/MemberMyTickets"));
+const MemberEventsPage = lazy(() => import("../pages/member/MemberEventsPage"));
+const MemberClubsPage = lazy(() => import("../pages/member/MemberClubsPage"));
+const MemberMyClubsPage = lazy(() => import("../pages/member/MemberMyClubsPage"));
+const MemberNotificationsPage = lazy(() => import("../pages/member/MemberNotificationsPage"));
+const MemberMyTicketsPage = lazy(() => import("../pages/member/MemberMyTicketsPage"));
 const TicketDetailPage = lazy(() => import("../pages/shared/TicketDetailPage"));
-const MemberApply = lazy(() => import("../pages/member/MemberApply"));
-const ClubRegistrationForm = lazy(() => import("../pages/icpdp/ClubRegistrationForm"));
-const MemberNotificationSettings = lazy(() => import("../pages/member/MemberNotificationSettings"));
+const MemberApplyPage = lazy(() => import("../pages/member/MemberApplyPage"));
+const ClubRegistrationFormPage = lazy(() => import("../pages/icpdp/ClubRegistrationFormPage"));
+const MemberNotificationSettingsPage = lazy(() => import("../pages/member/MemberNotificationSettingsPage"));
 
 // Shared
 const ProfilePage = lazy(() => import("../pages/profile/ProfilePage"));
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
-
-// Alumni pages
-const AlumniHome = lazy(() => import("../pages/alumni/AlumniHome"));
-const AlumniClubs = lazy(() => import("../pages/alumni/AlumniClubs"));
-const AlumniEvents = lazy(() => import("../pages/alumni/AlumniEvents"));
-const AlumniNetwork = lazy(() => import("../pages/alumni/AlumniNetwork"));
 
 // Spinner Tailwind thuần (animate-spin) — không import antd ở đây để chunk
 // khởi đầu không phải tải kèm antd trước khi page đầu tiên kịp hiển thị.
@@ -174,22 +169,22 @@ export default function AppRoutes() {
       >
         <Route index element={<Navigate to="/icpdp/club-management" replace />} />
         <Route path="club-dashboard" element={<ClubDashboardPage />} />
-        <Route path="club-management" element={<IcpdpClubManagement />} />
-        <Route path="clubs/create" element={<ClubRegistrationForm mode="icpdp" />} />
-        <Route path="event-approval" element={<IcpdpEventApproval />} />
-        <Route path="event-management" element={<IcpdpEventManagement />} />
-        <Route path="report-review" element={<IcpdpReportReview />} />
-        <Route path="personnel-reassign" element={<IcpdpPersonnelReassign />} />
-        <Route path="discipline-log" element={<IcpdpDisciplineLog />} />
-        <Route path="recruitment" element={<IcpdpRecruitment />} />
-        <Route path="competition" element={<IcpdpCompetitionList />} />
-        <Route path="competition/:competitionId" element={<IcpdpCompetitionDetail />} />
+        <Route path="club-management" element={<IcpdpClubManagementPage />} />
+        <Route path="clubs/create" element={<ClubRegistrationFormPage mode="icpdp" />} />
+        <Route path="event-approval" element={<IcpdpEventApprovalPage />} />
+        <Route path="event-management" element={<IcpdpEventManagementPage />} />
+        <Route path="report-review" element={<IcpdpReportReviewPage />} />
+        <Route path="personnel-reassign" element={<IcpdpPersonnelReassignPage />} />
+        <Route path="discipline-log" element={<IcpdpDisciplineLogPage />} />
+        <Route path="recruitment" element={<IcpdpRecruitmentPage />} />
+        <Route path="competition" element={<IcpdpCompetitionListPage />} />
+        <Route path="competition/:competitionId" element={<IcpdpCompetitionDetailPage />} />
         <Route path="events/:eventId/manage" element={<IcpdpEventDetailPage />} />
         <Route path="events/:eventId/checkin" element={<CheckInPage />} />
         <Route path="events/:eventId/attendance/:sessionId/correct" element={<AttendanceCorrectionPage />} />
         <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
         <Route path="events/:eventId/contributions" element={<IcpdpContributionPage />} />
-        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
+        <Route path="knowledge-archive" element={<KnowledgeArchiveManagementPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 
@@ -202,10 +197,10 @@ export default function AppRoutes() {
           </PrivateRoute>
         }
       >
-        <Route index element={<SemesterManagement />} />
-        <Route path="users" element={<UserManagement />} />
+        <Route index element={<SemesterManagementPage />} />
+        <Route path="users" element={<UserManagementPage />} />
         <Route path="system-config" element={<SystemConfigPage />} />
-        <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
+        <Route path="knowledge-archive" element={<KnowledgeArchiveManagementPage />} />
         <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -223,42 +218,43 @@ export default function AppRoutes() {
       >
         <Route index element={<Navigate to="/club-leader/my-club" replace />} />
         <Route path="my-club">
-          <Route index element={<ClubLeaderMyClubs />} />
+          <Route index element={<ClubLeaderMyClubsPage />} />
           <Route element={<ClubManagementLayout />}>
             <Route path="space" element={<ClubSpace />} />
-            <Route path="events" element={<ClubEventsMgmt />} />
+            <Route path="events" element={<ClubEventsManagementPage />} />
             <Route path="events/:eventId" element={<EventManageDetailPage />} />
             <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
             <Route path="events/:eventId/checkin" element={<CheckInPage />} />
             <Route path="events/:eventId/walkin" element={<WalkInPage />} />
-            <Route path="events/:eventId/registrations" element={<RegistrationMgmtPage />} />
+            <Route path="events/:eventId/registrations" element={<RegistrationManagementPage />} />
             <Route path="events/:eventId/attendance" element={<AttendanceDashboardPage />} />
             <Route path="events/:eventId/attendance/:sessionId/correct" element={<AttendanceCorrectionPage />} />
             <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
             <Route path="reports/:eventId/submit" element={<ReportSubmitPage />} />
             <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
-            <Route path="members" element={<ClubMemberMgmt />} />
-            <Route path="applications" element={<ClubApplicationsMgmt />} />
-            <Route path="recruitment" element={<RecruitmentCycleMgmtPage />} />
-            <Route path="reports" element={<ClubReports />} />
-            <Route path="blacklist" element={<ClubBlacklist />} />
+            <Route path="members" element={<ClubMemberManagementPage />} />
+            <Route path="applications" element={<ClubApplicationsManagementPage />} />
+            <Route path="recruitment" element={<RecruitmentCycleManagementPage />} />
+            <Route path="reports" element={<ClubReportsPage />} />
+            <Route path="blacklist" element={<ClubBlacklistPage />} />
+            <Route path="notifications" element={<ClubNotificationPage />} />
             <Route path="club-info" element={<ClubInfoPage />} />
           </Route>
         </Route>
         <Route element={<ClubManagementLayout />}>
           <Route path="event-create" element={<CreateEventPage />} />
-          <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
+          <Route path="knowledge-archive" element={<KnowledgeArchiveManagementPage />} />
         </Route>
-        <Route path="events" element={<MemberEvents />} />
-        <Route path="clubs" element={<MemberClubs />} />
-        <Route path="apply" element={<MemberApply />} />
-        <Route path="tickets" element={<MemberMyTickets />} />
+        <Route path="events" element={<MemberEventsPage />} />
+        <Route path="clubs" element={<MemberClubsPage />} />
+        <Route path="apply" element={<MemberApplyPage />} />
+        <Route path="tickets" element={<MemberMyTicketsPage />} />
         <Route path="tickets/:registrationId" element={<TicketDetailPage />} />
-        <Route path="pending-feedback" element={<MemberPendingFeedback />} />
+        <Route path="pending-feedback" element={<MemberPendingFeedbackPage />} />
         <Route path="contributions" element={<MemberMyContributionsPage />} />
         <Route path="events/:eventId/appeal" element={<MemberAppealPage />} />
-        <Route path="notifications" element={<MemberNotifications />} />
-        <Route path="notification-settings" element={<MemberNotificationSettings />} />
+        <Route path="notifications" element={<MemberNotificationsPage />} />
+        <Route path="notification-settings" element={<MemberNotificationSettingsPage />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -276,39 +272,39 @@ export default function AppRoutes() {
       >
         <Route index element={<Navigate to="/vice-leader/my-club" replace />} />
         <Route path="my-club">
-          <Route index element={<ClubLeaderMyClubs />} />
+          <Route index element={<ClubLeaderMyClubsPage />} />
           <Route element={<ClubManagementLayout />}>
             <Route path="space" element={<ClubSpace />} />
-            <Route path="events" element={<ClubEventsMgmt />} />
+            <Route path="events" element={<ClubEventsManagementPage />} />
             <Route path="events/:eventId" element={<EventManageDetailPage />} />
             <Route path="events/:eventId/assignments" element={<PersonnelAssignmentPage />} />
             <Route path="events/:eventId/checkin" element={<CheckInPage />} />
             <Route path="events/:eventId/walkin" element={<WalkInPage />} />
-            <Route path="events/:eventId/registrations" element={<RegistrationMgmtPage />} />
+            <Route path="events/:eventId/registrations" element={<RegistrationManagementPage />} />
             <Route path="events/:eventId/attendance" element={<AttendanceDashboardPage />} />
             <Route path="events/:eventId/attendance/:sessionId/correct" element={<AttendanceCorrectionPage />} />
             <Route path="events/:eventId/feedback" element={<FeedbackSummaryPage />} />
             <Route path="contributions/:eventId" element={<ContributionManagementPage />} />
-            <Route path="members" element={<ClubMemberMgmt />} />
-            <Route path="recruitment" element={<RecruitmentCycleMgmtPage />} />
-            <Route path="reports" element={<ClubReports />} />
+            <Route path="members" element={<ClubMemberManagementPage />} />
+            <Route path="recruitment" element={<RecruitmentCycleManagementPage />} />
+            <Route path="reports" element={<ClubReportsPage />} />
             <Route path="club-info" element={<ClubInfoPage />} />
           </Route>
         </Route>
         <Route element={<ClubManagementLayout />}>
           <Route path="event-create" element={<CreateEventPage />} />
-          <Route path="knowledge-archive" element={<KnowledgeArchiveMgmt />} />
+          <Route path="knowledge-archive" element={<KnowledgeArchiveManagementPage />} />
         </Route>
-        <Route path="events" element={<MemberEvents />} />
-        <Route path="clubs" element={<MemberClubs />} />
-        <Route path="apply" element={<MemberApply />} />
-        <Route path="tickets" element={<MemberMyTickets />} />
+        <Route path="events" element={<MemberEventsPage />} />
+        <Route path="clubs" element={<MemberClubsPage />} />
+        <Route path="apply" element={<MemberApplyPage />} />
+        <Route path="tickets" element={<MemberMyTicketsPage />} />
         <Route path="tickets/:registrationId" element={<TicketDetailPage />} />
-        <Route path="pending-feedback" element={<MemberPendingFeedback />} />
+        <Route path="pending-feedback" element={<MemberPendingFeedbackPage />} />
         <Route path="contributions" element={<MemberMyContributionsPage />} />
         <Route path="events/:eventId/appeal" element={<MemberAppealPage />} />
-        <Route path="notifications" element={<MemberNotifications />} />
-        <Route path="notification-settings" element={<MemberNotificationSettings />} />
+        <Route path="notifications" element={<MemberNotificationsPage />} />
+        <Route path="notification-settings" element={<MemberNotificationSettingsPage />} />
         <Route path="leaderboard" element={<MemberLeaderboardPage />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
@@ -323,34 +319,18 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<Navigate to="/member/my-clubs" replace />} />
-        <Route path="my-clubs" element={<MemberMyClubs />} />
-        <Route path="clubs" element={<MemberClubs />} />
+        <Route path="my-clubs" element={<MemberMyClubsPage />} />
+        <Route path="clubs" element={<MemberClubsPage />} />
         <Route path="club-register" element={<Navigate to="/member/clubs" replace />} />
-        <Route path="events" element={<MemberEvents />} />
-        <Route path="pending-feedback" element={<MemberPendingFeedback />} />
-        <Route path="tickets" element={<MemberMyTickets />} />
+        <Route path="events" element={<MemberEventsPage />} />
+        <Route path="pending-feedback" element={<MemberPendingFeedbackPage />} />
+        <Route path="tickets" element={<MemberMyTicketsPage />} />
         <Route path="tickets/:registrationId" element={<TicketDetailPage />} />
-        <Route path="notifications" element={<MemberNotifications />} />
-        <Route path="notification-settings" element={<MemberNotificationSettings />} />
-        <Route path="apply" element={<MemberApply />} />
+        <Route path="notifications" element={<MemberNotificationsPage />} />
+        <Route path="notification-settings" element={<MemberNotificationSettingsPage />} />
+        <Route path="apply" element={<MemberApplyPage />} />
         <Route path="contributions" element={<MemberMyContributionsPage />} />
         <Route path="events/:eventId/appeal" element={<MemberAppealPage />} />
-        <Route path="profile" element={<ProfilePage />} />
-      </Route>
-
-      {/* ── Alumni dashboard ────────────────────────────────── */}
-      <Route
-        path="/alumni"
-        element={
-          <PrivateRoute allowedRoles={["ALUMNI"]}>
-            <DashboardLayout />
-          </PrivateRoute>
-        }
-      >
-        <Route index element={<AlumniHome />} />
-        <Route path="clubs" element={<AlumniClubs />} />
-        <Route path="events" element={<AlumniEvents />} />
-        <Route path="network" element={<AlumniNetwork />} />
         <Route path="profile" element={<ProfilePage />} />
       </Route>
 

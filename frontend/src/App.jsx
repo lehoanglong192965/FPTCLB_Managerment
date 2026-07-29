@@ -3,7 +3,7 @@ import MainLayout from "./components/layout/MainLayout";
 import { NotificationsProvider } from "./contexts/NotificationsContext";
 import { ToastProvider } from "./contexts/ToastContext";
 import { ConfirmProvider } from "./contexts/ConfirmContext";
-import ErrorBoundary from "./components/ErrorBoundary";
+import ErrorBoundary from "./components/layout/ErrorBoundary";
 
 /* Nội dung app giữ nguyên như cũ — chỉ bọc trong 1 route splat của data router
    thay vì <BrowserRouter>, để useBlocker() hoạt động được cho mọi điều hướng

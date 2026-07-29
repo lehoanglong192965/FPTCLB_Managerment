@@ -70,7 +70,7 @@ public class BankPaymentTransaction {
     @Column(name = "processingMessage", length = 500)
     private String processingMessage;
 
-    @Column(name = "payloadHash", nullable = false, length = 64)
+    @Column(name = "payloadHash", nullable = false, length = 64, columnDefinition = "CHAR(64)")
     private String payloadHash;
 
     @Column(name = "createdAt", nullable = false)

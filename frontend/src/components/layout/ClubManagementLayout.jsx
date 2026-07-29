@@ -2,7 +2,7 @@ import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   Home, Calendar, Users, ClipboardList,
-  Ban, BarChart2, Settings, UserPlus, Library,
+  Ban, BarChart2, Settings, UserPlus, Library, BellRing,
 } from "lucide-react";
 
 export default function ClubManagementLayout() {
@@ -25,6 +25,7 @@ export default function ClubManagementLayout() {
     ...(isClubLeader ? [
       { icon: ClipboardList, label: "Quản lý ứng tuyển", path: `${myClubBase}/applications` },
       { icon: Ban,           label: "Danh sách đen",     path: `${myClubBase}/blacklist` },
+      { icon: BellRing,      label: "Gửi thông báo",     path: `${myClubBase}/notifications` },
     ] : [
       { icon: UserPlus,      label: "Mở / đóng tuyển",   path: `${myClubBase}/recruitment` },
     ]),
