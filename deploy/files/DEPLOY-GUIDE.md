@@ -258,7 +258,9 @@ Dán publish profile trực tiếp tại GitHub, không gửi qua chat.
    job deploy tự bỏ qua, vì vậy lần push chuẩn bị repository không thất bại.
 4. Sau khi tạo variable/secret, chạy lại workflow và chờ cả build lẫn deploy xanh.
 5. Mở App Service → Log stream, chờ Started FcmsApplication.
-6. Mở https://<app-name>.azurewebsites.net/swagger-ui.html.
+6. Gọi https://<app-name>.azurewebsites.net/actuator/health và xác nhận `{"status":"UP"}`.
+7. App Service → Settings → Configuration → Health check: đặt path `/actuator/health` sau khi endpoint đã trả `UP`.
+8. Mở https://<app-name>.azurewebsites.net/swagger-ui/index.html.
 
 Publish profile là credential triển khai. Chỉ lưu trong GitHub secret; reset khi không dùng.
 
@@ -332,7 +334,7 @@ frontend/vercel.json giữ rewrite SPA để refresh route con không 404.
 
 ## 13. Batch 12 — smoke test end-to-end [Cùng làm]
 
-1. Backend Swagger qua HTTPS.
+1. Backend `/actuator/health` trả `UP` và Swagger hoạt động qua HTTPS.
 2. Frontend gọi API public, không lỗi CORS/network.
 3. Đăng ký FPT → OTP → xác thực → đăng nhập.
 4. Quên mật khẩu và OTP resend.
