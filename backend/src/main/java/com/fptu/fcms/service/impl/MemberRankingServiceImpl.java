@@ -92,6 +92,11 @@ public class MemberRankingServiceImpl implements MemberRankingService {
      */
     @Override
     public void validateActiveClubMember(Integer clubId, UserPrincipal currentUser) {
+        validateClubMember(clubId, getActiveSemester().getSemesterID(), currentUser);
+    }
+
+    @Override
+    public void validateClubMember(Integer clubId, Integer semesterId, UserPrincipal currentUser) {
         if (currentUser == null || currentUser.getUserId() == null) {
             throw new BusinessRuleException("Bạn cần đăng nhập để xem bảng xếp hạng thành viên.", HttpStatus.FORBIDDEN);
         }
@@ -99,7 +104,9 @@ public class MemberRankingServiceImpl implements MemberRankingService {
         clubRepository.findByClubIDAndIsDeletedFalse(clubId)
                 .orElseThrow(() -> new BusinessRuleException("CLB không tồn tại.", HttpStatus.NOT_FOUND));
 
-        Semester activeSemester = getActiveSemester();
+        semesterRepository.findById(semesterId)
+                .filter(semester -> !Boolean.TRUE.equals(semester.getIsDeleted()))
+                .orElseThrow(() -> new BusinessRuleException("Học kỳ không tồn tại.", HttpStatus.NOT_FOUND));
 
         List<Integer> allowedRoleIds = getAllowedMemberRoleIds();
 
@@ -107,7 +114,7 @@ public class MemberRankingServiceImpl implements MemberRankingService {
                 .findByClubIDAndUserIDAndSemesterIDAndIsDeletedFalse(
                         clubId,
                         currentUser.getUserId(),
-                        activeSemester.getSemesterID()
+                        semesterId
                 )
                 .map(ClubMembership::getClubRoleID)
                 .filter(allowedRoleIds::contains)
@@ -223,6 +230,50 @@ public class MemberRankingServiceImpl implements MemberRankingService {
                 .thenComparing(MemberRankingDTO::getUserId));
 
         return assignRanks(ranking);
+    }
+
+    @Override
+    public List<MemberRankingDTO> getMemberRankings(Integer clubId, Integer semesterId) {
+        Club club = clubRepository.findByClubIDAndIsDeletedFalse(clubId)
+                .orElseThrow(() -> new BusinessRuleException("CLB không tồn tại.", HttpStatus.NOT_FOUND));
+        Semester semester = semesterRepository.findById(semesterId)
+                .filter(item -> !Boolean.TRUE.equals(item.getIsDeleted()))
+                .orElseThrow(() -> new BusinessRuleException("Học kỳ không tồn tại.", HttpStatus.NOT_FOUND));
+
+        if (Boolean.TRUE.equals(semester.getIsActive())) {
+            return getMemberRankings(clubId);
+        }
+
+        List<MemberRankingSnapshot> snapshots = rankingSnapshotRepository
+                .findBySemesterIDAndClubIDAndIsDeletedFalseOrderByRankAscUserIDAsc(semesterId, clubId);
+        return mapSnapshotsToRankings(club, semesterId, snapshots);
+    }
+
+    private List<MemberRankingDTO> mapSnapshotsToRankings(
+            Club club,
+            Integer semesterId,
+            List<MemberRankingSnapshot> snapshots
+    ) {
+        if (snapshots.isEmpty()) {
+            return List.of();
+        }
+        List<Integer> userIds = snapshots.stream()
+                .map(MemberRankingSnapshot::getUserID)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Integer, UserAccount> usersById = userRepository.findAllByUserIDIn(userIds)
+                .stream()
+                .collect(Collectors.toMap(UserAccount::getUserID, Function.identity()));
+        Map<Integer, String> roleNamesByUserId = resolveClubRolesByUser(club.getClubID(), semesterId, userIds);
+        return snapshots.stream()
+                .map(snapshot -> mapSnapshotToDTO(
+                        snapshot,
+                        club,
+                        usersById.get(snapshot.getUserID()),
+                        roleNamesByUserId.get(snapshot.getUserID())
+                ))
+                .toList();
     }
 
     private Semester getActiveSemester() {

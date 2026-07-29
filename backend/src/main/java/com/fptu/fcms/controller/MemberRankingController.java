@@ -9,6 +9,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -24,8 +25,13 @@ public class MemberRankingController {
     @GetMapping("/{clubId}/rankings/members")
     public ResponseEntity<List<MemberRankingDTO>> getMemberRankings(
             @PathVariable Integer clubId,
+            @RequestParam(required = false) Integer semesterId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
-        memberRankingService.validateActiveClubMember(clubId, currentUser);
-        return ResponseEntity.ok(memberRankingService.getMemberRankings(clubId));
+        if (semesterId == null) {
+            memberRankingService.validateActiveClubMember(clubId, currentUser);
+            return ResponseEntity.ok(memberRankingService.getMemberRankings(clubId));
+        }
+        memberRankingService.validateClubMember(clubId, semesterId, currentUser);
+        return ResponseEntity.ok(memberRankingService.getMemberRankings(clubId, semesterId));
     }
 }

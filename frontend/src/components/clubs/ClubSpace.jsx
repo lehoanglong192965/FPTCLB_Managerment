@@ -7,6 +7,7 @@ import {
 import clubApi from "../../services/api/clubs/clubApi";
 import memberApi from "../../services/api/clubs/memberApi";
 import clubPostApi from "../../services/api/club-leader/clubPostApi";
+import semesterApi from "../../services/api/admin/semesterApi";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { TokenService, getServerOrigin } from "../../services/api/axiosClient";
@@ -548,6 +549,8 @@ export default function ClubSpace({ club: clubProp, onBack, canManage }) {
   const [rankings, setRankings]           = useState([]);
   const [rankingsLoading, setRankingsLoading] = useState(false);
   const [rankingsError, setRankingsError] = useState("");
+  const [semesters, setSemesters] = useState([]);
+  const [selectedSemesterId, setSelectedSemesterId] = useState(null);
   const [feed, setFeed]                   = useState([]);
   const [feedLoading, setFeedLoading]     = useState(true);
   const [feedError, setFeedError]         = useState("");
@@ -564,6 +567,29 @@ export default function ClubSpace({ club: clubProp, onBack, canManage }) {
   }, [clubProp]);
 
   const club = clubProp ?? selfClub;
+
+  useEffect(() => {
+    if (!club?.id) return;
+    let cancelled = false;
+    semesterApi.getAll()
+      .then((data) => {
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : (data?.data ?? []);
+        const today = new Date().toISOString().slice(0, 10);
+        const ordered = list
+          .filter((semester) => semester.isActive || !semester.startDate || semester.startDate <= today)
+          .sort((a, b) =>
+          String(b.startDate ?? "").localeCompare(String(a.startDate ?? ""))
+          );
+        const preferred = ordered.find((semester) => semester.isActive) ?? ordered[0];
+        setSemesters(ordered);
+        setSelectedSemesterId(preferred?.semesterID ? String(preferred.semesterID) : "");
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedSemesterId("");
+      });
+    return () => { cancelled = true; };
+  }, [club?.id]);
 
   // Fetch bảng tin (chỉ thành viên CLB mới xem được)
   useEffect(() => {
@@ -608,11 +634,11 @@ export default function ClubSpace({ club: clubProp, onBack, canManage }) {
 
   // Fetch leaderboard
   useEffect(() => {
-    if (tab !== "leaderboard" || !club?.id) return;
+    if (tab !== "leaderboard" || !club?.id || selectedSemesterId === null) return;
     let cancelled = false;
     setRankingsLoading(true);
     setRankingsError("");
-    clubApi.getMemberRankings(club.id)
+    clubApi.getMemberRankings(club.id, selectedSemesterId || undefined)
       .then((data) => {
         if (cancelled) return;
         setRankings(Array.isArray(data) ? data : (data?.data ?? []));
@@ -623,7 +649,7 @@ export default function ClubSpace({ club: clubProp, onBack, canManage }) {
       })
       .finally(() => { if (!cancelled) setRankingsLoading(false); });
     return () => { cancelled = true; };
-  }, [tab, club?.id]);
+  }, [tab, club?.id, selectedSemesterId]);
 
   const handleTabChange = (nextTab) => {
     if (nextTab === tab) return;
@@ -779,15 +805,36 @@ export default function ClubSpace({ club: clubProp, onBack, canManage }) {
         )}
 
         {tab === "leaderboard" && (
-          <LeaderboardView
-            club={club}
-            members={members}
-            rankings={rankings}
-            loading={rankingsLoading}
-            error={rankingsError}
-            search={rankingSearch}
-            onSearch={setRankingSearch}
-          />
+          <div className="space-y-3">
+            <div className="flex justify-end">
+              <select
+                value={selectedSemesterId ?? ""}
+                onChange={(event) => {
+                  setSelectedSemesterId(event.target.value);
+                  setRankingSearch("");
+                  setRankingsLoading(true);
+                  setRankingsError("");
+                }}
+                className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-[13px] font-semibold text-gray-700 outline-none focus:border-orange-300"
+                aria-label="Chọn học kỳ xem bảng xếp hạng"
+              >
+                {semesters.map((semester) => (
+                  <option key={semester.semesterID} value={semester.semesterID}>
+                    {semester.semesterCode}{semester.isActive ? " (Hiện tại)" : " (Lịch sử)"}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <LeaderboardView
+              club={club}
+              members={members}
+              rankings={rankings}
+              loading={rankingsLoading}
+              error={rankingsError}
+              search={rankingSearch}
+              onSearch={setRankingSearch}
+            />
+          </div>
         )}
       </div>
     </div>
