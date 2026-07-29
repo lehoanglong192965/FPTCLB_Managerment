@@ -33,7 +33,6 @@ import com.fptu.fcms.service.EventAssignmentAccessService;
 import com.fptu.fcms.service.EmailService;
 import com.fptu.fcms.service.EventRegistrationPolicyService;
 import com.fptu.fcms.service.EventService;
-import com.fptu.fcms.service.ImageCleanupService;
 import com.fptu.fcms.service.SystemConfigService;
 import com.fptu.fcms.service.AttendanceSessionService;
 import com.fptu.fcms.service.event.EventPermissionService;
@@ -54,11 +53,16 @@ import org.springframework.util.StringUtils;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -88,7 +92,7 @@ public class EventServiceImpl implements EventService {
     private static final EventStatus STATUS_CONTRIBUTION_SCORING = EventStatus.CONTRIBUTION_SCORING;
     private static final EventStatus STATUS_CONTRIBUTION_FINALIZED = EventStatus.CONTRIBUTION_FINALIZED;
     private static final List<EventStatus> ICPDP_APPROVED_LIFECYCLE_STATUSES = List.copyOf(
-            java.util.EnumSet.complementOf(java.util.EnumSet.of(
+            EnumSet.complementOf(EnumSet.of(
                     EventStatus.DRAFT,
                     EventStatus.PENDING,
                     EventStatus.PENDING_APPROVAL,
@@ -98,7 +102,7 @@ public class EventServiceImpl implements EventService {
             ))
     );
     private static final List<EventStatus> ICPDP_ALL_LIFECYCLE_STATUSES = List.copyOf(
-            java.util.EnumSet.complementOf(java.util.EnumSet.of(
+            EnumSet.complementOf(EnumSet.of(
                     EventStatus.DRAFT,
                     EventStatus.PENDING,
                     EventStatus.PENDING_APPROVAL,
@@ -170,7 +174,7 @@ public class EventServiceImpl implements EventService {
                         event.getClubID(),
                         userId,
                         event.getSemesterID(),
-                        java.util.Set.of("Leader", "ViceLeader")
+                        Set.of("Leader", "ViceLeader")
                 ))
                 .orElse(false);
     }
@@ -862,7 +866,11 @@ public class EventServiceImpl implements EventService {
                 .isEmpty()) {
             throw new BusinessRuleException("EVENT_REPORT_NOT_APPROVED");
         }
-        if (contributionBatchRepository.findByEventIDAndIsDeletedFalse(eventId)
+        // findFirstBy...OrderByCreatedAtDesc chứ không phải findByEventIDAndIsDeletedFalse: bản
+        // trả Optional ném IncorrectResultSizeDataAccessException khi event có 2 batch active,
+        // khiến closeEvent trả 500 và sự kiện không bao giờ đóng được. V2026072902 đã thêm
+        // unique index chặn từ DB, đây là lớp phòng thủ cho dữ liệu phát sinh trước migration.
+        if (contributionBatchRepository.findFirstByEventIDAndIsDeletedFalseOrderByCreatedAtDesc(eventId)
                 .filter(batch -> ContributionBatchStatus.FINALIZED.equals(batch.getStatus()))
                 .isEmpty()) {
             throw new BusinessRuleException("CONTRIBUTION_BATCH_NOT_FINALIZED");
@@ -985,7 +993,7 @@ public class EventServiceImpl implements EventService {
         }
         registration.setPaymentCurrency(StringUtils.hasText(event.getTicketCurrency()) ? event.getTicketCurrency() : "VND");
         registration.setCapacityExempt(true);
-        if (!StringUtils.hasText(registration.getTicketCode())) registration.setTicketCode(java.util.UUID.randomUUID().toString());
+        if (!StringUtils.hasText(registration.getTicketCode())) registration.setTicketCode(UUID.randomUUID().toString());
         if (registration.getTicketIssuedAt() == null) registration.setTicketIssuedAt(now);
         registration.setTicketRevokedAt(null);
         registration.setCancelledAt(null);
@@ -1329,14 +1337,14 @@ public class EventServiceImpl implements EventService {
 
         boolean isAuthorized = false;
 
-        java.util.Optional<ClubRole> leaderRole = clubRoleRepository.findByRoleNameAndIsDeletedFalse("Leader");
+        Optional<ClubRole> leaderRole = clubRoleRepository.findByRoleNameAndIsDeletedFalse("Leader");
         if (leaderRole.isPresent()) {
             isAuthorized = clubMembershipRepository.existsActiveLeaderInClub(
                     clubId, userId, activeSemester.getSemesterID(), leaderRole.get().getClubRoleID());
         }
 
         if (!isAuthorized) {
-            java.util.Optional<ClubRole> viceRole = clubRoleRepository.findByRoleNameAndIsDeletedFalse("ViceLeader");
+            Optional<ClubRole> viceRole = clubRoleRepository.findByRoleNameAndIsDeletedFalse("ViceLeader");
             if (viceRole.isPresent()) {
                 isAuthorized = clubMembershipRepository.existsActiveLeaderInClub(
                         clubId, userId, activeSemester.getSemesterID(), viceRole.get().getClubRoleID());
@@ -1363,8 +1371,7 @@ public class EventServiceImpl implements EventService {
 
     private void validateSubmissionQuota(SubmissionQuota quota) {
         if (quota.blockedUntil() != null) {
-            java.time.format.DateTimeFormatter formatter =
-                    java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
             throw new BusinessRuleException(
                     "EVENT_SUBMISSION_COOLDOWN",
                     "Bạn đã gửi đề xuất tối đa " + quota.maxAttempts()
@@ -1476,7 +1483,7 @@ public class EventServiceImpl implements EventService {
                 event.getEndDate(),
                 event.getStartDate()
         ).ifPresent(conflict -> {
-            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
             throw new BusinessRuleException(
                     "Trùng lịch với sự kiện đã duyệt \"" + conflict.getEventName() + "\" tại cùng địa điểm ["
                             + event.getLocation() + "] ("
@@ -1505,7 +1512,7 @@ public class EventServiceImpl implements EventService {
         LocalDate settlementDate = semester.getEndDate().minusDays(1);
         LocalDate eventEndDate = event.getEndDate().toLocalDate();
         if (eventEndDate.isAfter(settlementDate)) {
-            java.time.format.DateTimeFormatter dateFmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
             throw new BusinessRuleException(
                     "Sự kiện phải kết thúc trước ngày chốt sổ học kỳ (" + settlementDate.format(dateFmt)
                             + "). Sự kiện này kết thúc ngày " + eventEndDate.format(dateFmt)

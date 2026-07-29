@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -426,7 +427,7 @@ public class EventExportServiceImpl implements EventExportService {
         return value == null ? "" : value;
     }
 
-    private String decimal(java.math.BigDecimal value) {
+    private String decimal(BigDecimal value) {
         return value == null ? "" : value.toPlainString();
     }
 

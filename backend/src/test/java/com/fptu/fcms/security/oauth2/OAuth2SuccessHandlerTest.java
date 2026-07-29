@@ -50,7 +50,8 @@ public class OAuth2SuccessHandlerTest {
 
     @BeforeEach
     void setUp() {
-        successHandler = new OAuth2SuccessHandler(tokenProvider, userService, systemRoleRepository, "https://frontend.example/");
+        successHandler = new OAuth2SuccessHandler(
+                tokenProvider, userService, systemRoleRepository, "http://localhost:5173/");
     }
 
     @Test
@@ -89,6 +90,6 @@ public class OAuth2SuccessHandlerTest {
                 eq(null)
         );
 
-        verify(response).sendRedirect("https://frontend.example/oauth2/redirect?token=mock-jwt-token");
+        verify(response).sendRedirect("http://localhost:5173/oauth2/redirect#token=mock-jwt-token");
     }
 }

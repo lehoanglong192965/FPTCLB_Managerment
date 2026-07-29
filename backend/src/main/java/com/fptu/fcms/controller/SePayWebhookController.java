@@ -27,7 +27,7 @@ public class SePayWebhookController {
     private final ObjectMapper objectMapper;
     private final SePayWebhookService sePayWebhookService;
 
-    @Value("${fcms.payment.sepay.webhook-api-key:}")
+    @Value("${fcms.payment.sepay.webhook-api-key}")
     private String webhookApiKey;
 
     @PostMapping("/sepay")

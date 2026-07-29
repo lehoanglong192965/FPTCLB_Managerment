@@ -1,11 +1,6 @@
-# Local-only two-phase SQL Server bootstrap verification. Production runs the
+# Local-only SQL Server bootstrap verification. The baseline migration creates
+# a fresh schema in one pass; Hibernate only validates it. Production runs the
 # backend JAR on Azure App Service and does not use this Compose file.
-#
-# Phase A: docker compose up --build
-# Phase B (same SQL volume):
-#   $env:SPRING_FLYWAY_ENABLED='true'
-#   $env:SPRING_JPA_HIBERNATE_DDL_AUTO='none'
-#   docker compose up --build backend
 
 services:
   sqlserver:
@@ -67,10 +62,18 @@ services:
       CLOUDINARY_API_KEY: "dummy-local-key"
       CLOUDINARY_API_SECRET: "dummy-local-secret"
       FRONTEND_URL: "http://localhost:5173"
+      FEEDBACK_PUBLIC_BASE_URL: "http://localhost:5173/feedback/guest"
+      GUEST_STATUS_BASE_URL: "http://localhost:5173/guest/status"
+      GUEST_LOOKUP_URL: "http://localhost:5173/guest/lookup"
+      SEPAY_ACCOUNT_NUMBER: "local-demo-account"
+      SEPAY_WEBHOOK_API_KEY: "local-demo-webhook-key"
+      PAYMENT_BANK_NAME: "Local Demo Bank"
+      PAYMENT_ACCOUNT_NAME: "Local Demo Account"
+      PAYMENT_BANK_BRANCH: "Local Demo Branch"
       SPRING_CACHE_TYPE: simple
       REPORTS_STORAGE_DIR: /app/reports
-      SPRING_FLYWAY_ENABLED: "${SPRING_FLYWAY_ENABLED:-false}"
-      SPRING_JPA_HIBERNATE_DDL_AUTO: "${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}"
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: "validate"
 
 volumes:
   fcms_sqlserver_data:

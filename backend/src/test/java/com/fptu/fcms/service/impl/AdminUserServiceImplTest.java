@@ -10,6 +10,7 @@ import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.AllowedEmailRepository;
 import com.fptu.fcms.repository.SystemRoleRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.security.TokenInvalidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +37,9 @@ public class AdminUserServiceImplTest {
 
     @Mock
     private AllowedEmailRepository allowedEmailRepository;
+
+    @Mock
+    private TokenInvalidationService tokenInvalidationService;
 
     @InjectMocks
     private AdminUserServiceImpl adminUserService;

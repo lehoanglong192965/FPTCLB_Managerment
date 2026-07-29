@@ -12,6 +12,7 @@ import com.fptu.fcms.repository.ClubRoleRepository;
 import com.fptu.fcms.repository.DisciplineLogRepository;
 import com.fptu.fcms.repository.SemesterRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.security.TokenInvalidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,7 @@ public class DisciplineLogServiceImpl implements DisciplineLogService {
     private final SemesterRepository semesterRepository;
     private final ClubMembershipRepository clubMembershipRepository;
     private final ClubRoleRepository clubRoleRepository;
+    private final TokenInvalidationService tokenInvalidationService;
 
     private static final String DISCIPLINE_STATUS_ACTIVE = "Active";
     private static final String CLUB_ROLE_LEADER = "Leader";
@@ -149,6 +151,7 @@ public class DisciplineLogServiceImpl implements DisciplineLogService {
 
         user.setAccountStatus(USER_STATUS_SUSPENDED);
         userRepository.save(user);
+        tokenInvalidationService.invalidateFor(user.getUserID());
     }
 
     private void validateReferences(Integer userID, Integer semesterID) {

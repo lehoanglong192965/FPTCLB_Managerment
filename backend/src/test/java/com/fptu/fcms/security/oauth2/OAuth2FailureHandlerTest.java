@@ -8,9 +8,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.AuthenticationException;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class OAuth2FailureHandlerTest {
@@ -25,12 +27,12 @@ class OAuth2FailureHandlerTest {
     void onAuthenticationFailure_usesConfiguredFrontendAndEncodesError() throws Exception {
         OAuth2FailureHandler handler = new OAuth2FailureHandler("https://frontend.example/");
         AuthenticationException exception = mock(AuthenticationException.class);
-        when(exception.getMessage()).thenReturn("OAuth failed: access denied");
-
         handler.onAuthenticationFailure(request, response, exception);
 
+        String encodedError = URLEncoder.encode(
+                OAuth2FailureHandler.GENERIC_ERROR, StandardCharsets.UTF_8);
         verify(response).sendRedirect(
-                "https://frontend.example/login?error=OAuth+failed%3A+access+denied"
+                "https://frontend.example/login?ssoError=" + encodedError
         );
     }
 }

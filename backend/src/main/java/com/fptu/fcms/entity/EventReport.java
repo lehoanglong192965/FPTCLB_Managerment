@@ -108,7 +108,7 @@ public class EventReport {
     @Column(name = "registrationEvidencePublicId", length = 500)
     private String registrationEvidencePublicId;
 
-    @Column(name = "registrationEvidenceHash", length = 64)
+    @Column(name = "registrationEvidenceHash", length = 64, columnDefinition = "CHAR(64)")
     private String registrationEvidenceHash;
 
     @Column(name = "attendanceEvidenceUrl", length = 1000)
@@ -117,7 +117,7 @@ public class EventReport {
     @Column(name = "attendanceEvidencePublicId", length = 500)
     private String attendanceEvidencePublicId;
 
-    @Column(name = "attendanceEvidenceHash", length = 64)
+    @Column(name = "attendanceEvidenceHash", length = 64, columnDefinition = "CHAR(64)")
     private String attendanceEvidenceHash;
 
     @Column(name = "evidenceGeneratedAt")

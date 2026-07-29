@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
 
 @Component
 @Slf4j
@@ -22,7 +23,7 @@ public class QuotaReleaseScheduler extends BaseScheduler {
     @Scheduled(cron = "${fcms.scheduler.quota-release.cron:0 */15 * * * ?}")
     @Transactional
     public void releaseExpiredQuotas() {
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
         String slotSuffix = now.getHour() + "_" + (now.getMinute() / 15);
         executeIdempotentIntraday("QuotaReleaseScheduler", slotSuffix, () -> {
             // Ideally we iterate over active events and call release

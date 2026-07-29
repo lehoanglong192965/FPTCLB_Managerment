@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -58,7 +59,7 @@ public class EventNotificationListener {
             List<Integer> participantIds = eventRegistrationRepository.findByEventIDAndIsDeletedFalse(event.eventId()).stream()
                     .filter(r -> RegistrationLifecycle.ACTIVE_STATUSES.contains(r.getRegistrationStatus()))
                     .map(r -> r.getUserID())
-                    .filter(java.util.Objects::nonNull)
+                    .filter(Objects::nonNull)
                     .toList();
             if (!participantIds.isEmpty()) {
                 recipients.addAll(userRepository.findAllByUserIDIn(participantIds));

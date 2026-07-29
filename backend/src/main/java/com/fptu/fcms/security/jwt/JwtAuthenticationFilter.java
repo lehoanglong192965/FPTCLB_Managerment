@@ -1,6 +1,7 @@
 package com.fptu.fcms.security.jwt;
 
 import com.fptu.fcms.security.UserPrincipal;
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,13 +45,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // Lớp này chịu trách nhiệm trích xuất thông tin người dùng (roleName, clubRole, clubId) trực tiếp từ chuỗi JWT.
                 // Đầu vào: Chuỗi JWT đã được xác thực thành công.
                 // Đầu ra: Trích xuất các claim để tạo đối tượng UserPrincipal, quá trình này hoàn toàn không cần truy vấn database (0 SELECT), giúp tối ưu hiệu năng.
-                // 3. Lấy thông tin từ chuỗi jwt — ĐỌC CLAIM TRỰC TIẾP, 0 QUERY DB
-                String email = tokenProvider.getEmailFromJwt(jwt);
-                Integer userId = tokenProvider.getUserIdFromJwt(jwt);
-                Integer roleId = tokenProvider.getRoleIdFromJwt(jwt);
-                String roleName = tokenProvider.getRoleNameFromJwt(jwt);
-                String clubRole = tokenProvider.getClubRoleFromJwt(jwt);
-                Integer clubId = tokenProvider.getClubIdFromJwt(jwt);
+                // 3. Giải mã claim MỘT lần — đọc trực tiếp, 0 QUERY DB
+                Claims claims = tokenProvider.parseClaims(jwt);
+
+                // 3b. Chỉ access token mới được dùng làm phiên đăng nhập. Refresh token ký cùng
+                // khoá nên validateToken() ở trên vẫn cho qua, nhưng nó KHÔNG mang claim quyền —
+                // chấp nhận nó sẽ tạo ra principal rỗng (userId/roleId = null, authorities rỗng)
+                // vừa lọt các @PreAuthorize("isAuthenticated()") vừa gây NPE ở tầng service.
+                if (!tokenProvider.isAccessToken(claims)) {
+                    logger.warn("Từ chối token không phải access token trên " + request.getRequestURI());
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                String email = claims.getSubject();
+                Integer userId = claims.get("userID", Integer.class);
+                Integer roleId = claims.get("roleID", Integer.class);
+                String roleName = claims.get("roleName", String.class);
+                String clubRole = claims.get("clubRole", String.class);
+                Integer clubId = claims.get("clubId", Integer.class);
 
                 // 4. Tạo authorities từ claim — KHÔNG query DB
                 Set<GrantedAuthority> authorities = new LinkedHashSet<>();
@@ -68,6 +81,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         clubId,
                         authorities
                 );
+                // AccountStatusFilter cần iat để đối chiếu với mốc vô hiệu hoá quyền,
+                // truyền qua principal để nó khỏi phải giải mã token lần nữa.
+                if (claims.getIssuedAt() != null) {
+                    userPrincipal.setIssuedAt(claims.getIssuedAt().toInstant());
+                }
 
                 // 6. Cấp thẻ xác thực với thông tin là đối tượng UserPrincipal
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
@@ -119,7 +137,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             case "ADMIN", "ADMINISTRATOR" -> authorities.add(new SimpleGrantedAuthority("ROLE_Admin"));
             case "STUDENT" -> authorities.add(new SimpleGrantedAuthority("ROLE_Student"));
             case "MEMBER" -> authorities.add(new SimpleGrantedAuthority("ROLE_Member"));
-            case "ALUMNI" -> authorities.add(new SimpleGrantedAuthority("ROLE_Alumni"));
             case "LEADER" -> authorities.add(new SimpleGrantedAuthority("ROLE_Leader"));
             case "VICELEADER" -> authorities.add(new SimpleGrantedAuthority("ROLE_ViceLeader"));
             default -> {

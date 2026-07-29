@@ -62,13 +62,20 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -78,7 +85,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     private static final String ACCOUNT_STATUS_ACTIVE = "Active";
     private static final String DISCIPLINE_STATUS_ACTIVE = "Active";
     private static final String DEFAULT_SORT_BY = "registeredAt";
-    private static final java.util.Set<String> HOST_BOARD_ROLES = java.util.Set.of("Leader", "ViceLeader");
+    private static final Set<String> HOST_BOARD_ROLES = Set.of("Leader", "ViceLeader");
     private static final int MAX_REGISTRATION_ATTEMPTS = 2;
     private static final long REREGISTRATION_COOLDOWN_MINUTES = 30;
     private static final long REREGISTRATION_DEADLINE_HOURS = 24;
@@ -153,15 +160,15 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         if (requiresPayment) {
             registration.setPaymentStatus(allocation.consumesSeat() ? PaymentStatus.PENDING : PaymentStatus.AWAITING_ELIGIBILITY);
             registration.setAmountDue(event.getTicketPrice());
-            registration.setAmountPaid(java.math.BigDecimal.ZERO);
+            registration.setAmountPaid(BigDecimal.ZERO);
             registration.setPaymentCurrency(event.getTicketCurrency());
             registration.setPaymentReference("EVT-" + eventID + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT));
             registration.setPaymentExpiresAt(allocation.consumesSeat() ? LocalDateTime.now().plusMinutes(30) : null);
         } else {
             registration.setPaymentStatus(PaymentStatus.NOT_REQUIRED);
             if (paidEvent) {
-                registration.setAmountDue(java.math.BigDecimal.ZERO);
-                registration.setAmountPaid(java.math.BigDecimal.ZERO);
+                registration.setAmountDue(BigDecimal.ZERO);
+                registration.setAmountPaid(BigDecimal.ZERO);
                 registration.setPaymentCurrency(event.getTicketCurrency());
             }
         }
@@ -222,10 +229,10 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
             throw new IllegalArgumentException("Tài khoản chỉ được sở hữu tối đa 4 vé cho một sự kiện bán vé.");
         }
 
-        java.util.Set<String> inputEmails = new java.util.HashSet<>();
-        java.util.Set<String> inputPhones = new java.util.HashSet<>();
-        java.util.Set<Integer> inputUserIds = new java.util.HashSet<>();
-        List<ResolvedTicketHolder> holders = new java.util.ArrayList<>();
+        Set<String> inputEmails = new HashSet<>();
+        Set<String> inputPhones = new HashSet<>();
+        Set<Integer> inputUserIds = new HashSet<>();
+        List<ResolvedTicketHolder> holders = new ArrayList<>();
         for (GroupTicketPurchaseRequest.Participant participant : requested) {
             String email = normalizeTicketEmail(participant.getEmail());
             String phone = normalizeTicketPhone(participant.getPhone());
@@ -268,7 +275,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         LocalDateTime now = LocalDateTime.now();
         String orderCode = "ORD-" + eventID + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT);
         String paymentReference = "PAY-" + eventID + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(Locale.ROOT);
-        List<EventRegistration> registrations = new java.util.ArrayList<>();
+        List<EventRegistration> registrations = new ArrayList<>();
         BigDecimal totalDue = BigDecimal.ZERO;
 
         for (ResolvedTicketHolder holder : holders) {
@@ -589,12 +596,12 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     }
 
     private List<EventRegistration> registrationsOwnedOrHeldBy(Integer userId) {
-        Map<Integer, EventRegistration> unique = new java.util.LinkedHashMap<>();
+        Map<Integer, EventRegistration> unique = new LinkedHashMap<>();
         registrationRepo.findByUserIDAndIsDeletedFalse(userId)
                 .forEach(registration -> unique.put(registration.getRegistrationID(), registration));
         registrationRepo.findByPurchaserUserIDAndIsDeletedFalse(userId)
                 .forEach(registration -> unique.put(registration.getRegistrationID(), registration));
-        return new java.util.ArrayList<>(unique.values());
+        return new ArrayList<>(unique.values());
     }
 
     private String paymentReferenceForOrder(EventRegistration registration) {
@@ -669,7 +676,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 .map(reg -> toGuestView(reg, currentUser))
                 .toList();
 
-        List<RegistrationListItemResponse> filtered = java.util.stream.Stream.concat(fptuViews.stream(), guestViews.stream())
+        List<RegistrationListItemResponse> filtered = Stream.concat(fptuViews.stream(), guestViews.stream())
                 .filter(view -> matchesParticipantType(view, participantType))
                 .filter(view -> matchesStatus(view, status))
                 .filter(view -> matchesKeyword(view, keyword))
@@ -1230,7 +1237,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     @Override
     @Transactional(readOnly = true)
     public Map<String, Object> getRegistrationStatus(Integer eventId, Integer userId) {
-        Map<String, Object> result = new java.util.HashMap<>();
+        Map<String, Object> result = new HashMap<>();
         Integer activeId = getActiveRegistrationId(eventId, userId);
         long attempts = registrationRepo.countByEventIDAndUserIDAndIsDeletedFalse(eventId, userId);
         result.put("registered", activeId != null);
@@ -1461,15 +1468,15 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
     private void refreshRefundCalculationNote(EventRegistration registration) {
         BigDecimal rate = registration.getRefundRate() == null ? new BigDecimal("100.00") : registration.getRefundRate();
-        registration.setRefundCalculationNote("Số tiền gốc " + paidAmount(registration).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
-                + " x " + rate.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
+        registration.setRefundCalculationNote("Số tiền gốc " + paidAmount(registration).setScale(2, RoundingMode.HALF_UP).toPlainString()
+                + " x " + rate.setScale(2, RoundingMode.HALF_UP).toPlainString()
                 + "% = " + registration.getRefundAmount().toPlainString());
     }
 
     private void refreshRefundCalculationNote(GuestEventRegistration registration) {
         BigDecimal rate = registration.getRefundRate() == null ? new BigDecimal("100.00") : registration.getRefundRate();
-        registration.setRefundCalculationNote("Số tiền gốc " + paidAmount(registration).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
-                + " x " + rate.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
+        registration.setRefundCalculationNote("Số tiền gốc " + paidAmount(registration).setScale(2, RoundingMode.HALF_UP).toPlainString()
+                + " x " + rate.setScale(2, RoundingMode.HALF_UP).toPlainString()
                 + "% = " + registration.getRefundAmount().toPlainString());
     }
 

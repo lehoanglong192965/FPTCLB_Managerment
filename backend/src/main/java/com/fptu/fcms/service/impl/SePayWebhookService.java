@@ -27,6 +27,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
@@ -35,6 +36,7 @@ import java.time.format.DateTimeParseException;
 import java.util.HexFormat;
 import java.util.Locale;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -147,8 +149,8 @@ public class SePayWebhookService {
             if (!StringUtils.hasText(registration.getRefundPolicySnapshot())) {
                 registration.setRefundPolicySnapshot("LEGACY_FULL_REFUND");
             }
-            registration.setRefundCalculationNote("Số tiền gốc " + registration.getAmountPaid().setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
-                    + " x " + rate.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() + "% = " + registration.getRefundAmount().toPlainString());
+            registration.setRefundCalculationNote("Số tiền gốc " + registration.getAmountPaid().setScale(2, RoundingMode.HALF_UP).toPlainString()
+                    + " x " + rate.setScale(2, RoundingMode.HALF_UP).toPlainString() + "% = " + registration.getRefundAmount().toPlainString());
             if (registration.getRefundAmount().signum() == 0) {
                 registration.setPaymentStatus(PaymentStatus.REFUNDED);
                 registration.setRefundProcessedAt(now);
@@ -209,7 +211,7 @@ public class SePayWebhookService {
                 .filter(item -> PaymentStatus.PENDING.equals(item.getPaymentStatus())
                         || PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus()))
                 .map(EventRegistration::getAmountDue)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         if (amountDue.compareTo(transferAmount) != 0) {
             saveForReview(transaction, "NEEDS_REVIEW", "Transfer amount does not match order amount due.");
@@ -242,8 +244,8 @@ public class SePayWebhookService {
                 if (!StringUtils.hasText(item.getRefundPolicySnapshot())) {
                     item.setRefundPolicySnapshot("LEGACY_FULL_REFUND");
                 }
-                item.setRefundCalculationNote("Số tiền gốc " + item.getAmountPaid().setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
-                        + " x " + rate.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() + "% = " + item.getRefundAmount().toPlainString());
+                item.setRefundCalculationNote("Số tiền gốc " + item.getAmountPaid().setScale(2, RoundingMode.HALF_UP).toPlainString()
+                        + " x " + rate.setScale(2, RoundingMode.HALF_UP).toPlainString() + "% = " + item.getRefundAmount().toPlainString());
                 if (item.getRefundAmount().signum() == 0) {
                     item.setPaymentStatus(PaymentStatus.REFUNDED);
                     item.setRefundProcessedAt(now);

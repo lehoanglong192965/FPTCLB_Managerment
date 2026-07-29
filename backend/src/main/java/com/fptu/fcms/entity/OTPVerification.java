@@ -14,6 +14,9 @@ import java.time.LocalDateTime;
 @Builder
 public class OTPVerification {
 
+    /** Số lần nhập sai tối đa trước khi mã bị khoá; muốn thử tiếp phải yêu cầu mã mới. */
+    public static final int MAX_ATTEMPTS = 5;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "otpID")
@@ -41,8 +44,12 @@ public class OTPVerification {
         return LocalDateTime.now().isAfter(this.expiresAt);
     }
 
+    public boolean isLocked() {
+        return this.attempts != null && this.attempts >= MAX_ATTEMPTS;
+    }
+
     public boolean isValid() {
-        return !this.isUsed && !this.isExpired() && (this.attempts == null || this.attempts < 5);
+        return !this.isUsed && !this.isExpired() && !this.isLocked();
     }
 }
 

@@ -1,6 +1,6 @@
 # Hướng dẫn deploy FCMS lên Azure App Service
 
-> Cập nhật ngày 28/07/2026.
+> Cập nhật ngày 29/07/2026.
 >
 > Kiến trúc chốt: **Vercel** (React/Vite) → **Azure App Service**
 > (Spring Boot JAR, Java SE 21) → **Azure SQL Database**. Cloudinary lưu file,
@@ -48,21 +48,22 @@ Xóa khỏi phiên bản hiện tại **không xóa giá trị khỏi lịch s�
 rewrite lịch sử Git; credential được nhập riêng vào Azure. Nếu repository từng public,
 rotate/revoke key cũ vẫn là biện pháp an toàn đúng.
 
-### 1.3 Database mới phải bootstrap hai pha
+### 1.3 Database bootstrap bằng Flyway baseline
 
-Migration hiện có không chứa baseline tạo toàn bộ bảng lõi. Database rỗng phải chạy:
+Repository đã có `B2026072901__fcms_full_schema.sql`, tạo toàn bộ 54 bảng lõi.
+Không còn bootstrap hai pha bằng Hibernate. Cấu hình cố định cho local và Azure:
 
-1. **Pha A**: Flyway=false, ddl-auto=update để Hibernate tạo schema hiện tại.
-2. **Pha B**: Flyway=true, ddl-auto=none để Flyway quản lý từ đó về sau.
+~~~text
+SPRING_FLYWAY_ENABLED=true
+SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+~~~
 
-Trước Pha B phải guard riêng từng cột trong:
-
-- V2026072501__event_proposal_withdrawal.sql
-- V2026072513__refund_recipient_bank_code.sql
-
-Chỉ sửa hai migration này khi database đích là database mới và chưa ghi checksum.
-Database đã chạy migration phải dùng migration forward-only mới, không sửa file cũ.
-
+- Database rỗng: Flyway chạy baseline rồi các migration mới hơn baseline.
+- Database hiện hữu: Flyway bỏ qua baseline và chỉ chạy migration `V` còn thiếu.
+- Không sửa migration đã apply, không `repair` để che lỗi và không dùng
+  `ddl-auto=update` trên schema do Flyway quản lý.
+- Baseline chỉ tạo schema; `V2026072904` seed reference data bắt buộc, không tạo
+  user/club/event hoặc dữ liệu demo.
 ### 1.4 Giới hạn ClamAV trên App Service
 
 Java SE runtime của Azure App Service không kèm ClamAV daemon. Code hiện tại bỏ qua
@@ -91,7 +92,7 @@ Chưa tạo tài nguyên cloud trước khi batch này hoàn tất.
    Azure/webapps-deploy@v3.
 8. Chạy backend test suite và frontend build; chỉ commit khi cả hai đạt.
 
-## 3. Batch 2 — test local hai pha bằng Docker [Codex]
+## 3. Batch 2 — test local một pha bằng Docker [Codex]
 
 Sau Batch 1:
 
@@ -103,39 +104,29 @@ FCMS/
     └── .dockerignore
 ~~~
 
-Pha A mặc định:
+Compose cố định Flyway và Hibernate:
 
 ~~~text
-SPRING_FLYWAY_ENABLED=false
-SPRING_JPA_HIBERNATE_DDL_AUTO=update
+SPRING_FLYWAY_ENABLED=true
+SPRING_JPA_HIBERNATE_DDL_AUTO=validate
 ~~~
 
-Chạy:
+Chạy trên volume/database mới:
 
 ~~~powershell
 docker compose up --build
 ~~~
 
-Chờ Started FcmsApplication và mở
-<http://localhost:8080/swagger-ui.html>. Sau đó giữ volume và chạy Pha B:
+Chờ `Started FcmsApplication`, mở <http://localhost:8080/swagger-ui.html> và kiểm tra:
 
-~~~powershell
-docker compose down
-$env:SPRING_FLYWAY_ENABLED = "true"
-$env:SPRING_JPA_HIBERNATE_DDL_AUTO = "none"
-docker compose up --build
+~~~sql
+SELECT installed_rank, version, description, type, checksum, success
+FROM dbo.flyway_schema_history
+ORDER BY installed_rank;
 ~~~
 
-Xác nhận app boot và flyway_schema_history không có success = 0. Dọn biến:
-
-~~~powershell
-Remove-Item Env:SPRING_FLYWAY_ENABLED
-Remove-Item Env:SPRING_JPA_HIBERNATE_DDL_AUTO
-docker compose down
-~~~
-
-Chỉ dùng docker compose down -v khi chắc chắn muốn xóa database local dùng thử.
-
+Database rỗng phải có baseline `2026072901`, không có `success = 0`, và latest là
+`2026072904`. Dùng `docker compose down`; chỉ thêm `-v` khi chắc chắn muốn xóa DB thử.
 ## 4. Batch 3 — Azure và giới hạn chi phí [Bạn + Codex]
 
 1. Kích hoạt **Azure for Students** bằng tài khoản sinh viên.
@@ -215,7 +206,7 @@ Nếu consent screen ở Testing, thêm email demo vào Test users.
 - Lấy ba giá trị CLOUDINARY_* trong Cloudinary Console; không dán secret vào chat.
 - Lấy GEMINI_API_KEY nếu kiểm thử chatbot. Để trống thì AI không hoạt động.
 
-## 8. Batch 7 — cấu hình App Service cho Pha A [Bạn + Codex]
+## 8. Batch 7 — cấu hình Azure App Service [Bạn + Codex]
 
 Vào App Service → Settings → Environment variables → App settings:
 
@@ -237,19 +228,20 @@ Vào App Service → Settings → Environment variables → App settings:
 | FEEDBACK_PUBLIC_BASE_URL | frontend-url/feedback/guest |
 | GUEST_STATUS_BASE_URL | frontend-url/guest/status |
 | GUEST_LOOKUP_URL | frontend-url/guest/lookup |
-| SEPAY_ACCOUNT_NUMBER / SEPAY_WEBHOOK_API_KEY | nếu test payment |
+| SEPAY_ACCOUNT_NUMBER / SEPAY_WEBHOOK_API_KEY | cấu hình payment |
 | PAYMENT_BANK_NAME / PAYMENT_ACCOUNT_NAME / PAYMENT_BANK_BRANCH | thông tin hiển thị |
-| SPRING_FLYWAY_ENABLED | false — Pha A |
-| SPRING_JPA_HIBERNATE_DDL_AUTO | update — Pha A |
+| SPRING_FLYWAY_ENABLED | true |
+| SPRING_JPA_HIBERNATE_DDL_AUTO | validate |
+| SPRING_JPA_SHOW_SQL | false |
+| SERVER_FORWARD_HEADERS_STRATEGY | framework |
 | JAVA_OPTS | -Dfile.encoding=UTF-8 |
-| WEBSITE_JAVA_MAX_HEAP_MB | 700 cho F1 1 GB |
+| WEBSITE_JAVA_MAX_HEAP_MB | 700 cho F1 1 GB; B1 có thể tăng phù hợp |
 | WEBSITE_WEBDEPLOY_USE_SCM | true |
 
-Không tự đặt SERVER_PORT; App Service Java runtime cấp port cho Spring Boot.
+Không tự đặt `SERVER_PORT`; App Service Java runtime cấp port cho Spring Boot.
 App settings được mã hóa khi lưu và thay đổi setting sẽ restart app.
 
 Tài liệu: <https://learn.microsoft.com/azure/app-service/configure-common>.
-
 ## 9. Batch 8 — GitHub Actions và backend [Bạn + Codex]
 
 1. Trong App Service, bật **SCM Basic Auth Publishing Credentials**; giữ **FTP Basic
@@ -272,48 +264,37 @@ Publish profile là credential triển khai. Chỉ lưu trong GitHub secret; res
 
 Tài liệu: <https://learn.microsoft.com/azure/app-service/deploy-github-actions>.
 
-## 10. Batch 9 — chuyển database sang Pha B [Bạn + Codex]
+## 10. Batch 9 — kiểm tra migration sau deploy [Bạn + Codex]
 
-Chỉ làm sau khi Pha A boot và đã có bảng lõi. Đổi cùng lúc:
+Giữ cố định:
 
 ~~~text
 SPRING_FLYWAY_ENABLED=true
-SPRING_JPA_HIBERNATE_DDL_AUTO=none
+SPRING_JPA_HIBERNATE_DDL_AUTO=validate
 ~~~
 
-Restart App Service, theo dõi log rồi kiểm tra:
+Sau khi workflow deploy xanh, theo dõi Log stream tới `Started FcmsApplication`, rồi chạy:
 
 ~~~sql
-SELECT installed_rank, version, description, success
+SELECT installed_rank, version, description, type, checksum, success
 FROM dbo.flyway_schema_history
 ORDER BY installed_rank;
+
+SELECT COUNT(*) AS failed_rows
+FROM dbo.flyway_schema_history
+WHERE success = 0;
 ~~~
 
+Với Azure DB hiện hữu đã ở `2026072516`, lần cập nhật này dự kiến có 60 history rows,
+latest `2026072904`, `failed_rows = 0`; baseline `B2026072901` phải được bỏ qua.
 Không tiếp tục nếu migration fail. Không repair hoặc xóa history để che lỗi.
-Từ đây giữ cố định Flyway=true, ddl-auto=none.
+## 11. Batch 10 — reference data và Admin đầu tiên [Bạn + Codex]
 
-## 11. Batch 10 — seed role và Admin đầu tiên [Bạn + Codex]
+`V2026072904__required_reference_data.sql` tự seed các `SystemRole`, `ClubRole`,
+`EventRole` và `SystemConfig` bắt buộc. Không chạy lại block INSERT role thủ công.
 
-Đăng ký hiện hardcode Student roleID = 3. Chạy một lần trên database mới:
-
-~~~sql
-SET IDENTITY_INSERT dbo.SystemRole ON;
-
-IF NOT EXISTS (SELECT 1 FROM dbo.SystemRole WHERE roleID = 1)
-    INSERT dbo.SystemRole VALUES (1, N'Admin', N'Quản trị hệ thống', 0);
-IF NOT EXISTS (SELECT 1 FROM dbo.SystemRole WHERE roleID = 2)
-    INSERT dbo.SystemRole VALUES (2, N'ICPDP', N'Phòng công tác sinh viên', 0);
-IF NOT EXISTS (SELECT 1 FROM dbo.SystemRole WHERE roleID = 3)
-    INSERT dbo.SystemRole VALUES (3, N'Student', N'Sinh viên / thành viên CLB', 0);
-IF NOT EXISTS (SELECT 1 FROM dbo.SystemRole WHERE roleID = 4)
-    INSERT dbo.SystemRole VALUES (4, N'Leader', N'Trưởng CLB', 0);
-IF NOT EXISTS (SELECT 1 FROM dbo.SystemRole WHERE roleID = 5)
-    INSERT dbo.SystemRole VALUES (5, N'ViceLeader', N'Phó CLB', 0);
-
-SET IDENTITY_INSERT dbo.SystemRole OFF;
-~~~
-
-Đăng ký tài khoản thật, xác thực OTP, rồi nâng Admin:
+Kiểm tra role ID 1–5 tồn tại, sau đó đăng ký tài khoản thật, xác thực OTP và chỉ nâng
+Admin nếu hệ thống chưa có Admin:
 
 ~~~sql
 UPDATE dbo.UserAccount
@@ -321,8 +302,7 @@ SET roleID = 1
 WHERE email = N'<email-fpt-cua-ban>';
 ~~~
 
-Xác nhận đúng một dòng được cập nhật.
-
+Xác nhận đúng một dòng được cập nhật và đăng nhập lại để JWT nhận role mới.
 ## 12. Batch 11 — frontend Vercel [Bạn + Codex]
 
 1. Import repo vào Vercel, Root Directory frontend.
@@ -371,7 +351,7 @@ frontend/vercel.json giữ rewrite SPA để refresh route con không 404.
 | Action không thấy pom.xml | Workflow phải build trong backend |
 | App Service không boot | Log stream, env bắt buộc, Java SE 21, RAM F1 |
 | Không kết nối SQL | JDBC, credential, toàn bộ Additional Outbound IPs |
-| Pha B duplicate column | Hai migration chưa guard từng cột/checksum không khớp |
+| Migration không chạy | Xem Log stream và `flyway_schema_history`; không repair/xóa history để che lỗi |
 | Không nhận OTP | Gmail 2FA/App Password, MAIL_*, log SMTP |
 | OAuth về localhost | Ba chỗ dùng FRONTEND_URL và App setting |
 | Vercel refresh 404 | frontend/vercel.json |
@@ -379,11 +359,11 @@ frontend/vercel.json giữ rewrite SPA để refresh route con không 404.
 | App chậm/dừng | Quota 60 CPU phút/ngày; cân nhắc B1 |
 | Query editor không vào | Thêm IP máy vào SQL firewall |
 
-## 15. Bắt đầu ngay
+## 15. Bắt đầu/tiếp tục release
 
-1. **Codex làm Batch 1** và đưa diff/test cho bạn duyệt.
-2. **Codex làm Batch 2** để chứng minh bootstrap hai pha chạy local.
-3. **Bạn kích hoạt Azure for Students và đăng nhập Azure Portal**.
-4. Hai bên đi Batch 3 → 12; chỉ chuyển batch khi checkpoint đạt.
+1. Merge `main` mới nhất vào `deploy`, resolve có chủ đích và giữ hạ tầng deploy.
+2. Chạy backend tests, frontend build và fresh/existing DB migration gate.
+3. Push `deploy`; chờ GitHub Actions build + deploy xanh.
+4. Hoàn tất Batch 9 → 12; chỉ chuyển batch khi checkpoint đạt.
 
-Không tạo Azure resource trước khi Batch 1 và 2 xanh, tránh vừa sửa code vừa debug cloud.
+Không quay lại bootstrap hai pha và không dùng Hibernate `update`.

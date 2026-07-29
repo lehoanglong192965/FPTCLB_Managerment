@@ -38,7 +38,7 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username}")
     private String senderEmail;
 
-    @Value("${fcms.frontend-url:http://localhost:5173}")
+    @Value("${fcms.frontend-url}")
     private String frontendUrl;
 
     @Override
@@ -157,15 +157,15 @@ public class EmailServiceImpl implements EmailService {
                 </div>
                 """.formatted(
                         escape(fullName),
-                        escape(resolveFrontendUrl() + "/login")
+                        escape(normalizeFrontendUrl(frontendUrl) + "/login")
                 );
     }
 
-    private String resolveFrontendUrl() {
-        String resolvedUrl = frontendUrl == null || frontendUrl.isBlank()
-                ? "http://localhost:5173"
-                : frontendUrl.trim();
-        return resolvedUrl.replaceAll("/+$", "");
+    private String normalizeFrontendUrl(String configuredUrl) {
+        if (configuredUrl == null || configuredUrl.isBlank()) {
+            throw new IllegalStateException("fcms.frontend-url must not be blank");
+        }
+        return configuredUrl.trim().replaceAll("/+$", "");
     }
 
     @Override

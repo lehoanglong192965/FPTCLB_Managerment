@@ -1,38 +1,24 @@
 import authApi from "./authApi";
 import { TokenService } from "../axiosClient";
 import { decodeJwtPayload } from "../../../utils/tokenGuard";
-import { ROLE_MAP } from "../../../constants/roles";
+import { resolveRoleFromClaims } from "../../../constants/roles";
 
 const authService = {
   login: async (email, password) => {
     const data = await authApi.login(email, password);
 
+    // Role + clubId lấy thẳng từ claim của token: backend đã tính sẵn khi cấp
+    // token nên không cần gọi thêm /user/my-club-role (một request thừa, và nếu
+    // nó lỗi thì Leader bị tụt quyền xuống Member).
     const payload = decodeJwtPayload(data.token);
-    let role = ROLE_MAP[payload?.roleID] ?? "MEMBER";
+    const { role, clubId } = resolveRoleFromClaims(payload);
 
-    TokenService.save({ access_token: data.token, refresh_token: data.refreshToken, role });
-
-    let clubId = null;
-    if (role === "MEMBER") {
-      try {
-        const res = await authApi.getMyClubRole();
-        // Chỉ nâng quyền khi user thực sự thuộc một CLB (clubID hợp lệ)
-        if (res?.clubID) {
-          // clubRoleID: 1=Leader, 2=ViceLeader, 3=Member (thường)
-          if (res.clubRoleID === 1) {
-            role = "CLUB_LEADER";
-            clubId = res.clubID;
-          } else if (res.clubRoleID === 2) {
-            role = "VICE_LEADER";
-            clubId = res.clubID;
-          }
-          // clubRoleID === 3 = Member thường → giữ nguyên role "MEMBER"
-        }
-        TokenService.save({ access_token: data.token, refresh_token: data.refreshToken, role, clubId });
-      } catch (e) {
-        console.error("Lỗi lấy quyền CLB", e);
-      }
-    }
+    TokenService.save({
+      access_token: data.token,
+      refresh_token: data.refreshToken,
+      role,
+      clubId,
+    });
 
     return { token: data.token, role, email: payload?.sub, clubId };
   },

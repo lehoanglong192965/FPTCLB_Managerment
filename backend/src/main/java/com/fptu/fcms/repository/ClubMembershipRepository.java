@@ -1,4 +1,5 @@
 package com.fptu.fcms.repository;
+import java.util.Collection;
 import java.util.List;
 
 import com.fptu.fcms.entity.ClubMembership;
@@ -168,7 +169,7 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
     boolean existsActiveMembershipByClubUserAndRoleNames(
             @Param("clubID") Integer clubID,
             @Param("userID") Integer userID,
-            @Param("roleNames") java.util.Collection<String> roleNames
+            @Param("roleNames") Collection<String> roleNames
     );
 
     @Query("""
@@ -186,7 +187,7 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
             @Param("clubID") Integer clubID,
             @Param("userID") Integer userID,
             @Param("semesterID") Integer semesterID,
-            @Param("roleNames") java.util.Collection<String> roleNames
+            @Param("roleNames") Collection<String> roleNames
     );
 
     int countByClubIDAndIsDeletedFalse(Integer clubID);
@@ -229,12 +230,12 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
 
     List<ClubMembership> findByClubIDAndClubRoleIDInAndIsDeletedFalse(
             Integer clubID,
-            java.util.Collection<Integer> clubRoleIDs
+            Collection<Integer> clubRoleIDs
     );
     List<ClubMembership> findByClubIDAndSemesterIDAndClubRoleIDInAndIsDeletedFalse(
             Integer clubID,
             Integer semesterID,
-            java.util.Collection<Integer> clubRoleIDs
+            Collection<Integer> clubRoleIDs
     );
     @Query("SELECT COUNT(m) > 0 FROM ClubMembership m, UserAccount u " +
             "WHERE m.userID = u.userID " +
@@ -275,6 +276,6 @@ public interface ClubMembershipRepository extends JpaRepository<ClubMembership, 
     List<Integer> findActiveRecipientUserIdsByClubIdExcludingRoles(
             @Param("clubID") Integer clubID,
             @Param("semesterID") Integer semesterID,
-            @Param("excludedRoleIDs") java.util.Collection<Integer> excludedRoleIDs
+            @Param("excludedRoleIDs") Collection<Integer> excludedRoleIDs
     );
 }

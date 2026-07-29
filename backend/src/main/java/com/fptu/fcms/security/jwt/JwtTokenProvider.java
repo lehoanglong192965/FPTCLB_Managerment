@@ -2,6 +2,7 @@ package com.fptu.fcms.security.jwt;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -9,6 +10,7 @@ import java.security.Key;
 import java.util.Date;
 
 @Component
+@Slf4j
 public class JwtTokenProvider {
 
     @Value("${jwt.secret}")
@@ -19,6 +21,11 @@ public class JwtTokenProvider {
 
     @Value("${jwt.refreshExpiration:604800000}")
     private long refreshTokenExpirationDate;
+
+    /** Claim phân biệt loại token. Thiếu nó thì refresh token dùng thay được access token. */
+    public static final String CLAIM_TOKEN_TYPE = "typ";
+    public static final String TOKEN_TYPE_ACCESS = "access";
+    public static final String TOKEN_TYPE_REFRESH = "refresh";
 
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
@@ -32,6 +39,7 @@ public class JwtTokenProvider {
 
         JwtBuilder builder = Jwts.builder()
                 .setSubject(email)
+                .claim(CLAIM_TOKEN_TYPE, TOKEN_TYPE_ACCESS)
                 .claim("userID", userId)
                 .claim("roleID", roleId)
                 .claim("roleName", roleName);
@@ -58,96 +66,82 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .setSubject(email)
+                .claim(CLAIM_TOKEN_TYPE, TOKEN_TYPE_REFRESH)
                 .setIssuedAt(currentDate)
                 .setExpiration(expireDate)
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    // Trích xuất Email (Subject) từ Token
-    public String getEmailFromJwt(String token) {
+    /**
+     * Giải mã token một lần và trả về toàn bộ claim. Các getter bên dưới đều gọi hàm này —
+     * trước đây mỗi getter tự dựng parser riêng nên một request phải verify chữ ký 6 lần.
+     */
+    public Claims parseClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
-                .setAllowedClockSkewSeconds(60)
+                .setAllowedClockSkewSeconds(60) // Cho phép lệch 60 giây
                 .build()
                 .parseClaimsJws(token)
-                .getBody()
-                .getSubject();
+                .getBody();
+    }
+
+    /**
+     * Token có đúng là access token không. Refresh token ký cùng khoá, cùng thuật toán nên
+     * validateToken() vẫn trả true cho nó — chỉ claim này mới phân biệt được.
+     */
+    public boolean isAccessToken(Claims claims) {
+        return TOKEN_TYPE_ACCESS.equals(claims.get(CLAIM_TOKEN_TYPE, String.class));
+    }
+
+    public boolean isRefreshToken(Claims claims) {
+        return TOKEN_TYPE_REFRESH.equals(claims.get(CLAIM_TOKEN_TYPE, String.class));
+    }
+
+    // Trích xuất Email (Subject) từ Token
+    public String getEmailFromJwt(String token) {
+        return parseClaims(token).getSubject();
     }
 
     // Xác thực tính toàn vẹn và hạn sử dụng của Token
     public boolean validateToken(String authToken) {
         try {
-            Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
-                    .setAllowedClockSkewSeconds(60) // Cho phép lệch 60 giây
-                    .build()
-                    .parseClaimsJws(authToken);
+            parseClaims(authToken);
             return true;
         } catch (ExpiredJwtException ex) {
-            System.err.println("JWT đã hết hạn: " + ex.getMessage());
+            log.warn("JWT đã hết hạn: {}", ex.getMessage());
         } catch (SignatureException ex) {
-            System.err.println("Chữ ký JWT không hợp lệ: " + ex.getMessage());
+            log.warn("Chữ ký JWT không hợp lệ: {}", ex.getMessage());
         } catch (MalformedJwtException ex) {
-            System.err.println("JWT không đúng định dạng: " + ex.getMessage());
+            log.warn("JWT không đúng định dạng: {}", ex.getMessage());
         } catch (JwtException | IllegalArgumentException ex) {
-            System.err.println("Xác thực JWT thất bại: " + ex.getMessage());
+            log.warn("Xác thực JWT thất bại: {}", ex.getMessage());
         }
         return false;
     }
     // Trích xuất userID từ Token
     public Integer getUserIdFromJwt(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .setAllowedClockSkewSeconds(60)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-        return claims.get("userID", Integer.class);
+        return parseClaims(token).get("userID", Integer.class);
     }
 
     // Trích xuất roleID từ Token
     public Integer getRoleIdFromJwt(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .setAllowedClockSkewSeconds(60)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-        return claims.get("roleID", Integer.class);
+        return parseClaims(token).get("roleID", Integer.class);
     }
 
     // [MỚI] Trích xuất roleName từ Token
     public String getRoleNameFromJwt(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .setAllowedClockSkewSeconds(60)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-        return claims.get("roleName", String.class);
+        return parseClaims(token).get("roleName", String.class);
     }
 
     // [MỚI] Trích xuất clubRole từ Token (nullable)
     public String getClubRoleFromJwt(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .setAllowedClockSkewSeconds(60)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-        return claims.get("clubRole", String.class);
+        return parseClaims(token).get("clubRole", String.class);
     }
 
     // [MỚI] Trích xuất clubId từ Token (nullable)
     public Integer getClubIdFromJwt(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .setAllowedClockSkewSeconds(60)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-        return claims.get("clubId", Integer.class);
+        return parseClaims(token).get("clubId", Integer.class);
     }
 
 }

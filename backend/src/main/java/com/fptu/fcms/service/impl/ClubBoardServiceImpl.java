@@ -8,6 +8,7 @@ import com.fptu.fcms.dto.response.ClubMemberResponse;
 import com.fptu.fcms.entity.*;
 import com.fptu.fcms.exception.BusinessRuleException;
 import com.fptu.fcms.repository.*;
+import com.fptu.fcms.security.TokenInvalidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,8 @@ public class ClubBoardServiceImpl implements ClubBoardService {
     // NOTE BR-A02: Trong seed data hiện tại, clubRoleID = 1 tương ứng với vai trò Leader.
     // Khi bổ nhiệm Leader, hệ thống dùng ID này để kiểm tra sinh viên có đang làm Leader ở CLB khác không.
     private static final int CLUB_ROLE_ID_LEADER = 1;
+    private static final String CLUB_ROLE_LEADER = "Leader";
+    private static final String CLUB_ROLE_VICE_LEADER = "ViceLeader";
 
     // NOTE BR-A05: SystemRole ICPDP là cán bộ quản lý/phòng IC-PDP.
     // Nhóm user này chỉ được quản lý hệ thống, không được tham gia CLB với role Member/Leader.
@@ -39,6 +42,7 @@ public class ClubBoardServiceImpl implements ClubBoardService {
     private final SemesterRepository semesterRepo;
     private final ClubRoleRepository clubRoleRepo;
     private final AuditLogRepository auditRepo;
+    private final TokenInvalidationService tokenInvalidationService;
 
     @Override
     @Transactional
@@ -134,9 +138,14 @@ public class ClubBoardServiceImpl implements ClubBoardService {
             // NOTE CASE CẬP NHẬT CHỨC VỤ:
             // User đã có membership trong CLB này rồi -> chỉ update clubRoleID.
             // BR-A05 và BR-A02 đã được validate ở phía trên trước khi vào đoạn save này.
-            String oldRoleInfo = "clubRoleID=" + membership.getClubRoleID();
+            Integer oldRoleID = membership.getClubRoleID();
+            String oldRoleInfo = "clubRoleID=" + oldRoleID;
             membership.setClubRoleID(targetRole.getClubRoleID());
             membershipRepo.save(membership);
+
+            if (!targetRole.getClubRoleID().equals(oldRoleID)) {
+                tokenInvalidationService.invalidateFor(targetUser.getUserID());
+            }
 
             writeAuditLog(
                     actorID,
@@ -159,6 +168,11 @@ public class ClubBoardServiceImpl implements ClubBoardService {
             newMembership.setJoinedDate(LocalDate.now());
             newMembership.setIsDeleted(false);
             membership = membershipRepo.save(newMembership);
+
+            if (CLUB_ROLE_LEADER.equals(targetRole.getRoleName())
+                    || CLUB_ROLE_VICE_LEADER.equals(targetRole.getRoleName())) {
+                tokenInvalidationService.invalidateFor(targetUser.getUserID());
+            }
 
             writeAuditLog(
                     actorID,
@@ -210,6 +224,8 @@ public class ClubBoardServiceImpl implements ClubBoardService {
 
         membership.setIsDeleted(true);
         membershipRepo.save(membership);
+        // Token cũ vẫn mang clubRole=Leader/ViceLeader + clubId — thu hồi để mất quyền ngay
+        tokenInvalidationService.invalidateFor(targetUser.getUserID());
 
         return buildResponse(membership, targetUser, currentRole, activeSemester);
     }
@@ -313,6 +329,7 @@ public class ClubBoardServiceImpl implements ClubBoardService {
 
         membership.setIsDeleted(true);
         membershipRepo.save(membership);
+        tokenInvalidationService.invalidateFor(membership.getUserID());
     }
 
     @Override
@@ -446,6 +463,7 @@ public class ClubBoardServiceImpl implements ClubBoardService {
 
             currentLeader.setIsDeleted(true);
             membershipRepo.save(currentLeader);
+            tokenInvalidationService.invalidateFor(currentLeader.getUserID());
         });
     }
 

@@ -1,10 +1,31 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import authService from "../services/api/auth/authService";
 import { TokenService } from "../services/api/axiosClient";
+import { decodeJwtPayload } from "../utils/tokenGuard";
+import { resolveRoleFromClaims } from "../constants/roles";
 
 export const AuthContext = createContext();
 
-const CLUB_ROLE_TO_APP_ROLE = {
+/**
+ * Lấy role từ access token — KHÔNG tin giá trị role lưu trong localStorage.
+ *
+ * Trước đây role được đọc từ object "user" trong localStorage, nên chỉ cần mở
+ * DevTools sửa `user.role` thành "ADMIN" là vào được toàn bộ giao diện quản trị
+ * (API vẫn chặn bằng @PreAuthorize, nhưng UI thì mở toang). Token thì đã được
+ * backend ký nên người dùng không tự bịa claim `roleID`/`clubRole` được.
+ */
+const getSessionFromToken = () => {
+  const token = TokenService.getAccess();
+  if (!token) return null;
+
+  const payload = decodeJwtPayload(token);
+  if (!payload?.sub) return null;
+
+  const { role, clubId } = resolveRoleFromClaims(payload);
+  return { email: payload.sub, role, clubId };
+};
+
+const CLUB_ROLE_ID_TO_APP_ROLE = {
   1: "CLUB_LEADER",
   2: "VICE_LEADER",
   3: "MEMBER",
@@ -12,26 +33,31 @@ const CLUB_ROLE_TO_APP_ROLE = {
 
 const MANAGED_CLUB_ROLES = new Set(["CLUB_LEADER", "VICE_LEADER"]);
 
-async function refreshManagedClubSession(savedUser) {
-  if (!MANAGED_CLUB_ROLES.has(savedUser?.role)) return savedUser;
+/**
+ * Đồng bộ lại quyền CLB mỗi lần mở lại app.
+ *
+ * Claim trong JWT được "đóng băng" lúc đăng nhập và sống tới 24h, nên một người
+ * vừa bị gỡ chức Leader vẫn thấy menu quản lý CLB cho tới khi token hết hạn.
+ * Gọi lại API lúc khôi phục phiên để bắt kịp thay đổi đó. Nếu request lỗi thì
+ * giữ nguyên quyền suy ra từ token — tuyệt đối không hạ quyền vì lỗi mạng.
+ */
+async function syncManagedClubRole(session) {
+  if (!MANAGED_CLUB_ROLES.has(session.role)) return session;
 
   try {
     const res = await authService.getMyClubRole();
-    const role = CLUB_ROLE_TO_APP_ROLE[res?.clubRoleID] ?? savedUser.role;
-    TokenService.save({
-      access_token: TokenService.getAccess(),
-      refresh_token: TokenService.getRefresh(),
-      role,
+    return {
+      ...session,
+      role:   CLUB_ROLE_ID_TO_APP_ROLE[res?.clubRoleID] ?? session.role,
       clubId: res?.clubID ?? null,
-    });
-    return { ...savedUser, role };
+    };
   } catch (error) {
     console.error("Lỗi đồng bộ quyền CLB:", error);
-    return savedUser;
+    return session;
   }
 }
 
-// Lấy thông tin user từ localStorage, nếu có lỗi thì trả về null.
+// Lấy phần thông tin phụ (không phải quyền) đã lưu ở localStorage.
 const getUserFromStorage = () => {
   try {
     const userString = localStorage.getItem("user");
@@ -74,19 +100,30 @@ export const AuthProvider = ({ children }) => {
     let cancelled = false;
 
     const restoreSession = async () => {
-      const savedUser = getUserFromStorage();
-      if (savedUser) {
-        if (TokenService.getAccess()) {
-          const refreshedUser = await refreshManagedClubSession(savedUser);
-          if (cancelled) return;
-          setUser(refreshedUser);
-          saveUserToStorage(refreshedUser);
-          fetchProfile();
-        } else {
-          // Token đã bị xóa (refresh hết hạn) nhưng user vẫn còn trong storage → dọn dẹp
-          removeUserFromStorage();
-        }
+      // Nguồn sự thật là access token, không phải object "user" trong storage.
+      const tokenSession = getSessionFromToken();
+
+      if (tokenSession) {
+        const session = await syncManagedClubRole(tokenSession);
+        const savedUser = getUserFromStorage();
+        // Giữ lại các field phụ đã lưu (nếu có) nhưng quyền luôn lấy từ token.
+        const restoredUser = { ...savedUser, ...session };
+        if (cancelled) return;
+        setUser(restoredUser);
+        saveUserToStorage(restoredUser);
+        TokenService.save({
+          access_token:  TokenService.getAccess(),
+          refresh_token: TokenService.getRefresh(),
+          role:          session.role,
+          clubId:        session.clubId,
+        });
+        fetchProfile();
+      } else {
+        // Không có token hợp lệ → dọn sạch phần còn sót trong storage
+        removeUserFromStorage();
+        TokenService.clear();
       }
+
       if (!cancelled) setInitialized(true);
     };
 
@@ -107,11 +144,11 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener("auth:logout", handleAuthLogout);
   }, []);
 
-  const login = (userData) => {
+  const login = useCallback((userData) => {
     setUser(userData);
     saveUserToStorage(userData);
     fetchProfile();
-  };
+  }, [fetchProfile]);
 
   const logout = async () => {
     setUser(null);
