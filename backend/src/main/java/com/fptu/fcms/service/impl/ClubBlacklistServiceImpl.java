@@ -7,6 +7,7 @@ import com.fptu.fcms.entity.UserAccount;
 import com.fptu.fcms.repository.ClubBlacklistRepository;
 import com.fptu.fcms.repository.ClubRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.security.TokenInvalidationService;
 import com.fptu.fcms.service.ClubBlacklistService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,9 @@ public class ClubBlacklistServiceImpl
 
     private final UserRepository
             userRepository;
+
+    private final TokenInvalidationService
+            tokenInvalidationService;
 
     // Lấy danh sách blacklist của CLB — kèm thông tin người bị cấm (tên, MSSV, ngành)
     // vì họ đã bị khai trừ, frontend không thể tự tra từ danh sách thành viên.
@@ -183,6 +187,8 @@ public class ClubBlacklistServiceImpl
                     .ifPresent(membership -> {
                         membership.setIsDeleted(true);
                         clubMembershipRepository.save(membership);
+                        // Token cũ vẫn mang clubRole/clubId của CLB vừa bị khai trừ
+                        tokenInvalidationService.invalidateFor(membership.getUserID());
                     });
         }
 

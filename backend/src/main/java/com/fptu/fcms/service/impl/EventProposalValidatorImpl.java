@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -103,7 +104,7 @@ public class EventProposalValidatorImpl implements EventProposalValidator {
 
         long distinctTypes = policies.stream()
                 .map(EventRegistrationPolicy::getParticipantType)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .distinct()
                 .count();
         if (distinctTypes != 3) {

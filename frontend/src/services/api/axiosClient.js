@@ -50,6 +50,13 @@ export const TokenService = {
     else storage?.removeItem("user_club_id");
   },
 
+  // Chỉ thay token sau khi refresh — giữ nguyên role/clubId đang có.
+  // (không dùng save() vì save() sẽ ghi đè role thành "MEMBER" khi không truyền)
+  updateTokens({ access_token, refresh_token }) {
+    if (access_token)  storage?.setItem("access_token",  access_token);
+    if (refresh_token) storage?.setItem("refresh_token", refresh_token);
+  },
+
   clear() {
     storage?.removeItem("access_token");
     storage?.removeItem("refresh_token");
@@ -215,11 +222,56 @@ axiosClient.interceptors.request.use(
 );
 
 // ─────────────────────────────────────────────────────────────────
+//  REFRESH TOKEN — xin access token mới khi token cũ hết hạn
+// ─────────────────────────────────────────────────────────────────
+// Gọi bằng axios "trần" (không qua axiosClient) để tránh 2 chuyện: interceptor
+// gọi đệ quy chính nó, và request refresh bị cơ chế dedup huỷ ngang.
+let refreshPromise = null;
+
+function refreshAccessTokenOnce() {
+  // Nhiều request cùng nhận 401 một lúc → chỉ bắn đúng 1 lần /auth/refresh,
+  // các request còn lại chờ chung kết quả.
+  if (refreshPromise) return refreshPromise;
+
+  const refreshToken = TokenService.getRefresh();
+  // Đăng nhập bằng Google hiện không được cấp refresh token → bỏ qua, logout luôn.
+  if (!refreshToken) return Promise.resolve(null);
+
+  refreshPromise = axios
+    .post(`${axiosClient.defaults.baseURL}/auth/refresh`, { refreshToken }, { timeout: 15000 })
+    .then(({ data }) => {
+      if (!data?.token) return null;
+      TokenService.updateTokens({
+        access_token:  data.token,
+        refresh_token: data.refreshToken,
+      });
+      return data.token;
+    })
+    .catch(() => null)
+    .finally(() => { refreshPromise = null; });
+
+  return refreshPromise;
+}
+
+// ─────────────────────────────────────────────────────────────────
 //  RESPONSE INTERCEPTOR
 // ─────────────────────────────────────────────────────────────────
 const MAX_RETRY       = 3;
 const RETRY_BASE_DELAY = 600;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Claim `iat` trong JWT chỉ có độ phân giải giây, còn `tokenInvalidatedAt` ở BE
+// là DATETIME2 có phần lẻ giây → token mới cấp ngay sau khi quyền đổi vẫn có thể
+// bị AccountStatusFilter từ chối lần 2 (iat bị làm tròn xuống cùng giây với lúc
+// đổi quyền). Nhận diện đúng thông báo này để chờ hết phần lẻ giây rồi refresh
+// lại thêm một lần, thay vì đá thẳng người dùng về /login.
+const PERMISSION_CHANGED_MESSAGE = "Quyền của bạn đã thay đổi";
+const PERMISSION_RETRY_DELAY = 1200;
+
+function isPermissionChangedError(error) {
+  return typeof error.response?.data?.message === "string"
+      && error.response.data.message.includes(PERMISSION_CHANGED_MESSAGE);
+}
 
 axiosClient.interceptors.response.use(
   (response) => {
@@ -242,10 +294,37 @@ axiosClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // 401 — token hết hạn hoặc không hợp lệ → logout
+    // 401 — token hết hạn hoặc không hợp lệ.
+    // Thử xin access token mới bằng refresh token rồi chạy lại request; chỉ khi
+    // refresh thất bại mới coi là mất phiên và đá về trang đăng nhập.
     // (bỏ qua nếu request tự đánh dấu skipAuthLogout, vd: request dò quyền phụ trong lúc login,
     // vốn đã được caller tự xử lý lỗi cục bộ, không nên coi là mất phiên đăng nhập)
     if (status === 401 && !isPublicEndpoint(originalConfig.url, originalConfig.method) && !originalConfig.skipAuthLogout) {
+      // _refreshRetried: chặn vòng lặp vô hạn khi token mới vẫn bị 401
+      if (!originalConfig._refreshRetried) {
+        const newAccessToken = await refreshAccessTokenOnce();
+        if (newAccessToken) {
+          originalConfig._refreshRetried = true;
+          // Không cần tự gắn header: request interceptor luôn đọc lại token mới
+          // nhất từ TokenService (đã được refreshAccessTokenOnce cập nhật).
+          if (isDev) console.info("[API] 🔄 Access token đã được làm mới — chạy lại request");
+          return axiosClient(originalConfig);
+        }
+      }
+
+      // Refresh lần đầu vẫn bị 401 vì "quyền đã thay đổi": khả năng cao token mới
+      // vừa cấp mang iat bị làm tròn trùng giây với tokenInvalidatedAt. Chờ hết
+      // phần lẻ giây rồi refresh lại thêm một lần trước khi coi là mất phiên thật.
+      if (!originalConfig._permissionRetried && isPermissionChangedError(error)) {
+        originalConfig._permissionRetried = true;
+        if (isDev) console.info(`[API] ⏳ Quyền vừa đổi — chờ ${PERMISSION_RETRY_DELAY}ms rồi refresh lại`);
+        await sleep(PERMISSION_RETRY_DELAY);
+        const retriedAccessToken = await refreshAccessTokenOnce();
+        if (retriedAccessToken) {
+          return axiosClient(originalConfig);
+        }
+      }
+
       TokenService.clear();
       window.dispatchEvent(
         new CustomEvent("auth:logout", {

@@ -11,7 +11,7 @@ import reportApi from '../../services/api/report/reportApi';
 import eventApi from '../../services/api/events/eventApi';
 import { buildEventCsvFileName, downloadCsvFile, getDownloadErrorMessage } from '../../utils/csvDownload';
 import { useToast } from '../../contexts/ToastContext';
-import EventReportStatisticsPanel from '../../components/EventReportStatisticsPanel';
+import EventReportStatisticsPanel from '../../components/events/EventReportStatisticsPanel';
 
 export default function ReportSubmitPage({ eventId: eventIdProp, embedded = false, onSubmitted } = {}) {
   const { eventId: eventIdParam } = useParams();

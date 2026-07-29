@@ -39,6 +39,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -552,9 +553,9 @@ public class SemesterServiceImpl implements SemesterService {
                 ));
     }
 
-    private java.util.Optional<String> resolveSnapshotEmail(MemberRankingSnapshot snapshot) {
+    private Optional<String> resolveSnapshotEmail(MemberRankingSnapshot snapshot) {
         if (StringUtils.hasText(snapshot.getEmail())) {
-            return java.util.Optional.of(snapshot.getEmail());
+            return Optional.of(snapshot.getEmail());
         }
         return userRepository.findByUserIDAndIsDeletedFalse(snapshot.getUserID())
                 .map(UserAccount::getEmail)

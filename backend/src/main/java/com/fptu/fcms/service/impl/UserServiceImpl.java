@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -104,7 +105,7 @@ public class UserServiceImpl implements UserService {
         }
         Semester activeSemester = activeSemesterOpt.get();
 
-        java.util.List<ClubMembership> memberships = clubMembershipRepository
+        List<ClubMembership> memberships = clubMembershipRepository
                 .findByUserIDAndSemesterIDAndIsDeletedFalse(userId, activeSemester.getSemesterID());
 
         if (memberships.isEmpty()) {
@@ -138,10 +139,10 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public java.util.List<ClubRoleResponse> getClubRoles(Integer userId) {
+    public List<ClubRoleResponse> getClubRoles(Integer userId) {
         Optional<Semester> activeSemesterOpt = semesterRepository.findByIsActiveTrueAndIsDeletedFalse();
         if (activeSemesterOpt.isEmpty()) {
-            return java.util.List.of();
+            return List.of();
         }
 
         return clubMembershipRepository

@@ -1,19 +1,37 @@
-﻿import { useEffect } from "react";
+﻿import { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { TokenService } from "../../services/api/axiosClient";
 import { decodeJwtPayload } from "../../utils/tokenGuard";
 import { useAuth } from "../../contexts/AuthContext";
-import authApi from "../../services/api/auth/authApi";
-import { ROLE_MAP, ROLE_REDIRECT } from "../../constants/roles";
+import { ROLE_REDIRECT, resolveRoleFromClaims } from "../../constants/roles";
 
 export default function OAuthRedirect() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { login } = useAuth();
+  const processedTokenRef = useRef(null);
 
   useEffect(() => {
-    const token = searchParams.get("token");
-    const backendError = searchParams.get("error");
+    const fragmentParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const fragmentToken = fragmentParams.get("token");
+    const token = fragmentToken ?? searchParams.get("token");
+    const backendError = searchParams.get("ssoError") ?? searchParams.get("error");
+
+    // OAuth2SuccessHandler sends the JWT in the fragment so it is not sent in
+    // HTTP requests/referrers. Remove it from browser history before doing any
+    // asynchronous work. Query-token fallback keeps older deployments usable.
+    if (fragmentToken) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
+
+    // StrictMode runs the effect setup twice in development. The first run
+    // removes the fragment, so the second one must not treat its absence as
+    // a failed OAuth callback after that token has already started processing.
+    if (!token && processedTokenRef.current) return;
 
     if (!token) {
       sessionStorage.removeItem("oauth_return_to");
@@ -24,28 +42,20 @@ export default function OAuthRedirect() {
       return;
     }
 
+    // React StrictMode có thể chạy effect hai lần trong môi trường dev.
+    // Không xử lý lại cùng một token vì login() sẽ cập nhật AuthContext
+    // và kéo theo các request profile/thông báo không cần thiết.
+    if (processedTokenRef.current === token) return;
+    processedTokenRef.current = token;
+
     const handleOAuthRedirect = async () => {
       try {
+        // OAuth2SuccessHandler cũng đính claim clubRole/clubId vào token giống
+        // luồng đăng nhập thường ⇒ đọc thẳng từ token, không gọi thêm API.
         const payload = decodeJwtPayload(token);
-        let role = ROLE_MAP[payload?.roleID] ?? "MEMBER";
+        const { role, clubId } = resolveRoleFromClaims(payload);
 
-        TokenService.save({ access_token: token, refresh_token: null, role });
-
-        if (role === "MEMBER") {
-          try {
-            const res = await authApi.getMyClubRole();
-            let clubId = null;
-            if (res?.clubID) {
-              // clubRoleID: 1=Leader, 2=ViceLeader, 3=Member (thường)
-              if (res.clubRoleID === 1) { role = "CLUB_LEADER";  clubId = res.clubID; }
-              else if (res.clubRoleID === 2) { role = "VICE_LEADER"; clubId = res.clubID; }
-              // clubRoleID === 3 = Member thường → giữ nguyên role "MEMBER"
-            }
-            TokenService.save({ access_token: token, refresh_token: null, role, clubId });
-          } catch (e) {
-            console.error("Lỗi lấy quyền CLB khi OAuth2", e);
-          }
-        }
+        TokenService.save({ access_token: token, refresh_token: null, role, clubId });
 
         login({ email: payload?.sub, role });
 

@@ -13,7 +13,9 @@ import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -46,7 +48,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             throw new OAuth2AuthenticationException(new OAuth2Error("email_not_found"), "Không lấy được email từ Google.");
         }
         
-        String email = emailAttribute.trim().toLowerCase(java.util.Locale.ROOT);
+        String email = emailAttribute.trim().toLowerCase(Locale.ROOT);
 
         // 3. KIỂM TRA ĐUÔI EMAIL VÀ WHITELIST
         if (!email.endsWith("@fpt.edu.vn") && !email.endsWith("@fe.edu.vn")) {
@@ -78,7 +80,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             userEntity.setAccountStatus("Active");
             userEntity.setIsDeleted(false);
 
-            userEntity.setCreatedAt(java.time.LocalDateTime.now());
+            userEntity.setCreatedAt(LocalDateTime.now());
             userEntity = userRepository.save(userEntity);
         }
 

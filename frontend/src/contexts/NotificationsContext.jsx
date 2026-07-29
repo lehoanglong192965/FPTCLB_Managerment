@@ -9,20 +9,26 @@ const loadLS = (key, fallback) => {
   catch { return fallback; }
 };
 
+// Ánh xạ đúng theo DTO backend trả về ở GET /notifications/me
+// (MyNotificationResponse: notificationID, clubID, clubName, title,
+//  notificationType, content, createdByFullName, createdAt, isRead,
+//  actionUrl, actionLabel).
+// Trước đây mỗi trường phải thử tới 6 tên khác nhau vì không rõ hợp đồng API —
+// đã đối chiếu DTO nên bỏ hết fallback thừa, chỉ giữ giá trị mặc định cho
+// những trường backend cho phép null.
 function mapNotification(n) {
   return {
-    id:          n.notificationID ?? n.notificationId ?? n.id,
-    type:        (n.type ?? n.notificationType ?? "general").toLowerCase(),
+    id:          n.notificationID,
+    type:        (n.notificationType ?? "general").toLowerCase(),
     title:       n.title ?? "",
-    content:     n.content ?? n.message ?? n.body ?? "",
-    clubId:      n.clubID ?? n.clubId ?? null,
-    clubName:    n.clubName ?? n.fromClub ?? n.senderClubName ?? "Hệ thống",
-    creatorName: n.createdByFullName ?? n.creatorName ?? n.createdByName ??
-                 n.senderFullName ?? n.createdBy?.fullName ?? n.senderName ?? null,
+    content:     n.content ?? "",
+    clubId:      n.clubID ?? null,
+    clubName:    n.clubName ?? "Hệ thống",
+    creatorName: n.createdByFullName ?? null,
     actionUrl:   n.actionUrl ?? null,
     actionLabel: n.actionLabel ?? null,
     createdAt:   n.createdAt ?? new Date().toISOString(),
-    isRead:      n.isRead ?? n.read ?? false,
+    isRead:      n.isRead ?? false,
     source:      "server",
   };
 }

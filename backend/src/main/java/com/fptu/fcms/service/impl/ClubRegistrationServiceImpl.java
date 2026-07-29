@@ -21,6 +21,7 @@ import com.fptu.fcms.repository.DisciplineLogRepository;
 import com.fptu.fcms.repository.SemesterRepository;
 import com.fptu.fcms.repository.SystemRoleRepository;
 import com.fptu.fcms.repository.UserRepository;
+import com.fptu.fcms.security.TokenInvalidationService;
 import com.fptu.fcms.service.ClubRegistrationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -62,6 +63,7 @@ public class ClubRegistrationServiceImpl implements ClubRegistrationService {
     private final SemesterRepository semesterRepository;
     private final SystemRoleRepository systemRoleRepository;
     private final DisciplineLogRepository disciplineLogRepository;
+    private final TokenInvalidationService tokenInvalidationService;
 
     @Override
     @Transactional
@@ -354,6 +356,11 @@ public class ClubRegistrationServiceImpl implements ClubRegistrationService {
             membership.setJoinedDate(LocalDate.now());
             membership.setIsDeleted(false);
             clubMembershipRepository.save(membership);
+
+            if (ROLE_LEADER.equals(candidate.proposedRole())
+                    || ROLE_VICE_LEADER.equals(candidate.proposedRole())) {
+                tokenInvalidationService.invalidateFor(user.getUserID());
+            }
         }
     }
 

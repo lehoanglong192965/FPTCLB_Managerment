@@ -11,13 +11,13 @@ import RichTextView from "../../components/ui/RichTextView";
 import { stripHtml } from "../../utils/sanitizeHtml";
 import FinishEventModal from "../../components/events/FinishEventModal";
 import CloseEventButton from "../../components/events/CloseEventButton";
-import RegistrationMgmtPage from "./RegistrationMgmtPage";
+import RegistrationManagementPage from "./RegistrationManagementPage";
 import AttendanceDashboardPage from "./AttendanceDashboardPage";
 import ReportSubmitPage from "./ReportSubmitPage";
 import ContributionManagementPage from "./ContributionManagementPage";
 import FeedbackSummaryPage from "../feedback/FeedbackSummaryPage";
 
-/* ─── Status config (đồng bộ với ClubEventsMgmt) ─────────────── */
+/* ─── Status config (đồng bộ với ClubEventsManagementPage) ─────────────── */
 const STATUS_DEFS = [
   { keys: ["Draft", "DRAFT"], label: "Bản nháp", color: "#6b7280", bg: "#f3f4f6" },
   { keys: ["Pending", "PENDING", "pending"], label: "Chờ duyệt (cũ)", color: "#d97706", bg: "#fffbeb" },
@@ -861,7 +861,7 @@ export default function EventManageDetailPage() {
 
           {/* RegistrationOpen — danh sách đăng ký hiện ngay tại đây; hành động chính: đóng đăng ký */}
           {status === "REGISTRATIONOPEN" && (<>
-            <RegistrationMgmtPage eventId={ev.eventID} embedded maxParticipants={ev.maxParticipants} />
+            <RegistrationManagementPage eventId={ev.eventID} embedded maxParticipants={ev.maxParticipants} />
             <button disabled={busy} onClick={async () => {
               if (!(await confirm("Bạn có chắc muốn đóng đăng ký? Thành viên sẽ không thể đăng ký thêm.", { danger: true, confirmLabel: "Đóng đăng ký" }))) return;
               runAction(() => eventApi.closeRegistration(ev.eventID), { eventStatus: "RegistrationClosed" }, "Lỗi đóng đăng ký");
@@ -870,7 +870,7 @@ export default function EventManageDetailPage() {
 
           {/* RegistrationClosed — danh sách đăng ký hiện ngay tại đây; hành động chính: bắt đầu sự kiện */}
           {status === "REGISTRATIONCLOSED" && (<>
-            <RegistrationMgmtPage eventId={ev.eventID} embedded maxParticipants={ev.maxParticipants} />
+            <RegistrationManagementPage eventId={ev.eventID} embedded maxParticipants={ev.maxParticipants} />
             <button disabled={busy} onClick={() => runAction(() => eventApi.start(ev.eventID), { eventStatus: "Ongoing" }, "Lỗi bắt đầu sự kiện")} style={btnStyle("#059669", busy)}>Bắt đầu sự kiện</button>
           </>)}
 
@@ -908,7 +908,7 @@ export default function EventManageDetailPage() {
               <ReportSubmitPage eventId={ev.eventID} embedded onSubmitted={() => patchEvent({ eventStatus: "ReportUploaded" })} />
             )}
             {reportSubTab === "registrations" && (
-              <RegistrationMgmtPage eventId={ev.eventID} embedded maxParticipants={ev.maxParticipants} />
+              <RegistrationManagementPage eventId={ev.eventID} embedded maxParticipants={ev.maxParticipants} />
             )}
             {reportSubTab === "feedback" && <FeedbackSummaryPage eventId={ev.eventID} embedded />}
             {reportSubTab === "contribution" && (<>

@@ -14,9 +14,7 @@ public interface OTPVerificationRepository extends JpaRepository<OTPVerification
      */
     Optional<OTPVerification> findFirstByEmailAndIsUsedFalseOrderByCreatedAtDesc(String email);
 
-    /**
-     * Tìm OTP theo email và code
-     */
-    Optional<OTPVerification> findByEmailAndOtpCode(String email, String otpCode);
+    // Cố tình KHÔNG có findByEmailAndOtpCode: tra cứu kèm mã khiến lần đoán sai không khớp
+    // bản ghi nào, nên attempts không tăng và cơ chế khoá brute-force mất tác dụng.
 }
 

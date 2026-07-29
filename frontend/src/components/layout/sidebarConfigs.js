@@ -5,7 +5,6 @@ import {
   BookOpen,
   Settings,
   Users,
-  Home,
   Star,
   Send,
   UserCircle,
@@ -13,7 +12,6 @@ import {
   ShieldAlert,
   Layers,
   UserPlus,
-  Network,
   ClipboardList,
   Trophy,
   Award,
@@ -84,13 +82,6 @@ export const SIDEBAR_CONFIGS = {
     { key: "profile",       label: "Thông Tin Tài Khoản",  icon: UserCircle,      path: "/member/profile" },
   ],
 
-  ALUMNI: [
-    { key: "home",    label: "Bảng Tin Cựu Sinh Viên", icon: Home,       path: "/alumni",         exact: true },
-    { key: "clubs",   label: "Câu Lạc Bộ Cũ",          icon: Star,       path: "/alumni/clubs" },
-    { key: "events",  label: "Sự Kiện",                 icon: Calendar,   path: "/alumni/events" },
-    { key: "network", label: "Mạng Lưới",               icon: Network,    path: "/alumni/network" },
-    { key: "profile", label: "Thông Tin Tài Khoản",     icon: UserCircle, path: "/alumni/profile" },
-  ],
 };
 
 export const ROLE_LABELS = {
@@ -99,7 +90,6 @@ export const ROLE_LABELS = {
   CLUB_LEADER:  "Trưởng CLB",
   VICE_LEADER:  "Phó Trưởng CLB",
   MEMBER:       "Thành Viên",
-  ALUMNI:       "Cựu Sinh Viên",
   GUEST:        "Khách",
 };
 
