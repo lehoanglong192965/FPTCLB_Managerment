@@ -897,6 +897,17 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setUpdatedAt(LocalDateTime.now());
         guestRegistrationRepository.save(registration);
 
+        if (PaymentStatus.REFUND_PENDING.equals(registration.getPaymentStatus())) {
+            sendRefundRecipientRequestAfterCommit(
+                    registration.getGuestEmail(),
+                    registration.getGuestFullName(),
+                    event.getEventName(),
+                    refundAmount(registration),
+                    refundCurrency(registration),
+                    true
+            );
+        }
+
         if (oldStatus != null && RegistrationLifecycle.CONFIRMED_STATUSES.contains(oldStatus)) {
             allocationService.promoteWaitlisted(eventId, event.getMaxParticipants());
         }
@@ -1191,8 +1202,19 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         String holderEmail = ticketHolderEmail(registration);
         String holderName = ticketHolderName(registration);
         if (StringUtils.hasText(holderEmail)) {
-            sendAfterCommit(() -> emailService.sendEventTicketCancellationEmail(
-                    holderEmail, holderName, event.getEventName(), event.getStartDate(), revokedTicketCode));
+            if (privilegedActor && PaymentStatus.REFUND_PENDING.equals(registration.getPaymentStatus())) {
+                sendRefundRecipientRequestAfterCommit(
+                        holderEmail,
+                        holderName,
+                        event.getEventName(),
+                        refundAmount(registration),
+                        refundCurrency(registration),
+                        false
+                );
+            } else {
+                sendAfterCommit(() -> emailService.sendEventTicketCancellationEmail(
+                        holderEmail, holderName, event.getEventName(), event.getStartDate(), revokedTicketCode));
+            }
         }
     }
 
@@ -1207,6 +1229,34 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 emailAction.run();
             }
         });
+    }
+
+    private void sendRefundRecipientRequestAfterCommit(
+            String email,
+            String recipientName,
+            String eventName,
+            BigDecimal amount,
+            String currency,
+            boolean guest
+    ) {
+        if (!StringUtils.hasText(email)) {
+            return;
+        }
+        String recipient = StringUtils.hasText(recipientName) ? recipientName.trim() : "bạn";
+        String nextStep = guest
+                ? "Hãy mở trang tra cứu đăng ký khách và chọn mục cung cấp thông tin nhận hoàn."
+                : "Hãy đăng nhập FCMS, vào mục Vé của tôi và chọn cung cấp thông tin nhận hoàn.";
+        String content = "Xin chào " + recipient + ",\n\n"
+                + "Ban tổ chức đã hủy đăng ký sự kiện \"" + eventName + "\" của bạn. "
+                + "Khoản hoàn dự kiến là " + amount + " " + currency + ".\n\n"
+                + nextStep + " Vui lòng bổ sung tên ngân hàng, số tài khoản và tên chủ tài khoản "
+                + "để ban tổ chức có thể hoàn tiền cho bạn.\n\n"
+                + "Trân trọng,\nFPTU Club Management System";
+        sendAfterCommit(() -> emailService.sendSimpleEmail(
+                email,
+                "Yêu cầu bổ sung thông tin nhận hoàn tiền",
+                content
+        ));
     }
 
     private boolean isSelfCancellationWindowClosed(Event event) {
