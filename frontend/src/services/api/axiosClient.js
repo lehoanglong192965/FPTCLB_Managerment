@@ -260,6 +260,19 @@ const MAX_RETRY       = 3;
 const RETRY_BASE_DELAY = 600;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Claim `iat` trong JWT chỉ có độ phân giải giây, còn `tokenInvalidatedAt` ở BE
+// là DATETIME2 có phần lẻ giây → token mới cấp ngay sau khi quyền đổi vẫn có thể
+// bị AccountStatusFilter từ chối lần 2 (iat bị làm tròn xuống cùng giây với lúc
+// đổi quyền). Nhận diện đúng thông báo này để chờ hết phần lẻ giây rồi refresh
+// lại thêm một lần, thay vì đá thẳng người dùng về /login.
+const PERMISSION_CHANGED_MESSAGE = "Quyền của bạn đã thay đổi";
+const PERMISSION_RETRY_DELAY = 1200;
+
+function isPermissionChangedError(error) {
+  return typeof error.response?.data?.message === "string"
+      && error.response.data.message.includes(PERMISSION_CHANGED_MESSAGE);
+}
+
 axiosClient.interceptors.response.use(
   (response) => {
     removePending(response.config);
@@ -295,6 +308,19 @@ axiosClient.interceptors.response.use(
           // Không cần tự gắn header: request interceptor luôn đọc lại token mới
           // nhất từ TokenService (đã được refreshAccessTokenOnce cập nhật).
           if (isDev) console.info("[API] 🔄 Access token đã được làm mới — chạy lại request");
+          return axiosClient(originalConfig);
+        }
+      }
+
+      // Refresh lần đầu vẫn bị 401 vì "quyền đã thay đổi": khả năng cao token mới
+      // vừa cấp mang iat bị làm tròn trùng giây với tokenInvalidatedAt. Chờ hết
+      // phần lẻ giây rồi refresh lại thêm một lần trước khi coi là mất phiên thật.
+      if (!originalConfig._permissionRetried && isPermissionChangedError(error)) {
+        originalConfig._permissionRetried = true;
+        if (isDev) console.info(`[API] ⏳ Quyền vừa đổi — chờ ${PERMISSION_RETRY_DELAY}ms rồi refresh lại`);
+        await sleep(PERMISSION_RETRY_DELAY);
+        const retriedAccessToken = await refreshAccessTokenOnce();
+        if (retriedAccessToken) {
           return axiosClient(originalConfig);
         }
       }
