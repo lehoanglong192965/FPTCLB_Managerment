@@ -175,16 +175,21 @@ public class AuthServiceImpl implements AuthService {
         }
 
         Optional<UserAccount> existingUser = userRepository.findByEmailAndIsDeletedFalse(email);
-        if (existingUser.isPresent()) {
+        if (existingUser.isPresent() && !"PENDING".equalsIgnoreCase(existingUser.get().getAccountStatus())) {
             throw new IllegalStateException("Email này đã được đăng ký trong hệ thống!");
         }
 
         String studentId = normalizeStudentId(request.getStudentId());
-        if (StringUtils.hasText(studentId) && userRepository.existsByStudentIdIgnoreCaseAndIsDeletedFalse(studentId)) {
-            throw new IllegalStateException("MSSV này đã được đăng ký trong hệ thống!");
+        if (StringUtils.hasText(studentId)) {
+            Optional<UserAccount> studentIdOwner = userRepository.findByStudentIdIgnoreCaseAndIsDeletedFalse(studentId);
+            // MSSV chỉ bị coi là trùng khi thuộc về một email khác
+            if (studentIdOwner.isPresent() && !studentIdOwner.get().getEmail().equalsIgnoreCase(email)) {
+                throw new IllegalStateException("MSSV này đã được đăng ký trong hệ thống!");
+            }
         }
 
-        UserAccount newUser = new UserAccount();
+        // Email đã có nhưng chưa xác thực OTP: ghi đè thông tin đăng ký mới lên bản PENDING cũ
+        UserAccount newUser = existingUser.orElseGet(UserAccount::new);
         newUser.setEmail(email);
 
         String hashedPassword = passwordEncoder.encode(request.getPassword());
@@ -204,7 +209,7 @@ public class AuthServiceImpl implements AuthService {
 
         // Tạo mã OTP và gửi qua email
         otpService.generateAndSendOTP(email);
-        System.out.println("OTP : "+ otpService);
+        System.out.println("Otp code: " + otpService);
     }
 
     private String normalizeStudentId(String studentId) {
@@ -242,7 +247,7 @@ public class AuthServiceImpl implements AuthService {
         // Gửi email thông báo kích hoạt tài khoản thành công
         emailService.sendAccountActivationEmail(email, user.getFullName());
 
-
+        System.out.println("OTP : " + otpCode);
     }
 
     @Override
