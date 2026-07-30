@@ -150,6 +150,16 @@ function resolveClubId() {
   } catch { return null; }
 }
 
+// LocalDateTime từ backend ("2026-08-14T15:35:00") -> giá trị cho <input type="datetime-local">.
+const toInputDateTime = (value) => (value || "").slice(0, 16);
+
+// Mốc "bây giờ" theo giờ địa phương, dùng cho thuộc tính min của bộ chọn ngày giờ.
+// toISOString() trả giờ UTC nên phải bù offset.
+const nowInputDateTime = () => {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};
+
 function normalizeEvent(ev) {
   return {
     eventID: ev.eventID ?? ev.id ?? null,
@@ -165,6 +175,11 @@ function normalizeEvent(ev) {
     description: ev.description ?? "",
     maxParticipants: ev.maxParticipants ?? null,
     budget: ev.budget ?? null,
+    // Bắt buộc phải giữ lại: trang đọc `ev.registrationOpenAt/CloseAt` để hiển thị khung giờ
+    // đăng ký và để đổ ngược vào form khi bấm Sửa. Thiếu ở đây thì dữ liệu đã lưu trong DB
+    // vẫn hiện "Chưa có" và form sửa luôn trống.
+    registrationOpenAt: ev.registrationOpenAt ?? null,
+    registrationCloseAt: ev.registrationCloseAt ?? null,
     isPaidEvent: ev.isPaidEvent === true,
     ticketPrice: ev.ticketPrice ?? null,
     ticketCurrency: ev.ticketCurrency || "VND",
@@ -359,8 +374,8 @@ export default function EventManageDetailPage() {
       ticketCurrency: ev.ticketCurrency || "VND",
       isInternal: ev.isInternal === true,
       requiresManualApproval: ev.requiresManualApproval === true,
-      registrationOpenAt: (ev.registrationOpenAt || "").slice(0, 16),
-      registrationCloseAt: (ev.registrationCloseAt || "").slice(0, 16),
+      registrationOpenAt: toInputDateTime(ev.registrationOpenAt),
+      registrationCloseAt: toInputDateTime(ev.registrationCloseAt),
       bannerFile: null,
     });
     setIsEditing(true);
@@ -403,6 +418,22 @@ export default function EventManageDetailPage() {
       }
       if (new Date(registrationCloseAt) <= new Date(registrationOpenAt)) {
         toast.error("Thời gian đóng đăng ký phải sau thời gian mở đăng ký.");
+        setSaving(false);
+        return;
+      }
+      // Chỉ chặn khi mốc thực sự bị đổi sang quá khứ — sự kiện đã mở/đóng đăng ký rồi thì
+      // mốc cũ nằm ở quá khứ là bình thường, không được chặn việc sửa các trường khác.
+      const nowMs = Date.now();
+      if (editForm.registrationOpenAt !== toInputDateTime(ev.registrationOpenAt)
+          && new Date(registrationOpenAt).getTime() < nowMs) {
+        toast.error("Thời gian mở đăng ký mới phải ở tương lai.");
+        setSaving(false);
+        return;
+      }
+      if (editForm.registrationCloseAt !== toInputDateTime(ev.registrationCloseAt)
+          && new Date(registrationCloseAt).getTime() < nowMs) {
+        toast.error("Thời gian đóng đăng ký mới phải ở tương lai. Muốn dừng nhận đăng ký ngay "
+          + "thì dùng chức năng \"Đóng đăng ký\".");
         setSaving(false);
         return;
       }
@@ -829,13 +860,17 @@ export default function EventManageDetailPage() {
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>Mở đăng ký</label>
                   {isEditing ? (
-                    <input type="datetime-local" value={editForm.registrationOpenAt} onChange={(e) => setEditForm((f) => ({ ...f, registrationOpenAt: e.target.value }))} style={accentInputStyle} />
+                    <input type="datetime-local"
+                      min={editForm.registrationOpenAt === toInputDateTime(ev.registrationOpenAt) ? undefined : nowInputDateTime()}
+                      value={editForm.registrationOpenAt} onChange={(e) => setEditForm((f) => ({ ...f, registrationOpenAt: e.target.value }))} style={accentInputStyle} />
                   ) : <ReadBox value={regOpenStr || null} />}
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>Đóng đăng ký</label>
                   {isEditing ? (
-                    <input type="datetime-local" value={editForm.registrationCloseAt} onChange={(e) => setEditForm((f) => ({ ...f, registrationCloseAt: e.target.value }))} style={accentInputStyle} />
+                    <input type="datetime-local"
+                      min={editForm.registrationCloseAt === toInputDateTime(ev.registrationCloseAt) ? undefined : nowInputDateTime()}
+                      value={editForm.registrationCloseAt} onChange={(e) => setEditForm((f) => ({ ...f, registrationCloseAt: e.target.value }))} style={accentInputStyle} />
                   ) : <ReadBox value={regCloseStr || null} />}
                 </div>
               </div>

@@ -1098,11 +1098,20 @@ public class EventServiceImpl implements EventService {
                 throw new IllegalArgumentException(
                         "Thời gian đóng đăng ký phải trước hoặc bằng giờ bắt đầu sự kiện.");
             }
-            // Sửa mốc đóng chỉ mang nghĩa lên lịch, mà lịch thì không đặt vào quá khứ. Chỉ chặn khi
-            // giá trị thực sự đổi, để vẫn sửa được các trường khác trên sự kiện đã đóng đăng ký.
+            // Sửa mốc mở/đóng chỉ mang nghĩa lên lịch, mà lịch thì không đặt vào quá khứ. Chỉ chặn khi
+            // giá trị thực sự đổi, để vẫn sửa được các trường khác trên sự kiện đã mở/đóng đăng ký.
+            // So khớp ở mức phút: mốc do hệ thống ghi (mở/đóng đăng ký) mang cả giây và nano,
+            // trong khi FE chỉ gửi lại tới phút — so bằng equals() sẽ hiểu nhầm là "có sửa"
+            // và chặn oan mọi lần lưu trên sự kiện đã mở đăng ký.
+            LocalDateTime now = LocalDateTime.now();
+            boolean openAtChanged = request.getRegistrationOpenAt() != null
+                    && !sameMinute(request.getRegistrationOpenAt(), event.getRegistrationOpenAt());
+            if (openAtChanged && mergedOpenAt.isBefore(now)) {
+                throw new IllegalArgumentException("Thời gian mở đăng ký mới phải ở tương lai.");
+            }
             boolean closeAtChanged = request.getRegistrationCloseAt() != null
-                    && !request.getRegistrationCloseAt().equals(event.getRegistrationCloseAt());
-            if (closeAtChanged && mergedCloseAt.isBefore(LocalDateTime.now())) {
+                    && !sameMinute(request.getRegistrationCloseAt(), event.getRegistrationCloseAt());
+            if (closeAtChanged && mergedCloseAt.isBefore(now)) {
                 throw new IllegalArgumentException(
                         "Thời gian đóng đăng ký mới phải ở tương lai. Muốn dừng nhận đăng ký ngay "
                                 + "thì dùng chức năng \"Đóng đăng ký\".");
@@ -1314,6 +1323,15 @@ public class EventServiceImpl implements EventService {
         } else if (request.getTicketPrice() != null && request.getTicketPrice().compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("ticketPrice cannot be negative.");
         }
+        // Đề xuất mới thì khung đăng ký chỉ mang nghĩa lên lịch — đặt vào quá khứ sẽ tạo ra
+        // sự kiện vừa sinh ra đã hết hạn đăng ký.
+        LocalDateTime now = LocalDateTime.now();
+        if (request.getRegistrationOpenAt() != null && request.getRegistrationOpenAt().isBefore(now)) {
+            throw new IllegalArgumentException("Thời gian mở đăng ký phải ở thời điểm trong tương lai.");
+        }
+        if (request.getRegistrationCloseAt() != null && request.getRegistrationCloseAt().isBefore(now)) {
+            throw new IllegalArgumentException("Thời gian đóng đăng ký phải ở thời điểm trong tương lai.");
+        }
         validateEventWindows(request.getRegistrationOpenAt(), request.getRegistrationCloseAt(),
                 request.getCheckInOpenAt(), request.getCheckInCloseAt(), request.getStartDate(), request.getEndDate());
     }
@@ -1354,6 +1372,13 @@ public class EventServiceImpl implements EventService {
         }
         validateEventWindows(event.getRegistrationOpenAt(), event.getRegistrationCloseAt(),
                 event.getCheckInOpenAt(), event.getCheckInCloseAt(), event.getStartDate(), event.getEndDate());
+    }
+
+    private boolean sameMinute(LocalDateTime left, LocalDateTime right) {
+        if (left == null || right == null) {
+            return left == right;
+        }
+        return left.truncatedTo(ChronoUnit.MINUTES).equals(right.truncatedTo(ChronoUnit.MINUTES));
     }
 
     private void validateEventWindows(LocalDateTime registrationOpenAt, LocalDateTime registrationCloseAt,
