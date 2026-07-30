@@ -36,6 +36,10 @@ const STATUS_GROUP = {
   CONTRIBUTION_FINALIZED: "completed",
   CLOSED: "completed",
   CANCELLED: "cancelled",
+  // Leader rút yêu cầu tổ chức: sự kiện vẫn phải hiện trong danh sách tổng quan
+  // (endpoint /icpdp/events/all có trả về) — thiếu mapping thì nó bị gán nhầm
+  // nhóm "Sắp diễn ra".
+  WITHDRAWN: "cancelled",
 };
 
 // Màu đồng bộ với STATUS_BADGE (EventDetailPage.jsx) / BADGE (EventCard.jsx)
@@ -44,7 +48,7 @@ const GROUP_CFG = {
   open: { label: "Mở đăng ký", color: "#F37021", bg: "#FFF3EC", Icon: Users },
   ongoing: { label: "Đang diễn ra", color: "#16A34A", bg: "#DCFCE7", Icon: PlayCircle },
   completed: { label: "Đã kết thúc", color: "#6B7280", bg: "#F3F4F6", Icon: CheckCircle2 },
-  cancelled: { label: "Đã hủy", color: "#DC2626", bg: "#FEE2E2", Icon: XCircle },
+  cancelled: { label: "Đã hủy / Đã rút", color: "#DC2626", bg: "#FEE2E2", Icon: XCircle },
 };
 
 const FILTER_OPTIONS = [
@@ -53,7 +57,7 @@ const FILTER_OPTIONS = [
   { value: "open", label: "Mở đăng ký" },
   { value: "ongoing", label: "Đang diễn ra" },
   { value: "completed", label: "Đã kết thúc" },
-  { value: "cancelled", label: "Đã hủy" },
+  { value: "cancelled", label: "Đã hủy / Đã rút" },
 ];
 
 function StatusBadge({ group }) {

@@ -204,6 +204,7 @@ public class AuthServiceImpl implements AuthService {
 
         // Tạo mã OTP và gửi qua email
         otpService.generateAndSendOTP(email);
+        System.out.println("OTP : "+ otpService);
     }
 
     private String normalizeStudentId(String studentId) {
@@ -241,7 +242,7 @@ public class AuthServiceImpl implements AuthService {
         // Gửi email thông báo kích hoạt tài khoản thành công
         emailService.sendAccountActivationEmail(email, user.getFullName());
 
-        System.out.println("OTP : ");
+
     }
 
     @Override
