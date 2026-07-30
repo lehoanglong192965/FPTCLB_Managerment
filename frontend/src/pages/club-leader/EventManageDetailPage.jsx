@@ -265,6 +265,7 @@ export default function EventManageDetailPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [finishOpen, setFinishOpen] = useState(false);
+  const [reopenCloseAt, setReopenCloseAt] = useState("");
 
   // Chặn mọi điều hướng (back, sidebar, đổi URL...) trong lúc đang sửa mà chưa lưu.
   const blocker = useBlocker(({ currentLocation, nextLocation }) => isEditing && currentLocation.pathname !== nextLocation.pathname);
@@ -358,6 +359,8 @@ export default function EventManageDetailPage() {
       ticketCurrency: ev.ticketCurrency || "VND",
       isInternal: ev.isInternal === true,
       requiresManualApproval: ev.requiresManualApproval === true,
+      registrationOpenAt: (ev.registrationOpenAt || "").slice(0, 16),
+      registrationCloseAt: (ev.registrationCloseAt || "").slice(0, 16),
       bannerFile: null,
     });
     setIsEditing(true);
@@ -378,8 +381,33 @@ export default function EventManageDetailPage() {
         setSaving(false);
         return;
       }
+      if (isFullEdit && editForm.isPaidEvent && !Number.isInteger(Number(editForm.ticketPrice))) {
+        toast.error("Giá vé phải là số tiền chẵn, không có phần thập phân.");
+        setSaving(false);
+        return;
+      }
       if (isFullEdit && stripHtml(editForm.description).length > 1000) {
         toast.error("Mô tả sự kiện không được vượt quá 1.000 ký tự.");
+        setSaving(false);
+        return;
+      }
+      // Khung giờ đăng ký bắt buộc và sửa được ở cả hai chế độ — backend dùng thời gian đóng
+      // đăng ký làm mốc tính hoàn tiền.
+      const registrationOpenAt = editForm.registrationOpenAt ? `${editForm.registrationOpenAt}:00` : null;
+      const registrationCloseAt = editForm.registrationCloseAt ? `${editForm.registrationCloseAt}:00` : null;
+      const effectiveStartDate = startDate || ev.startDate;
+      if (!registrationOpenAt || !registrationCloseAt) {
+        toast.error("Vui lòng nhập thời gian mở và thời gian đóng đăng ký sự kiện.");
+        setSaving(false);
+        return;
+      }
+      if (new Date(registrationCloseAt) <= new Date(registrationOpenAt)) {
+        toast.error("Thời gian đóng đăng ký phải sau thời gian mở đăng ký.");
+        setSaving(false);
+        return;
+      }
+      if (effectiveStartDate && new Date(registrationCloseAt) > new Date(effectiveStartDate)) {
+        toast.error("Thời gian đóng đăng ký phải trước hoặc bằng giờ bắt đầu sự kiện.");
         setSaving(false);
         return;
       }
@@ -395,6 +423,8 @@ export default function EventManageDetailPage() {
         longitude: typeof editForm.longitude === "number" ? editForm.longitude : undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
+        registrationOpenAt: registrationOpenAt || undefined,
+        registrationCloseAt: registrationCloseAt || undefined,
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : undefined,
         budget: editForm.budget ? Number(editForm.budget) : undefined,
         isPaidEvent: editForm.isPaidEvent === true,
@@ -408,6 +438,8 @@ export default function EventManageDetailPage() {
         ],
       } : {
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : undefined,
+        registrationOpenAt,
+        registrationCloseAt,
       };
       await eventApi.update(ev.eventID, payload);
 
@@ -432,6 +464,8 @@ export default function EventManageDetailPage() {
         longitude: editForm.longitude,
         startDate: startDate || ev.startDate,
         endDate: endDate || ev.endDate,
+        registrationOpenAt,
+        registrationCloseAt,
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : ev.maxParticipants,
         budget: editForm.budget ? Number(editForm.budget) : ev.budget,
         isPaidEvent: editForm.isPaidEvent === true,
@@ -443,6 +477,8 @@ export default function EventManageDetailPage() {
         bannerPublicId: newBannerPublicId,
       } : {
         maxParticipants: editForm.maxParticipants ? parseInt(editForm.maxParticipants) : ev.maxParticipants,
+        registrationOpenAt,
+        registrationCloseAt,
       });
       setIsEditing(false);
       toast.success("Đã lưu thay đổi.");
@@ -505,6 +541,32 @@ export default function EventManageDetailPage() {
     }
   };
 
+  // Mở lại đăng ký sau khi đã đóng: bắt buộc chọn mốc đóng mới ở tương lai, nếu không
+  // RegistrationCloseScheduler sẽ đóng lại ngay lượt chạy kế tiếp (mỗi 5 phút).
+  const handleReopenRegistration = async () => {
+    if (!reopenCloseAt) {
+      toast.error("Vui lòng chọn thời gian đóng đăng ký mới.");
+      return;
+    }
+    const newCloseAt = new Date(reopenCloseAt);
+    if (newCloseAt <= new Date()) {
+      toast.error("Thời gian đóng đăng ký mới phải ở tương lai.");
+      return;
+    }
+    if (ev.startDate && newCloseAt > new Date(ev.startDate)) {
+      toast.error("Thời gian đóng đăng ký phải trước hoặc bằng giờ bắt đầu sự kiện.");
+      return;
+    }
+    if (!(await confirm("Mở lại đăng ký cho sự kiện này? Thành viên sẽ đăng ký tham gia được trở lại.", { confirmLabel: "Mở lại đăng ký" }))) return;
+    const payload = { registrationCloseAt: `${reopenCloseAt}:00` };
+    await runAction(
+      () => eventApi.reopenRegistration(ev.eventID, payload),
+      { eventStatus: "RegistrationOpen", registrationCloseAt: payload.registrationCloseAt },
+      "Lỗi mở lại đăng ký",
+    );
+    setReopenCloseAt("");
+  };
+
   const handleSubmitProposal = async () => {
     if (!(await confirm(`Gửi đề xuất sự kiện "${ev.eventName}" để ICPDP duyệt?`, { confirmLabel: "Gửi đề xuất" }))) return;
     setBusy(true);
@@ -548,6 +610,9 @@ export default function EventManageDetailPage() {
   const isFullEdit = ["DRAFT", "REJECTED"].includes(status);
   const isLimitedEdit = ["APPROVED", "UPCOMING", "REGISTRATIONOPEN", "REGISTRATIONCLOSED"].includes(status);
   const canEdit = isFullEdit || isLimitedEdit;
+  // Chỉ mở lại đăng ký được khi sự kiện chưa tới giờ bắt đầu.
+  const canReopenRegistration = status === "REGISTRATIONCLOSED"
+    && (!ev.startDate || new Date(ev.startDate).getTime() > clockNow);
   const blockedUntilMs = ev.submissionBlockedUntil ? new Date(ev.submissionBlockedUntil).getTime() : 0;
   const isSubmitBlocked = blockedUntilMs > clockNow;
   const blockedUntilLabel = isSubmitBlocked
@@ -557,6 +622,11 @@ export default function EventManageDetailPage() {
   const dateStr = ev.startDate ? new Date(ev.startDate).toLocaleDateString("vi-VN", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "Chưa xác định";
   const timeStr = ev.startDate ? new Date(ev.startDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "";
   const endTimeStr = ev.endDate ? new Date(ev.endDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "";
+  const fmtWindow = (value) => (value
+    ? new Date(value).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "");
+  const regOpenStr = fmtWindow(ev.registrationOpenAt);
+  const regCloseStr = fmtWindow(ev.registrationCloseAt);
   return (
     <div>
       <div className="page-header" style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -755,6 +825,25 @@ export default function EventManageDetailPage() {
                   ) : <ReadBox value={endTimeStr || null} />}
                 </div>
               </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Mở đăng ký</label>
+                  {isEditing ? (
+                    <input type="datetime-local" value={editForm.registrationOpenAt} onChange={(e) => setEditForm((f) => ({ ...f, registrationOpenAt: e.target.value }))} style={accentInputStyle} />
+                  ) : <ReadBox value={regOpenStr || null} />}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Đóng đăng ký</label>
+                  {isEditing ? (
+                    <input type="datetime-local" value={editForm.registrationCloseAt} onChange={(e) => setEditForm((f) => ({ ...f, registrationCloseAt: e.target.value }))} style={accentInputStyle} />
+                  ) : <ReadBox value={regCloseStr || null} />}
+                </div>
+              </div>
+              {ev.isPaidEvent && (
+                <p style={{ margin: 0, fontSize: 12, color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "8px 12px", lineHeight: 1.6 }}>
+                  Huỷ vé <strong>trong lúc còn mở đăng ký</strong> được hoàn <strong>100%</strong>; huỷ sau khi đã đóng thì áp bậc thang theo giờ bắt đầu sự kiện.
+                </p>
+              )}
             </div>
 
             {/* Cột phải: Địa điểm (phần dưới để trống, cập nhật sau) */}
@@ -811,7 +900,7 @@ export default function EventManageDetailPage() {
             <p style={{ margin: "0 0 8px", fontSize: 12, color: "#9ca3af" }}>Không thể chỉnh sửa thông tin ở trạng thái hiện tại.</p>
           )}
           {isLimitedEdit && !isEditing && (
-            <p style={{ margin: "0 0 8px", fontSize: 12, color: "#9ca3af" }}>Sự kiện đã được duyệt — chỉ có thể chỉnh sửa số người tham gia tối đa.</p>
+            <p style={{ margin: "0 0 8px", fontSize: 12, color: "#9ca3af" }}>Sự kiện đã được duyệt — chỉ có thể chỉnh sửa số người tham gia tối đa và khung giờ đăng ký.</p>
           )}
           {canEdit && !isEditing && (
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
@@ -871,6 +960,27 @@ export default function EventManageDetailPage() {
           {/* RegistrationClosed — danh sách đăng ký hiện ngay tại đây; hành động chính: bắt đầu sự kiện */}
           {status === "REGISTRATIONCLOSED" && (<>
             <RegistrationManagementPage eventId={ev.eventID} embedded maxParticipants={ev.maxParticipants} />
+            {canReopenRegistration && (
+              <div style={{ padding: "14px 16px", borderRadius: 10, background: "#ecfeff", border: "1.5px solid #a5f3fc" }}>
+                <p style={{ margin: "0 0 4px", fontSize: 13.5, color: "#0e7490", fontWeight: 600 }}>Mở lại đăng ký</p>
+                <p style={{ margin: "0 0 10px", fontSize: 12.5, color: "#0e7490", lineHeight: 1.6 }}>
+                  Chọn thời gian đóng đăng ký mới (phải ở tương lai và không vượt quá giờ bắt đầu sự kiện).
+                  Từ lúc mở lại, người huỷ vé được hoàn 100%; những người đã huỷ trước đó giữ nguyên mức đã chốt.
+                </p>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <input
+                    type="datetime-local"
+                    value={reopenCloseAt}
+                    max={ev.startDate ? String(ev.startDate).slice(0, 16) : undefined}
+                    onChange={(e) => setReopenCloseAt(e.target.value)}
+                    style={{ ...accentInputStyle, flex: "1 1 220px", width: "auto" }}
+                  />
+                  <button disabled={busy} onClick={handleReopenRegistration} style={{ ...btnStyle("#0891b2", busy), width: "auto", padding: "0 20px" }}>
+                    Mở lại đăng ký
+                  </button>
+                </div>
+              </div>
+            )}
             <button disabled={busy} onClick={() => runAction(() => eventApi.start(ev.eventID), { eventStatus: "Ongoing" }, "Lỗi bắt đầu sự kiện")} style={btnStyle("#059669", busy)}>Bắt đầu sự kiện</button>
           </>)}
 

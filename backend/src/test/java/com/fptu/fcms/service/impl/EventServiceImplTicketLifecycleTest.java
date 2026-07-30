@@ -87,7 +87,7 @@ class EventServiceImplTicketLifecycleTest {
         assertEquals(PaymentStatus.REFUND_PENDING, activeTicket.getPaymentStatus());
         assertEquals(new BigDecimal("100.00"), activeTicket.getRefundRate());
         assertEquals(new BigDecimal("75000.00"), activeTicket.getRefundAmount());
-        assertEquals("TIME_BASED_REFUND_V1:ORGANIZER_CANCELLED_100", activeTicket.getRefundPolicySnapshot());
+        assertEquals("TIME_BASED_REFUND_V2:ORGANIZER_CANCELLED_100", activeTicket.getRefundPolicySnapshot());
         assertNotNull(activeTicket.getRefundRequestedAt());
         assertNull(withoutTicket.getTicketRevokedAt());
         assertEquals(alreadyRevokedAt, alreadyRevoked.getTicketRevokedAt());

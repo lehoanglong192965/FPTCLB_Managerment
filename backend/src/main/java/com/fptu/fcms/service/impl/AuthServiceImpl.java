@@ -240,6 +240,8 @@ public class AuthServiceImpl implements AuthService {
 
         // Gửi email thông báo kích hoạt tài khoản thành công
         emailService.sendAccountActivationEmail(email, user.getFullName());
+
+        System.out.println("OTP : ");
     }
 
     @Override

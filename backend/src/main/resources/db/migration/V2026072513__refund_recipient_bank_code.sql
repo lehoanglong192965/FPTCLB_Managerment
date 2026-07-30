@@ -1,10 +1,6 @@
-IF COL_LENGTH(N'dbo.EventRegistration', N'refundBankCode') IS NULL
-BEGIN
-    ALTER TABLE dbo.EventRegistration ADD refundBankCode VARCHAR(20) NULL;
-END;
+ALTER TABLE EventRegistration
+    ADD refundBankCode VARCHAR(20) NULL;
 
-IF COL_LENGTH(N'dbo.GuestEventRegistration', N'refundBankCode') IS NULL
-BEGIN
-    ALTER TABLE dbo.GuestEventRegistration ADD refundBankCode VARCHAR(20) NULL;
-END;
+ALTER TABLE GuestEventRegistration
+    ADD refundBankCode VARCHAR(20) NULL;
 

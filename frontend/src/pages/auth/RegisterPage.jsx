@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import authService from "../../services/api/auth/authService";
 import { getServerOrigin } from "../../services/api/axiosClient";
+import PasswordRuleHint from "../../components/auth/PasswordRuleHint";
+import { isPasswordValid, WEAK_PASSWORD_ERROR } from "../../utils/passwordRules";
 
 function GoogleIcon() {
   return (
@@ -69,7 +71,27 @@ export default function RegisterPage() {
       }
       return next;
     });
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (next[name]) next[name] = "";
+      // Hai ô mật khẩu phụ thuộc lẫn nhau: sửa ô nào mà thành khớp thì xoá lỗi
+      // "không khớp" ngay, không bắt người dùng chờ tới lúc blur/submit.
+      const pairMatched = name === "password"
+        ? nextValue === form.confirmPassword
+        : name === "confirmPassword" && nextValue === form.password;
+      if (pairMatched) next.confirmPassword = "";
+      return next;
+    });
+  };
+
+  // Báo lỗi ngay khi rời ô thay vì đợi submit — riêng 2 ô mật khẩu, vì đây là
+  // chỗ người dùng dễ gõ sai mà không hay biết cho tới lúc bấm nút.
+  const handleBlur = (e) => {
+    const { name } = e.target;
+    if (name === "password" && form.password && !isPasswordValid(form.password))
+      setErrors((prev) => ({ ...prev, password: WEAK_PASSWORD_ERROR }));
+    if (name === "confirmPassword" && form.confirmPassword && form.password !== form.confirmPassword)
+      setErrors((prev) => ({ ...prev, confirmPassword: "Mật khẩu xác nhận không khớp." }));
   };
 
   const STUDENT_ID_REGEX = /^(SE|IA|AI|BA|EN|JP|KR|GD|MC|HM|HT|AR)\d{6}$/;
@@ -80,8 +102,8 @@ export default function RegisterPage() {
       errs.username = "Vui lòng nhập tên đăng nhập.";
     if (!form.password)
       errs.password = "Vui lòng nhập mật khẩu.";
-    else if (form.password.length < 8)
-      errs.password = "Mật khẩu phải có ít nhất 8 ký tự.";
+    else if (!isPasswordValid(form.password))
+      errs.password = WEAK_PASSWORD_ERROR;
     if (!form.confirmPassword)
       errs.confirmPassword = "Vui lòng xác nhận mật khẩu.";
     else if (form.password !== form.confirmPassword)
@@ -142,7 +164,11 @@ export default function RegisterPage() {
     }
   };
 
-  const inputBase = "w-full px-3 py-[9px] border-0 border-b-[1.5px] border-b-[#E4E4E4] bg-transparent text-[14px] text-[#1A1A1A] outline-none transition-colors duration-150 box-border placeholder-[#ABABAB] focus:border-b-[#F37021] disabled:opacity-60 disabled:cursor-not-allowed";
+  const inputBase = "w-full px-3 py-[9px] border-0 border-b-[1.5px] bg-transparent text-[14px] text-[#1A1A1A] outline-none transition-colors duration-150 box-border placeholder-[#ABABAB] disabled:opacity-60 disabled:cursor-not-allowed";
+
+  // Ô nào đang có lỗi thì gạch chân đỏ, giữ đỏ cả khi focus để không "mất dấu" lỗi.
+  const inputCls = (hasError) =>
+    `${inputBase} ${hasError ? "border-b-[#D0453A] focus:border-b-[#D0453A]" : "border-b-[#E4E4E4] focus:border-b-[#F37021]"}`;
 
   return (
     <div className="min-h-screen pt-[68px] bg-[#F2F2F2] flex flex-col font-['Be_Vietnam_Pro',sans-serif]">
@@ -172,7 +198,7 @@ export default function RegisterPage() {
                 Họ và tên <span className="text-[#F37021]">*</span>
               </label>
               <input
-                className={inputBase}
+                className={inputCls(!!errors.username)}
                 type="text"
                 name="username"
                 placeholder="Nhập họ và tên"
@@ -193,7 +219,7 @@ export default function RegisterPage() {
                 Email <span className="text-[#F37021]">*</span>
               </label>
               <input
-                className={inputBase}
+                className={inputCls(!!errors.email)}
                 type="email"
                 name="email"
                 placeholder="example@fpt.edu.vn"
@@ -215,12 +241,13 @@ export default function RegisterPage() {
               </label>
               <div className="relative w-full">
                 <input
-                  className={inputBase + " pr-[38px]"}
+                  className={inputCls(!!errors.password) + " pr-[38px]"}
                   type={showPass ? "text" : "password"}
                   name="password"
-                  placeholder="Tối thiểu 8 ký tự"
+                  placeholder="Nhập mật khẩu"
                   value={form.password}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   disabled={loading}
                   autoComplete="new-password"
                 />
@@ -233,11 +260,12 @@ export default function RegisterPage() {
                   {showPass ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </div>
-              {errors.password && (
+              {errors.password && errors.password !== WEAK_PASSWORD_ERROR && (
                 <p className="text-[12px] text-[#D0453A] mt-[3px] px-[10px] py-[6px] bg-[#FDF2F2] rounded-[5px] border-l-[3px] border-l-[#D0453A]">
                   {errors.password}
                 </p>
               )}
+              <PasswordRuleHint value={form.password} invalid={!!errors.password} className="mt-[6px]" />
             </div>
 
             <div className="flex flex-col pb-2">
@@ -246,12 +274,13 @@ export default function RegisterPage() {
               </label>
               <div className="relative w-full">
                 <input
-                  className={inputBase + " pr-[38px]"}
+                  className={inputCls(!!errors.confirmPassword) + " pr-[38px]"}
                   type={showConfirm ? "text" : "password"}
                   name="confirmPassword"
                   placeholder="Nhập lại mật khẩu"
                   value={form.confirmPassword}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   disabled={loading}
                   autoComplete="new-password"
                 />
@@ -277,7 +306,7 @@ export default function RegisterPage() {
                   Mã sinh viên <span className="text-[#F37021]">*</span>
                 </label>
                 <input
-                  className={inputBase}
+                  className={inputCls(!!errors.studentId)}
                   type="text"
                   name="studentId"
                   placeholder="SE123456"
@@ -297,7 +326,9 @@ export default function RegisterPage() {
                   Chuyên ngành <span className="text-[#F37021]">*</span>
                 </label>
                 <select
-                  className="w-full py-[9px] pl-3 pr-7 border-0 border-b-[1.5px] border-b-[#E4E4E4] bg-transparent text-[14px] text-[#1A1A1A] outline-none cursor-pointer appearance-none box-border transition-colors duration-150 focus:border-b-[#F37021] disabled:opacity-60 disabled:cursor-not-allowed"
+                  className={`w-full py-[9px] pl-3 pr-7 border-0 border-b-[1.5px] bg-transparent text-[14px] text-[#1A1A1A] outline-none cursor-pointer appearance-none box-border transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed ${
+                    errors.major ? "border-b-[#D0453A] focus:border-b-[#D0453A]" : "border-b-[#E4E4E4] focus:border-b-[#F37021]"
+                  }`}
                   style={{
                     backgroundImage: `url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23ABABAB' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
                     backgroundRepeat: "no-repeat",

@@ -467,8 +467,8 @@ public class EventServiceImpl implements EventService {
                             || PaymentStatus.AWAITING_VERIFICATION.equals(registration.getPaymentStatus())) {
                         BigDecimal refundBase = registration.getAmountPaid() != null
                                 ? registration.getAmountPaid() : registration.getAmountDue();
-                        RefundPolicyCalculator.RefundQuote quote = RefundPolicyCalculator.quote(
-                                refundBase, event.getStartDate(), cancelledAt, true);
+                        RefundPolicyCalculator.RefundQuote quote = RefundPolicyCalculator.quoteFor(
+                                event, refundBase, cancelledAt, true);
                         registration.setRefundRate(quote.rate());
                         registration.setRefundAmount(quote.amount());
                         registration.setRefundPolicySnapshot(quote.policySnapshot());
@@ -501,8 +501,8 @@ public class EventServiceImpl implements EventService {
                             || PaymentStatus.AWAITING_VERIFICATION.equals(registration.getPaymentStatus())) {
                         BigDecimal refundBase = registration.getAmountPaid() != null
                                 ? registration.getAmountPaid() : registration.getAmountDue();
-                        RefundPolicyCalculator.RefundQuote quote = RefundPolicyCalculator.quote(
-                                refundBase, event.getStartDate(), cancelledAt, true);
+                        RefundPolicyCalculator.RefundQuote quote = RefundPolicyCalculator.quoteFor(
+                                event, refundBase, cancelledAt, true);
                         registration.setRefundRate(quote.rate());
                         registration.setRefundAmount(quote.amount());
                         registration.setRefundPolicySnapshot(quote.policySnapshot());
@@ -1045,8 +1045,8 @@ public class EventServiceImpl implements EventService {
         Event event = getActiveEventOrThrow(eventId);
         EventStatus status = event.getEventStatus();
         boolean isProposalEditable = STATUS_DRAFT.equals(status) || STATUS_REJECTED.equals(status);
-        // Sau khi ICPDP đã duyệt (Approved/RegistrationOpen/RegistrationClosed) nhưng
-        // sự kiện chưa diễn ra: vẫn cho sửa, nhưng chỉ được đổi số người tham gia tối đa.
+        // Sau khi ICPDP đã duyệt (Approved/RegistrationOpen/RegistrationClosed) nhưng sự kiện chưa
+        // diễn ra: vẫn cho sửa, nhưng chỉ được đổi số người tham gia tối đa và khung giờ đăng ký.
         boolean isPostApprovalEditable = STATUS_APPROVED.equals(status)
                 || STATUS_REGISTRATION_OPEN.equals(status)
                 || STATUS_REGISTRATION_CLOSED.equals(status);
@@ -1064,8 +1064,6 @@ public class EventServiceImpl implements EventService {
                     || request.getStartDate() != null
                     || request.getEndDate() != null
                     || request.getAllowWalkIn() != null
-                    || request.getRegistrationOpenAt() != null
-                    || request.getRegistrationCloseAt() != null
                     || request.getCheckInOpenAt() != null
                     || request.getCheckInCloseAt() != null
                     || request.getBudget() != null
@@ -1076,7 +1074,38 @@ public class EventServiceImpl implements EventService {
                     || request.getBannerUrl() != null
                     || (request.getRegistrationPolicies() != null && !request.getRegistrationPolicies().isEmpty());
             if (editsOtherFields) {
-                throw new IllegalArgumentException("Sau khi được ICPDP duyệt, chỉ có thể chỉnh sửa số người tham gia tối đa.");
+                throw new IllegalArgumentException(
+                        "Sau khi được ICPDP duyệt, chỉ có thể chỉnh sửa số người tham gia tối đa và khung giờ đăng ký.");
+            }
+        }
+        // Khung giờ đăng ký sửa được ở cả hai chế độ nên phải validate trên giá trị sau khi ghép
+        // với dữ liệu hiện có, không chỉ trên payload gửi lên.
+        if (request.getRegistrationOpenAt() != null || request.getRegistrationCloseAt() != null) {
+            LocalDateTime mergedOpenAt = request.getRegistrationOpenAt() != null
+                    ? request.getRegistrationOpenAt() : event.getRegistrationOpenAt();
+            LocalDateTime mergedCloseAt = request.getRegistrationCloseAt() != null
+                    ? request.getRegistrationCloseAt() : event.getRegistrationCloseAt();
+            LocalDateTime mergedStartDate = request.getStartDate() != null
+                    ? request.getStartDate() : event.getStartDate();
+            if (mergedOpenAt == null || mergedCloseAt == null) {
+                throw new IllegalArgumentException(
+                        "Vui lòng nhập cả thời gian mở và thời gian đóng đăng ký sự kiện.");
+            }
+            if (!mergedOpenAt.isBefore(mergedCloseAt)) {
+                throw new IllegalArgumentException("Thời gian đóng đăng ký phải sau thời gian mở đăng ký.");
+            }
+            if (mergedStartDate != null && mergedCloseAt.isAfter(mergedStartDate)) {
+                throw new IllegalArgumentException(
+                        "Thời gian đóng đăng ký phải trước hoặc bằng giờ bắt đầu sự kiện.");
+            }
+            // Sửa mốc đóng chỉ mang nghĩa lên lịch, mà lịch thì không đặt vào quá khứ. Chỉ chặn khi
+            // giá trị thực sự đổi, để vẫn sửa được các trường khác trên sự kiện đã đóng đăng ký.
+            boolean closeAtChanged = request.getRegistrationCloseAt() != null
+                    && !request.getRegistrationCloseAt().equals(event.getRegistrationCloseAt());
+            if (closeAtChanged && mergedCloseAt.isBefore(LocalDateTime.now())) {
+                throw new IllegalArgumentException(
+                        "Thời gian đóng đăng ký mới phải ở tương lai. Muốn dừng nhận đăng ký ngay "
+                                + "thì dùng chức năng \"Đóng đăng ký\".");
             }
         }
         String oldBannerPublicId = event.getBannerPublicId();
@@ -1160,6 +1189,52 @@ public class EventServiceImpl implements EventService {
         closeRegistrationInternal(eventId, null);
     }
 
+    @Override
+    @Transactional
+    public void reopenRegistration(Integer eventId, ReopenRegistrationRequest request, UserPrincipal currentUser) {
+        eventAssignmentAccessService.ensureCanManageEvent(eventId, currentUser);
+        Event event = getActiveEventOrThrow(eventId);
+        EventStatus oldStatus = event.getEventStatus();
+        stateMachineService.ensureCanReopenRegistration(event);
+
+        LocalDateTime now = LocalDateTime.now();
+        if (event.getStartDate() != null && !event.getStartDate().isAfter(now)) {
+            throw new BusinessRuleException("Không thể mở lại đăng ký khi sự kiện đã bắt đầu.", HttpStatus.CONFLICT);
+        }
+        LocalDateTime newCloseAt = request == null ? null : request.getRegistrationCloseAt();
+        if (newCloseAt == null) {
+            throw new IllegalArgumentException("Vui lòng chọn thời gian đóng đăng ký mới.");
+        }
+        // Mốc đóng phải ở tương lai, nếu không RegistrationCloseScheduler sẽ đóng lại ngay lượt chạy kế tiếp.
+        if (!newCloseAt.isAfter(now)) {
+            throw new IllegalArgumentException("Thời gian đóng đăng ký mới phải ở tương lai.");
+        }
+        if (event.getStartDate() != null && newCloseAt.isAfter(event.getStartDate())) {
+            throw new IllegalArgumentException("Thời gian đóng đăng ký phải trước hoặc bằng giờ bắt đầu sự kiện.");
+        }
+        LocalDateTime previousCloseAt = event.getRegistrationCloseAt();
+        event.setRegistrationCloseAt(newCloseAt);
+        if (event.getRegistrationOpenAt() == null) {
+            event.setRegistrationOpenAt(now);
+        }
+        event.setEventStatus(STATUS_REGISTRATION_OPEN);
+
+        Event saved = eventRepository.save(event);
+        issueOrganizerTickets(saved);
+        auditLogService.record(
+                currentUser == null ? null : currentUser.getUserId(),
+                "Event",
+                saved.getEventID(),
+                "REGISTRATION_REOPENED",
+                oldStatus.name(),
+                saved.getEventStatus().name(),
+                "Reopened registration until " + newCloseAt
+                        + (previousCloseAt == null ? "" : " (previously " + previousCloseAt + ")")
+        );
+        publishLifecycleEvent(saved, oldStatus, saved.getEventStatus(), null,
+                "Reopened registration until " + newCloseAt);
+    }
+
     private void closeRegistrationInternal(Integer eventId, Integer actorUserId) {
         Event event = getActiveEventOrThrow(eventId);
         EventStatus oldStatus = event.getEventStatus();
@@ -1229,6 +1304,10 @@ public class EventServiceImpl implements EventService {
             if (request.getTicketPrice() == null || request.getTicketPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("ticketPrice must be greater than 0 for a paid event.");
             }
+            if (request.getTicketPrice().stripTrailingZeros().scale() > 0) {
+                throw new IllegalArgumentException(
+                        "Giá vé phải là số tiền chẵn (không có phần thập phân) để khách chuyển khoản khớp tuyệt đối.");
+            }
             if (!StringUtils.hasText(request.getTicketCurrency())) {
                 throw new IllegalArgumentException("ticketCurrency is required for a paid event.");
             }
@@ -1260,11 +1339,19 @@ public class EventServiceImpl implements EventService {
             if (event.getTicketPrice() == null || event.getTicketPrice().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("ticketPrice must be greater than 0 for a paid event.");
             }
+            if (event.getTicketPrice().stripTrailingZeros().scale() > 0) {
+                throw new IllegalArgumentException(
+                        "Giá vé phải là số tiền chẵn (không có phần thập phân) để khách chuyển khoản khớp tuyệt đối.");
+            }
             if (!StringUtils.hasText(event.getTicketCurrency())) {
                 throw new IllegalArgumentException("ticketCurrency is required for a paid event.");
             }
         }
         validateEventDuration(event.getStartDate(), event.getEndDate());
+        if (event.getRegistrationOpenAt() == null || event.getRegistrationCloseAt() == null) {
+            throw new IllegalArgumentException(
+                    "Vui lòng nhập thời gian mở và thời gian đóng đăng ký sự kiện (bắt buộc để áp dụng chính sách hoàn tiền).");
+        }
         validateEventWindows(event.getRegistrationOpenAt(), event.getRegistrationCloseAt(),
                 event.getCheckInOpenAt(), event.getCheckInCloseAt(), event.getStartDate(), event.getEndDate());
     }

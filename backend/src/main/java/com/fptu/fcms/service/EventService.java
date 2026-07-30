@@ -4,6 +4,7 @@ import com.fptu.fcms.dto.request.CancelEventRequest;
 import com.fptu.fcms.dto.request.CreateEventProposalRequest;
 import com.fptu.fcms.dto.request.EventApprovalRequest;
 import com.fptu.fcms.dto.request.EventAssignmentRequest;
+import com.fptu.fcms.dto.request.ReopenRegistrationRequest;
 import com.fptu.fcms.dto.response.EventApprovalResponse;
 import com.fptu.fcms.dto.response.EventDetailResponse;
 import com.fptu.fcms.dto.response.EventSubmissionResponse;
@@ -41,6 +42,7 @@ public interface EventService {
     void openRegistration(Integer eventId, UserPrincipal currentUser);
     void openRegistrationAutomatically(Integer eventId);
     void closeRegistration(Integer eventId, UserPrincipal currentUser);
+    void reopenRegistration(Integer eventId, ReopenRegistrationRequest request, UserPrincipal currentUser);
     // Internal scheduler-only operation; never expose this through a controller.
     void closeRegistrationAutomatically(Integer eventId);
     void startEventAutomatically(Integer eventId);

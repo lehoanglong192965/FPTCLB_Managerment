@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Award, Crown, Loader2, Medal, RefreshCw, Search, Trophy } from "lucide-react";
 import authApi from "../../services/api/auth/authApi";
 import clubApi from "../../services/api/clubs/clubApi";
+import semesterApi from "../../services/api/admin/semesterApi";
 import { TokenService } from "../../services/api/axiosClient";
 import { getInitials, getAvatarColor } from "../../utils/avatar";
 
@@ -215,8 +216,10 @@ export default function MemberLeaderboardPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [semesters, setSemesters] = useState([]);
+  const [selectedSemesterId, setSelectedSemesterId] = useState("");
 
-  const loadLeaderboard = async () => {
+  const loadLeaderboard = async (semesterId = selectedSemesterId) => {
     setLoading(true);
     setError("");
     try {
@@ -228,7 +231,7 @@ export default function MemberLeaderboardPage() {
       }
       const [clubRes, rankingRes] = await Promise.allSettled([
         clubApi.getById(activeClubId),
-        clubApi.getMemberRankings(activeClubId),
+        clubApi.getMemberRankings(activeClubId, semesterId || undefined),
       ]);
 
       if (clubRes.status === "fulfilled") {
@@ -254,8 +257,32 @@ export default function MemberLeaderboardPage() {
   };
 
   useEffect(() => {
-    loadLeaderboard();
+    let cancelled = false;
+    semesterApi.getAll()
+      .then((data) => {
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : (data?.data ?? []);
+        const today = new Date().toISOString().slice(0, 10);
+        const ordered = list
+          .filter((semester) => semester.isActive || !semester.startDate || semester.startDate <= today)
+          .sort((a, b) =>
+          String(b.startDate ?? "").localeCompare(String(a.startDate ?? ""))
+          );
+        const preferred = ordered.find((semester) => semester.isActive) ?? ordered[0];
+        setSemesters(ordered);
+        setSelectedSemesterId(preferred?.semesterID ? String(preferred.semesterID) : "");
+        loadLeaderboard(preferred?.semesterID);
+      })
+      .catch(() => loadLeaderboard());
+    return () => { cancelled = true; };
   }, []);
+
+  const handleSemesterChange = (event) => {
+    const semesterId = event.target.value;
+    setSelectedSemesterId(semesterId);
+    setSearch("");
+    loadLeaderboard(semesterId);
+  };
 
   const rows = useMemo(
     () => [...rankings]
@@ -294,12 +321,24 @@ export default function MemberLeaderboardPage() {
           <h1 className="text-2xl font-extrabold text-gray-950 m-0">BXH thành viên - {clubName}</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={selectedSemesterId}
+            onChange={handleSemesterChange}
+            className="h-10 rounded-xl border border-gray-200 bg-white px-3 text-[13px] font-semibold text-gray-700 outline-none focus:border-orange-300"
+            aria-label="Chọn học kỳ xem bảng xếp hạng"
+          >
+            {semesters.map((semester) => (
+              <option key={semester.semesterID} value={semester.semesterID}>
+                {semester.semesterCode}{semester.isActive ? " (Hiện tại)" : " (Lịch sử)"}
+              </option>
+            ))}
+          </select>
           <StatPill label="Thành viên" value={rows.length} />
           <StatPill label="Điểm cao nhất" value={topRows[0]?.totalScore ?? 0} />
           <StatPill label="Điểm TB" value={averageScore} />
           <button
             type="button"
-            onClick={loadLeaderboard}
+            onClick={() => loadLeaderboard()}
             className="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white text-gray-500 cursor-pointer hover:text-[#E6430A] hover:border-orange-200 transition-colors"
             title="Tải lại BXH"
           >

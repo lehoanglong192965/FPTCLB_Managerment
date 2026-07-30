@@ -138,6 +138,11 @@ fcms:
     sepay:
       account-number: ${SEPAY_ACCOUNT_NUMBER}
       webhook-api-key: ${SEPAY_WEBHOOK_API_KEY}
+      # Bỏ trống api-token thì phần đối soát định kỳ tự tắt, chỉ còn webhook.
+      api-token: ${SEPAY_API_TOKEN:}
+      api-base-url: ${SEPAY_API_BASE_URL}
+      reconcile-cron: ${SEPAY_RECONCILE_CRON}
+      reconcile-lookback-minutes: ${SEPAY_RECONCILE_LOOKBACK_MINUTES}
   guest:
     status-base-url: ${GUEST_STATUS_BASE_URL}
     lookup-url: ${GUEST_LOOKUP_URL}

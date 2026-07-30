@@ -551,6 +551,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 event.getEventName(),
                 event.getStartDate(),
                 event.getEndDate(),
+                event.getRegistrationCloseAt(),
                 event.getLocation(),
                 event.getVenueName(),
                 event.getBannerUrl(),
@@ -813,7 +814,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     @CacheEvict(value = "memberRanking", allEntries = true)
     public void cancelTicketOrder(String ticketOrderCode, RegistrationCancelRequest request, UserPrincipal currentUser) {
         if (currentUser == null || currentUser.getUserId() == null || !StringUtils.hasText(ticketOrderCode)) {
-            throw new BusinessRuleException(ApiErrorCode.UNAUTHORIZED.name(), "You are not authenticated.", org.springframework.http.HttpStatus.UNAUTHORIZED);
+            throw new BusinessRuleException(ApiErrorCode.UNAUTHORIZED.name(), "Bạn chưa đăng nhập", org.springframework.http.HttpStatus.UNAUTHORIZED);
         }
         List<EventRegistration> registrations = registrationRepo
                 .findByTicketOrderCodeAndPurchaserUserIDAndIsDeletedFalse(ticketOrderCode, currentUser.getUserId());
@@ -830,15 +831,15 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
     public void updateRefundRecipient(Integer registrationId, RegistrationCancelRequest request,
                                       UserPrincipal currentUser) {
         if (currentUser == null || currentUser.getUserId() == null) {
-            throw new BusinessRuleException(ApiErrorCode.UNAUTHORIZED.name(), "You are not authenticated.",
+            throw new BusinessRuleException(ApiErrorCode.UNAUTHORIZED.name(), "Bạn chưa đăng nhập",
                     org.springframework.http.HttpStatus.UNAUTHORIZED);
         }
         EventRegistration registration = registrationRepo.findById(registrationId)
-                .orElseThrow(() -> new IllegalArgumentException("Registration not found."));
+                .orElseThrow(() -> new IllegalArgumentException("không tìm thấy đăng kí "));
         boolean isHolder = Objects.equals(registration.getUserID(), currentUser.getUserId());
         boolean isPurchaser = Objects.equals(registration.getPurchaserUserID(), currentUser.getUserId());
         if (!isHolder && !isPurchaser) {
-            throw new BusinessRuleException(ApiErrorCode.FORBIDDEN.name(), "You do not own this ticket.",
+            throw new BusinessRuleException(ApiErrorCode.FORBIDDEN.name(), "Bạn không sở hữu vé này.",
                     org.springframework.http.HttpStatus.FORBIDDEN);
         }
 
@@ -848,7 +849,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 .toList();
         if (pendingRefunds.isEmpty()) {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
-                    "Refund recipient can only be updated while a refund is pending.",
+                    "Không có đăng ký nào đang chờ hoàn tiền.",
                     org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
         LocalDateTime now = LocalDateTime.now();
@@ -860,11 +861,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registrationRepo.saveAll(pendingRefunds);
     }
 
-    /**
-     * Leader/ViceLeader huỷ đăng ký của KHÁCH theo id (khách tự huỷ thì dùng
-     * guestReference qua GuestRegistrationService). Nếu khách đang giữ chỗ,
-     * giải phóng chỗ và đôn waitlist lên như huỷ member.
-     */
+
     @Override
     @Transactional
     public void cancelGuestRegistration(Integer eventId, Integer guestRegistrationId, RegistrationCancelRequest request,
@@ -873,9 +870,9 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         Event event = loadEventForUpdate(eventId);
         GuestEventRegistration registration = guestRegistrationRepository
                 .findByGuestRegistrationIDAndIsDeletedFalse(guestRegistrationId)
-                .orElseThrow(() -> new IllegalArgumentException("Registration not found."));
+                .orElseThrow(() -> new IllegalArgumentException("không tìm thấy đăng kí "));
         if (!Objects.equals(registration.getEventID(), eventId)) {
-            throw new IllegalArgumentException("Registration does not belong to the event.");
+            throw new IllegalArgumentException("Đăng ký không thuộc sự kiện này.");
         }
         if (request == null || !StringUtils.hasText(request.getReason())) {
             throw new IllegalArgumentException("Ban tổ chức phải nhập lý do hủy vé của khách.");
@@ -897,6 +894,17 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setUpdatedAt(LocalDateTime.now());
         guestRegistrationRepository.save(registration);
 
+        if (PaymentStatus.REFUND_PENDING.equals(registration.getPaymentStatus())) {
+            sendRefundRecipientRequestAfterCommit(
+                    registration.getGuestEmail(),
+                    registration.getGuestFullName(),
+                    event.getEventName(),
+                    refundAmount(registration),
+                    refundCurrency(registration),
+                    true
+            );
+        }
+
         if (oldStatus != null && RegistrationLifecycle.CONFIRMED_STATUSES.contains(oldStatus)) {
             allocationService.promoteWaitlisted(eventId, event.getMaxParticipants());
         }
@@ -911,7 +919,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         List<EventRegistration> order = memberPaymentOrder(registration);
         if (order.stream().noneMatch(item -> PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus()))) {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
-                    "Payment must be awaiting verification.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+                    "Không có đăng ký nào đang chờ xác minh thanh toán.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -946,12 +954,12 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         Event event = loadEventForUpdate(eventId);
         EventRegistration registration = loadRegistrationForEvent(eventId, registrationId);
         if (request == null || !StringUtils.hasText(request.getReason())) {
-            throw new IllegalArgumentException("Payment rejection reason is required.");
+            throw new IllegalArgumentException("Ban tổ chức phải nhập lý do từ chối thanh toán.");
         }
         List<EventRegistration> order = memberPaymentOrder(registration);
         if (order.stream().noneMatch(item -> PaymentStatus.AWAITING_VERIFICATION.equals(item.getPaymentStatus()))) {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
-                    "Payment must be awaiting verification.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+                    "Không có đăng ký nào đang chờ xác minh thanh toán.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -991,7 +999,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         mergeAndRequireRefundBankDetails(registration, request);
         if (!PaymentStatus.REFUND_PENDING.equals(registration.getPaymentStatus())) {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
-                    "Refund must be pending.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+                    "Không có đăng ký nào đang chờ hoàn tiền.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
         LocalDateTime now = LocalDateTime.now();
         registration.setPaymentStatus(PaymentStatus.REFUNDED);
@@ -1020,7 +1028,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         mergeAndRequireRefundBankDetails(registration, request);
         if (!PaymentStatus.REFUND_PENDING.equals(registration.getPaymentStatus())) {
             throw new BusinessRuleException(ApiErrorCode.EVENT_STATE_INVALID.name(),
-                    "Refund must be pending.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
+                    "Không có đăng ký nào đang chờ hoàn tiền.", org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY);
         }
         registration.setPaymentStatus(PaymentStatus.REFUNDED);
         registration.setRefundProcessedAt(LocalDateTime.now());
@@ -1137,7 +1145,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         if (!privilegedActor && cancellationWindowClosed) {
             throw new BusinessRuleException(
                     ApiErrorCode.REGISTRATION_CANCEL_WINDOW_CLOSED.name(),
-                    "The event has already started. You cannot cancel your registration.",
+                    "Sự kiện đã bắt đầu. Bạn không thể hủy đăng ký của mình.",
                     org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY
             );
         }
@@ -1148,7 +1156,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         if (hasPresentAttendance && !privilegedActor) {
             throw new BusinessRuleException(
                     ApiErrorCode.EVENT_STATE_INVALID.name(),
-                    "A checked-in registration cannot be cancelled.",
+                    "Đăng ký đã check-in không thể hủy.",
                     org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY
             );
         }
@@ -1174,8 +1182,11 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         registration.setIsDeleted(false);
         registrationRepo.save(registration);
 
-        boolean freedSeat = RegistrationLifecycle.CONFIRMED_STATUSES.contains(oldStatus);
-        int promoted = freedSeat ? allocationService.promoteWaitlisted(event.getEventID(), event.getMaxParticipants()) : 0;
+        // Ghế được trả lại thị trường ngay — đây chính là lý do mức hoàn 100% khi còn mở đăng ký
+        // là chính sách chứ không phải chịu lỗ.
+        if (RegistrationLifecycle.CONFIRMED_STATUSES.contains(oldStatus)) {
+            allocationService.promoteWaitlisted(event.getEventID(), event.getMaxParticipants());
+        }
         saveAudit(actorUserId, registration, "REGISTRATION_CANCELLED", oldStatus == null ? null : oldStatus.name(), RegistrationLifecycle.STATUS_CANCELLED.name(),
                 normalizeReason(reason) != null
                         ? normalizeReason(reason)
@@ -1185,14 +1196,22 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
         notifyRegistrant(registration, actorUserId, "REGISTRATION_CANCELLED",
                 "Đã hủy đăng ký sự kiện",
                 "Bạn đã hủy đăng ký tham gia sự kiện \"" + event.getEventName() + "\" thành công.");
-        if (promoted > 0) {
-            // no-op: promotion is handled atomically by allocation service
-        }
         String holderEmail = ticketHolderEmail(registration);
         String holderName = ticketHolderName(registration);
         if (StringUtils.hasText(holderEmail)) {
-            sendAfterCommit(() -> emailService.sendEventTicketCancellationEmail(
-                    holderEmail, holderName, event.getEventName(), event.getStartDate(), revokedTicketCode));
+            if (privilegedActor && PaymentStatus.REFUND_PENDING.equals(registration.getPaymentStatus())) {
+                sendRefundRecipientRequestAfterCommit(
+                        holderEmail,
+                        holderName,
+                        event.getEventName(),
+                        refundAmount(registration),
+                        refundCurrency(registration),
+                        false
+                );
+            } else {
+                sendAfterCommit(() -> emailService.sendEventTicketCancellationEmail(
+                        holderEmail, holderName, event.getEventName(), event.getStartDate(), revokedTicketCode));
+            }
         }
     }
 
@@ -1207,6 +1226,34 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
                 emailAction.run();
             }
         });
+    }
+
+    private void sendRefundRecipientRequestAfterCommit(
+            String email,
+            String recipientName,
+            String eventName,
+            BigDecimal amount,
+            String currency,
+            boolean guest
+    ) {
+        if (!StringUtils.hasText(email)) {
+            return;
+        }
+        String recipient = StringUtils.hasText(recipientName) ? recipientName.trim() : "bạn";
+        String nextStep = guest
+                ? "Hãy mở trang tra cứu đăng ký khách và chọn mục cung cấp thông tin nhận hoàn."
+                : "Hãy đăng nhập FCMS, vào mục Vé của tôi và chọn cung cấp thông tin nhận hoàn.";
+        String content = "Xin chào " + recipient + ",\n\n"
+                + "Ban tổ chức đã hủy đăng ký sự kiện \"" + eventName + "\" của bạn. "
+                + "Khoản hoàn dự kiến là " + amount + " " + currency + ".\n\n"
+                + nextStep + " Vui lòng bổ sung tên ngân hàng, số tài khoản và tên chủ tài khoản "
+                + "để ban tổ chức có thể hoàn tiền cho bạn.\n\n"
+                + "Trân trọng,\nFPTU Club Management System";
+        sendAfterCommit(() -> emailService.sendSimpleEmail(
+                email,
+                "Yêu cầu bổ sung thông tin nhận hoàn tiền",
+                content
+        ));
     }
 
     private boolean isSelfCancellationWindowClosed(Event event) {
@@ -1345,7 +1392,7 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
     private BigDecimal participantRefundRate(Integer eventId) {
         return eventRepository.findByEventIDAndIsDeletedFalse(eventId)
-                .map(event -> RefundPolicyCalculator.quote(BigDecimal.ZERO, event.getStartDate(), LocalDateTime.now(), false).rate())
+                .map(event -> RefundPolicyCalculator.quoteFor(event, BigDecimal.ZERO, LocalDateTime.now(), false).rate())
                 .orElse(BigDecimal.ZERO);
     }
 
@@ -1436,8 +1483,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
     private void applyRefundPolicy(EventRegistration registration, Event event, LocalDateTime cancelledAt,
                                    boolean organizerCancelled) {
-        RefundPolicyCalculator.RefundQuote quote = RefundPolicyCalculator.quote(
-                paidAmount(registration), event == null ? null : event.getStartDate(), cancelledAt, organizerCancelled);
+        RefundPolicyCalculator.RefundQuote quote = RefundPolicyCalculator.quoteFor(
+                event, paidAmount(registration), cancelledAt, organizerCancelled);
         registration.setRefundRate(quote.rate());
         registration.setRefundAmount(quote.amount());
         registration.setRefundPolicySnapshot(quote.policySnapshot());
@@ -1446,8 +1493,8 @@ public class EventRegistrationServiceImpl implements EventRegistrationService {
 
     private void applyRefundPolicy(GuestEventRegistration registration, Event event, LocalDateTime cancelledAt,
                                    boolean organizerCancelled) {
-        RefundPolicyCalculator.RefundQuote quote = RefundPolicyCalculator.quote(
-                paidAmount(registration), event == null ? null : event.getStartDate(), cancelledAt, organizerCancelled);
+        RefundPolicyCalculator.RefundQuote quote = RefundPolicyCalculator.quoteFor(
+                event, paidAmount(registration), cancelledAt, organizerCancelled);
         registration.setRefundRate(quote.rate());
         registration.setRefundAmount(quote.amount());
         registration.setRefundPolicySnapshot(quote.policySnapshot());

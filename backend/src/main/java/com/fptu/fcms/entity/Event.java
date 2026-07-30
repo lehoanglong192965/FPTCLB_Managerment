@@ -210,8 +210,15 @@ public class Event {
         }
         if (isPaidEvent == null) isPaidEvent = false;
         if (ticketCurrency == null || ticketCurrency.isBlank()) ticketCurrency = "VND";
-        if (Boolean.TRUE.equals(isPaidEvent) && (ticketPrice == null || ticketPrice.signum() <= 0)) {
-            throw new IllegalArgumentException("Paid events require a positive ticket price.");
+        if (Boolean.TRUE.equals(isPaidEvent)) {
+            if (ticketPrice == null || ticketPrice.signum() <= 0) {
+                throw new IllegalArgumentException("Paid events require a positive ticket price.");
+            }
+            // VND không có đơn vị lẻ: giá vé có phần thập phân thì QR (làm tròn) và số tiền phải thu
+            // sẽ lệch nhau, khiến mọi giao dịch rơi vào diện đối soát tay.
+            if (ticketPrice.stripTrailingZeros().scale() > 0) {
+                throw new IllegalArgumentException("Giá vé phải là số tiền chẵn (không có phần thập phân).");
+            }
         }
         if (!Boolean.TRUE.equals(isPaidEvent)) ticketPrice = null;
     }

@@ -29,11 +29,14 @@ const EMPTY_FORM = {
   isInternal: false, maxParticipants: "", isPaidEvent: false, ticketPrice: "", ticketCurrency: "VND",
   requiresManualApproval: false,
   date: "", startTime: "", endTime: "",
+  registrationOpenAt: "", registrationCloseAt: "",
   venueName: "", location: "",
   latitude: null, longitude: null,
 };
 
 const BUDGET_LIMIT = 5_000_000;
+// <input type="datetime-local"> trả về "YYYY-MM-DDTHH:mm"; backend nhận LocalDateTime nên cần thêm giây.
+const toLocalDateTime = (value) => (value ? `${value.length === 16 ? `${value}:00` : value}` : null);
 const DESCRIPTION_CHARACTER_LIMIT = 1000;
 const fmtVND = (val) => {
   const n = Number(String(val).replace(/\D/g, ""));
@@ -446,6 +449,45 @@ function Step3({ form, onChange, errors }) {
       </div>
 
       <div>
+        <Label required>Khung thời gian đăng ký</Label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div>
+            <input
+              type="datetime-local"
+              max={form.date && form.startTime ? `${form.date}T${form.startTime}` : undefined}
+              style={inputStyle(errors.registrationOpenAt)}
+              value={form.registrationOpenAt}
+              onChange={(e) => onChange("registrationOpenAt", e.target.value)}
+            />
+            <p style={{ fontSize: 12, color: "#6b7280", margin: "4px 0 0" }}>Mở đăng ký</p>
+            <FieldError msg={errors.registrationOpenAt} />
+          </div>
+          <div>
+            <input
+              type="datetime-local"
+              max={form.date && form.startTime ? `${form.date}T${form.startTime}` : undefined}
+              style={inputStyle(errors.registrationCloseAt)}
+              value={form.registrationCloseAt}
+              onChange={(e) => onChange("registrationCloseAt", e.target.value)}
+            />
+            <p style={{ fontSize: 12, color: "#6b7280", margin: "4px 0 0" }}>Đóng đăng ký</p>
+            <FieldError msg={errors.registrationCloseAt} />
+          </div>
+        </div>
+        {form.isPaidEvent && (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 10, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px" }}>
+            <span style={{ fontSize: 16, lineHeight: 1.4 }}>💡</span>
+            <p style={{ margin: 0, fontSize: 12.5, color: "#92400e", lineHeight: 1.6 }}>
+              Lịch này quyết định khi nào hệ thống tự đóng đăng ký. Người huỷ vé <strong>trong lúc còn mở
+              đăng ký</strong> được hoàn <strong>100%</strong> (ghế được trả lại cho người trong hàng chờ);
+              huỷ sau khi đã đóng thì áp bậc thang theo giờ bắt đầu sự kiện
+              (từ 7 ngày: 100% · từ 3 ngày: 75% · từ 24 giờ: 50% · dưới 24 giờ: 0%).
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div>
         <Label>Tên địa điểm / Toà nhà</Label>
         <input
           style={inputStyle(false)}
@@ -559,6 +601,8 @@ function Step4({ form }) {
       <SummaryCard icon={<CalendarDays size={15} color="#E6430A" />} title="Thời gian & Địa điểm">
         <SummaryRow label="Ngày"      value={form.date} />
         <SummaryRow label="Thời gian" value={`${form.startTime} – ${form.endTime}`} />
+        <SummaryRow label="Mở đăng ký"  value={form.registrationOpenAt?.replace("T", " ") || "—"} />
+        <SummaryRow label="Đóng đăng ký" value={form.registrationCloseAt?.replace("T", " ") || "—"} />
         <SummaryRow label="Tên địa điểm / Tòa nhà" value={form.venueName || "Chưa cung cấp"} />
         <SummaryRow label="Địa chỉ" value={form.location || "—"} />
         <SummaryRow
@@ -610,6 +654,25 @@ function validateDateTime(form) {
     e.endTime = "Giờ kết thúc phải ở thời điểm trong tương lai.";
   }
 
+  // Khung giờ đăng ký — bắt buộc vì chính sách hoàn tiền tính mốc theo thời gian đóng đăng ký.
+  const eventStart = form.date && form.startTime ? new Date(`${form.date}T${form.startTime}:00`) : null;
+  const regOpen  = form.registrationOpenAt  ? new Date(form.registrationOpenAt)  : null;
+  const regClose = form.registrationCloseAt ? new Date(form.registrationCloseAt) : null;
+
+  if (!regOpen) {
+    e.registrationOpenAt = "Vui lòng chọn thời gian mở đăng ký.";
+  } else if (eventStart && regOpen >= eventStart) {
+    e.registrationOpenAt = "Thời gian mở đăng ký phải trước giờ bắt đầu sự kiện.";
+  }
+
+  if (!regClose) {
+    e.registrationCloseAt = "Vui lòng chọn thời gian đóng đăng ký.";
+  } else if (regOpen && regClose <= regOpen) {
+    e.registrationCloseAt = "Thời gian đóng đăng ký phải sau thời gian mở đăng ký.";
+  } else if (eventStart && regClose > eventStart) {
+    e.registrationCloseAt = "Thời gian đóng đăng ký phải trước hoặc bằng giờ bắt đầu sự kiện.";
+  }
+
   return e;
 }
 
@@ -640,8 +703,13 @@ function validate(step, form) {
   if (step === 2) {
     if (!form.budget || Number(form.budget) < 0)
       e.budget = "Vui lòng nhập ngân sách dự kiến (nhập 0 nếu không có).";
-    if (form.isPaidEvent && (!form.ticketPrice || Number(form.ticketPrice) <= 0))
-      e.ticketPrice = "Sự kiện bán vé phải có giá vé lớn hơn 0.";
+    if (form.isPaidEvent) {
+      if (!form.ticketPrice || Number(form.ticketPrice) <= 0)
+        e.ticketPrice = "Sự kiện bán vé phải có giá vé lớn hơn 0.";
+      else if (!Number.isInteger(Number(form.ticketPrice)))
+        // Giá lẻ khiến mã QR (làm tròn) lệch số tiền phải thu, mọi giao dịch sẽ rơi vào đối soát tay.
+        e.ticketPrice = "Giá vé phải là số tiền chẵn, không có phần thập phân.";
+    }
     if (!form.maxParticipants || Number(form.maxParticipants) < 1)
       e.maxParticipants = "Vui lòng nhập số người tham gia tối đa (ít nhất 1 người).";
   }
@@ -682,7 +750,7 @@ export default function CreateEventPage() {
       .catch(() => {});
   }, []);
 
-  const DATETIME_FIELDS = ["date", "startTime", "endTime"];
+  const DATETIME_FIELDS = ["date", "startTime", "endTime", "registrationOpenAt", "registrationCloseAt"];
 
   // LocationPicker gọi onChange nhiều lần liên tiếp trong cùng 1 lượt (địa chỉ, lat, lng),
   // nên phải dùng ref để nối tiếp đúng giá trị mới nhất — dùng `form` từ closure sẽ bị
@@ -743,6 +811,8 @@ export default function CreateEventPage() {
         ticketCurrency: form.ticketCurrency || "VND",
         startDate:     `${form.date}T${form.startTime}:00`,
         endDate:       `${form.date}T${form.endTime}:00`,
+        registrationOpenAt:  toLocalDateTime(form.registrationOpenAt),
+        registrationCloseAt: toLocalDateTime(form.registrationCloseAt),
         maxParticipants: form.maxParticipants ? parseInt(form.maxParticipants) : null,
         isResubmitted: false,
         isInternal:    form.isInternal,

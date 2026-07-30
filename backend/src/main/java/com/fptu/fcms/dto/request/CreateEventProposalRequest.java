@@ -35,7 +35,9 @@ public class CreateEventProposalRequest {
     private Integer maxParticipants;
     private Integer totalCapacity;
     private Boolean allowWalkIn;
+    @NotNull
     private LocalDateTime registrationOpenAt;
+    @NotNull
     private LocalDateTime registrationCloseAt;
     private LocalDateTime checkInOpenAt;
     private LocalDateTime checkInCloseAt;

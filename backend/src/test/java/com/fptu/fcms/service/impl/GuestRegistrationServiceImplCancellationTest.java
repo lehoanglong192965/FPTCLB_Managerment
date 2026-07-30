@@ -89,7 +89,7 @@ class GuestRegistrationServiceImplCancellationTest {
         assertEquals("0796578863", registration.getRefundAccountNumber());
         assertEquals(new BigDecimal("50.00"), registration.getRefundRate());
         assertEquals(new BigDecimal("15000.00"), registration.getRefundAmount());
-        assertEquals("TIME_BASED_REFUND_V1:AT_LEAST_24_HOURS_50", registration.getRefundPolicySnapshot());
+        assertEquals("TIME_BASED_REFUND_V2:AT_LEAST_24_HOURS_50", registration.getRefundPolicySnapshot());
         assertNotNull(registration.getRefundRequestedAt());
         assertEquals(PaymentStatus.REFUND_PENDING, response.getPaymentStatus());
         verify(guestEventRegistrationRepository).save(registration);
