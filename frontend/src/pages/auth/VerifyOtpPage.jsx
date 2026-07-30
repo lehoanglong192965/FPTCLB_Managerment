@@ -14,7 +14,7 @@ export default function VerifyOtpPage() {
   const [email, setEmail] = useState(() => {
     return state?.email || localStorage.getItem("pending_verify_email") || "";
   });
-  const [isEditingEmail, setIsEditingEmail] = useState(!email && !isForgotPassword);
+  const [isEditingEmail] = useState(!email && !isForgotPassword);
 
   const [otp, setOtp] = useState(Array(6).fill(""));
   const [loading, setLoading] = useState(false);
@@ -136,24 +136,6 @@ export default function VerifyOtpPage() {
           ) : (
             <p className="text-[13px] font-semibold text-[#3B82F6] mt-[5px] max-w-[260px] overflow-hidden text-ellipsis whitespace-nowrap mx-auto">
               {email}
-              {!isForgotPassword && (
-                <button
-                  type="button"
-                  onClick={() => setIsEditingEmail(true)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "#3B82F6",
-                    cursor: "pointer",
-                    fontSize: "12px",
-                    textDecoration: "underline",
-                    marginLeft: "8px",
-                    fontWeight: 500
-                  }}
-                >
-                  Thay đổi
-                </button>
-              )}
             </p>
           )}
         </div>

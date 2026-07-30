@@ -38,7 +38,12 @@ export default function EventsSection() {
           ? (Array.isArray(clubRes) ? clubRes : (clubRes?.content ?? clubRes?.data ?? []))
           : [];
 
-        const mapped = evList.map((e) => {
+        // Chỉ show 3 sự kiện được tạo gần đây nhất
+        const latest = [...evList]
+          .sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0))
+          .slice(0, 3);
+
+        const mapped = latest.map((e) => {
           const clubObj = clubList.find((c) => c.clubID === e.clubID);
           const startDt = e.startDate ? new Date(e.startDate) : null;
           const max = e.maxParticipants ?? 0;
@@ -122,8 +127,8 @@ export default function EventsSection() {
 
       {/* Grid */}
       <div
-        className="relative z-10 grid gap-6 max-w-[1200px] mx-auto"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
+        className="relative z-10 grid gap-6 max-w-[980px] mx-auto"
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}
       >
         {loading ? (
           <div className="col-span-full text-center py-10">

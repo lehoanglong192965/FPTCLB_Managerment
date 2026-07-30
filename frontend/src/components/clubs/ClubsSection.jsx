@@ -2,12 +2,15 @@
 import { usePublicClubs } from "../../hooks/usePublicClubs";
 import ClubCard from "./ClubCard";
 
-const PREVIEW_COUNT = 8;
+const PREVIEW_COUNT = 4;
 
 export default function ClubsSection() {
   const navigate = useNavigate();
   const { clubs, loading, error } = usePublicClubs();
-  const preview = clubs.slice(0, PREVIEW_COUNT);
+  // Nổi bật = 4 CLB đông thành viên nhất
+  const preview = [...clubs]
+    .sort((a, b) => (b.members ?? 0) - (a.members ?? 0))
+    .slice(0, PREVIEW_COUNT);
 
   return (
     <section id="clubs" className="px-[5%] py-24 bg-white">

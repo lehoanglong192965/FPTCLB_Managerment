@@ -24,6 +24,8 @@ public interface UserRepository extends JpaRepository<UserAccount, Integer> {
 
     boolean existsByStudentIdIgnoreCaseAndIsDeletedFalse(String studentId);
 
+    Optional<UserAccount> findByStudentIdIgnoreCaseAndIsDeletedFalse(String studentId);
+
     Optional<UserAccount> findByUserIDAndIsDeletedFalse(Integer userID);
     List<UserAccount> findAllByUserIDIn(List<Integer> userIDs);
     List<UserAccount> findAllByUserIDInAndIsDeletedFalse(Collection<Integer> userIDs);
