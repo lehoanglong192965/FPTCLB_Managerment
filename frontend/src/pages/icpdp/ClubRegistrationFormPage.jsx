@@ -128,30 +128,6 @@ export default function ClubRegistrationFormPage({ mode = "member" }) {
     }
   };
 
-  const handleImageUpload = async (e, memberIndex) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const res = await clubRegistrationApi.uploadCardImage(file, "member-card");
-      const url = res.url;
-
-      setFoundingMembers((prev) => {
-        const next = [...prev];
-        next[memberIndex].cardImage = url;
-        next[memberIndex].cardImagePublicId = res.publicId ?? res.data?.publicId ?? "";
-        return next;
-      });
-    } catch {
-      fail("Không thể tải lên ảnh thẻ sinh viên. Vui lòng thử lại.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const addMember = () => {
     setFoundingMembers((prev) => [
       ...prev,
@@ -537,11 +513,11 @@ export default function ClubRegistrationFormPage({ mode = "member" }) {
                 </div>
 
                 <div>
-                  <label className={labelCls}>Khóa & Lớp</label>
+                  <label className={labelCls}>Chuyên ngành</label>
                   <input
                     className={`${inputCls} bg-gray-50`}
-                    placeholder="Ví dụ: K17 - SE"
-                    value={`${member.cohort ? "K" + member.cohort : ""} - ${member.clazz || ""}`}
+                    placeholder="Tự động điền theo MSSV"
+                    value={member.clazz || ""}
                     disabled
                   />
                 </div>
@@ -551,46 +527,6 @@ export default function ClubRegistrationFormPage({ mode = "member" }) {
                   <input className={inputCls} placeholder="Ví dụ: facebook.com/profile" value={member.facebookLink} onChange={handleMemberChange(idx, "facebookLink")} />
                 </div>
 
-                <div className="col-span-2">
-                  <label className={labelCls}>
-                    Minh chứng thẻ sinh viên (Mặt trước){" "}
-                    {!isStaffMode && member.proposedRole !== "Member" && <span className="text-red-500">*</span>}
-                  </label>
-                  {member.cardImage ? (
-                    <div className="relative w-full max-w-[350px]">
-                      <img
-                        src={getImageUrl(member.cardImage)}
-                        alt="Thẻ SV"
-                        className="w-full max-h-[200px] object-contain rounded-lg border border-slate-200 mt-2.5"
-                      />
-                      <button
-                        type="button"
-                        className="absolute top-2 right-2 bg-red-500 text-white border-none rounded-full w-6 h-6 flex items-center justify-center cursor-pointer shadow-sm transition-transform hover:scale-110 hover:bg-red-600"
-                        onClick={() => {
-                          setFoundingMembers((prev) => {
-                            const next = [...prev];
-                            next[idx].cardImage = "";
-                            next[idx].cardImagePublicId = "";
-                            return next;
-                          });
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer bg-slate-50 transition-all min-h-[140px] flex flex-col items-center justify-center relative hover:border-blue-600 hover:bg-slate-100">
-                      <Upload size={24} className="text-slate-500 mb-2" />
-                      <span className="text-sm font-medium text-slate-700">Chọn file ảnh để tải lên (.jpg, .png)</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handleImageUpload(e, idx)}
-                      />
-                    </label>
-                  )}
-                </div>
               </div>
             </div>
           ))}
@@ -609,10 +545,6 @@ export default function ClubRegistrationFormPage({ mode = "member" }) {
                   const m = foundingMembers[i];
                   if (!m.studentId || !m.fullName || !m.phoneNumber || !m.email) {
                     fail(`Thành viên số ${i + 1} chưa điền đầy đủ thông tin bắt buộc.`);
-                    return;
-                  }
-                  if (!isStaffMode && m.proposedRole !== "Member" && !m.cardImage) {
-                    fail(`Chủ nhiệm/Phó chủ nhiệm (Thành viên ${i + 1}) phải có ảnh minh chứng thẻ sinh viên.`);
                     return;
                   }
                 }

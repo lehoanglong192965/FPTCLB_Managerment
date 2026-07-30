@@ -116,6 +116,38 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
             });
     }, [eventId, user, isExcludedRole]);
 
+    // Còn chờ thanh toán/xác minh thì poll server 3s/lần: webhook SePay ghi nhận tiền vào
+    // là tự chuyển sang PAID và đưa thẳng người dùng tới trang QR của vé — không cần bấm
+    // "Tôi đã chuyển khoản".
+    const pendingPaymentStatus = registrationResult?.paymentStatus;
+    const pendingRegistrationId = registrationResult?.registrationId;
+    useEffect(() => {
+        if (!['PENDING', 'AWAITING_VERIFICATION'].includes(pendingPaymentStatus) || !pendingRegistrationId) return undefined;
+        let active = true;
+        let inFlight = false;
+        const checkPayment = async () => {
+            if (inFlight) return; // mạng chậm: không xếp chồng request
+            inFlight = true;
+            try {
+                const response = await eventApi.getMyRegistrationDetails();
+                const registrations = Array.isArray(response) ? response : (response?.data ?? []);
+                const current = registrations.find((item) => Number(item.registrationId) === Number(pendingRegistrationId));
+                if (!active || !current?.paymentStatus || current.paymentStatus === pendingPaymentStatus) return;
+                setRegistrationResult((prev) => (prev ? { ...prev, paymentStatus: current.paymentStatus } : prev));
+                if (current.paymentStatus === 'PAID') {
+                    toast.success('Đã nhận được thanh toán! Đang mở vé của bạn...');
+                    addNotification({ title: 'Thanh toán thành công', content: 'Vé của bạn đã được phát hành.' });
+                    if (onRegisterSuccess) onRegisterSuccess();
+                    navigate(`${myTicketsPath}/${pendingRegistrationId}`);
+                }
+            } catch { /* lỗi mạng tạm thời — lần poll sau thử lại */ } finally { inFlight = false; }
+        };
+        const timer = window.setInterval(checkPayment, 3000);
+        checkPayment();
+        return () => { active = false; window.clearInterval(timer); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- các hàm callback ổn định, không cần restart polling
+    }, [pendingPaymentStatus, pendingRegistrationId]);
+
     if (isExcludedRole) return null;
 
     const statusNorm = (eventStatus || '').toUpperCase().replace(/_/g, '');
@@ -384,8 +416,12 @@ const EventRegistrationBtn = ({ eventId, eventStatus, isPaidEvent = false, ticke
                         </div>
                     </div>
                 )}
-                <button type="button" onClick={handlePayment} disabled={paying} className="w-full rounded-lg border-0 bg-[#F37021] px-3 py-2 font-bold text-white disabled:opacity-50">
-                    {paying ? 'Đang gửi...' : 'Tôi đã chuyển khoản'}
+                <div className="flex items-center justify-center gap-2 rounded-lg bg-white/70 px-3 py-2 text-xs text-gray-600">
+                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-orange-400 border-t-transparent" />
+                    Hệ thống tự phát hiện khi tiền vào — chuyển khoản xong vé sẽ tự mở, không cần bấm gì.
+                </div>
+                <button type="button" onClick={handlePayment} disabled={paying} className="w-full rounded-lg border border-orange-300 bg-white px-3 py-2 font-bold text-[#F37021] disabled:opacity-50">
+                    {paying ? 'Đang gửi...' : 'Tôi đã chuyển khoản nhưng chưa thấy vé'}
                 </button>
                 <button
                     type="button"

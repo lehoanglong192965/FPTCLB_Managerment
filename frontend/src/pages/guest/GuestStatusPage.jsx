@@ -107,7 +107,7 @@ export default function GuestStatusPage() {
 
   useEffect(() => {
     if (!['PENDING', 'AWAITING_VERIFICATION'].includes(data?.paymentStatus)) return undefined;
-    const timer = window.setInterval(() => fetchStatus(true), 5000);
+    const timer = window.setInterval(() => fetchStatus(true), 3000);
     return () => window.clearInterval(timer);
   }, [data?.paymentStatus, fetchStatus]);
 

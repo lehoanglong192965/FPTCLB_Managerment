@@ -36,6 +36,7 @@ const STATUS_CFG = {
   REPORTREJECTED: { label: "Báo cáo bị từ chối", color: "#b91c1c", bg: "#fee2e2" },
   CLOSED: { label: "Đã đóng", color: "#374151", bg: "#e5e7eb" },
   CANCELLED: { label: "Đã hủy", color: "#dc2626", bg: "#fee2e2" },
+  WITHDRAWN: { label: "Leader đã rút yêu cầu", color: "#b45309", bg: "#fef3c7" },
 };
 
 const labelStyle = { fontSize: 11.5, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.4, display: "block", marginBottom: 4 };
@@ -188,6 +189,23 @@ export default function IcpdpEventDetailPage() {
         <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #f0f0f0" }}>
           <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: 600, color: cfg.color, background: cfg.bg, marginBottom: 8 }}>{cfg.label}</span>
           <h2 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: "#111827", lineHeight: 1.35, wordBreak: "break-word" }}>{ev.eventName}</h2>
+          {status === "WITHDRAWN" && (
+            <div style={{ marginTop: 12, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "10px 14px" }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                Lý do rút yêu cầu tổ chức
+                {ev.withdrawnAt ? ` · ${new Date(ev.withdrawnAt).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" })}` : ""}
+              </p>
+              <p style={{ margin: "6px 0 0", fontSize: 13.5, color: "#78350f", lineHeight: 1.6, whiteSpace: "pre-line", wordBreak: "break-word" }}>
+                {ev.withdrawalReason || "Không có lý do được ghi lại."}
+              </p>
+            </div>
+          )}
+          {status === "REJECTED" && ev.rejectionReason && (
+            <div style={{ marginTop: 12, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px" }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#b91c1c", textTransform: "uppercase", letterSpacing: 0.4 }}>Lý do từ chối</p>
+              <p style={{ margin: "6px 0 0", fontSize: 13.5, color: "#7f1d1d", lineHeight: 1.6, whiteSpace: "pre-line", wordBreak: "break-word" }}>{ev.rejectionReason}</p>
+            </div>
+          )}
         </div>
 
         <div style={{ padding: "18px 24px", borderBottom: "1px solid #f0f0f0" }}>
