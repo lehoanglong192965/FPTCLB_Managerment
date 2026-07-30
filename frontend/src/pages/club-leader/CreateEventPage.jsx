@@ -424,6 +424,12 @@ function Step3({ form, onChange, errors }) {
     d.setDate(d.getDate() + 14);
     return d.toISOString().slice(0, 10);
   })();
+  // Chặn ngay ở bộ chọn, không để người dùng chọn được mốc đăng ký trong quá khứ.
+  // toISOString() trả giờ UTC nên phải bù offset để ra đúng giờ địa phương.
+  const minDateTime = (() => {
+    const d = new Date();
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  })();
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
@@ -454,6 +460,7 @@ function Step3({ form, onChange, errors }) {
           <div>
             <input
               type="datetime-local"
+              min={minDateTime}
               max={form.date && form.startTime ? `${form.date}T${form.startTime}` : undefined}
               style={inputStyle(errors.registrationOpenAt)}
               value={form.registrationOpenAt}
@@ -465,6 +472,7 @@ function Step3({ form, onChange, errors }) {
           <div>
             <input
               type="datetime-local"
+              min={form.registrationOpenAt || minDateTime}
               max={form.date && form.startTime ? `${form.date}T${form.startTime}` : undefined}
               style={inputStyle(errors.registrationCloseAt)}
               value={form.registrationCloseAt}
@@ -661,12 +669,18 @@ function validateDateTime(form) {
 
   if (!regOpen) {
     e.registrationOpenAt = "Vui lòng chọn thời gian mở đăng ký.";
+  } else if (regOpen <= now) {
+    // Khung đăng ký của một đề xuất mới chỉ mang nghĩa lên lịch, đặt vào quá khứ thì
+    // sự kiện vừa tạo đã ở trạng thái hết hạn đăng ký.
+    e.registrationOpenAt = "Thời gian mở đăng ký phải ở thời điểm trong tương lai.";
   } else if (eventStart && regOpen >= eventStart) {
     e.registrationOpenAt = "Thời gian mở đăng ký phải trước giờ bắt đầu sự kiện.";
   }
 
   if (!regClose) {
     e.registrationCloseAt = "Vui lòng chọn thời gian đóng đăng ký.";
+  } else if (regClose <= now) {
+    e.registrationCloseAt = "Thời gian đóng đăng ký phải ở thời điểm trong tương lai.";
   } else if (regOpen && regClose <= regOpen) {
     e.registrationCloseAt = "Thời gian đóng đăng ký phải sau thời gian mở đăng ký.";
   } else if (eventStart && regClose > eventStart) {

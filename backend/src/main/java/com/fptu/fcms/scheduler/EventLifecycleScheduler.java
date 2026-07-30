@@ -26,7 +26,9 @@ public class EventLifecycleScheduler {
     private final EventCapacityService eventCapacityService;
     private final EventService eventService;
 
-    @Scheduled(cron = "0 */5 * * * ?")
+    // Quét mỗi phút: mốc mở đăng ký do Leader đặt chính xác tới phút, quét 5 phút/lần
+    // khiến sự kiện "đến giờ rồi mà chưa mở" lâu nhất tới gần 5 phút.
+    @Scheduled(cron = "${fcms.scheduler.event-lifecycle.open-cron:0 * * * * ?}")
     public void openRegistrationWhenDue() {
         LocalDateTime now = LocalDateTime.now();
         List<Event> events = eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_APPROVED);
@@ -58,7 +60,7 @@ public class EventLifecycleScheduler {
         }
     }
 
-    @Scheduled(cron = "30 */5 * * * ?")
+    @Scheduled(cron = "${fcms.scheduler.event-lifecycle.start-cron:30 * * * * ?}")
     public void startEventsWhenDue() {
         LocalDateTime now = LocalDateTime.now();
         List<Event> events = eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_REG_CLOSED);
@@ -73,7 +75,7 @@ public class EventLifecycleScheduler {
         }
     }
 
-    @Scheduled(cron = "0 */5 * * * ?")
+    @Scheduled(cron = "${fcms.scheduler.event-lifecycle.complete-cron:0 * * * * ?}")
     public void completeEventsWhenDue() {
         LocalDateTime now = LocalDateTime.now();
         List<Event> events = eventRepository.findByEventStatusAndIsDeletedFalse(STATUS_ONGOING);
