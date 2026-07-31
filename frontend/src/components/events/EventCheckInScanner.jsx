@@ -3,17 +3,45 @@ import { CheckCircle2, Search, User, Users, XCircle } from "lucide-react";
 import attendanceApi from "../../services/api/attendance/attendanceApi";
 import QrCheckInPanel from "./QrCheckInPanel";
 
+const MEMBER_OUTCOME_STYLE = {
+  CHECKED_IN: { label: "Vừa điểm danh", className: "text-emerald-700" },
+  ALREADY_PRESENT: { label: "Đã có mặt", className: "text-slate-500" },
+  SKIPPED: { label: "Bỏ qua", className: "text-red-600" }
+};
+
 function ResultBanner({ result }) {
   if (!result) return null;
+  const members = result.groupMembers ?? [];
   return (
-    <div className={`mt-4 flex items-center gap-3 rounded-xl border p-4 ${result.success ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-700"}`} role={result.success ? "status" : "alert"}>
-      {result.success ? <CheckCircle2 size={24} /> : <XCircle size={24} />}
-      <div>
+    <div className={`mt-4 flex items-start gap-3 rounded-xl border p-4 ${result.success ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-700"}`} role={result.success ? "status" : "alert"}>
+      {result.success ? <CheckCircle2 size={24} className="shrink-0" /> : <XCircle size={24} className="shrink-0" />}
+      <div className="min-w-0">
         <p className="font-semibold">{result.success ? "Điểm danh thành công" : "Điểm danh thất bại"}</p>
         {result.success ? (
           <>
-            <p className="text-sm">{result.name}</p>
-            {result.studentId && <p className="text-sm">{result.studentId}</p>}
+            {members.length > 0 ? (
+              <>
+                <p className="text-sm">{result.message}</p>
+                <ul className="mt-2 space-y-1">
+                  {members.map((member) => {
+                    const style = MEMBER_OUTCOME_STYLE[member.outcome] ?? MEMBER_OUTCOME_STYLE.SKIPPED;
+                    return (
+                      <li key={member.registrationId} className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                        <span className="font-medium">{member.fullName ?? "Người tham gia"}</span>
+                        {member.studentId && <span className="font-mono text-xs text-slate-500">{member.studentId}</span>}
+                        <span className={`text-xs font-semibold ${style.className}`}>{style.label}</span>
+                        {member.reason && <span className="text-xs text-red-600">{member.reason}</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            ) : (
+              <>
+                <p className="text-sm">{result.name}</p>
+                {result.studentId && <p className="text-sm">{result.studentId}</p>}
+              </>
+            )}
           </>
         ) : (
           <p className="text-sm">{result.message}</p>
@@ -75,7 +103,9 @@ export default function EventCheckInScanner({ eventId, sessionId, sessionStatus 
       success: true,
       name: payload?.fullName ?? payload?.participantName ?? fallbackName ?? "Người tham gia",
       studentId: payload?.studentId,
-      participantType: payload?.participantType
+      participantType: payload?.participantType,
+      message: payload?.message,
+      groupMembers: Array.isArray(payload?.groupMembers) ? payload.groupMembers : null
     });
   };
 

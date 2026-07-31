@@ -36,6 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -425,6 +427,103 @@ public class AttendanceServiceImpl implements AttendanceService {
                 ? null
                 : userRepository.findByUserIDAndIsDeletedFalse(registration.getUserID()).orElse(null);
 
+        // One paid order can cover several attendees. Scanning any ticket of the order
+        // checks in every ticket holder it paid for, so the group only queues once.
+        List<EventRegistration> orderMembers = resolveTicketOrderMembers(event.getEventID(), registration);
+        List<AttendanceCheckInResponse.GroupMemberResult> memberResults = new ArrayList<>();
+        int checkedInCount = 0;
+        int alreadyPresentCount = 0;
+
+        for (EventRegistration member : orderMembers) {
+            UserAccount memberUser = Objects.equals(member.getRegistrationID(), registration.getRegistrationID())
+                    ? user
+                    : (member.getUserID() == null
+                            ? null
+                            : userRepository.findByUserIDAndIsDeletedFalse(member.getUserID()).orElse(null));
+            String memberName = memberUser != null ? memberUser.getFullName() : member.getGuestFullName();
+            String memberStudentId = memberUser != null ? memberUser.getStudentId() : null;
+
+            String skipReason = qrCheckInSkipReason(member);
+            if (skipReason != null) {
+                memberResults.add(new AttendanceCheckInResponse.GroupMemberResult(
+                        member.getRegistrationID(), member.getUserID(), memberName, memberStudentId,
+                        "SKIPPED", skipReason));
+                continue;
+            }
+
+            boolean newlyCheckedIn = applyQrCheckIn(sessionId, member, actorId, request.getNote());
+            if (newlyCheckedIn) {
+                checkedInCount++;
+            } else {
+                alreadyPresentCount++;
+            }
+            memberResults.add(new AttendanceCheckInResponse.GroupMemberResult(
+                    member.getRegistrationID(), member.getUserID(), memberName, memberStudentId,
+                    newlyCheckedIn ? "CHECKED_IN" : "ALREADY_PRESENT", null));
+        }
+
+        if (checkedInCount == 0) {
+            throw alreadyCheckedIn();
+        }
+
+        boolean isGroupOrder = orderMembers.size() > 1;
+        return new AttendanceCheckInResponse(
+                event.getEventID(),
+                registration.getRegistrationID(),
+                registration.getUserID(),
+                user != null ? user.getFullName() : registration.getGuestFullName(),
+                user != null ? user.getStudentId() : null,
+                registration.getParticipantType() != null ? registration.getParticipantType().name() : null,
+                AttendanceStatus.PRESENT,
+                groupCheckInMessage(isGroupOrder, orderMembers.size(), checkedInCount, alreadyPresentCount),
+                isGroupOrder ? registration.getTicketOrderCode() : null,
+                isGroupOrder ? memberResults : null
+        );
+    }
+
+    /**
+     * Every non-deleted registration of the scanned ticket's order, scanned ticket first.
+     * Falls back to the scanned registration alone when it carries no order code.
+     */
+    private List<EventRegistration> resolveTicketOrderMembers(Integer eventId, EventRegistration scanned) {
+        if (!StringUtils.hasText(scanned.getTicketOrderCode())) {
+            return List.of(scanned);
+        }
+        List<EventRegistration> members = eventRegistrationRepository
+                .findByEventIDAndTicketOrderCodeAndIsDeletedFalseOrderByRegistrationIDAsc(
+                        eventId, scanned.getTicketOrderCode());
+        if (members.isEmpty()) {
+            return List.of(scanned);
+        }
+        List<EventRegistration> ordered = new ArrayList<>();
+        ordered.add(scanned);
+        members.stream()
+                .filter(member -> !Objects.equals(member.getRegistrationID(), scanned.getRegistrationID()))
+                .forEach(ordered::add);
+        return ordered;
+    }
+
+    /** Null when the registration may be checked in, otherwise a human readable reason to skip it. */
+    private String qrCheckInSkipReason(EventRegistration registration) {
+        if (registration.getTicketRevokedAt() != null) {
+            return "Vé đã bị thu hồi.";
+        }
+        if (!isConfirmedForCheckIn(registration)) {
+            return "Đăng ký chưa được xác nhận.";
+        }
+        if (!isPaymentEligibleForCheckIn(registration.getPaymentStatus())) {
+            return "Vé chưa được thanh toán.";
+        }
+        return null;
+    }
+
+    /** Marks one registration present via QR. Returns false when it was already checked in. */
+    private boolean applyQrCheckIn(
+            Integer sessionId,
+            EventRegistration registration,
+            Integer actorId,
+            String note
+    ) {
         var existingRecord = attendanceRecordRepository.findBySessionIDAndRegistrationID(
                 sessionId,
                 registration.getRegistrationID()
@@ -432,7 +531,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (existingRecord.isPresent()) {
             AttendanceRecord existing = existingRecord.get();
             if (existing.getAttendanceStatus() == AttendanceStatus.PRESENT) {
-                throw alreadyCheckedIn();
+                return false;
             }
 
             AttendanceRecord before = snapshot(existing);
@@ -447,7 +546,7 @@ public class AttendanceServiceImpl implements AttendanceService {
                     now
             );
             if (updatedRows != 1) {
-                throw alreadyCheckedIn();
+                return false;
             }
 
             AttendanceRecord after = snapshot(before);
@@ -465,18 +564,9 @@ public class AttendanceServiceImpl implements AttendanceService {
                     "ATTENDANCE_CHECK_IN_EXISTING",
                     before,
                     after,
-                    request.getNote()
+                    note
             );
-            return new AttendanceCheckInResponse(
-                    event.getEventID(),
-                    registration.getRegistrationID(),
-                    registration.getUserID(),
-                    user != null ? user.getFullName() : null,
-                    user != null ? user.getStudentId() : null,
-                    registration.getParticipantType() != null ? registration.getParticipantType().name() : null,
-                    AttendanceStatus.PRESENT,
-                    "Check-in successful."
-            );
+            return true;
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -495,8 +585,8 @@ public class AttendanceServiceImpl implements AttendanceService {
         record.setVerificationMethod(VerificationMethod.QR_TICKET.name());
         record.setCheckedInBy(actorId);
         record.setCheckedInAt(now);
-        record.setManualReason(request.getNote());
-        record.setNote(request.getNote());
+        record.setManualReason(note);
+        record.setNote(note);
         record.setMarkedAt(now);
         record.setCreatedAt(now);
         record.setIsVerifiedByAI(false);
@@ -511,22 +601,29 @@ public class AttendanceServiceImpl implements AttendanceService {
                     "ATTENDANCE_CHECK_IN",
                     null,
                     savedRecord,
-                    request.getNote()
+                    note
             );
         } catch (DataIntegrityViolationException ex) {
-            throw alreadyCheckedIn();
+            return false;
         }
+        return true;
+    }
 
-        return new AttendanceCheckInResponse(
-                event.getEventID(),
-                registration.getRegistrationID(),
-                registration.getUserID(),
-                user != null ? user.getFullName() : null,
-                user != null ? user.getStudentId() : null,
-                registration.getParticipantType() != null ? registration.getParticipantType().name() : null,
-                AttendanceStatus.PRESENT,
-                "Check-in successful."
-        );
+    private String groupCheckInMessage(boolean isGroupOrder, int total, int checkedIn, int alreadyPresent) {
+        if (!isGroupOrder) {
+            return "Check-in successful.";
+        }
+        StringBuilder message = new StringBuilder()
+                .append("Đã điểm danh ").append(checkedIn).append("/").append(total)
+                .append(" người trong đơn vé.");
+        if (alreadyPresent > 0) {
+            message.append(" ").append(alreadyPresent).append(" người đã điểm danh trước đó.");
+        }
+        int skipped = total - checkedIn - alreadyPresent;
+        if (skipped > 0) {
+            message.append(" ").append(skipped).append(" vé không đủ điều kiện.");
+        }
+        return message.toString();
     }
 
     private boolean isPaymentEligibleForCheckIn(PaymentStatus paymentStatus) {

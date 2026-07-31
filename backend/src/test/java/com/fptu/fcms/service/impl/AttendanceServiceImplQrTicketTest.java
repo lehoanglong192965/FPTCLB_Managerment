@@ -46,6 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -384,6 +385,116 @@ class AttendanceServiceImplQrTicketTest {
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
         verify(eventAssignmentAccessService).ensureCanManageCheckIn(201, staff);
         verify(attendanceRecordRepository, never()).save(any(AttendanceRecord.class));
+        verify(attendanceRecordRepository, never()).saveAndFlush(any(AttendanceRecord.class));
+    }
+
+    @Test
+    void groupOrderQrChecksInEveryTicketHolderOfTheOrder() {
+        AttendanceSession session = openSession(101, 201);
+        Event event = ongoingEvent(201);
+        EventRegistration leader = confirmedRegistration(301, 201, 401, "ticket-leader");
+        leader.setPaymentStatus(PaymentStatus.PAID);
+        leader.setTicketOrderCode("ORD-201-ABC");
+        EventRegistration friend = confirmedRegistration(302, 201, null, "ticket-friend");
+        friend.setPaymentStatus(PaymentStatus.PAID);
+        friend.setTicketOrderCode("ORD-201-ABC");
+        friend.setGuestFullName("Tran Minh Quan");
+        UserAccount leaderUser = new UserAccount();
+        leaderUser.setUserID(401);
+        leaderUser.setFullName("Nguyen Hoang Long");
+        leaderUser.setStudentId("SE171203");
+        UserPrincipal staff = staffPrincipal();
+
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
+        when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
+        when(eventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(201, "ticket-leader"))
+                .thenReturn(Optional.of(leader));
+        when(eventRegistrationRepository
+                .findByEventIDAndTicketOrderCodeAndIsDeletedFalseOrderByRegistrationIDAsc(201, "ORD-201-ABC"))
+                .thenReturn(List.of(leader, friend));
+        when(userRepository.findByUserIDAndIsDeletedFalse(401)).thenReturn(Optional.of(leaderUser));
+        when(attendanceRecordRepository.findBySessionIDAndRegistrationID(eq(101), any()))
+                .thenReturn(Optional.empty());
+        when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AttendanceCheckInResponse response = service.checkIn(101, qrRequest("ticket-leader"), staff);
+
+        assertEquals(AttendanceStatus.PRESENT, response.getStatus());
+        assertEquals("ORD-201-ABC", response.getTicketOrderCode());
+        assertEquals(2, response.getGroupMembers().size());
+        assertEquals("CHECKED_IN", response.getGroupMembers().get(0).getOutcome());
+        assertEquals("Tran Minh Quan", response.getGroupMembers().get(1).getFullName());
+        assertEquals("CHECKED_IN", response.getGroupMembers().get(1).getOutcome());
+        verify(attendanceRecordRepository, times(2)).saveAndFlush(any(AttendanceRecord.class));
+    }
+
+    @Test
+    void groupOrderQrSkipsUnpaidMemberButStillChecksInTheRest() {
+        AttendanceSession session = openSession(101, 201);
+        Event event = ongoingEvent(201);
+        EventRegistration leader = confirmedRegistration(301, 201, 401, "ticket-leader");
+        leader.setPaymentStatus(PaymentStatus.PAID);
+        leader.setTicketOrderCode("ORD-201-ABC");
+        EventRegistration revoked = confirmedRegistration(302, 201, null, "ticket-revoked");
+        revoked.setPaymentStatus(PaymentStatus.PAID);
+        revoked.setTicketOrderCode("ORD-201-ABC");
+        revoked.setTicketRevokedAt(LocalDateTime.now());
+        UserPrincipal staff = staffPrincipal();
+
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
+        when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
+        when(eventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(201, "ticket-leader"))
+                .thenReturn(Optional.of(leader));
+        when(eventRegistrationRepository
+                .findByEventIDAndTicketOrderCodeAndIsDeletedFalseOrderByRegistrationIDAsc(201, "ORD-201-ABC"))
+                .thenReturn(List.of(leader, revoked));
+        when(userRepository.findByUserIDAndIsDeletedFalse(401)).thenReturn(Optional.empty());
+        when(attendanceRecordRepository.findBySessionIDAndRegistrationID(101, 301))
+                .thenReturn(Optional.empty());
+        when(attendanceRecordRepository.saveAndFlush(any(AttendanceRecord.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AttendanceCheckInResponse response = service.checkIn(101, qrRequest("ticket-leader"), staff);
+
+        assertEquals(AttendanceStatus.PRESENT, response.getStatus());
+        assertEquals("SKIPPED", response.getGroupMembers().get(1).getOutcome());
+        verify(attendanceRecordRepository, times(1)).saveAndFlush(any(AttendanceRecord.class));
+        verify(attendanceRecordRepository, never()).findBySessionIDAndRegistrationID(101, 302);
+    }
+
+    @Test
+    void groupOrderQrWhereEveryoneIsAlreadyPresentReturnsConflict() {
+        AttendanceSession session = openSession(101, 201);
+        Event event = ongoingEvent(201);
+        EventRegistration leader = confirmedRegistration(301, 201, 401, "ticket-leader");
+        leader.setPaymentStatus(PaymentStatus.PAID);
+        leader.setTicketOrderCode("ORD-201-ABC");
+        EventRegistration friend = confirmedRegistration(302, 201, null, "ticket-friend");
+        friend.setPaymentStatus(PaymentStatus.PAID);
+        friend.setTicketOrderCode("ORD-201-ABC");
+        AttendanceRecord presentRecord = new AttendanceRecord();
+        presentRecord.setAttendanceStatus(AttendanceStatus.PRESENT);
+        UserPrincipal staff = staffPrincipal();
+
+        when(attendanceSessionRepository.findBySessionIDForUpdate(101)).thenReturn(Optional.of(session));
+        when(eventRepository.findByEventIDAndIsDeletedFalse(201)).thenReturn(Optional.of(event));
+        when(eventRegistrationRepository.findByEventIDAndTicketCodeAndIsDeletedFalse(201, "ticket-leader"))
+                .thenReturn(Optional.of(leader));
+        when(eventRegistrationRepository
+                .findByEventIDAndTicketOrderCodeAndIsDeletedFalseOrderByRegistrationIDAsc(201, "ORD-201-ABC"))
+                .thenReturn(List.of(leader, friend));
+        when(userRepository.findByUserIDAndIsDeletedFalse(401)).thenReturn(Optional.empty());
+        when(attendanceRecordRepository.findBySessionIDAndRegistrationID(eq(101), any()))
+                .thenReturn(Optional.of(presentRecord));
+
+        BusinessRuleException error = assertThrows(
+                BusinessRuleException.class,
+                () -> service.checkIn(101, qrRequest("ticket-leader"), staff)
+        );
+
+        assertEquals(ApiErrorCode.ALREADY_CHECKED_IN.name(), error.getErrorCode());
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
         verify(attendanceRecordRepository, never()).saveAndFlush(any(AttendanceRecord.class));
     }
 
